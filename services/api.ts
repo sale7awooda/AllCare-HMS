@@ -3,7 +3,9 @@ import axios from 'axios';
 import { Patient, Appointment, MedicalStaff, Bill, User } from '../types';
 
 // Configuration
-const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000/api';
+// In production (served by backend), use relative path '/api'. 
+// In development (Vite proxy), this also works as '/api'.
+const API_URL = (import.meta as any).env?.VITE_API_URL || '/api';
 
 const client = axios.create({
   baseURL: API_URL,
@@ -55,6 +57,11 @@ export const api = {
 
   async addPatient(patient: Partial<Patient>): Promise<Patient> {
     const { data } = await client.post('/patients', patient);
+    return data;
+  },
+
+  async getOnePatient(id: number | string): Promise<Patient> {
+    const { data } = await client.get(`/patients/${id}`);
     return data;
   },
 

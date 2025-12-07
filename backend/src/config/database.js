@@ -4,6 +4,16 @@ const path = require('path');
 const fs = require('fs');
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
+
+// CRITICAL FIX: Ensure the directory exists before trying to open the DB
+// This prevents crashes on Railway when the /data volume is not yet initialized
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+  console.log(`Creating database directory: ${dbDir}`);
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
+console.log(`Initializing database at: ${dbPath}`);
 const db = new Database(dbPath, { verbose: console.log });
 
 const initDB = () => {

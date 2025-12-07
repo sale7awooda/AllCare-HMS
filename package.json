@@ -1,25 +1,13 @@
+
 {
-  "name": "allcare-hms",
+  "name": "allcare-hms-root",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "cd frontend && npm install && npm run build && mkdir -p ../backend/public && cp -r dist/* ../backend/public && cd ../backend && npm install && npm rebuild better-sqlite3",
+    "start": "cd backend && npm start"
   },
-  "dependencies": {
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1",
-    "react-router-dom": "^7.10.1",
-    "lucide-react": "^0.556.0",
-    "recharts": "^3.5.1",
-    "axios": "^1.13.2"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+  "engines": {
+    "node": "18.x"
   }
 }
