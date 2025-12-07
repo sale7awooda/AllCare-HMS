@@ -21,16 +21,29 @@ try {
 // Middleware
 app.use(helmet({
   contentSecurityPolicy: false,
-  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin requests (Critical for Cloud IDEs)
+  crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
 // CORS Configuration
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  process.env.FRONTEND_URL || 'https://railway-hms-production.up.railway.app'
+];
+
 const corsOptions = {
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    // Reflect the request origin to allow any Cloud IDE URL
-    return callback(null, true);
+    
+    // Dynamic check for Cloud IDE previews (e.g., googleusercontent.com)
+    // In strict production, remove this regex check and rely only on allowedOrigins
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.googleusercontent.com') || origin.endsWith('.railway.app')) {
+      return callback(null, true);
+    } else {
+      console.log('Blocked CORS for:', origin);
+      return callback(new Error('Not allowed by CORS'));
+    }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -38,7 +51,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-// Explicitly handle Preflight requests
 app.options('*', cors(corsOptions));
 
 app.use(morgan('dev'));

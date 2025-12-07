@@ -6,7 +6,7 @@ const staffController = require('../controllers/staff.controller');
 const appointmentController = require('../controllers/appointment.controller');
 const billingController = require('../controllers/billing.controller');
 const medicalController = require('../controllers/medical.controller');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 // Auth
 router.post('/login', authController.login);
@@ -16,25 +16,25 @@ router.get('/me', authenticateToken, authController.me);
 router.use(authenticateToken);
 
 // Patients
-router.get('/patients', patientController.getAll);
-router.post('/patients', patientController.create);
-router.get('/patients/:id', patientController.getOne);
-router.patch('/patients/:id', patientController.update);
+router.get('/patients', authorizeRoles('receptionist', 'doctor', 'nurse', 'technician'), patientController.getAll);
+router.post('/patients', authorizeRoles('receptionist'), patientController.create);
+router.get('/patients/:id', authorizeRoles('receptionist', 'doctor', 'nurse', 'technician'), patientController.getOne);
+router.patch('/patients/:id', authorizeRoles('receptionist', 'doctor'), patientController.update);
 
-// Staff
-router.get('/staff', staffController.getAll);
-router.post('/staff', staffController.create);
-router.patch('/staff/:id', staffController.update);
+// Staff (Admin/Manager Only)
+router.get('/staff', authorizeRoles('admin', 'manager'), staffController.getAll);
+router.post('/staff', authorizeRoles('admin', 'manager'), staffController.create);
+router.patch('/staff/:id', authorizeRoles('admin', 'manager'), staffController.update);
 
 // Appointments
-router.get('/appointments', appointmentController.getAll);
-router.post('/appointments', appointmentController.create);
-router.patch('/appointments/:id/status', appointmentController.updateStatus);
+router.get('/appointments', authorizeRoles('receptionist', 'doctor', 'nurse'), appointmentController.getAll);
+router.post('/appointments', authorizeRoles('receptionist', 'doctor'), appointmentController.create);
+router.patch('/appointments/:id/status', authorizeRoles('receptionist', 'doctor'), appointmentController.updateStatus);
 
 // Billing
-router.get('/billing', billingController.getAll);
-router.post('/billing', billingController.create);
-router.post('/billing/:id/pay', billingController.recordPayment);
+router.get('/billing', authorizeRoles('accountant', 'receptionist'), billingController.getAll);
+router.post('/billing', authorizeRoles('accountant'), billingController.create);
+router.post('/billing/:id/pay', authorizeRoles('accountant'), billingController.recordPayment);
 
 // Medical Modules
 router.get('/medical/tests', medicalController.getLabTests);
@@ -42,9 +42,10 @@ router.get('/medical/services', medicalController.getNurseServices);
 router.get('/medical/beds', medicalController.getBeds);
 router.get('/medical/operations', medicalController.getOperations);
 
-router.post('/medical/lab-request', medicalController.createLabRequest);
-router.post('/medical/nurse-request', medicalController.createNurseService);
-router.post('/medical/admission', medicalController.createAdmission);
-router.post('/medical/operation', medicalController.createOperation);
+// Requests
+router.post('/medical/lab-request', authorizeRoles('doctor', 'technician'), medicalController.createLabRequest);
+router.post('/medical/nurse-request', authorizeRoles('doctor', 'nurse'), medicalController.createNurseService);
+router.post('/medical/admission', authorizeRoles('doctor', 'receptionist'), medicalController.createAdmission);
+router.post('/medical/operation', authorizeRoles('doctor'), medicalController.createOperation);
 
 module.exports = router;
