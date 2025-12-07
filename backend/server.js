@@ -26,10 +26,19 @@ try {
 app.use(helmet({
   contentSecurityPolicy: false, 
 }));
+
+// CORS Configuration
+// Allows requests from your local dev environment or cloud IDEs to hit the Railway backend
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*', 
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    // In production, you might want to restrict this. For now, allow all to enable hybrid dev.
+    return callback(null, true);
+  },
   credentials: true
 }));
+
 app.use(morgan('dev'));
 app.use(express.json());
 
