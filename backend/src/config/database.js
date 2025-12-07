@@ -157,7 +157,7 @@ const initDB = () => {
   
   db.exec(schema);
 
-  // 2. Auto-Migrations (Existing)
+  // 2. Auto-Migrations
   const columnsToAdd = [
     { table: 'patients', name: 'symptoms', type: 'TEXT' },
     { table: 'patients', name: 'medical_history', type: 'TEXT' },
@@ -166,7 +166,8 @@ const initDB = () => {
     { table: 'patients', name: 'emergency_contacts', type: 'TEXT' },
     { table: 'patients', name: 'has_insurance', type: 'BOOLEAN DEFAULT 0' },
     { table: 'patients', name: 'insurance_details', type: 'TEXT' },
-    { table: 'appointments', name: 'reason', type: 'TEXT' }
+    { table: 'appointments', name: 'reason', type: 'TEXT' },
+    { table: 'beds', name: 'cost_per_day', type: 'REAL DEFAULT 0' }
   ];
 
   columnsToAdd.forEach(col => {
@@ -201,7 +202,6 @@ const initDB = () => {
 
   // 4. Seed Medical Catalogs
   
-  // Labs
   if (!db.prepare('SELECT id FROM lab_tests LIMIT 1').get()) {
     const tests = [
       { name: 'CBC (Complete Blood Count)', cost: 15, category: 'Hematology' },
@@ -216,7 +216,6 @@ const initDB = () => {
     tests.forEach(t => insertTest.run(t.name, t.category, t.cost));
   }
 
-  // Nurse Services
   if (!db.prepare('SELECT id FROM nurse_services LIMIT 1').get()) {
     const services = [
       { name: 'Injection / IV', desc: 'Medication administration', cost: 5 },
@@ -229,7 +228,6 @@ const initDB = () => {
     services.forEach(s => insertService.run(s.name, s.desc, s.cost));
   }
 
-  // Beds
   if (!db.prepare('SELECT id FROM beds LIMIT 1').get()) {
     const insertBed = db.prepare('INSERT INTO beds (room_number, type, status, cost_per_day) VALUES (?, ?, ?, ?)');
     for(let i=1; i<=8; i++) insertBed.run(`10${i}`, 'General', 'available', 20);
@@ -237,7 +235,6 @@ const initDB = () => {
     for(let i=1; i<=2; i++) insertBed.run(`ICU-${i}`, 'ICU', 'available', 150);
   }
 
-  // Operations
   if (!db.prepare('SELECT id FROM operations_catalog LIMIT 1').get()) {
     const ops = [
       { name: 'Appendectomy', cost: 500 },
@@ -247,6 +244,24 @@ const initDB = () => {
     ];
     const insertOp = db.prepare('INSERT INTO operations_catalog (name, base_cost) VALUES (?, ?)');
     ops.forEach(o => insertOp.run(o.name, o.cost));
+  }
+
+  // 5. Seed Medical Staff (Reseed if empty)
+  // Check if staff exists
+  const existingStaff = db.prepare('SELECT COUNT(*) as count FROM medical_staff').get();
+  
+  if (existingStaff.count === 0) {
+    const staff = [
+      { employee_id: 'DOC-001', full_name: 'Dr. Sarah Wilson', type: 'doctor', department: 'Cardiology', specialization: 'Cardiologist', consultation_fee: 100, email: 'sarah@allcare.com', phone: '555-0101' },
+      { employee_id: 'NUR-001', full_name: 'Nurse Emily Clarke', type: 'nurse', department: 'General', specialization: 'General Care', consultation_fee: 0, email: 'emily@allcare.com', phone: '555-0102' },
+      { employee_id: 'DOC-002', full_name: 'Dr. James House', type: 'doctor', department: 'Diagnostics', specialization: 'Diagnostician', consultation_fee: 150, email: 'james@allcare.com', phone: '555-0103' }
+    ];
+    const insertStaff = db.prepare(`
+      INSERT INTO medical_staff (employee_id, full_name, type, department, specialization, consultation_fee, email, phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    staff.forEach(s => insertStaff.run(s.employee_id, s.full_name, s.type, s.department, s.specialization, s.consultation_fee, s.email, s.phone));
+    console.log('Seeded initial medical staff.');
   }
 };
 

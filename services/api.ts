@@ -1,12 +1,13 @@
 import axios from 'axios';
 import { Patient, Appointment, MedicalStaff, Bill, User, LabTestCatalog, NurseServiceCatalog, Bed, OperationCatalog } from '../types';
 
-// Configuration Logic
-const hostname = window.location.hostname;
-const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
-const isProduction = hostname.includes('railway.app');
-const RAILWAY_URL = 'https://railway-hms-production.up.railway.app/api';
-const API_URL = (import.meta as any).env?.VITE_API_URL || ((isLocal || isProduction) ? '/api' : RAILWAY_URL);
+// Use relative path '/api'. 
+// This relies on the browser's own origin.
+// In Dev: Vite Proxy forwards to Railway.
+// In Prod: Backend serves Frontend, so origin is same.
+const API_URL = '/api';
+
+console.log('🔗 Connecting to API:', API_URL);
 
 const client = axios.create({
   baseURL: API_URL,
