@@ -2,15 +2,20 @@ import axios from 'axios';
 import { Patient, Appointment, MedicalStaff, Bill, User } from '../types';
 
 // Configuration Logic
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const hostname = window.location.hostname;
+const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+const isProduction = hostname.includes('railway.app');
+
+// URL Strategy:
+// 1. If VITE_API_URL is set (manual override), use it.
+// 2. If running Locally or on the Production Domain itself, use relative path '/api'.
+// 3. If running in a Cloud IDE (Google AI Studio, etc), use the full Railway URL.
 const RAILWAY_URL = 'https://railway-hms-production.up.railway.app/api';
-const LOCAL_URL = 'http://localhost:3000/api';
+const API_URL = (import.meta as any).env?.VITE_API_URL || ((isLocal || isProduction) ? '/api' : RAILWAY_URL);
 
-// If we are in a Cloud IDE (not localhost), use the Railway URL directly.
-// If we are on localhost, try the Vite proxy (or local backend).
-const API_URL = (import.meta as any).env?.VITE_API_URL || (isLocalhost ? '/api' : RAILWAY_URL);
-
-console.log(`🔌 API Client initialized. Mode: ${isLocalhost ? 'Local' : 'Cloud/Production'}. Target: ${API_URL}`);
+console.log(`🔌 API Client initialized.`);
+console.log(`   Mode: ${isLocal ? 'Local' : isProduction ? 'Production' : 'Cloud IDE'}`);
+console.log(`   Target: ${API_URL}`);
 
 const client = axios.create({
   baseURL: API_URL,
@@ -32,7 +37,8 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only redirect if 401 and not already on login page
+    if (error.response?.status === 401 && window.location.hash !== '#/') {
       localStorage.removeItem('token');
       window.location.href = '/';
     }

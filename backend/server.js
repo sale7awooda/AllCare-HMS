@@ -24,7 +24,7 @@ app.use(helmet({
 }));
 
 // CORS Configuration - Critical for Hybrid Dev
-app.use(cors({
+const corsOptions = {
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
@@ -35,7 +35,11 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));
+};
+
+app.use(cors(corsOptions));
+// Explicitly handle Preflight requests
+app.options('*', cors(corsOptions));
 
 app.use(morgan('dev'));
 app.use(express.json());
