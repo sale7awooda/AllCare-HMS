@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
-import { Plus, Printer, DollarSign, Download, X } from 'lucide-react';
+import { Plus, Printer, Download, X, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import { Bill, Patient, Appointment } from '../types';
+import { hasPermission } from '../utils/rbac';
 
 export const Billing = () => {
   const [bills, setBills] = useState<Bill[]>([]);
@@ -10,6 +11,7 @@ export const Billing = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Form
   const [formData, setFormData] = useState({
@@ -19,10 +21,16 @@ export const Billing = () => {
   });
 
   const loadData = async () => {
-    const [b, p, a] = await Promise.all([api.getBills(), api.getPatients(), api.getAppointments()]);
+    const [b, p, a, u] = await Promise.all([
+      api.getBills(), 
+      api.getPatients(), 
+      api.getAppointments(),
+      api.me()
+    ]);
     setBills(b);
     setPatients(p);
     setAppointments(a);
+    setCurrentUser(u);
   };
 
   useEffect(() => {
@@ -46,7 +54,7 @@ export const Billing = () => {
   };
 
   const handlePay = async (billId: number) => {
-    await api.recordPayment(billId, 50); // Simulating partial payment
+    await api.recordPayment(billId, 50); 
     loadData();
   };
 
@@ -60,16 +68,12 @@ export const Billing = () => {
         <div className="text-right">
           <h2 className="text-xl font-bold text-primary-600">AllCare Hospital</h2>
           <p className="text-sm text-gray-500">123 Health Ave, Med City</p>
-          <p className="text-sm text-gray-500">billing@allcare.com</p>
         </div>
       </div>
-
       <div className="mb-8">
-        <p className="text-gray-500 text-sm uppercase tracking-wide">Bill To</p>
         <p className="font-bold text-lg">{bill.patientName}</p>
         <p className="text-gray-500">Date: {bill.date}</p>
       </div>
-
       <table className="w-full mb-8">
         <thead>
           <tr className="border-b-2 border-gray-200">
@@ -86,33 +90,35 @@ export const Billing = () => {
           ))}
         </tbody>
       </table>
-
       <div className="flex justify-end">
         <div className="w-64 space-y-2">
-          <div className="flex justify-between text-gray-600">
-            <span>Subtotal</span>
-            <span>${bill.totalAmount.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-gray-600">
-             <span>Paid</span>
-             <span>-${bill.paidAmount.toFixed(2)}</span>
-          </div>
           <div className="flex justify-between font-bold text-lg border-t pt-2">
-            <span>Balance Due</span>
-            <span className={bill.status === 'paid' ? 'text-green-600' : 'text-red-600'}>
-              ${(bill.totalAmount - bill.paidAmount).toFixed(2)}
-            </span>
+            <span>Total</span>
+            <span>${bill.totalAmount.toFixed(2)}</span>
           </div>
         </div>
       </div>
     </div>
   );
 
+  const canManageBilling = hasPermission(currentUser, 'MANAGE_BILLING');
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Billing & Invoices</h1>
-        <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Generate Bill</Button>
+        {canManageBilling ? (
+          <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Generate Bill</Button>
+        ) : (
+          <Button 
+            disabled 
+            className="opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200" 
+            variant="secondary"
+            icon={Lock}
+          >
+            Generate Bill
+          </Button>
+        )}
       </div>
 
       <Card className="!p-0 overflow-hidden">
@@ -152,7 +158,7 @@ export const Billing = () => {
                      >
                        <Printer size={18} />
                      </button>
-                     {bill.status !== 'paid' && (
+                     {bill.status !== 'paid' && canManageBilling && (
                        <button onClick={() => handlePay(bill.id)} className="text-green-600 hover:text-green-800 font-medium transition-colors">Record Pay</button>
                      )}
                   </td>
@@ -165,7 +171,7 @@ export const Billing = () => {
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Invoice">
         <form onSubmit={handleCreate} className="space-y-4">
-          <Select 
+           <Select 
             label="Patient" 
             required
             value={formData.patientId}
@@ -195,7 +201,6 @@ export const Billing = () => {
         </form>
       </Modal>
 
-      {/* Invoice Viewer Modal */}
       {selectedBill && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">

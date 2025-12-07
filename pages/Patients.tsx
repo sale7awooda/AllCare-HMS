@@ -68,10 +68,7 @@ export const Patients = () => {
   };
 
   const openEditModal = async (patient: Patient) => {
-    // Fetch full details (in case list view is simplified)
     const fullDetails = await api.getPatient(patient.id);
-    
-    // Map to form state
     setFormData({
       fullName: fullDetails.fullName,
       age: fullDetails.age,
@@ -92,7 +89,6 @@ export const Patients = () => {
       insExpiry: fullDetails.insuranceDetails?.expiryDate || '',
       insNotes: fullDetails.insuranceDetails?.notes || ''
     });
-    
     setSelectedPatient(fullDetails);
     setIsEditing(true);
     setIsFormModalOpen(true);
@@ -144,7 +140,6 @@ export const Patients = () => {
     loadData();
   };
 
-  // --- Filtering ---
   const filteredPatients = patients.filter(p => {
     const matchesSearch = p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.patientId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -153,7 +148,6 @@ export const Patients = () => {
     return matchesSearch && matchesType && matchesGender;
   });
 
-  // Permission Check
   const canManagePatients = hasPermission(currentUser, 'MANAGE_PATIENTS');
 
   return (
@@ -163,14 +157,7 @@ export const Patients = () => {
         {canManagePatients ? (
           <Button onClick={openCreateModal} icon={Plus}>Register Patient</Button>
         ) : (
-          <Button 
-            disabled 
-            className="opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200" 
-            variant="secondary"
-            icon={Lock}
-          >
-            Register Patient
-          </Button>
+          <Button disabled className="opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200" variant="secondary" icon={Lock}>Register Patient</Button>
         )}
       </div>
 
@@ -187,16 +174,9 @@ export const Patients = () => {
                 onChange={e => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button 
-              variant={showFilters ? 'primary' : 'outline'} 
-              icon={Filter} 
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              Filter
-            </Button>
+            <Button variant={showFilters ? 'primary' : 'outline'} icon={Filter} onClick={() => setShowFilters(!showFilters)}>Filter</Button>
           </div>
           
-          {/* Collapsible Filter Bar */}
           {showFilters && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-white rounded-lg border border-gray-200 shadow-sm animate-in slide-in-from-top-2">
                <Select label="Type" value={filterType} onChange={e => setFilterType(e.target.value)}>
@@ -235,61 +215,30 @@ export const Patients = () => {
               ) : (
                 filteredPatients.map((patient) => (
                   <tr key={patient.id} className="hover:bg-gray-50 transition-colors group text-sm">
-                    {/* ID */}
                     <td className="px-2 py-2 align-top whitespace-nowrap">
                       <span className="font-mono text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">{patient.patientId}</span>
-                      {patient.hasInsurance && (
-                        <div className="mt-1"><Badge color="blue">Insured</Badge></div>
-                      )}
+                      {patient.hasInsurance && <div className="mt-1"><Badge color="blue">Insured</Badge></div>}
                     </td>
-                    
-                    {/* Name (Address removed from here) */}
                     <td className="px-2 py-2 align-top">
                       <div className="font-bold text-gray-900 break-words leading-tight">{patient.fullName}</div>
                     </td>
-
-                    {/* Address Column (New) */}
                     <td className="px-2 py-2 align-top">
-                      <div className="text-gray-600 text-xs break-words max-w-[150px] leading-tight">
-                         {patient.address}
-                      </div>
+                      <div className="text-gray-600 text-xs break-words max-w-[150px] leading-tight">{patient.address}</div>
                     </td>
-
-                    {/* Phone (Icon removed) */}
                     <td className="px-2 py-2 align-top whitespace-nowrap">
                       <span className="font-medium text-gray-700">{patient.phone}</span>
                     </td>
-
-                    {/* Age/Gender */}
                     <td className="px-2 py-2 align-top whitespace-nowrap text-gray-700">
                       {patient.age} / <span className="capitalize">{patient.gender}</span>
                     </td>
-
-                    {/* Type */}
                     <td className="px-2 py-2 align-top whitespace-nowrap">
-                      <Badge color={patient.type === 'emergency' ? 'red' : patient.type === 'inpatient' ? 'blue' : 'green'}>
-                        {patient.type}
-                      </Badge>
+                      <Badge color={patient.type === 'emergency' ? 'red' : patient.type === 'inpatient' ? 'blue' : 'green'}>{patient.type}</Badge>
                     </td>
-
-                    {/* Actions */}
                     <td className="px-2 py-2 text-right align-top whitespace-nowrap">
                       <div className="flex justify-end gap-2">
-                        <button 
-                          onClick={() => openViewModal(patient)} 
-                          className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" 
-                          title="View Details"
-                        >
-                          <Eye size={16} />
-                        </button>
+                        <button onClick={() => openViewModal(patient)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="View Details"><Eye size={16} /></button>
                         {canManagePatients && (
-                          <button 
-                            onClick={() => openEditModal(patient)} 
-                            className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors" 
-                            title="Edit"
-                          >
-                            <Edit size={16} />
-                          </button>
+                          <button onClick={() => openEditModal(patient)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Edit"><Edit size={16} /></button>
                         )}
                       </div>
                     </td>
@@ -301,15 +250,8 @@ export const Patients = () => {
         </div>
       </Card>
 
-      {/* --- Create/Edit Modal --- */}
-      <Modal 
-        isOpen={isFormModalOpen} 
-        onClose={() => setIsFormModalOpen(false)} 
-        title={isEditing ? "Edit Patient Details" : "Register New Patient"}
-      >
+      <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient Details" : "Register New Patient"}>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Reusing existing form layout from previous implementation */}
-          {/* Basic Info */}
           <div className="space-y-4">
             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1">Personal Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -339,7 +281,6 @@ export const Patients = () => {
             </div>
           </div>
 
-          {/* Medical Info */}
           <div className="space-y-4">
             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1 flex items-center gap-2"><Heart size={14}/> Medical History</h4>
             <div className="grid grid-cols-1 gap-3">
@@ -349,7 +290,6 @@ export const Patients = () => {
             </div>
           </div>
 
-          {/* Emergency & Insurance (Simplified for brevity in this response, assumed same as previous) */}
            <div className="space-y-4">
             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100 pb-1 flex items-center gap-2"><AlertTriangle size={14}/> Emergency Contact</h4>
              <div className="grid grid-cols-3 gap-3">
@@ -386,24 +326,12 @@ export const Patients = () => {
         </form>
       </Modal>
 
-      {/* --- View Details Modal --- */}
       <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Patient Profile">
         {selectedPatient && (
           <div className="space-y-6">
-            {/* Header / Tabs */}
             <div className="flex items-center gap-4 bg-slate-50 p-1 rounded-lg border border-slate-200">
-              <button 
-                onClick={() => setViewTab('info')}
-                className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${viewTab === 'info' ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Information
-              </button>
-              <button 
-                onClick={() => setViewTab('records')}
-                className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${viewTab === 'records' ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Hospital Records
-              </button>
+              <button onClick={() => setViewTab('info')} className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${viewTab === 'info' ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Information</button>
+              <button onClick={() => setViewTab('records')} className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${viewTab === 'records' ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Hospital Records</button>
             </div>
 
             {viewTab === 'info' ? (

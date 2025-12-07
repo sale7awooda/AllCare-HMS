@@ -12,9 +12,11 @@ import {
   Activity,
   ChevronLeft,
   Settings,
-  Bell
+  Bell,
+  Lock
 } from 'lucide-react';
 import { User } from '../types';
+import { canAccessRoute } from '../utils/rbac';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -23,9 +25,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
-  // Mobile state: Open/Closed (Drawer)
   const [isMobileOpen, setMobileOpen] = useState(false);
-  // Desktop state: Expanded (true) / Collapsed (false)
   const [isSidebarExpanded, setSidebarExpanded] = useState(true);
   
   const location = useLocation();
@@ -52,7 +52,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           </div>
         </div>
         
-        {/* Mobile Close */}
         <button onClick={() => setMobileOpen(false)} className="lg:hidden ml-auto text-slate-400 hover:text-white">
           <X size={24} />
         </button>
@@ -62,27 +61,45 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
+          const isAllowed = canAccessRoute(user, item.path);
+
           return (
             <Link
               key={item.path}
-              to={item.path}
-              onClick={() => setMobileOpen(false)}
+              to={isAllowed ? item.path : '#'}
+              onClick={(e) => {
+                if (!isAllowed) e.preventDefault();
+                setMobileOpen(false);
+              }}
               className={`
                 group flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200
-                ${isActive 
-                  ? 'bg-primary-600 text-white shadow-md shadow-primary-900/20' 
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
                 ${!isSidebarExpanded ? 'justify-center' : ''}
+                
+                ${isAllowed && isActive ? 'bg-primary-600 text-white shadow-md shadow-primary-900/20' : ''}
+                ${isAllowed && !isActive ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : ''}
+                ${!isAllowed ? 'opacity-40 cursor-not-allowed bg-transparent text-slate-600' : ''}
               `}
               title={!isSidebarExpanded ? item.label : ''}
             >
-              <item.icon 
-                size={22} 
-                className={`flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} 
-              />
+              <div className="relative flex-shrink-0">
+                <item.icon 
+                  size={22} 
+                  className={`transition-colors ${isActive && isAllowed ? 'text-white' : ''} ${!isAllowed ? 'text-slate-600' : ''}`} 
+                />
+                {!isAllowed && (
+                  <div className="absolute -top-1 -right-1 bg-slate-800 rounded-full p-0.5 border border-slate-700">
+                    <Lock size={10} className="text-slate-400" />
+                  </div>
+                )}
+              </div>
+
               <span className={`font-medium whitespace-nowrap transition-all duration-300 ${isSidebarExpanded ? 'opacity-100' : 'opacity-0 w-0 hidden'}`}>
                 {item.label}
               </span>
+              
+              {!isAllowed && isSidebarExpanded && (
+                <Lock size={14} className="ml-auto text-slate-600" />
+              )}
             </Link>
           );
         })}
@@ -111,16 +128,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
              </button>
           )}
         </div>
-        
-        {!isSidebarExpanded && (
-          <button 
-            onClick={onLogout} 
-            className="mt-3 w-full flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
-            title="Logout"
-          >
-            <LogOut size={20} />
-          </button>
-        )}
       </div>
     </div>
   );
@@ -138,7 +145,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         </div>
       </div>
 
-      {/* Desktop Sidebar (Fixed/Static in Flex) */}
+      {/* Desktop Sidebar */}
       <aside 
         className={`
           hidden lg:block sidebar-transition relative z-20 shrink-0
@@ -147,7 +154,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       >
         <SidebarContent />
         
-        {/* Toggle Button */}
         <button 
           onClick={() => setSidebarExpanded(!isSidebarExpanded)}
           className="absolute -right-3 top-24 w-6 h-6 bg-slate-800 border border-slate-600 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-primary-600 hover:border-primary-500 shadow-md transition-all z-50"
@@ -158,7 +164,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
-        {/* Top Header */}
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-6 lg:px-8 shrink-0 z-10 sticky top-0">
           <div className="flex items-center gap-4">
             <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
@@ -179,13 +184,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                <Bell size={20} />
                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
              </button>
-             <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
-               <Settings size={20} />
-             </button>
           </div>
         </header>
 
-        {/* Scrollable Main View */}
         <main className="flex-1 overflow-auto p-4 lg:p-8 scroll-smooth bg-slate-50/50">
           <div className="max-w-7xl mx-auto space-y-8 pb-10">
             {children}
