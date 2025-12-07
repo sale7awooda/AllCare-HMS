@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Badge } from '../components/UI';
+import { Card, Badge, Button } from '../components/UI';
 import { api } from '../services/api';
-import { Users, CreditCard, Calendar, Activity, TrendingUp } from 'lucide-react';
+import { Users, CreditCard, Calendar, Activity, TrendingUp, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Legend, AreaChart, Area
 } from 'recharts';
 
 export const Dashboard = () => {
@@ -50,92 +50,169 @@ export const Dashboard = () => {
     { name: 'Checkup', value: 200 },
   ];
 
-  const COLORS = ['#0ea5e9', '#22c55e', '#eab308', '#ef4444'];
+  const COLORS = ['#0891b2', '#10b981', '#f59e0b', '#ef4444'];
 
-  const StatCard = ({ title, value, icon: Icon, color }: any) => (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-      <div>
-        <p className="text-sm font-medium text-gray-500">{title}</p>
-        <h3 className="text-2xl font-bold mt-1 text-gray-900">{value}</h3>
-      </div>
-      <div className={`p-3 rounded-lg ${color}`}>
-        <Icon className="w-6 h-6 text-white" />
+  const StatCard = ({ title, value, icon: Icon, trend, trendValue, colorClass }: any) => (
+    <div className="bg-white p-6 rounded-2xl shadow-card border border-slate-100 relative overflow-hidden group hover:shadow-lg transition-shadow duration-300">
+      <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${colorClass} opacity-5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
+      <div className="flex justify-between items-start relative z-10">
+        <div>
+          <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{title}</p>
+          <h3 className="text-3xl font-bold mt-2 text-slate-800">{value}</h3>
+          <div className="flex items-center mt-2 gap-2">
+            <span className={`flex items-center text-xs font-bold ${trend === 'up' ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'} px-2 py-0.5 rounded-full`}>
+              {trend === 'up' ? <ArrowUpRight size={14} className="mr-1"/> : <ArrowDownRight size={14} className="mr-1"/>}
+              {trendValue}
+            </span>
+            <span className="text-xs text-slate-400">vs last month</span>
+          </div>
+        </div>
+        <div className={`p-3.5 rounded-xl bg-gradient-to-br ${colorClass} text-white shadow-md`}>
+          <Icon className="w-6 h-6" />
+        </div>
       </div>
     </div>
   );
 
-  if (loading) return <div>Loading dashboard...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center h-96">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Dashboard Overview</h1>
+        <p className="text-slate-500 mt-1">Welcome back, here is what's happening at your hospital today.</p>
+      </div>
+
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Patients" value={stats.patients} icon={Users} color="bg-blue-500" />
-        <StatCard title="Appointments" value={stats.appointments} icon={Calendar} color="bg-purple-500" />
-        <StatCard title="Total Revenue" value={`$${stats.revenue}`} icon={CreditCard} color="bg-green-500" />
-        <StatCard title="Pending Tasks" value="12" icon={Activity} color="bg-orange-500" />
+        <StatCard 
+          title="Total Patients" 
+          value={stats.patients} 
+          icon={Users} 
+          trend="up" 
+          trendValue="+12.5%" 
+          colorClass="from-blue-500 to-blue-600" 
+        />
+        <StatCard 
+          title="Appointments" 
+          value={stats.appointments} 
+          icon={Calendar} 
+          trend="up" 
+          trendValue="+4.2%" 
+          colorClass="from-violet-500 to-violet-600" 
+        />
+        <StatCard 
+          title="Revenue" 
+          value={`$${stats.revenue.toLocaleString()}`} 
+          icon={CreditCard} 
+          trend="down" 
+          trendValue="-2.4%" 
+          colorClass="from-emerald-500 to-emerald-600" 
+        />
+        <StatCard 
+          title="Critical Tasks" 
+          value="12" 
+          icon={Activity} 
+          trend="up" 
+          trendValue="+5" 
+          colorClass="from-amber-500 to-amber-600" 
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="Revenue Trends">
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
-                <Tooltip 
-                  cursor={{ fill: '#f3f4f6' }}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <Bar dataKey="revenue" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <Card title="Revenue Analytics" action={<Button size="sm" variant="outline">View Report</Button>}>
+            <div className="h-80 w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#0891b2" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#0891b2" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.1)' }}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#0891b2" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        </div>
 
-        <Card title="Service Distribution">
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36}/>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
+        <div className="lg:col-span-1">
+          <Card title="Patient Demographics">
+            <div className="h-80 w-full mt-4 relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={110}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle"/>
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Center Text Overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
+                <span className="text-3xl font-bold text-slate-800">1.2k</span>
+                <span className="text-xs text-slate-400 font-medium uppercase">Patients</span>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
 
-      <Card title="Recent Appointments">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
+      {/* Recent Activity Table */}
+      <Card title="Recent Appointments" action={<Button variant="ghost" size="sm">View All</Button>}>
+        <div className="overflow-x-auto -mx-6">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Patient Info</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Doctor</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date & Time</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-100">
               {appointments.map((apt) => (
-                <tr key={apt.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{apt.patientName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{apt.staffName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(apt.datetime).toLocaleString()}</td>
+                <tr key={apt.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs mr-3">
+                        {apt.patientName.charAt(0)}
+                      </div>
+                      <div className="text-sm font-semibold text-slate-800">{apt.patientName}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{apt.staffName}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center text-sm text-slate-500">
+                      <Clock size={14} className="mr-1.5 text-slate-400"/>
+                      {new Date(apt.datetime).toLocaleString()}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <Badge color={apt.status === 'confirmed' ? 'green' : 'yellow'}>{apt.status}</Badge>
                   </td>

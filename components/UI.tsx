@@ -3,10 +3,10 @@ import { X, Check, AlertCircle } from 'lucide-react';
 
 // --- Card ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string; title?: string; action?: React.ReactNode }> = ({ children, className = '', title, action }) => (
-  <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${className}`}>
+  <div className={`bg-white rounded-2xl shadow-card border border-slate-200 overflow-hidden ${className}`}>
     {(title || action) && (
-      <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-        {title && <h3 className="text-lg font-semibold text-gray-800">{title}</h3>}
+      <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white">
+        {title && <h3 className="text-base font-bold text-slate-800 tracking-tight">{title}</h3>}
         {action && <div>{action}</div>}
       </div>
     )}
@@ -16,30 +16,31 @@ export const Card: React.FC<{ children: React.ReactNode; className?: string; tit
 
 // --- Button ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'outline';
+  variant?: 'primary' | 'secondary' | 'danger' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ElementType;
 }
 
 export const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', size = 'md', icon: Icon, className = '', ...props }) => {
-  const baseStyle = "inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+  const baseStyle = "inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed";
   
   const variants = {
-    primary: "bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500",
-    secondary: "bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-500",
-    danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
-    outline: "border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-primary-500 bg-white"
+    primary: "bg-primary-600 text-white hover:bg-primary-700 hover:shadow-lg hover:shadow-primary-500/20 focus:ring-primary-500 active:scale-[0.98]",
+    secondary: "bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-500 active:scale-[0.98]",
+    danger: "bg-red-50 text-red-600 hover:bg-red-100 focus:ring-red-500 border border-red-100",
+    outline: "border border-slate-200 text-slate-600 hover:border-primary-200 hover:text-primary-600 hover:bg-primary-50 focus:ring-primary-500 bg-white",
+    ghost: "text-slate-500 hover:text-primary-600 hover:bg-slate-50"
   };
 
   const sizes = {
-    sm: "px-3 py-1.5 text-xs",
-    md: "px-4 py-2 text-sm",
-    lg: "px-6 py-3 text-base"
+    sm: "px-3 py-1.5 text-xs gap-1.5",
+    md: "px-5 py-2.5 text-sm gap-2",
+    lg: "px-6 py-3 text-base gap-2.5"
   };
 
   return (
     <button className={`${baseStyle} ${variants[variant]} ${sizes[size]} ${className}`} {...props}>
-      {Icon && <Icon className={`w-4 h-4 ${children ? 'mr-2' : ''}`} />}
+      {Icon && <Icon className={`w-[1.1em] h-[1.1em] ${!children ? '' : ''}`} />}
       {children}
     </button>
   );
@@ -48,14 +49,14 @@ export const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', s
 // --- Badge ---
 export const Badge: React.FC<{ children: React.ReactNode; color?: 'green' | 'red' | 'yellow' | 'blue' | 'gray' }> = ({ children, color = 'gray' }) => {
   const colors = {
-    green: 'bg-green-100 text-green-800',
-    red: 'bg-red-100 text-red-800',
-    yellow: 'bg-yellow-100 text-yellow-800',
-    blue: 'bg-blue-100 text-blue-800',
-    gray: 'bg-gray-100 text-gray-800',
+    green: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    red: 'bg-red-50 text-red-700 border-red-100',
+    yellow: 'bg-amber-50 text-amber-700 border-amber-100',
+    blue: 'bg-primary-50 text-primary-700 border-primary-100',
+    gray: 'bg-slate-50 text-slate-600 border-slate-100',
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[color]}`}>
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${colors[color]}`}>
       {children}
     </span>
   );
@@ -65,15 +66,15 @@ export const Badge: React.FC<{ children: React.ReactNode; color?: 'green' | 'red
 export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/50 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-lg max-h-full rounded-xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-900 rounded-lg p-1.5 ml-auto inline-flex items-center hover:bg-gray-100">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overflow-x-hidden bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="relative w-full max-w-lg max-h-full rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 scale-100 animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-50">
+          <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg p-2 transition-colors">
             <X size={20} />
           </button>
         </div>
-        <div className="p-6 space-y-4">{children}</div>
+        <div className="p-6 space-y-5">{children}</div>
       </div>
     </div>
   );
@@ -83,13 +84,13 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: stri
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string }>(
   ({ label, error, className = '', ...props }, ref) => (
     <div className="w-full">
-      {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+      {label && <label className="block text-sm font-semibold text-slate-700 mb-1.5">{label}</label>}
       <input
         ref={ref}
-        className={`block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border ${error ? 'border-red-300' : ''} ${className}`}
+        className={`block w-full rounded-xl bg-white text-slate-900 placeholder:text-slate-400 border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5 px-4 border transition-all duration-200 ${error ? 'border-red-300 bg-red-50' : ''} ${className}`}
         {...props}
       />
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-red-600 font-medium flex items-center gap-1"><AlertCircle size={12}/> {error}</p>}
     </div>
   )
 );
@@ -98,15 +99,20 @@ Input.displayName = 'Input';
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; error?: string }>(
   ({ label, error, children, className = '', ...props }, ref) => (
     <div className="w-full">
-      {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
-      <select
-        ref={ref}
-        className={`block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2 px-3 border ${error ? 'border-red-300' : ''} ${className}`}
-        {...props}
-      >
-        {children}
-      </select>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {label && <label className="block text-sm font-semibold text-slate-700 mb-1.5">{label}</label>}
+      <div className="relative">
+        <select
+          ref={ref}
+          className={`block w-full rounded-xl bg-white text-slate-900 border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5 px-4 border appearance-none transition-all duration-200 ${error ? 'border-red-300' : ''} ${className}`}
+          {...props}
+        >
+          {children}
+        </select>
+        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+          <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+        </div>
+      </div>
+      {error && <p className="mt-1.5 text-xs text-red-600 font-medium">{error}</p>}
     </div>
   )
 );

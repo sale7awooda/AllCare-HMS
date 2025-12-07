@@ -87,14 +87,27 @@ const initDB = () => {
   
   db.exec(schema);
 
-  // Seed Admin User if not exists
-  const admin = db.prepare('SELECT * FROM users WHERE username = ?').get('admin');
-  if (!admin) {
-    const bcrypt = require('bcryptjs');
-    const hash = bcrypt.hashSync('admin123', 10);
-    db.prepare('INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)').run('admin', hash, 'System Admin', 'admin');
-    console.log('Default admin user created');
-  }
+  // Seed Users for all roles
+  const usersToSeed = [
+    { username: 'admin', role: 'admin', fullName: 'System Admin' },
+    { username: 'manager', role: 'manager', fullName: 'Hospital Manager' },
+    { username: 'receptionist', role: 'receptionist', fullName: 'Front Desk' },
+    { username: 'accountant', role: 'accountant', fullName: 'Chief Accountant' },
+    { username: 'labtech', role: 'technician', fullName: 'Lab Technician' }
+  ];
+
+  const bcrypt = require('bcryptjs');
+  const insertUser = db.prepare('INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)');
+  const checkUser = db.prepare('SELECT id FROM users WHERE username = ?');
+
+  usersToSeed.forEach(user => {
+    if (!checkUser.get(user.username)) {
+      // Default password is username + "123"
+      const hash = bcrypt.hashSync(`${user.username}123`, 10);
+      insertUser.run(user.username, hash, user.fullName, user.role);
+      console.log(`Seeded user: ${user.username}`);
+    }
+  });
 };
 
 module.exports = { db, initDB };

@@ -60,7 +60,7 @@ export const Patients = () => {
             <input 
               type="text" 
               placeholder="Search patients by name or ID..." 
-              className="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2"
+              className="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 text-slate-900 bg-white"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
@@ -72,12 +72,12 @@ export const Patients = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Age/Gender</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Patient Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Age/Gender</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Type</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -88,23 +88,27 @@ export const Patients = () => {
               ) : (
                 filteredPatients.map((patient) => (
                   <tr key={patient.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{patient.patientId}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{patient.fullName}</div>
-                      <div className="text-xs text-gray-500 flex items-center gap-1"><MapPin size={12}/> {patient.address}</div>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900 align-top whitespace-nowrap">{patient.patientId}</td>
+                    <td className="px-6 py-4 align-top">
+                      <div className="text-sm font-medium text-gray-900 break-words">{patient.fullName}</div>
+                      <div className="text-xs text-gray-500 flex items-start gap-1 mt-1 break-words">
+                        <MapPin size={12} className="shrink-0 mt-0.5"/> {patient.address}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex items-center gap-2">
-                      <Phone size={14} /> {patient.phone}
+                    <td className="px-6 py-4 text-sm text-gray-500 align-top">
+                      <div className="flex items-center gap-2 whitespace-nowrap">
+                        <Phone size={14} /> {patient.phone}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 text-sm text-gray-500 align-top whitespace-nowrap">
                       {patient.age} / <span className="capitalize">{patient.gender}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 align-top whitespace-nowrap">
                       <Badge color={patient.type === 'emergency' ? 'red' : patient.type === 'inpatient' ? 'blue' : 'green'}>
                         {patient.type}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-6 py-4 text-right text-sm font-medium align-top whitespace-nowrap">
                       <button className="text-primary-600 hover:text-primary-900 mr-3">View</button>
                       <button className="text-gray-400 hover:text-gray-600">Edit</button>
                     </td>

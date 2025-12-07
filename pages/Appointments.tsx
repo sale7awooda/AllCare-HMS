@@ -67,44 +67,50 @@ export const Appointments = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-3">
           <Card className="!p-0 overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Appt ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Doctor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {appointments.map((apt) => (
-                  <tr key={apt.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{apt.appointmentNumber}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{apt.patientName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{apt.staffName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(apt.datetime).toLocaleDateString()} <span className="text-gray-400">|</span> {new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                       <Badge color={apt.status === 'confirmed' ? 'green' : apt.status === 'cancelled' ? 'red' : 'yellow'}>{apt.status}</Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      {apt.status === 'pending' && (
-                        <button 
-                          onClick={() => { api.updateAppointmentStatus(apt.id, 'confirmed'); loadData(); }}
-                          className="text-green-600 hover:text-green-800 font-medium mr-2"
-                        >
-                          Confirm
-                        </button>
-                      )}
-                       <button className="text-gray-400 hover:text-gray-600">Details</button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Appt ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Patient</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Doctor</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Date & Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {appointments.map((apt) => (
+                    <tr key={apt.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 align-top">{apt.appointmentNumber}</td>
+                      <td className="px-6 py-4 align-top">
+                         <div className="text-sm text-gray-900 font-medium break-words">{apt.patientName}</div>
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        <div className="text-sm text-gray-500 break-words">{apt.staffName}</div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 align-top whitespace-nowrap">
+                        {new Date(apt.datetime).toLocaleDateString()} <span className="text-gray-400">|</span> {new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </td>
+                      <td className="px-6 py-4 align-top whitespace-nowrap">
+                         <Badge color={apt.status === 'confirmed' ? 'green' : apt.status === 'cancelled' ? 'red' : 'yellow'}>{apt.status}</Badge>
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm align-top whitespace-nowrap">
+                        {apt.status === 'pending' && (
+                          <button 
+                            onClick={() => { api.updateAppointmentStatus(apt.id, 'confirmed'); loadData(); }}
+                            className="text-green-600 hover:text-green-800 font-medium mr-2"
+                          >
+                            Confirm
+                          </button>
+                        )}
+                         <button className="text-gray-400 hover:text-gray-600">Details</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </div>
       </div>

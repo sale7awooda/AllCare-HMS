@@ -116,44 +116,48 @@ export const Billing = () => {
       </div>
 
       <Card className="!p-0 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {bills.map((bill) => (
-              <tr key={bill.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bill.billNumber}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.patientName}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bill.date}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">${bill.totalAmount}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'pending' ? 'yellow' : 'red'}>
-                    {bill.status}
-                  </Badge>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                   <button 
-                     onClick={() => setSelectedBill(bill)}
-                     className="text-gray-400 hover:text-gray-600 mr-3"
-                   >
-                     <Printer size={18} />
-                   </button>
-                   {bill.status !== 'paid' && (
-                     <button onClick={() => handlePay(bill.id)} className="text-green-600 hover:text-green-800 font-medium">Record Pay</button>
-                   )}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Invoice #</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Patient</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Amount</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {bills.map((bill) => (
+                <tr key={bill.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 align-top">{bill.billNumber}</td>
+                  <td className="px-6 py-4 align-top">
+                     <div className="text-sm text-gray-900 break-words">{bill.patientName}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">{bill.date}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 align-top">${bill.totalAmount}</td>
+                  <td className="px-6 py-4 whitespace-nowrap align-top">
+                    <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'pending' ? 'yellow' : 'red'}>
+                      {bill.status}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm align-top">
+                     <button 
+                       onClick={() => setSelectedBill(bill)}
+                       className="text-gray-400 hover:text-gray-600 mr-3"
+                     >
+                       <Printer size={18} />
+                     </button>
+                     {bill.status !== 'paid' && (
+                       <button onClick={() => handlePay(bill.id)} className="text-green-600 hover:text-green-800 font-medium">Record Pay</button>
+                     )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Invoice">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -35,7 +34,8 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
 
   const handleDevLogin = (role: string) => {
     setUsername(role);
-    setPassword(`${role}123`); // Matches seed data: admin123, manager123, etc.
+    // Matches seed data logic: username + 123
+    setPassword(`${role}123`); 
   };
 
   return (
@@ -59,7 +59,7 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
             <input 
               type="text" 
               required
-              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 px-3 border"
+              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 px-3 border text-gray-900 bg-white placeholder-gray-400"
               value={username}
               onChange={e => setUsername(e.target.value)}
               placeholder="e.g. admin"
@@ -70,7 +70,7 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
              <input 
                type="password" 
                required
-               className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 px-3 border"
+               className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 px-3 border text-gray-900 bg-white placeholder-gray-400"
                placeholder="••••••••"
                value={password}
                onChange={e => setPassword(e.target.value)}
@@ -87,11 +87,12 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
 
         <div className="mt-8 pt-6 border-t border-gray-100">
           <p className="text-xs text-center text-gray-400 mb-3">Developer Login Helper</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button type="button" onClick={() => handleDevLogin('admin')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Admin</button>
             <button type="button" onClick={() => handleDevLogin('manager')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Manager</button>
             <button type="button" onClick={() => handleDevLogin('receptionist')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Receptionist</button>
             <button type="button" onClick={() => handleDevLogin('accountant')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Accountant</button>
+            <button type="button" onClick={() => handleDevLogin('labtech')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Lab Tech</button>
           </div>
         </div>
       </div>

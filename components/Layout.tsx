@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -12,7 +11,8 @@ import {
   X,
   Activity,
   ChevronLeft,
-  ChevronRight
+  Settings,
+  Bell
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -25,8 +25,8 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   // Mobile state: Open/Closed (Drawer)
   const [isMobileOpen, setMobileOpen] = useState(false);
-  // Desktop state: Expanded/Collapsed (Mini sidebar)
-  const [isDesktopCollapsed, setDesktopCollapsed] = useState(false);
+  // Desktop state: Expanded (true) / Collapsed (false)
+  const [isSidebarExpanded, setSidebarExpanded] = useState(true);
   
   const location = useLocation();
 
@@ -38,123 +38,158 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     { label: 'Medical Staff', path: '/staff', icon: Stethoscope },
   ];
 
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full bg-slate-900 text-slate-300 border-r border-slate-800 shadow-xl">
+      {/* Brand Header */}
+      <div className={`h-20 flex items-center ${isSidebarExpanded ? 'px-6' : 'px-0 justify-center'} border-b border-slate-800 transition-all duration-300 shrink-0`}>
+        <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
+          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary-900/50 flex-shrink-0">
+            <Activity size={20} className="stroke-[2.5]" />
+          </div>
+          <div className={`flex flex-col transition-all duration-300 ${isSidebarExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'}`}>
+            <span className="font-bold text-lg text-white leading-none tracking-tight">AllCare</span>
+            <span className="text-xs font-medium text-primary-400 uppercase tracking-widest">Medical</span>
+          </div>
+        </div>
+        
+        {/* Mobile Close */}
+        <button onClick={() => setMobileOpen(false)} className="lg:hidden ml-auto text-slate-400 hover:text-white">
+          <X size={24} />
+        </button>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => setMobileOpen(false)}
+              className={`
+                group flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200
+                ${isActive 
+                  ? 'bg-primary-600 text-white shadow-md shadow-primary-900/20' 
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
+                ${!isSidebarExpanded ? 'justify-center' : ''}
+              `}
+              title={!isSidebarExpanded ? item.label : ''}
+            >
+              <item.icon 
+                size={22} 
+                className={`flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} 
+              />
+              <span className={`font-medium whitespace-nowrap transition-all duration-300 ${isSidebarExpanded ? 'opacity-100' : 'opacity-0 w-0 hidden'}`}>
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer / User Profile */}
+      <div className="p-4 border-t border-slate-800 shrink-0">
+        <div className={`
+          flex items-center gap-3 p-2 rounded-xl bg-slate-800/50 border border-slate-700/50
+          ${!isSidebarExpanded ? 'justify-center' : ''}
+        `}>
+          <div className="w-9 h-9 rounded-lg bg-slate-700 border border-slate-600 flex items-center justify-center text-white font-bold text-sm shadow-sm flex-shrink-0">
+            {user?.fullName.charAt(0)}
+          </div>
+          
+          {isSidebarExpanded && (
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-semibold text-slate-200 truncate">{user?.fullName}</p>
+              <p className="text-xs text-slate-500 truncate capitalize">{user?.role}</p>
+            </div>
+          )}
+
+          {isSidebarExpanded && (
+             <button onClick={onLogout} className="text-slate-400 hover:text-red-400 transition-colors p-1" title="Logout">
+               <LogOut size={18} />
+             </button>
+          )}
+        </div>
+        
+        {!isSidebarExpanded && (
+          <button 
+            onClick={onLogout} 
+            className="mt-3 w-full flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
+            title="Logout"
+          >
+            <LogOut size={20} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* Mobile Backdrop */}
-      {isMobileOpen && (
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
+      {/* Mobile Sidebar (Drawer) */}
+      <div className={`fixed inset-0 z-50 lg:hidden pointer-events-none ${isMobileOpen ? 'pointer-events-auto' : ''}`}>
         <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className={`absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 ${isMobileOpen ? 'opacity-100' : 'opacity-0'}`}
           onClick={() => setMobileOpen(false)}
         />
-      )}
+        <div className={`absolute top-0 left-0 bottom-0 w-72 bg-slate-900 transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <SidebarContent />
+        </div>
+      </div>
 
-      {/* Sidebar */}
+      {/* Desktop Sidebar (Fixed/Static in Flex) */}
       <aside 
         className={`
-          fixed lg:static inset-y-0 left-0 z-50 bg-slate-900 text-white transition-all duration-300 ease-in-out shadow-xl flex flex-col
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} 
-          lg:translate-x-0
-          ${isDesktopCollapsed ? 'lg:w-20' : 'lg:w-64'}
-          w-64
+          hidden lg:block sidebar-transition relative z-20 shrink-0
+          ${isSidebarExpanded ? 'w-72' : 'w-20'}
         `}
       >
-        {/* Sidebar Header */}
-        <div className={`h-16 flex items-center bg-slate-950 transition-all duration-300 ${isDesktopCollapsed ? 'justify-center px-0' : 'justify-between px-6'}`}>
-          <div className="flex items-center gap-2 font-bold text-xl text-primary-500 overflow-hidden whitespace-nowrap">
-            <Activity className="w-8 h-8 flex-shrink-0" />
-            <span className={`transition-opacity duration-300 ${isDesktopCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-              AllCare HMS
-            </span>
-          </div>
-          {/* Mobile Close Button */}
-          <button onClick={() => setMobileOpen(false)} className="lg:hidden text-gray-400 hover:text-white">
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <nav className="p-4 space-y-2 flex-1 overflow-y-auto overflow-x-hidden">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileOpen(false)} // Close on mobile click
-                title={isDesktopCollapsed ? item.label : ''}
-                className={`
-                  flex items-center gap-3 px-3 py-3 rounded-lg transition-colors whitespace-nowrap
-                  ${isActive 
-                    ? 'bg-primary-600 text-white shadow-md' 
-                    : 'text-gray-400 hover:bg-slate-800 hover:text-white'}
-                  ${isDesktopCollapsed ? 'justify-center' : ''}
-                `}
-              >
-                <item.icon size={20} className="flex-shrink-0" />
-                <span className={`font-medium transition-all duration-300 ${isDesktopCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* User Footer */}
-        <div className="p-4 border-t border-slate-800">
-          <div className={`flex items-center gap-3 mb-4 transition-all duration-300 ${isDesktopCollapsed ? 'justify-center' : ''}`}>
-            <div className="w-9 h-9 rounded-full bg-primary-500 flex items-center justify-center text-sm font-bold flex-shrink-0">
-              {user?.fullName.charAt(0)}
-            </div>
-            <div className={`overflow-hidden transition-all duration-300 ${isDesktopCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>
-              <p className="text-sm font-medium truncate text-white">{user?.fullName}</p>
-              <p className="text-xs text-gray-500 truncate capitalize">{user?.role}</p>
-            </div>
-          </div>
-          <button 
-            onClick={onLogout}
-            title="Logout"
-            className={`
-              w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap
-              ${isDesktopCollapsed ? 'justify-center' : ''}
-            `}
-          >
-            <LogOut size={20} className="flex-shrink-0" />
-            <span className={`transition-all duration-300 ${isDesktopCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>
-              Logout
-            </span>
-          </button>
-        </div>
+        <SidebarContent />
+        
+        {/* Toggle Button */}
+        <button 
+          onClick={() => setSidebarExpanded(!isSidebarExpanded)}
+          className="absolute -right-3 top-24 w-6 h-6 bg-slate-800 border border-slate-600 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-primary-600 hover:border-primary-500 shadow-md transition-all z-50"
+        >
+          <ChevronLeft size={14} className={`transition-transform duration-300 ${!isSidebarExpanded ? 'rotate-180' : ''}`} />
+        </button>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
-        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-4 lg:px-8 z-10">
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
+        {/* Top Header */}
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-6 lg:px-8 shrink-0 z-10 sticky top-0">
           <div className="flex items-center gap-4">
-            {/* Mobile Menu Trigger */}
-            <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+            <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
               <Menu size={24} />
             </button>
-            
-            {/* Desktop Collapse Trigger */}
-            <button 
-              onClick={() => setDesktopCollapsed(!isDesktopCollapsed)} 
-              className="hidden lg:flex p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              {isDesktopCollapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
-            </button>
-
-            <h2 className="text-lg font-semibold text-gray-800 lg:hidden">AllCare HMS</h2>
+            <h2 className="text-xl font-bold text-slate-800 tracking-tight">
+              {navItems.find(i => i.path === location.pathname)?.label || 'Overview'}
+            </h2>
           </div>
 
           <div className="flex items-center gap-4">
-             <span className="text-sm text-gray-500 hidden sm:block">
-               {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-             </span>
+             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full border border-green-100">
+               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+               <span className="text-xs font-medium text-green-700">System Online</span>
+             </div>
+             <div className="h-8 w-[1px] bg-slate-200 mx-2 hidden md:block"></div>
+             <button className="relative p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-full transition-colors">
+               <Bell size={20} />
+               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+             </button>
+             <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+               <Settings size={20} />
+             </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 lg:p-8">
-          {children}
+        {/* Scrollable Main View */}
+        <main className="flex-1 overflow-auto p-4 lg:p-8 scroll-smooth bg-slate-50/50">
+          <div className="max-w-7xl mx-auto space-y-8 pb-10">
+            {children}
+          </div>
         </main>
       </div>
     </div>
