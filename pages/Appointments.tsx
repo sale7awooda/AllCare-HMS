@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
-import { Plus, Calendar, Clock, User } from 'lucide-react';
+import { Plus, Calendar, Clock, User, Lock } from 'lucide-react';
 import { api } from '../services/api';
-import { Patient, Appointment, MedicalStaff } from '../types';
+import { Patient, Appointment, MedicalStaff, User as UserType } from '../types';
+import { hasPermission } from '../utils/rbac';
 
 export const Appointments = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -22,14 +24,16 @@ export const Appointments = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const [apts, pts, stf] = await Promise.all([
+    const [apts, pts, stf, user] = await Promise.all([
       api.getAppointments(),
       api.getPatients(),
-      api.getStaff()
+      api.getStaff(),
+      api.me()
     ]);
     setAppointments(apts);
     setPatients(pts);
     setStaff(stf);
+    setCurrentUser(user);
     setLoading(false);
   };
 
@@ -57,11 +61,24 @@ export const Appointments = () => {
     }
   };
 
+  const canManageAppointments = hasPermission(currentUser, 'MANAGE_APPOINTMENTS');
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
-        <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Book Appointment</Button>
+        {canManageAppointments ? (
+          <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Book Appointment</Button>
+        ) : (
+          <Button 
+            disabled 
+            className="opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200" 
+            variant="secondary"
+            icon={Lock}
+          >
+            Book Appointment
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -101,7 +118,7 @@ export const Appointments = () => {
                          <Badge color={apt.status === 'confirmed' ? 'green' : apt.status === 'cancelled' ? 'red' : 'yellow'}>{apt.status}</Badge>
                       </td>
                       <td className="px-4 py-3 text-right text-sm align-top whitespace-nowrap">
-                        {apt.status === 'pending' && (
+                        {apt.status === 'pending' && canManageAppointments && (
                           <button 
                             onClick={() => { api.updateAppointmentStatus(apt.id, 'confirmed'); loadData(); }}
                             className="text-green-600 hover:text-green-800 font-medium mr-3 transition-colors"

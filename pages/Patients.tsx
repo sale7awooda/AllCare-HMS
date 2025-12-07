@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
-import { Plus, Search, Filter, Heart, Shield, AlertTriangle, Edit, Eye, Calendar } from 'lucide-react';
+import { Plus, Search, Filter, Heart, Shield, AlertTriangle, Edit, Eye, Calendar, Lock } from 'lucide-react';
 import { api } from '../services/api';
-import { Patient, EmergencyContact, InsuranceDetails, Appointment } from '../types';
+import { Patient, EmergencyContact, InsuranceDetails, Appointment, User } from '../types';
+import { hasPermission } from '../utils/rbac';
 
 export const Patients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // UI States
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,9 +44,14 @@ export const Patients = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const [pts, apts] = await Promise.all([api.getPatients(), api.getAppointments()]);
+    const [pts, apts, user] = await Promise.all([
+      api.getPatients(), 
+      api.getAppointments(),
+      api.me()
+    ]);
     setPatients(pts);
     setAllAppointments(apts);
+    setCurrentUser(user);
     setLoading(false);
   };
 
@@ -146,11 +153,25 @@ export const Patients = () => {
     return matchesSearch && matchesType && matchesGender;
   });
 
+  // Permission Check
+  const canManagePatients = hasPermission(currentUser, 'MANAGE_PATIENTS');
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Patient Management</h1>
-        <Button onClick={openCreateModal} icon={Plus}>Register Patient</Button>
+        {canManagePatients ? (
+          <Button onClick={openCreateModal} icon={Plus}>Register Patient</Button>
+        ) : (
+          <Button 
+            disabled 
+            className="opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200" 
+            variant="secondary"
+            icon={Lock}
+          >
+            Register Patient
+          </Button>
+        )}
       </div>
 
       <Card className="!p-0 overflow-visible z-10">
@@ -261,13 +282,15 @@ export const Patients = () => {
                         >
                           <Eye size={16} />
                         </button>
-                        <button 
-                          onClick={() => openEditModal(patient)} 
-                          className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors" 
-                          title="Edit"
-                        >
-                          <Edit size={16} />
-                        </button>
+                        {canManagePatients && (
+                          <button 
+                            onClick={() => openEditModal(patient)} 
+                            className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors" 
+                            title="Edit"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

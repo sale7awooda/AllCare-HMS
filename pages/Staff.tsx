@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
-import { Plus, Search, Filter, Mail, Phone, MapPin, Briefcase } from 'lucide-react';
+import { Plus, Search, Filter, Mail, Phone, MapPin, Briefcase, Lock } from 'lucide-react';
 import { api } from '../services/api';
-import { MedicalStaff } from '../types';
+import { MedicalStaff, User } from '../types';
+import { hasPermission } from '../utils/rbac';
 
 export const Staff = () => {
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -25,8 +27,12 @@ export const Staff = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const data = await api.getStaff();
+    const [data, user] = await Promise.all([
+      api.getStaff(),
+      api.me()
+    ]);
     setStaff(data);
+    setCurrentUser(user);
     setLoading(false);
   };
 
@@ -48,6 +54,7 @@ export const Staff = () => {
   };
 
   const toggleAvailability = async (id: number, currentStatus: boolean) => {
+    if (!canManageStaff) return;
     await api.updateStaff(id, { isAvailable: !currentStatus });
     loadData();
   };
@@ -59,11 +66,24 @@ export const Staff = () => {
     return matchesSearch && matchesFilter;
   });
 
+  const canManageStaff = hasPermission(currentUser, 'MANAGE_STAFF');
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Medical Staff Management</h1>
-        <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Add Staff Member</Button>
+        {canManageStaff ? (
+          <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Add Staff Member</Button>
+        ) : (
+          <Button 
+            disabled 
+            className="opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200" 
+            variant="secondary"
+            icon={Lock}
+          >
+            Add Staff Member
+          </Button>
+        )}
       </div>
 
       <Card className="!p-0 overflow-hidden">
@@ -146,13 +166,16 @@ export const Staff = () => {
                     <td className="px-4 py-3 align-top whitespace-nowrap">
                       <button 
                         onClick={() => toggleAvailability(person.id, person.isAvailable)}
-                        className={`group relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.isAvailable ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                        disabled={!canManageStaff}
+                        className={`group relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.isAvailable ? 'bg-emerald-500' : 'bg-gray-300'} ${!canManageStaff ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${person.isAvailable ? 'translate-x-4' : 'translate-x-0'}`} />
                       </button>
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-medium align-top whitespace-nowrap">
-                      <button className="text-primary-600 hover:text-primary-900 transition-colors">Edit</button>
+                      {canManageStaff && (
+                        <button className="text-primary-600 hover:text-primary-900 transition-colors">Edit</button>
+                      )}
                     </td>
                   </tr>
                 ))
