@@ -15,6 +15,7 @@ const db = new Database(dbPath, { verbose: console.log });
 const initDB = () => {
   db.pragma('journal_mode = WAL');
   
+  // 1. Define Schema
   const schema = `
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,6 +35,18 @@ const initDB = () => {
       age INTEGER,
       gender TEXT,
       type TEXT DEFAULT 'outpatient',
+      
+      -- Medical Info
+      symptoms TEXT,
+      medical_history TEXT,
+      allergies TEXT,
+      blood_group TEXT,
+      
+      -- Insurance & Emergency
+      emergency_contacts TEXT,
+      has_insurance BOOLEAN DEFAULT 0,
+      insurance_details TEXT,
+
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -87,7 +100,34 @@ const initDB = () => {
   
   db.exec(schema);
 
-  // Seed Users for all roles
+  // 2. Run Auto-Migrations for existing tables
+  // This prevents 500 Errors when code expects columns that don't exist in old DBs
+  const columnsToAdd = [
+    { table: 'patients', name: 'symptoms', type: 'TEXT' },
+    { table: 'patients', name: 'medical_history', type: 'TEXT' },
+    { table: 'patients', name: 'allergies', type: 'TEXT' },
+    { table: 'patients', name: 'blood_group', type: 'TEXT' },
+    { table: 'patients', name: 'emergency_contacts', type: 'TEXT' },
+    { table: 'patients', name: 'has_insurance', type: 'BOOLEAN DEFAULT 0' },
+    { table: 'patients', name: 'insurance_details', type: 'TEXT' }
+  ];
+
+  columnsToAdd.forEach(col => {
+    try {
+      // Check if column exists
+      const tableInfo = db.pragma(`table_info(${col.table})`);
+      const exists = tableInfo.some(info => info.name === col.name);
+      
+      if (!exists) {
+        console.log(`Migrating: Adding ${col.name} to ${col.table}...`);
+        db.prepare(`ALTER TABLE ${col.table} ADD COLUMN ${col.name} ${col.type}`).run();
+      }
+    } catch (err) {
+      console.error(`Migration warning for ${col.name}:`, err.message);
+    }
+  });
+
+  // 3. Seed Users
   const usersToSeed = [
     { username: 'admin', role: 'admin', fullName: 'System Admin' },
     { username: 'manager', role: 'manager', fullName: 'Hospital Manager' },
@@ -102,7 +142,6 @@ const initDB = () => {
 
   usersToSeed.forEach(user => {
     if (!checkUser.get(user.username)) {
-      // Default password is username + "123"
       const hash = bcrypt.hashSync(`${user.username}123`, 10);
       insertUser.run(user.username, hash, user.fullName, user.role);
       console.log(`Seeded user: ${user.username}`);

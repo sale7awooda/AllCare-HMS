@@ -18,6 +18,7 @@ router.use(authenticateToken);
 router.get('/patients', patientController.getAll);
 router.post('/patients', patientController.create);
 router.get('/patients/:id', patientController.getOne);
+router.patch('/patients/:id', patientController.update);
 
 // Staff
 router.get('/staff', staffController.getAll);

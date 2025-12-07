@@ -68,9 +68,18 @@ export const api = {
     return data;
   },
 
+  async getPatient(id: number): Promise<Patient> {
+    const { data } = await client.get(`/patients/${id}`);
+    return data;
+  },
+
   async addPatient(patient: Partial<Patient>): Promise<Patient> {
     const { data } = await client.post('/patients', patient);
     return data;
+  },
+
+  async updatePatient(id: number, patient: Partial<Patient>): Promise<void> {
+    await client.patch(`/patients/${id}`, patient);
   },
 
   // Staff

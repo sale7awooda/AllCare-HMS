@@ -40,18 +40,64 @@ exports.create = (req, res) => {
   }
 };
 
+exports.update = (req, res) => {
+  const { id } = req.params;
+  const { 
+    fullName, phone, address, age, gender, type,
+    symptoms, medicalHistory, allergies, bloodGroup,
+    emergencyContact, hasInsurance, insuranceDetails
+  } = req.body;
+
+  const emergencyJson = emergencyContact ? JSON.stringify(emergencyContact) : null;
+  const insuranceJson = insuranceDetails ? JSON.stringify(insuranceDetails) : null;
+  const hasInsuranceInt = hasInsurance ? 1 : 0;
+
+  try {
+    const stmt = db.prepare(`
+      UPDATE patients SET
+        full_name = ?, phone = ?, address = ?, age = ?, gender = ?, type = ?,
+        symptoms = ?, medical_history = ?, allergies = ?, blood_group = ?,
+        emergency_contacts = ?, has_insurance = ?, insurance_details = ?
+      WHERE id = ?
+    `);
+    
+    const result = stmt.run(
+      fullName, phone, address, age, gender, type,
+      symptoms, medicalHistory, allergies, bloodGroup,
+      emergencyJson, hasInsuranceInt, insuranceJson,
+      id
+    );
+
+    if (result.changes === 0) return res.status(404).json({ error: 'Patient not found' });
+    res.json({ message: 'Updated successfully' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
 exports.getOne = (req, res) => {
   const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id);
   if (!patient) return res.status(404).json({ error: 'Patient not found' });
   
-  // Parse JSON fields
-  try {
-    patient.emergency_contacts = JSON.parse(patient.emergency_contacts);
-    patient.insurance_details = JSON.parse(patient.insurance_details);
-    patient.has_insurance = !!patient.has_insurance;
-  } catch (e) {
-    // Ignore parsing errors
-  }
+  // Map snake_case to camelCase and parse JSON
+  const formatted = {
+    id: patient.id,
+    patientId: patient.patient_id,
+    fullName: patient.full_name,
+    phone: patient.phone,
+    address: patient.address,
+    age: patient.age,
+    gender: patient.gender,
+    type: patient.type,
+    symptoms: patient.symptoms,
+    medicalHistory: patient.medical_history,
+    allergies: patient.allergies,
+    bloodGroup: patient.blood_group,
+    createdAt: patient.created_at,
+    hasInsurance: !!patient.has_insurance,
+    emergencyContact: patient.emergency_contacts ? JSON.parse(patient.emergency_contacts) : undefined,
+    insuranceDetails: patient.insurance_details ? JSON.parse(patient.insurance_details) : undefined,
+  };
 
-  res.json(patient);
+  res.json(formatted);
 };
