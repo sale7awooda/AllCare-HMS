@@ -1,19 +1,8 @@
-
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
-
-// CRITICAL FIX: Ensure the directory exists before trying to open the DB
-// This prevents crashes on Railway when the /data volume is not yet initialized
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-  console.log(`Creating database directory: ${dbDir}`);
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-
-console.log(`Initializing database at: ${dbPath}`);
 const db = new Database(dbPath, { verbose: console.log });
 
 const initDB = () => {
@@ -91,24 +80,13 @@ const initDB = () => {
   
   db.exec(schema);
 
-  // Seed Users for Development
-  const usersToSeed = [
-    { username: 'admin', role: 'admin', pass: 'admin123', name: 'System Admin' },
-    { username: 'receptionist', role: 'receptionist', pass: 'receptionist123', name: 'Front Desk' },
-    { username: 'manager', role: 'manager', pass: 'manager123', name: 'Hospital Manager' },
-    { username: 'accountant', role: 'accountant', pass: 'accountant123', name: 'Chief Accountant' }
-  ];
-
-  const bcrypt = require('bcryptjs');
-  const insertUser = db.prepare('INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)');
-  const checkUser = db.prepare('SELECT id FROM users WHERE username = ?');
-
-  for (const u of usersToSeed) {
-    if (!checkUser.get(u.username)) {
-      const hash = bcrypt.hashSync(u.pass, 10);
-      insertUser.run(u.username, hash, u.name, u.role);
-      console.log(`Seeded user: ${u.username}`);
-    }
+  // Seed Admin User if not exists
+  const admin = db.prepare('SELECT * FROM users WHERE username = ?').get('admin');
+  if (!admin) {
+    const bcrypt = require('bcryptjs');
+    const hash = bcrypt.hashSync('admin123', 10);
+    db.prepare('INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)').run('admin', hash, 'System Admin', 'admin');
+    console.log('Default admin user created');
   }
 };
 

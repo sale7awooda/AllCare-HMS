@@ -1,11 +1,16 @@
-
 import axios from 'axios';
 import { Patient, Appointment, MedicalStaff, Bill, User } from '../types';
 
-// Configuration
-// In production (served by backend), use relative path '/api'. 
-// In development (Vite proxy), this also works as '/api'.
-const API_URL = (import.meta as any).env?.VITE_API_URL || '/api';
+// Configuration Logic
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const RAILWAY_URL = 'https://railway-hms-production.up.railway.app/api';
+const LOCAL_URL = 'http://localhost:3000/api';
+
+// If we are in a Cloud IDE (not localhost), use the Railway URL directly.
+// If we are on localhost, try the Vite proxy (or local backend).
+const API_URL = (import.meta as any).env?.VITE_API_URL || (isLocalhost ? '/api' : RAILWAY_URL);
+
+console.log(`🔌 API Client initialized. Mode: ${isLocalhost ? 'Local' : 'Cloud/Production'}. Target: ${API_URL}`);
 
 const client = axios.create({
   baseURL: API_URL,
@@ -39,7 +44,9 @@ client.interceptors.response.use(
 export const api = {
   // Auth
   async login(username: string, password?: string): Promise<User> {
-    const { data } = await client.post('/login', { username, password });
+    // Default password for demo if not provided, though form should provide it
+    const pwd = password || 'admin123'; 
+    const { data } = await client.post('/login', { username, password: pwd }); 
     localStorage.setItem('token', data.token);
     return data.user;
   },
@@ -57,11 +64,6 @@ export const api = {
 
   async addPatient(patient: Partial<Patient>): Promise<Patient> {
     const { data } = await client.post('/patients', patient);
-    return data;
-  },
-
-  async getOnePatient(id: number | string): Promise<Patient> {
-    const { data } = await client.get(`/patients/${id}`);
     return data;
   },
 

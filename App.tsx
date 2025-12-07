@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
@@ -9,7 +8,7 @@ import { Billing } from './pages/Billing';
 import { Staff } from './pages/Staff';
 import { User } from './types';
 import { api } from './services/api';
-import { ShieldCheck, UserCheck, Stethoscope, Calculator } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 // Simple Login Component
 const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
@@ -26,24 +25,16 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
       const user = await api.login(username, password);
       onLogin(user);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed');
+      console.error(err);
+      setError(err.response?.data?.error || 'Login failed. Please check your credentials or connection.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDevLogin = (role: string) => {
-    const creds: Record<string, { u: string, p: string }> = {
-      admin: { u: 'admin', p: 'admin123' },
-      receptionist: { u: 'receptionist', p: 'receptionist123' },
-      manager: { u: 'manager', p: 'manager123' },
-      accountant: { u: 'accountant', p: 'accountant123' }
-    };
-    const c = creds[role];
-    if (c) {
-      setUsername(c.u);
-      setPassword(c.p);
-    }
+    setUsername(role);
+    setPassword(`${role}123`); // Matches seed data: admin123, manager123, etc.
   };
 
   return (
@@ -55,7 +46,8 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
         </div>
         
         {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg">
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
+            <AlertCircle size={16} />
             {error}
           </div>
         )}
@@ -69,7 +61,7 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
               className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 px-3 border"
               value={username}
               onChange={e => setUsername(e.target.value)}
-              placeholder="Username"
+              placeholder="e.g. admin"
             />
           </div>
           <div>
@@ -78,9 +70,9 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
                type="password" 
                required
                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 px-3 border"
+               placeholder="••••••••"
                value={password}
                onChange={e => setPassword(e.target.value)}
-               placeholder="••••••••"
              />
           </div>
           <button 
@@ -93,20 +85,10 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
         </form>
 
         <div className="mt-8 pt-6 border-t border-gray-100">
-          <p className="text-xs text-center text-gray-400 mb-4 uppercase tracking-wider font-semibold">Dev Login Helper</p>
+          <p className="text-xs text-center text-gray-400 mb-3">Developer Login Helper</p>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => handleDevLogin('admin')} className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded text-xs text-gray-600 border border-gray-200 transition-colors">
-              <ShieldCheck size={14} className="text-purple-500" /> Admin
-            </button>
-            <button onClick={() => handleDevLogin('receptionist')} className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded text-xs text-gray-600 border border-gray-200 transition-colors">
-              <UserCheck size={14} className="text-blue-500" /> Receptionist
-            </button>
-            <button onClick={() => handleDevLogin('manager')} className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded text-xs text-gray-600 border border-gray-200 transition-colors">
-              <Stethoscope size={14} className="text-green-500" /> Manager
-            </button>
-            <button onClick={() => handleDevLogin('accountant')} className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded text-xs text-gray-600 border border-gray-200 transition-colors">
-              <Calculator size={14} className="text-orange-500" /> Accountant
-            </button>
+            <button type="button" onClick={() => handleDevLogin('admin')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Admin</button>
+            <button type="button" onClick={() => handleDevLogin('manager')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Manager</button>
           </div>
         </div>
       </div>
@@ -116,22 +98,27 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  // Check for existing token on mount
-  React.useEffect(() => {
+  useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const user = await api.me();
-          setUser(user);
+          const userData = await api.me();
+          setUser(userData);
         } catch (e) {
           localStorage.removeItem('token');
         }
       }
+      setIsAuthChecking(false);
     };
     checkAuth();
   }, []);
+
+  if (isAuthChecking) {
+    return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>;
+  }
 
   if (!user) {
     return <Login onLogin={setUser} />;
@@ -139,7 +126,7 @@ export default function App() {
 
   return (
     <Router>
-      <Layout user={user} onLogout={() => setUser(null)}>
+      <Layout user={user} onLogout={() => { localStorage.removeItem('token'); setUser(null); }}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/patients" element={<Patients />} />

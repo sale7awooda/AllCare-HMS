@@ -1,4 +1,3 @@
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -9,9 +8,7 @@ const { initDB } = require('./src/config/database');
 const apiRoutes = require('./src/routes/api');
 
 const app = express();
-const PORT = parseInt(process.env.PORT, 10) || 3000;
-
-console.log('Starting AllCare HMS Backend...');
+const PORT = process.env.PORT || 3000;
 
 // Initialize Database
 try {
@@ -19,7 +16,6 @@ try {
   console.log('Database initialized successfully.');
 } catch (error) {
   console.error('Failed to initialize database:', error);
-  process.exit(1);
 }
 
 // Middleware
@@ -27,33 +23,35 @@ app.use(helmet({
   contentSecurityPolicy: false, 
 }));
 
-// CORS Configuration
-// Allows requests from your local dev environment or cloud IDEs to hit the Railway backend
+// CORS Configuration - Critical for Hybrid Dev
 app.use(cors({
-  origin: function (origin, callback) {
+  origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    // In production, you might want to restrict this. For now, allow all to enable hybrid dev.
+    // In development/hybrid mode, allow any origin to support Cloud IDEs
+    // In production, you might want to restrict this to your specific domain
     return callback(null, true);
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(morgan('dev'));
 app.use(express.json());
 
-// Health Check (For Railway)
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// API Routes
+// Routes
 app.use('/api', apiRoutes);
 
-// --- SERVE FRONTEND (Production) ---
+// Health Check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date() });
+});
+
+// Serve Static Frontend (Production)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Catch-all route to serve index.html for React Router
+// Catch-all route for React Router
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -65,5 +63,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running and listening on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
