@@ -1,3 +1,4 @@
+
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
@@ -80,13 +81,24 @@ const initDB = () => {
   
   db.exec(schema);
 
-  // Seed Admin User if not exists
-  const admin = db.prepare('SELECT * FROM users WHERE username = ?').get('admin');
-  if (!admin) {
-    const bcrypt = require('bcryptjs');
-    const hash = bcrypt.hashSync('admin123', 10);
-    db.prepare('INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)').run('admin', hash, 'System Admin', 'admin');
-    console.log('Default admin user created');
+  // Seed Users for Development
+  const usersToSeed = [
+    { username: 'admin', role: 'admin', pass: 'admin123', name: 'System Admin' },
+    { username: 'receptionist', role: 'receptionist', pass: 'receptionist123', name: 'Front Desk' },
+    { username: 'manager', role: 'manager', pass: 'manager123', name: 'Hospital Manager' },
+    { username: 'accountant', role: 'accountant', pass: 'accountant123', name: 'Chief Accountant' }
+  ];
+
+  const bcrypt = require('bcryptjs');
+  const insertUser = db.prepare('INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)');
+  const checkUser = db.prepare('SELECT id FROM users WHERE username = ?');
+
+  for (const u of usersToSeed) {
+    if (!checkUser.get(u.username)) {
+      const hash = bcrypt.hashSync(u.pass, 10);
+      insertUser.run(u.username, hash, u.name, u.role);
+      console.log(`Seeded user: ${u.username}`);
+    }
   }
 };
 

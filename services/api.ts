@@ -1,3 +1,4 @@
+
 import axios from 'axios';
 import { Patient, Appointment, MedicalStaff, Bill, User } from '../types';
 
@@ -35,10 +36,15 @@ client.interceptors.response.use(
 // API Service
 export const api = {
   // Auth
-  async login(username: string): Promise<User> {
-    const { data } = await client.post('/login', { username, password: 'password123' }); // Password hardcoded for demo simplicity
+  async login(username: string, password?: string): Promise<User> {
+    const { data } = await client.post('/login', { username, password });
     localStorage.setItem('token', data.token);
     return data.user;
+  },
+
+  async me(): Promise<User> {
+    const { data } = await client.get('/me');
+    return data;
   },
 
   // Patients
