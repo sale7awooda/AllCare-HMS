@@ -1,0 +1,5 @@
+{
+  "name": "AllCare HMS",
+  "description": "A production-ready Hospital Management System with Patient, Appointment, Billing, and Staff management modules.",
+  "requestFramePermissions": []
+}

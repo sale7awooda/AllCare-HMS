@@ -1,0 +1,230 @@
+import React, { useState, useEffect } from 'react';
+import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
+import { Plus, Search, Filter, Mail, Phone, MapPin, Briefcase } from 'lucide-react';
+import { api } from '../services/api';
+import { MedicalStaff } from '../types';
+
+export const Staff = () => {
+  const [staff, setStaff] = useState<MedicalStaff[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Form State
+  const [formData, setFormData] = useState<Partial<MedicalStaff>>({
+    fullName: '',
+    type: 'doctor',
+    department: '',
+    specialization: '',
+    consultationFee: 0,
+    email: '',
+    phone: '',
+    isAvailable: true
+  });
+
+  const loadData = async () => {
+    setLoading(true);
+    const data = await api.getStaff();
+    setStaff(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.fullName && formData.type) {
+      await api.addStaff(formData as any);
+      setIsModalOpen(false);
+      loadData();
+      setFormData({ 
+        fullName: '', type: 'doctor', department: '', 
+        specialization: '', consultationFee: 0, email: '', phone: '', isAvailable: true 
+      });
+    }
+  };
+
+  const toggleAvailability = async (id: number, currentStatus: boolean) => {
+    await api.updateStaff(id, { isAvailable: !currentStatus });
+    loadData();
+  };
+
+  const filteredStaff = staff.filter(s => {
+    const matchesSearch = s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          s.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterType === 'all' || s.type === filterType;
+    return matchesSearch && matchesFilter;
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">Medical Staff Management</h1>
+        <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Add Staff Member</Button>
+      </div>
+
+      <Card className="!p-0 overflow-hidden">
+        <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input 
+              type="text" 
+              placeholder="Search staff by name or ID..." 
+              className="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="w-full sm:w-48">
+            <Select value={filterType} onChange={e => setFilterType(e.target.value)}>
+              <option value="all">All Roles</option>
+              <option value="doctor">Doctors</option>
+              <option value="nurse">Nurses</option>
+              <option value="technician">Technicians</option>
+            </Select>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role/Dept</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fee</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Availability</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr><td colSpan={6} className="text-center py-8">Loading...</td></tr>
+              ) : filteredStaff.length === 0 ? (
+                 <tr><td colSpan={6} className="text-center py-8 text-gray-500">No staff members found.</td></tr>
+              ) : (
+                filteredStaff.map((person) => (
+                  <tr key={person.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold">
+                          {person.fullName.charAt(0)}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{person.fullName}</div>
+                          <div className="text-xs text-gray-500">{person.employeeId}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 capitalize">{person.type}</div>
+                      <div className="text-xs text-gray-500 flex items-center gap-1">
+                        <Briefcase size={12}/> {person.department}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center text-xs text-gray-500">
+                          <Mail size={12} className="mr-1"/> {person.email || 'N/A'}
+                        </div>
+                        <div className="flex items-center text-xs text-gray-500">
+                          <Phone size={12} className="mr-1"/> {person.phone || 'N/A'}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${person.consultationFee}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button 
+                        onClick={() => toggleAvailability(person.id, person.isAvailable)}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.isAvailable ? 'bg-green-500' : 'bg-gray-200'}`}
+                      >
+                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${person.isAvailable ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </button>
+                      <span className="ml-2 text-xs text-gray-500">{person.isAvailable ? 'Active' : 'Away'}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button className="text-primary-600 hover:text-primary-900">Edit</button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Staff Member">
+        <form onSubmit={handleCreate} className="space-y-4">
+          <Input 
+            label="Full Name" 
+            placeholder="Dr. John Smith" 
+            required 
+            value={formData.fullName} 
+            onChange={e => setFormData({...formData, fullName: e.target.value})} 
+          />
+          
+          <div className="grid grid-cols-2 gap-4">
+             <Select 
+              label="Role" 
+              value={formData.type} 
+              onChange={e => setFormData({...formData, type: e.target.value as any})}
+            >
+              <option value="doctor">Doctor</option>
+              <option value="nurse">Nurse</option>
+              <option value="technician">Technician</option>
+              <option value="specialist">Specialist</option>
+            </Select>
+            <Input 
+              label="Department" 
+              placeholder="Cardiology" 
+              required 
+              value={formData.department} 
+              onChange={e => setFormData({...formData, department: e.target.value})} 
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              label="Specialization" 
+              placeholder="Surgeon" 
+              value={formData.specialization} 
+              onChange={e => setFormData({...formData, specialization: e.target.value})} 
+            />
+            <Input 
+              label="Consultation Fee ($)" 
+              type="number" 
+              value={formData.consultationFee} 
+              onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value)})} 
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              label="Email" 
+              type="email"
+              placeholder="email@allcare.com" 
+              value={formData.email} 
+              onChange={e => setFormData({...formData, email: e.target.value})} 
+            />
+            <Input 
+              label="Phone" 
+              placeholder="555-0000" 
+              value={formData.phone} 
+              onChange={e => setFormData({...formData, phone: e.target.value})} 
+            />
+          </div>
+          
+          <div className="pt-4 flex justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="submit">Add Member</Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+};
