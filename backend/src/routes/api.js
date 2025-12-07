@@ -5,6 +5,7 @@ const patientController = require('../controllers/patient.controller');
 const staffController = require('../controllers/staff.controller');
 const appointmentController = require('../controllers/appointment.controller');
 const billingController = require('../controllers/billing.controller');
+const medicalController = require('../controllers/medical.controller');
 const { authenticateToken } = require('../middleware/auth');
 
 // Auth
@@ -34,5 +35,16 @@ router.patch('/appointments/:id/status', appointmentController.updateStatus);
 router.get('/billing', billingController.getAll);
 router.post('/billing', billingController.create);
 router.post('/billing/:id/pay', billingController.recordPayment);
+
+// Medical Modules
+router.get('/medical/tests', medicalController.getLabTests);
+router.get('/medical/services', medicalController.getNurseServices);
+router.get('/medical/beds', medicalController.getBeds);
+router.get('/medical/operations', medicalController.getOperations);
+
+router.post('/medical/lab-request', medicalController.createLabRequest);
+router.post('/medical/nurse-request', medicalController.createNurseService);
+router.post('/medical/admission', medicalController.createAdmission);
+router.post('/medical/operation', medicalController.createOperation);
 
 module.exports = router;

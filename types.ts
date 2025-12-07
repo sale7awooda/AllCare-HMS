@@ -38,11 +38,11 @@ export interface Patient {
   bloodGroup?: string;
 
   // Emergency
-  emergencyContact?: EmergencyContact; // Stored as JSON string in DB, parsed in frontend if needed
+  emergencyContact?: EmergencyContact; 
 
   // Insurance
   hasInsurance: boolean;
-  insuranceDetails?: InsuranceDetails; // Stored as JSON string in DB
+  insuranceDetails?: InsuranceDetails; 
 
   createdAt: string;
 }
@@ -58,16 +58,16 @@ export interface MedicalStaff {
   isAvailable: boolean;
   email?: string;
   phone?: string;
-  schedule?: string; // JSON string or simple text description
+  schedule?: string; 
 }
 
 export interface Appointment {
   id: number;
   appointmentNumber: string;
   patientId: number;
-  patientName: string; // Joined for display
+  patientName: string; 
   staffId: number;
-  staffName: string; // Joined for display
+  staffName: string; 
   datetime: string;
   type: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
@@ -91,6 +91,36 @@ export interface BillItem {
   id?: number;
   description: string;
   amount: number;
+}
+
+// --- NEW MEDICAL MODULE TYPES ---
+
+export interface LabTestCatalog {
+  id: number;
+  name: string;
+  category: string;
+  cost: number;
+}
+
+export interface NurseServiceCatalog {
+  id: number;
+  name: string;
+  description: string;
+  cost: number;
+}
+
+export interface Bed {
+  id: number;
+  roomNumber: string;
+  type: 'General' | 'Private' | 'ICU';
+  status: 'available' | 'occupied' | 'maintenance';
+  costPerDay: number;
+}
+
+export interface OperationCatalog {
+  id: number;
+  name: string;
+  baseCost: number;
 }
 
 export interface StatCardProps {
