@@ -92,12 +92,12 @@ export const Staff = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Employee</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Role/Dept</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Fee</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Availability</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Employee</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Role/Dept</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Fee</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Availability</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -108,47 +108,51 @@ export const Staff = () => {
               ) : (
                 filteredStaff.map((person) => (
                   <tr key={person.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 align-top">
+                    <td className="px-4 py-3 align-top">
                       <div className="flex items-start">
-                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold mt-1">
+                        <div className="flex-shrink-0 h-9 w-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold mt-1 shadow-sm">
                           {person.fullName.charAt(0)}
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900 break-words">{person.fullName}</div>
-                          <div className="text-xs text-gray-500 whitespace-nowrap">{person.employeeId}</div>
+                        <div className="ml-3">
+                          <div className="text-sm font-bold text-gray-900 break-words leading-tight">{person.fullName}</div>
+                          <div className="text-xs text-gray-500 whitespace-nowrap font-mono">{person.employeeId}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 align-top">
-                      <div className="text-sm text-gray-900 capitalize">{person.type}</div>
-                      <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                        <Briefcase size={12}/> {person.department}
+                    <td className="px-4 py-3 align-top">
+                      <div className="text-sm text-gray-900 capitalize font-medium">{person.type}</div>
+                      <div className="text-xs text-gray-500 flex items-center gap-1 mt-1 break-words">
+                        <Briefcase size={12} className="shrink-0 text-gray-400"/> {person.department}
                       </div>
                     </td>
-                    <td className="px-6 py-4 align-top">
+                    <td className="px-4 py-3 align-top">
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center text-xs text-gray-500 break-words">
-                          <Mail size={12} className="mr-1 shrink-0"/> {person.email || 'N/A'}
-                        </div>
-                        <div className="flex items-center text-xs text-gray-500 whitespace-nowrap">
-                          <Phone size={12} className="mr-1 shrink-0"/> {person.phone || 'N/A'}
-                        </div>
+                        {person.email && (
+                          <div className="flex items-center text-xs text-gray-500 break-words">
+                            <Mail size={12} className="mr-1.5 shrink-0 text-gray-400"/> 
+                            <span className="truncate max-w-[150px]">{person.email}</span>
+                          </div>
+                        )}
+                        {person.phone && (
+                          <div className="flex items-center text-xs text-gray-500 whitespace-nowrap">
+                            <Phone size={12} className="mr-1.5 shrink-0 text-gray-400"/> {person.phone}
+                          </div>
+                        )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 align-top whitespace-nowrap">
+                    <td className="px-4 py-3 text-sm text-gray-900 align-top whitespace-nowrap font-medium">
                       ${person.consultationFee}
                     </td>
-                    <td className="px-6 py-4 align-top whitespace-nowrap">
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
                       <button 
                         onClick={() => toggleAvailability(person.id, person.isAvailable)}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.isAvailable ? 'bg-green-500' : 'bg-gray-200'}`}
+                        className={`group relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.isAvailable ? 'bg-emerald-500' : 'bg-gray-300'}`}
                       >
-                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${person.isAvailable ? 'translate-x-5' : 'translate-x-0'}`} />
+                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${person.isAvailable ? 'translate-x-4' : 'translate-x-0'}`} />
                       </button>
-                      <span className="ml-2 text-xs text-gray-500">{person.isAvailable ? 'Active' : 'Away'}</span>
                     </td>
-                    <td className="px-6 py-4 text-right text-sm font-medium align-top whitespace-nowrap">
-                      <button className="text-primary-600 hover:text-primary-900">Edit</button>
+                    <td className="px-4 py-3 text-right text-sm font-medium align-top whitespace-nowrap">
+                      <button className="text-primary-600 hover:text-primary-900 transition-colors">Edit</button>
                     </td>
                   </tr>
                 ))

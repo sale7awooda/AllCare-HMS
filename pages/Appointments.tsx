@@ -71,40 +71,45 @@ export const Appointments = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Appt ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Patient</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Doctor</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Date & Time</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Appt ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Patient</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Doctor</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Date & Time</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {appointments.map((apt) => (
-                    <tr key={apt.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 align-top">{apt.appointmentNumber}</td>
-                      <td className="px-6 py-4 align-top">
-                         <div className="text-sm text-gray-900 font-medium break-words">{apt.patientName}</div>
+                    <tr key={apt.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 align-top whitespace-nowrap">
+                        <span className="font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-xs">{apt.appointmentNumber}</span>
                       </td>
-                      <td className="px-6 py-4 align-top">
-                        <div className="text-sm text-gray-500 break-words">{apt.staffName}</div>
+                      <td className="px-4 py-3 align-top">
+                         <div className="text-sm text-gray-900 font-bold break-words leading-tight">{apt.patientName}</div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 align-top whitespace-nowrap">
-                        {new Date(apt.datetime).toLocaleDateString()} <span className="text-gray-400">|</span> {new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      <td className="px-4 py-3 align-top">
+                        <div className="text-sm text-gray-600 break-words leading-tight">{apt.staffName}</div>
                       </td>
-                      <td className="px-6 py-4 align-top whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-gray-500 align-top whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-800">{new Date(apt.datetime).toLocaleDateString()}</span>
+                          <span className="text-xs text-gray-400">{new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-top whitespace-nowrap">
                          <Badge color={apt.status === 'confirmed' ? 'green' : apt.status === 'cancelled' ? 'red' : 'yellow'}>{apt.status}</Badge>
                       </td>
-                      <td className="px-6 py-4 text-right text-sm align-top whitespace-nowrap">
+                      <td className="px-4 py-3 text-right text-sm align-top whitespace-nowrap">
                         {apt.status === 'pending' && (
                           <button 
                             onClick={() => { api.updateAppointmentStatus(apt.id, 'confirmed'); loadData(); }}
-                            className="text-green-600 hover:text-green-800 font-medium mr-2"
+                            className="text-green-600 hover:text-green-800 font-medium mr-3 transition-colors"
                           >
                             Confirm
                           </button>
                         )}
-                         <button className="text-gray-400 hover:text-gray-600">Details</button>
+                         <button className="text-gray-400 hover:text-gray-600 transition-colors">Details</button>
                       </td>
                     </tr>
                   ))}

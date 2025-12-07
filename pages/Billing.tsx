@@ -120,37 +120,40 @@ export const Billing = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Invoice #</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Patient</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Invoice #</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Patient</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {bills.map((bill) => (
-                <tr key={bill.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 align-top">{bill.billNumber}</td>
-                  <td className="px-6 py-4 align-top">
-                     <div className="text-sm text-gray-900 break-words">{bill.patientName}</div>
+                <tr key={bill.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 align-top">
+                    <span className="font-mono text-xs text-slate-500">{bill.billNumber}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">{bill.date}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 align-top">${bill.totalAmount}</td>
-                  <td className="px-6 py-4 whitespace-nowrap align-top">
+                  <td className="px-4 py-3 align-top">
+                     <div className="text-sm font-semibold text-gray-900 break-words leading-tight">{bill.patientName}</div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 align-top">{bill.date}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 align-top">${bill.totalAmount}</td>
+                  <td className="px-4 py-3 whitespace-nowrap align-top">
                     <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'pending' ? 'yellow' : 'red'}>
                       {bill.status}
                     </Badge>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm align-top">
+                  <td className="px-4 py-3 whitespace-nowrap text-right text-sm align-top">
                      <button 
                        onClick={() => setSelectedBill(bill)}
-                       className="text-gray-400 hover:text-gray-600 mr-3"
+                       className="text-gray-400 hover:text-gray-600 mr-3 transition-colors"
+                       title="Print Invoice"
                      >
                        <Printer size={18} />
                      </button>
                      {bill.status !== 'paid' && (
-                       <button onClick={() => handlePay(bill.id)} className="text-green-600 hover:text-green-800 font-medium">Record Pay</button>
+                       <button onClick={() => handlePay(bill.id)} className="text-green-600 hover:text-green-800 font-medium transition-colors">Record Pay</button>
                      )}
                   </td>
                 </tr>
@@ -194,13 +197,13 @@ export const Billing = () => {
 
       {/* Invoice Viewer Modal */}
       {selectedBill && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-             <div className="flex justify-between items-center p-4 border-b bg-gray-50">
-               <h3 className="font-semibold">Invoice Preview</h3>
+             <div className="flex justify-between items-center p-4 border-b bg-gray-50 sticky top-0">
+               <h3 className="font-semibold text-gray-800">Invoice Preview</h3>
                <div className="flex gap-2">
                  <Button size="sm" icon={Download}>PDF</Button>
-                 <button onClick={() => setSelectedBill(null)}><X className="text-gray-500" /></button>
+                 <button onClick={() => setSelectedBill(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X className="text-gray-500" size={20} /></button>
                </div>
              </div>
              <InvoiceView bill={selectedBill} />

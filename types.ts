@@ -8,6 +8,19 @@ export interface User {
   email: string;
 }
 
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+  relation: string;
+}
+
+export interface InsuranceDetails {
+  provider: string;
+  policyNumber: string;
+  expiryDate: string;
+  notes?: string;
+}
+
 export interface Patient {
   id: number;
   patientId: string;
@@ -17,7 +30,20 @@ export interface Patient {
   gender: 'male' | 'female' | 'other';
   type: 'inpatient' | 'outpatient' | 'emergency';
   address: string;
+  
+  // Medical Details
   medicalHistory?: string;
+  symptoms?: string;
+  allergies?: string;
+  bloodGroup?: string;
+
+  // Emergency
+  emergencyContact?: EmergencyContact; // Stored as JSON string in DB, parsed in frontend if needed
+
+  // Insurance
+  hasInsurance: boolean;
+  insuranceDetails?: InsuranceDetails; // Stored as JSON string in DB
+
   createdAt: string;
 }
 

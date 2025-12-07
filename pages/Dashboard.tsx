@@ -189,31 +189,31 @@ export const Dashboard = () => {
           <table className="min-w-full divide-y divide-slate-100">
             <thead className="bg-slate-50/50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Patient Info</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Doctor</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date & Time</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Patient Info</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Doctor</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Status</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
               {appointments.map((apt) => (
                 <tr key={apt.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs mr-3">
+                  <td className="px-4 py-3 align-top">
+                    <div className="flex items-start">
+                      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs mr-3 mt-0.5 shrink-0">
                         {apt.patientName.charAt(0)}
                       </div>
-                      <div className="text-sm font-semibold text-slate-800">{apt.patientName}</div>
+                      <div className="text-sm font-semibold text-slate-800 break-words leading-snug">{apt.patientName}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{apt.staffName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-3 align-top text-sm text-slate-600 break-words leading-snug">{apt.staffName}</td>
+                  <td className="px-4 py-3 align-top whitespace-nowrap">
                     <div className="flex items-center text-sm text-slate-500">
                       <Clock size={14} className="mr-1.5 text-slate-400"/>
                       {new Date(apt.datetime).toLocaleString()}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-3 align-top whitespace-nowrap">
                     <Badge color={apt.status === 'confirmed' ? 'green' : 'yellow'}>{apt.status}</Badge>
                   </td>
                 </tr>

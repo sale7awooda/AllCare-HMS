@@ -67,14 +67,14 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: stri
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overflow-x-hidden bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg max-h-full rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 scale-100 animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-50">
+      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 scale-100 animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-50 shrink-0">
           <h3 className="text-lg font-bold text-slate-800">{title}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg p-2 transition-colors">
             <X size={20} />
           </button>
         </div>
-        <div className="p-6 space-y-5">{children}</div>
+        <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">{children}</div>
       </div>
     </div>
   );
@@ -95,6 +95,22 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
   )
 );
 Input.displayName = 'Input';
+
+// --- Form Textarea ---
+export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string; error?: string }>(
+  ({ label, error, className = '', ...props }, ref) => (
+    <div className="w-full">
+      {label && <label className="block text-sm font-semibold text-slate-700 mb-1.5">{label}</label>}
+      <textarea
+        ref={ref}
+        className={`block w-full rounded-xl bg-white text-slate-900 placeholder:text-slate-400 border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5 px-4 border transition-all duration-200 ${error ? 'border-red-300 bg-red-50' : ''} ${className}`}
+        {...props}
+      />
+      {error && <p className="mt-1.5 text-xs text-red-600 font-medium flex items-center gap-1"><AlertCircle size={12}/> {error}</p>}
+    </div>
+  )
+);
+Textarea.displayName = 'Textarea';
 
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; error?: string }>(
   ({ label, error, children, className = '', ...props }, ref) => (
