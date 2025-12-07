@@ -20,21 +20,21 @@ try {
 
 // Middleware
 app.use(helmet({
-  contentSecurityPolicy: false, 
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin requests (Critical for Cloud IDEs)
 }));
 
-// CORS Configuration - Critical for Hybrid Dev
+// CORS Configuration
 const corsOptions = {
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    // In development/hybrid mode, allow any origin to support Cloud IDEs
-    // In production, you might want to restrict this to your specific domain
+    // Reflect the request origin to allow any Cloud IDE URL
     return callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 };
 
 app.use(cors(corsOptions));
