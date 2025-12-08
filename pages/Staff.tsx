@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
-import { Plus, Search, Filter, Mail, Phone, MapPin, Briefcase, Lock } from 'lucide-react';
+import { Plus, Search, Filter, Mail, Phone, Briefcase, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, User } from '../types';
-import { hasPermission } from '../utils/rbac';
+// Fix: Updated Permissions import to correctly reference the frontend `utils/rbac` definition.
+import { hasPermission, Permissions } from '../utils/rbac';
 
-export const Staff = () => {
+export const Staff = () => { // This component is now HR Management
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,7 +17,7 @@ export const Staff = () => {
   // Form State
   const [formData, setFormData] = useState<Partial<MedicalStaff>>({
     fullName: '',
-    type: 'doctor',
+    type: 'doctor', // Default type
     department: '',
     specialization: '',
     consultationFee: 0,
@@ -27,13 +28,19 @@ export const Staff = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const [data, user] = await Promise.all([
-      api.getStaff(),
-      api.me()
-    ]);
-    setStaff(data);
-    setCurrentUser(user);
-    setLoading(false);
+    try {
+      const [data, user] = await Promise.all([
+        api.getStaff(), // This now maps to /api/hr
+        api.me()
+      ]);
+      setStaff(Array.isArray(data) ? data : []);
+      setCurrentUser(user);
+    } catch (e) {
+      console.error("Failed to load staff/HR data:", e);
+      setStaff([]); // Ensure staff is an array on error
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -43,36 +50,46 @@ export const Staff = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.fullName && formData.type) {
-      await api.addStaff(formData as any);
-      setIsModalOpen(false);
-      loadData();
-      setFormData({ 
-        fullName: '', type: 'doctor', department: '', 
-        specialization: '', consultationFee: 0, email: '', phone: '', isAvailable: true 
-      });
+      try {
+        await api.addStaff(formData as any); // This now maps to /api/hr
+        setIsModalOpen(false);
+        loadData();
+        setFormData({ 
+          fullName: '', type: 'doctor', department: '', 
+          specialization: '', consultationFee: 0, email: '', phone: '', isAvailable: true 
+        });
+      } catch (err: any) {
+        console.error("Failed to add staff:", err);
+        alert(err.response?.data?.error || "Failed to add staff member.");
+      }
     }
   };
 
   const toggleAvailability = async (id: number, currentStatus: boolean) => {
-    if (!canManageStaff) return;
-    await api.updateStaff(id, { isAvailable: !currentStatus });
-    loadData();
+    if (!canManageHR) return; // Use new permission
+    try {
+      await api.updateStaff(id, { isAvailable: !currentStatus }); // This now maps to /api/hr
+      loadData();
+    } catch (err: any) {
+      console.error("Failed to update staff availability:", err);
+      alert(err.response?.data?.error || "Failed to update availability.");
+    }
   };
 
   const filteredStaff = staff.filter(s => {
     const matchesSearch = s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          s.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+                          (s.employeeId && s.employeeId.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesFilter = filterType === 'all' || s.type === filterType;
     return matchesSearch && matchesFilter;
   });
 
-  const canManageStaff = hasPermission(currentUser, 'MANAGE_STAFF');
+  const canManageHR = hasPermission(currentUser, Permissions.MANAGE_HR); // New permission check
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Medical Staff Management</h1>
-        {canManageStaff ? (
+        <h1 className="text-2xl font-bold text-gray-900">HR Management (Medical Staff)</h1> {/* Updated title */}
+        {canManageHR ? (
           <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Add Staff Member</Button>
         ) : (
           <Button 
@@ -101,9 +118,11 @@ export const Staff = () => {
           <div className="w-full sm:w-48">
             <Select value={filterType} onChange={e => setFilterType(e.target.value)}>
               <option value="all">All Roles</option>
-              <option value="doctor">Doctors</option>
-              <option value="nurse">Nurses</option>
-              <option value="technician">Technicians</option>
+              <option value="doctor">Doctor</option>
+              <option value="nurse">Nurse</option>
+              <option value="technician">Technician</option>
+              <option value="anesthesiologist">Anesthesiologist</option> 
+              <option value="medical_assistant">Medical Assistant</option>
             </Select>
           </div>
         </div>
@@ -166,14 +185,14 @@ export const Staff = () => {
                     <td className="px-4 py-3 align-top whitespace-nowrap">
                       <button 
                         onClick={() => toggleAvailability(person.id, person.isAvailable)}
-                        disabled={!canManageStaff}
-                        className={`group relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.isAvailable ? 'bg-emerald-500' : 'bg-gray-300'} ${!canManageStaff ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={!canManageHR}
+                        className={`group relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.isAvailable ? 'bg-emerald-500' : 'bg-gray-300'} ${!canManageHR ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
-                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${person.isAvailable ? 'translate-x-4' : 'translate-x-0'}`} />
+                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${person.isAvailable ? 'translate-x-4' : 'translate-x-0'}`} />
                       </button>
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-medium align-top whitespace-nowrap">
-                      {canManageStaff && (
+                      {canManageHR && ( 
                         <button className="text-primary-600 hover:text-primary-900 transition-colors">Edit</button>
                       )}
                     </td>
@@ -204,7 +223,8 @@ export const Staff = () => {
               <option value="doctor">Doctor</option>
               <option value="nurse">Nurse</option>
               <option value="technician">Technician</option>
-              <option value="specialist">Specialist</option>
+              <option value="anesthesiologist">Anesthesiologist</option> 
+              <option value="medical_assistant">Medical Assistant</option>
             </Select>
             <Input 
               label="Department" 
@@ -226,7 +246,7 @@ export const Staff = () => {
               label="Consultation Fee ($)" 
               type="number" 
               value={formData.consultationFee} 
-              onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value)})} 
+              onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value || '0'))} 
             />
           </div>
 

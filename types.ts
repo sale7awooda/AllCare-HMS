@@ -1,10 +1,15 @@
 import React from 'react';
 
+// Define the 5 comprehensive roles as per requirements
+export type Role = 
+  'admin' | 'receptionist' | 'manager' | 'accountant' | 
+  'technician'; // Technician is the 'labtech' user
+
 export interface User {
   id: number;
   username: string;
   fullName: string;
-  role: 'admin' | 'receptionist' | 'manager' | 'accountant' | 'technician';
+  role: Role; 
   email: string;
 }
 
@@ -51,7 +56,8 @@ export interface MedicalStaff {
   id: number;
   employeeId: string;
   fullName: string;
-  type: 'doctor' | 'nurse' | 'technician' | 'specialist';
+  // Staff types managed, aligning with requirements (doctor, nurse, technician, anesthesiologist, medical_assistant)
+  type: 'doctor' | 'nurse' | 'anesthesiologist' | 'technician' | 'medical_assistant'; 
   department: string;
   specialization: string;
   consultationFee: number;
@@ -93,8 +99,7 @@ export interface BillItem {
   amount: number;
 }
 
-// --- NEW MEDICAL MODULE TYPES ---
-
+// Keep these types as the patient action menu still creates data for them
 export interface LabTestCatalog {
   id: number;
   name: string;

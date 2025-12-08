@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog } from '../types';
-import { hasPermission } from '../utils/rbac';
+// Fix: Updated Permissions import to correctly reference the frontend `utils/rbac` definition.
+import { hasPermission, Permissions } from '../utils/rbac';
 
 export const Patients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -44,20 +45,16 @@ export const Patients = () => {
     date: new Date().toISOString().split('T')[0],
     time: '09:00',
     notes: '',
-    subtype: '',
+    subtype: '', // Used for Op Name search etc. or generic appt type
     dischargeDate: ''
   });
 
-  // Specific States
+  // Specific States for Complex Forms (simplified as modules are gone)
   const [selectedTests, setSelectedTests] = useState<LabTestCatalog[]>([]);
   const [testSearch, setTestSearch] = useState('');
   const [selectedService, setSelectedService] = useState<NurseServiceCatalog | null>(null);
   const [selectedBed, setSelectedBed] = useState<BedType | null>(null);
-
-  // Optional Op Fields
-  const [opDetails, setOpDetails] = useState({
-    assistant: '', anesthesiologist: '', nurse: '', drugs: '', equipment: '', theater: ''
-  });
+  // opDetails removed as per revert
 
   // SUDAN INSURANCE PROVIDERS
   const SUDAN_INSURANCE_PROVIDERS = [
@@ -67,8 +64,9 @@ export const Patients = () => {
   ];
 
   // Registration Form State
+  // Fix: Removed 'as const' from gender and type to resolve type assignability errors.
   const initialFormState = {
-    fullName: '', age: 0, phone: '', gender: 'male' as const, type: 'outpatient' as const, address: '',
+    fullName: '', age: 0, phone: '', gender: 'male', type: 'outpatient', address: '',
     symptoms: '', medicalHistory: '', allergies: '', bloodGroup: '',
     hasInsurance: false,
     emergencyName: '', emergencyPhone: '', emergencyRelation: '',
@@ -170,20 +168,20 @@ export const Patients = () => {
       openViewModal(selectedPatient!);
       return;
     }
-    // Reset
+    // Reset specific states
     setSelectedTests([]);
     setTestSearch('');
     setSelectedService(null);
     setSelectedBed(null);
-    setOpDetails({ assistant: '', anesthesiologist: '', nurse: '', drugs: '', equipment: '', theater: '' });
-    
+    // opDetails removed as per revert
+
     setCurrentAction(action);
     setActionFormData({
       staffId: '',
       date: new Date().toISOString().split('T')[0],
       time: '09:00',
       notes: '',
-      subtype: '',
+      subtype: '', // Will be used for general type if no specific field
       dischargeDate: ''
     });
     setIsActionModalOpen(true);
@@ -194,63 +192,101 @@ export const Patients = () => {
     if (!selectedPatient || !currentAction) return;
 
     try {
+      let appointmentType: string = currentAction;
+      let billAmount: number = 0;
+      let billDescription: string = '';
+      let staffAssignedId: number | undefined = actionFormData.staffId ? parseInt(actionFormData.staffId) : undefined;
+      let staffAssignedName: string = staff.find(s => s.id === staffAssignedId)?.fullName || 'Unassigned';
+
       if (currentAction === 'lab') {
         if (selectedTests.length === 0) return alert('Select at least one test');
+        appointmentType = `Lab Test: ${selectedTests.map(t => t.name).join(', ')}`;
+        billAmount = selectedTests.reduce((a,b)=>a+b.cost, 0);
+        billDescription = `Lab Tests for ${selectedPatient.fullName}`;
+        
+        // This will create a record in `lab_requests` and also a bill.
         await api.createLabRequest({
           patientId: selectedPatient.id,
           patientName: selectedPatient.fullName,
           testIds: selectedTests.map(t => t.id),
-          totalCost: selectedTests.reduce((a,b)=>a+b.cost, 0)
+          totalCost: billAmount
         });
-      }
-      else if (currentAction === 'nurse') {
-        if (!selectedService) return alert('Select a service');
+
+      } else if (currentAction === 'nurse') {
+        if (!selectedService) return alert('Select a service.');
+        appointmentType = `Nurse Service: ${selectedService.name}`;
+        billAmount = selectedService.cost;
+        billDescription = `Nurse Service: ${selectedService.name} for ${selectedPatient.fullName}`;
+        
+        // This will create a record in `appointments` and also a bill.
         await api.createNurseRequest({
           patientId: selectedPatient.id,
           serviceName: selectedService.name,
           cost: selectedService.cost,
           notes: actionFormData.notes
         });
-      }
-      else if (currentAction === 'admission') {
-        if (!selectedBed) return alert('Select a bed');
+
+      } else if (currentAction === 'admission') {
+        if (!selectedBed) return alert('Select a bed.');
+        if (!staffAssignedId) return alert('Select a treating doctor.');
+        appointmentType = `Admission: Bed ${selectedBed.roomNumber}`;
+        billAmount = selectedBed.costPerDay; // Initial deposit/charge
+        billDescription = `Admission to Bed ${selectedBed.roomNumber} for ${selectedPatient.fullName}`;
+        
+        // This will create a record in `admissions` and also a bill.
         await api.createAdmission({
           patientId: selectedPatient.id,
           bedId: selectedBed.id,
-          doctorId: actionFormData.staffId,
+          doctorId: staffAssignedId,
           entryDate: actionFormData.date,
           dischargeDate: actionFormData.dischargeDate,
-          deposit: selectedBed.costPerDay
+          deposit: billAmount
         });
-      }
-      else if (currentAction === 'operation') {
+
+      } else if (currentAction === 'operation') {
+        if (!actionFormData.subtype) return alert('Enter operation name.');
+        if (!staffAssignedId) return alert('Select a surgeon.');
+        appointmentType = `Operation: ${actionFormData.subtype}`;
+        billDescription = `Operation: ${actionFormData.subtype} for ${selectedPatient.fullName}`;
+        // Bill amount will be 0 initially, updated by accountant
+        billAmount = 0;
+
+        // This will create a record in `operations` and also a bill.
         await api.createOperation({
           patientId: selectedPatient.id,
           operationName: actionFormData.subtype,
-          doctorId: actionFormData.staffId, // Surgeon
+          doctorId: staffAssignedId,
           notes: actionFormData.notes,
-          optionalFields: opDetails
+          optionalFields: {} // Simplified for revert - no specific fields here
         });
-      }
-      else if (currentAction === 'appointment') {
-        const doc = staff.find(s => s.id === parseInt(actionFormData.staffId));
+
+      } else if (currentAction === 'appointment') {
+        if (!staffAssignedId) return alert('Select a doctor.');
+        appointmentType = actionFormData.subtype || 'Consultation';
+        const docFee = staff.find(s => s.id === staffAssignedId)?.consultationFee || 0;
+        billAmount = docFee;
+        billDescription = `Consultation: ${staffAssignedName} for ${selectedPatient.fullName}`;
+        
+        // This creates a standard appointment record
         await api.createAppointment({
           patientId: selectedPatient.id,
           patientName: selectedPatient.fullName,
-          staffId: doc?.id || 0,
-          staffName: doc?.fullName || 'Unassigned',
+          staffId: staffAssignedId,
+          staffName: staffAssignedName,
           datetime: `${actionFormData.date}T${actionFormData.time}`,
-          type: actionFormData.subtype || 'Consultation',
+          type: appointmentType,
           reason: actionFormData.notes,
           status: 'pending'
         });
-        if (doc?.consultationFee) {
+        
+        // If there's a consultation fee, create a bill for it
+        if (billAmount > 0) {
           await api.createBill({
             patientId: selectedPatient.id,
             patientName: selectedPatient.fullName,
-            totalAmount: doc.consultationFee,
+            totalAmount: billAmount,
             date: new Date().toISOString().split('T')[0],
-            items: [{description: `Consultation: ${doc.fullName}`, amount: doc.consultationFee}]
+            items: [{description: billDescription, amount: billAmount}]
           });
         }
       }
@@ -315,7 +351,7 @@ export const Patients = () => {
     return matchesSearch && (filterType === 'all' || p.type === filterType) && (filterGender === 'all' || p.gender === filterGender);
   });
 
-  const canManagePatients = hasPermission(currentUser, 'MANAGE_PATIENTS');
+  const canManagePatients = hasPermission(currentUser, Permissions.MANAGE_PATIENTS);
   
   const getDocFee = () => {
     const d = staff.find(s => s.id === parseInt(actionFormData.staffId));
@@ -389,7 +425,7 @@ export const Patients = () => {
             { id: 'appointment', icon: Calendar, label: 'Appointment', color: 'blue' },
             { id: 'lab', icon: FlaskConical, label: 'Lab Test', color: 'purple' },
             { id: 'nurse', icon: Thermometer, label: 'Nurse Service', color: 'emerald' },
-            { id: 'admission', icon: Bed, label: 'Room Admission', color: 'orange' },
+            { id: 'admission', icon: Bed, label: 'Admission', color: 'orange' }, 
             { id: 'operation', icon: Activity, label: 'Operation', color: 'red' },
             { id: 'history', icon: FileClock, label: 'History / View', color: 'gray' },
           ].map((action: any) => (
@@ -427,7 +463,7 @@ export const Patients = () => {
           {currentAction === 'lab' && (
             <>
                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Search Tests</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Search & Add Tests</label>
                   <input type="text" className="w-full rounded-xl border-slate-300 py-2 px-3 text-sm" placeholder="Type test name..." value={testSearch} onChange={e => setTestSearch(e.target.value)} />
                   {testSearch && (
                     <div className="mt-1 border rounded-lg max-h-32 overflow-y-auto bg-white shadow-sm">
@@ -451,7 +487,7 @@ export const Patients = () => {
             </>
           )}
 
-          {/* NURSE FORM */}
+          {/* NURSE SERVICE FORM */}
           {currentAction === 'nurse' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1">
               {nurseServices.map(svc => (
@@ -500,12 +536,6 @@ export const Patients = () => {
                  <option value="">Select Surgeon...</option>
                  {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                </Select>
-               <div className="grid grid-cols-2 gap-3 text-sm">
-                 <Input label="Anesthesiologist" placeholder="Optional" value={opDetails.anesthesiologist} onChange={e => setOpDetails({...opDetails, anesthesiologist: e.target.value})} />
-                 <Input label="Assistant" placeholder="Optional" value={opDetails.assistant} onChange={e => setOpDetails({...opDetails, assistant: e.target.value})} />
-                 <Input label="Theater" placeholder="Optional" value={opDetails.theater} onChange={e => setOpDetails({...opDetails, theater: e.target.value})} />
-                 <Input label="Drugs/Equip" placeholder="Optional" value={opDetails.drugs} onChange={e => setOpDetails({...opDetails, drugs: e.target.value})} />
-               </div>
                <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">Note: Final cost will be calculated by accountant based on resources used.</p>
             </>
           )}

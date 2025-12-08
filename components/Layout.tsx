@@ -9,11 +9,16 @@ import {
   LogOut, 
   Menu, 
   X,
-  Activity,
+  Activity, // Operations
   ChevronLeft,
   Settings,
   Bell,
-  Lock
+  Lock,
+  FlaskConical, // Laboratory
+  Bed, // Admissions
+  ClipboardList, // Reports
+  Wrench, // Configuration (for admin)
+  Briefcase // HR specific icon
 } from 'lucide-react';
 import { User } from '../types';
 import { canAccessRoute } from '../utils/rbac';
@@ -34,8 +39,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
     { label: 'Patients', path: '/patients', icon: Users },
     { label: 'Appointments', path: '/appointments', icon: CalendarDays },
+    { label: 'Admissions', path: '/admissions', icon: Bed }, 
+    { label: 'Laboratory', path: '/laboratory', icon: FlaskConical },
+    { label: 'Operations', path: '/operations', icon: Activity },
     { label: 'Billing', path: '/billing', icon: Receipt },
-    { label: 'Medical Staff', path: '/staff', icon: Stethoscope },
+    { label: 'HR', path: '/hr', icon: Briefcase }, 
+    { label: 'Reports', path: '/reports', icon: ClipboardList },
+    { label: 'Settings', path: '/settings', icon: Settings },
+    { label: 'Configuration', path: '/configuration', icon: Wrench },
   ];
 
   const SidebarContent = () => (

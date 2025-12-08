@@ -15,7 +15,7 @@ const db = new Database(dbPath, { verbose: console.log });
 const initDB = () => {
   db.pragma('journal_mode = WAL');
   
-  // 1. Define Schema
+  // 1. Define Schema (Keep all tables as patient actions still use them)
   const schema = `
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,71 +93,19 @@ const initDB = () => {
       FOREIGN KEY(billing_id) REFERENCES billing(id)
     );
 
-    -- NEW MEDICAL TABLES
-
-    CREATE TABLE IF NOT EXISTS lab_tests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      category TEXT,
-      cost REAL NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS lab_requests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      patient_id INTEGER NOT NULL,
-      test_ids TEXT NOT NULL, -- JSON
-      status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS nurse_services (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      cost REAL NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS operations_catalog (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      base_cost REAL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS operations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      patient_id INTEGER NOT NULL,
-      operation_name TEXT NOT NULL,
-      doctor_id INTEGER,
-      assistant_name TEXT,
-      anesthesiologist_name TEXT,
-      notes TEXT,
-      status TEXT DEFAULT 'scheduled',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS beds (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      room_number TEXT NOT NULL,
-      type TEXT DEFAULT 'General',
-      status TEXT DEFAULT 'available',
-      cost_per_day REAL NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS admissions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      patient_id INTEGER NOT NULL,
-      bed_id INTEGER NOT NULL,
-      doctor_id INTEGER NOT NULL,
-      entry_date DATETIME NOT NULL,
-      discharge_date DATETIME,
-      status TEXT DEFAULT 'active',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+    -- NEW MEDICAL TABLES (Keeping these for data storage, even without dedicated screens)
+    CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT, cost REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS lab_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, test_ids TEXT NOT NULL, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS nurse_services (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT, cost REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS operations_catalog (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, base_cost REAL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS operations (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, operation_name TEXT NOT NULL, doctor_id INTEGER, assistant_name TEXT, anesthesiologist_name TEXT, notes TEXT, status TEXT DEFAULT 'scheduled', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS beds (id INTEGER PRIMARY KEY AUTOINCREMENT, room_number TEXT NOT NULL, type TEXT DEFAULT 'General', status TEXT DEFAULT 'available', cost_per_day REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS admissions (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, bed_id INTEGER NOT NULL, doctor_id INTEGER NOT NULL, entry_date DATETIME NOT NULL, discharge_date DATETIME, status TEXT DEFAULT 'active', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   `;
   
   db.exec(schema);
 
-  // 2. Auto-Migrations
+  // 2. Auto-Migrations (Ensure columns exist in legacy DBs)
   const columnsToAdd = [
     { table: 'patients', name: 'symptoms', type: 'TEXT' },
     { table: 'patients', name: 'medical_history', type: 'TEXT' },
@@ -175,18 +123,21 @@ const initDB = () => {
       const tableInfo = db.pragma(`table_info(${col.table})`);
       const exists = tableInfo.some(info => info.name === col.name);
       if (!exists) {
+        console.log(`Migrating: Adding ${col.name} to ${col.table}`);
         db.prepare(`ALTER TABLE ${col.table} ADD COLUMN ${col.name} ${col.type}`).run();
       }
-    } catch (err) {}
+    } catch (err) {
+      // Table might not exist yet if fresh install, handled by schema above
+    }
   });
 
-  // 3. Seed Users
+  // 3. Seed Users (Only the 5 specified roles)
   const usersToSeed = [
     { username: 'admin', role: 'admin', fullName: 'System Admin' },
     { username: 'manager', role: 'manager', fullName: 'Hospital Manager' },
     { username: 'receptionist', role: 'receptionist', fullName: 'Front Desk' },
     { username: 'accountant', role: 'accountant', fullName: 'Chief Accountant' },
-    { username: 'labtech', role: 'technician', fullName: 'Lab Technician' }
+    { username: 'labtech', role: 'technician', fullName: 'Lab Technician' },
   ];
 
   const bcrypt = require('bcryptjs');
@@ -197,12 +148,12 @@ const initDB = () => {
     if (!checkUser.get(user.username)) {
       const hash = bcrypt.hashSync(`${user.username}123`, 10);
       insertUser.run(user.username, hash, user.fullName, user.role);
+      console.log(`Seeded user: ${user.username}`);
     }
   });
 
-  // 4. Seed Medical Catalogs
-  
-  if (!db.prepare('SELECT id FROM lab_tests LIMIT 1').get()) {
+  // 4. Seed Medical Catalogs (Keep existing seeding, as patient actions still use them)
+  if (db.prepare('SELECT COUNT(*) FROM lab_tests').get()['COUNT(*)'] === 0) {
     const tests = [
       { name: 'CBC (Complete Blood Count)', cost: 15, category: 'Hematology' },
       { name: 'Lipid Profile', cost: 25, category: 'Biochemistry' },
@@ -214,9 +165,10 @@ const initDB = () => {
     ];
     const insertTest = db.prepare('INSERT INTO lab_tests (name, category, cost) VALUES (?, ?, ?)');
     tests.forEach(t => insertTest.run(t.name, t.category, t.cost));
+    console.log('Seeded lab tests.');
   }
 
-  if (!db.prepare('SELECT id FROM nurse_services LIMIT 1').get()) {
+  if (db.prepare('SELECT COUNT(*) FROM nurse_services').get()['COUNT(*)'] === 0) {
     const services = [
       { name: 'Injection / IV', desc: 'Medication administration', cost: 5 },
       { name: 'Dressing Change', desc: 'Wound care', cost: 10 },
@@ -226,16 +178,18 @@ const initDB = () => {
     ];
     const insertService = db.prepare('INSERT INTO nurse_services (name, description, cost) VALUES (?, ?, ?)');
     services.forEach(s => insertService.run(s.name, s.desc, s.cost));
+    console.log('Seeded nurse services.');
   }
 
-  if (!db.prepare('SELECT id FROM beds LIMIT 1').get()) {
+  if (db.prepare('SELECT COUNT(*) FROM beds').get()['COUNT(*)'] === 0) {
     const insertBed = db.prepare('INSERT INTO beds (room_number, type, status, cost_per_day) VALUES (?, ?, ?, ?)');
     for(let i=1; i<=8; i++) insertBed.run(`10${i}`, 'General', 'available', 20);
     for(let i=1; i<=4; i++) insertBed.run(`20${i}`, 'Private', 'available', 50);
     for(let i=1; i<=2; i++) insertBed.run(`ICU-${i}`, 'ICU', 'available', 150);
+    console.log('Seeded beds.');
   }
 
-  if (!db.prepare('SELECT id FROM operations_catalog LIMIT 1').get()) {
+  if (db.prepare('SELECT COUNT(*) FROM operations_catalog').get()['COUNT(*)'] === 0) {
     const ops = [
       { name: 'Appendectomy', cost: 500 },
       { name: 'Hernia Repair', cost: 400 },
@@ -244,17 +198,19 @@ const initDB = () => {
     ];
     const insertOp = db.prepare('INSERT INTO operations_catalog (name, base_cost) VALUES (?, ?)');
     ops.forEach(o => insertOp.run(o.name, o.cost));
+    console.log('Seeded operations catalog.');
   }
 
-  // 5. Seed Medical Staff (Reseed if empty)
-  // Check if staff exists
+  // 5. Seed Medical Staff (Only specified types, check count)
   const existingStaff = db.prepare('SELECT COUNT(*) as count FROM medical_staff').get();
   
   if (existingStaff.count === 0) {
     const staff = [
       { employee_id: 'DOC-001', full_name: 'Dr. Sarah Wilson', type: 'doctor', department: 'Cardiology', specialization: 'Cardiologist', consultation_fee: 100, email: 'sarah@allcare.com', phone: '555-0101' },
-      { employee_id: 'NUR-001', full_name: 'Nurse Emily Clarke', type: 'nurse', department: 'General', specialization: 'General Care', consultation_fee: 0, email: 'emily@allcare.com', phone: '555-0102' },
-      { employee_id: 'DOC-002', full_name: 'Dr. James House', type: 'doctor', department: 'Diagnostics', specialization: 'Diagnostician', consultation_fee: 150, email: 'james@allcare.com', phone: '555-0103' }
+      { employee_id: 'NUR-001', full_name: 'Nurse Emily Clarke', type: 'nurse', department: 'General Ward', specialization: 'General Care', consultation_fee: 0, email: 'emily@allcare.com', phone: '555-0102' },
+      { employee_id: 'TEC-001', full_name: 'Technician Alex', type: 'technician', department: 'Laboratory', specialization: 'Medical Imaging', consultation_fee: 0, email: 'alex@allcare.com', phone: '555-0104' },
+      { employee_id: 'ANS-001', full_name: 'Dr. John Anest', type: 'anesthesiologist', department: 'Anesthesiology', specialization: 'General Anesthesia', consultation_fee: 200, email: 'anest@allcare.com', phone: '555-0108' },
+      { employee_id: 'MAS-001', full_name: 'Assistant Maria', type: 'medical_assistant', department: 'General', specialization: 'Patient Support', consultation_fee: 0, email: 'maria@allcare.com', phone: '555-0109' },
     ];
     const insertStaff = db.prepare(`
       INSERT INTO medical_staff (employee_id, full_name, type, department, specialization, consultation_fee, email, phone)
@@ -264,5 +220,3 @@ const initDB = () => {
     console.log('Seeded initial medical staff.');
   }
 };
-
-module.exports = { db, initDB };

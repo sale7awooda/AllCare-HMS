@@ -5,12 +5,21 @@ import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
 import { Appointments } from './pages/Appointments';
 import { Billing } from './pages/Billing';
-import { Staff } from './pages/Staff';
-import { User } from './types';
+import { Staff } from './pages/Staff'; 
+import { User, Role } from './types'; // Import Role for type safety in Login helper
 import { api } from './services/api';
 import { AlertCircle } from 'lucide-react';
 
-// Simple Login Component
+// New Placeholder Pages
+const Admissions = () => <div className="p-8 text-slate-700 font-bold text-xl">Admissions Management (Under Construction)</div>;
+const Laboratory = () => <div className="p-8 text-slate-700 font-bold text-xl">Laboratory Services (Under Construction)</div>;
+const Operations = () => <div className="p-8 text-slate-700 font-bold text-xl">Operations Scheduling (Under Construction)</div>;
+const Reports = () => <div className="p-8 text-slate-700 font-bold text-xl">Reports & Analytics (Under Construction)</div>;
+const Settings = () => <div className="p-8 text-slate-700 font-bold text-xl">Application Settings (Under Construction)</div>;
+const Configuration = () => <div className="p-8 text-slate-700 font-bold text-xl">System Configuration (Admin Only - Under Construction)</div>;
+
+
+// Login Component
 const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +41,7 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
     }
   };
 
-  const handleDevLogin = (role: string) => {
+  const handleDevLogin = (role: Role) => { // Use Role type for type safety
     setUsername(role);
     // Matches seed data logic: username + 123
     setPassword(`${role}123`); 
@@ -92,7 +101,7 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
             <button type="button" onClick={() => handleDevLogin('manager')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Manager</button>
             <button type="button" onClick={() => handleDevLogin('receptionist')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Receptionist</button>
             <button type="button" onClick={() => handleDevLogin('accountant')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Accountant</button>
-            <button type="button" onClick={() => handleDevLogin('labtech')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Lab Tech</button>
+            <button type="button" onClick={() => handleDevLogin('technician')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Lab Tech</button>
           </div>
         </div>
       </div>
@@ -135,8 +144,14 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/patients" element={<Patients />} />
           <Route path="/appointments" element={<Appointments />} />
+          <Route path="/admissions" element={<Admissions />} /> 
+          <Route path="/laboratory" element={<Laboratory />} /> 
+          <Route path="/operations" element={<Operations />} /> 
           <Route path="/billing" element={<Billing />} />
-          <Route path="/staff" element={<Staff />} />
+          <Route path="/hr" element={<Staff />} /> 
+          <Route path="/reports" element={<Reports />} /> 
+          <Route path="/settings" element={<Settings />} /> 
+          <Route path="/configuration" element={<Configuration />} /> 
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Layout>
