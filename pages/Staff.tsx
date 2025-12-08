@@ -251,7 +251,7 @@ export const Staff = () => {
               label="Consultation Fee ($)" 
               type="number" 
               value={formData.consultationFee} 
-              onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value || '0'))} 
+              onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value || '0')})} 
             />
           </div>
 

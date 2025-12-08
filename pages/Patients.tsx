@@ -243,7 +243,7 @@ export const Patients = () => {
 
       } else if (currentAction === 'appointment') {
         if (!staffAssignedId) return alert('Select a doctor.');
-        const doc = staff.find(s => s.id === staffAssignedId);
+        const doc = (Array.isArray(staff) ? staff : []).find(s => s.id === staffAssignedId); // Guard with Array.isArray
         if (!doc) return alert('Selected doctor not found.');
 
         await api.createAppointment({

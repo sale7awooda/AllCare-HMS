@@ -27,9 +27,9 @@ export const Appointments = () => {
     try {
       const [apts, pts, stf, user] = await Promise.all([
         api.getAppointments().catch(err => { console.error("API Error - getAppointments:", err); return []; }),
-        api.getPatients().catch(err => { console.error("API Error - getPatients:", err); return []; }),
-        api.getStaff().catch(err => { console.error("API Error - getStaff:", err); return []; }),
-        api.me().catch(err => { console.error("API Error - me:", err); return null; })
+        api.getPatients().catch(err => { console.error("API Error - getPatients (Appointments):", err); return []; }),
+        api.getStaff().catch(err => { console.error("API Error - getStaff (Appointments):", err); return []; }),
+        api.me().catch(err => { console.error("API Error - me (Appointments):", err); return null; })
       ]);
       setAppointments(Array.isArray(apts) ? apts : []);
       setPatients(Array.isArray(pts) ? pts : []);

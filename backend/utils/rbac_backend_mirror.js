@@ -65,7 +65,7 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, 
     Permissions.VIEW_HR, Permissions.MANAGE_HR,
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
-    Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
+    Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, // Managers can oversee lab/ops
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, 
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
@@ -95,33 +95,33 @@ const ROLE_PERMISSIONS = {
   ],
   doctor: [
     Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, // Doctors can update patient medical info
-    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, // Doctors can manage their own appointments
-    Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, // Doctors can order labs
-    Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, // Doctors can schedule operations
-    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, // Doctors manage their patient admissions
-    Permissions.VIEW_SETTINGS, // Doctors can view settings
+    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, 
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, 
+    Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
+    Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, 
+    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
+    Permissions.VIEW_SETTINGS,
   ],
   nurse: [
     Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, // Nurses can update basic patient info
-    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, // Nurses can manage nurse service appointments
-    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, // Nurses manage beds/admissions for patient care
-    Permissions.VIEW_LABORATORY, // Nurses can view lab results
-    Permissions.VIEW_SETTINGS, // Nurses can view settings
+    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, 
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, 
+    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
+    Permissions.VIEW_LABORATORY, 
+    Permissions.VIEW_SETTINGS,
   ],
   pharmacist: [
     Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS, // View patient details for prescriptions
-    Permissions.VIEW_BILLING, // For drug charges
-    Permissions.VIEW_LABORATORY, // To understand lab results related to drug interactions/effects
-    Permissions.VIEW_SETTINGS, // Pharmacists can view settings
+    Permissions.VIEW_PATIENTS, 
+    Permissions.VIEW_BILLING, 
+    Permissions.VIEW_LABORATORY, 
+    Permissions.VIEW_SETTINGS,
   ],
-  hr: [ // HR Manager role
+  hr: [
     Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_HR, Permissions.MANAGE_HR, // Primary role: manage HR
-    Permissions.VIEW_REPORTS, // For HR reports
-    Permissions.VIEW_SETTINGS, // HR can view settings
+    Permissions.VIEW_HR, Permissions.MANAGE_HR, 
+    Permissions.VIEW_REPORTS,
+    Permissions.VIEW_SETTINGS,
   ],
 };
 
