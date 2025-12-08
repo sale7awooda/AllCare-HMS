@@ -46,7 +46,7 @@ export const Permissions = {
 export type Permission = typeof Permissions[keyof typeof Permissions];
 
 // The Matrix: What each role can do (aligned with new granular permissions and 5 roles)
-// Fix: Updated ROLE_PERMISSIONS to use Permissions object properties.
+// Fix: Updated ROLE_PERMISSIONS to use Permissions object properties and include all `Role` types.
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: [
     Permissions.VIEW_DASHBOARD, 
@@ -97,7 +97,38 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
     Permissions.VIEW_OPERATIONS // Can view operation schedule (relevant for procedures)
     // No MANAGE or DELETE for other modules.
-  ]
+  ],
+  // Fix: Add missing roles to ROLE_PERMISSIONS
+  doctor: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_PATIENTS,
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, // Doctors can manage their own appointments
+    Permissions.VIEW_LABORATORY,
+    Permissions.VIEW_OPERATIONS,
+    Permissions.VIEW_ADMISSIONS,
+    Permissions.VIEW_SETTINGS,
+  ],
+  nurse: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_PATIENTS,
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, // Nurses can manage nurse service appointments
+    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, // Nurses manage beds/admissions for patient care
+    Permissions.VIEW_LABORATORY,
+    Permissions.VIEW_SETTINGS,
+  ],
+  pharmacist: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_PATIENTS, // View patient details for prescriptions
+    Permissions.VIEW_BILLING, // For drug charges
+    Permissions.VIEW_LABORATORY, // To understand lab results related to drug interactions/effects
+    Permissions.VIEW_SETTINGS,
+  ],
+  hr: [ // HR Manager role
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_HR, Permissions.MANAGE_HR, // Primary role: manage HR
+    Permissions.VIEW_REPORTS, // For HR reports
+    Permissions.VIEW_SETTINGS,
+  ],
 };
 
 /**

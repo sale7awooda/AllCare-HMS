@@ -122,6 +122,9 @@ export const Staff = () => { // This component is now HR Management
               <option value="technician">Technician</option>
               <option value="anesthesiologist">Anesthesiologist</option> 
               <option value="medical_assistant">Medical Assistant</option>
+              <option value="pharmacist">Pharmacist</option> 
+              <option value="admin_staff">Admin Staff</option>
+              <option value="hr_manager">HR Manager</option>
             </Select>
           </div>
         </div>
@@ -224,6 +227,9 @@ export const Staff = () => { // This component is now HR Management
               <option value="technician">Technician</option>
               <option value="anesthesiologist">Anesthesiologist</option> 
               <option value="medical_assistant">Medical Assistant</option>
+              <option value="pharmacist">Pharmacist</option> 
+              <option value="admin_staff">Admin Staff</option>
+              <option value="hr_manager">HR Manager</option>
             </Select>
             <Input 
               label="Department" 
