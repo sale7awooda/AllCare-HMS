@@ -3,15 +3,16 @@ import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { Plus, Printer, Download, X, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import { Bill, Patient, Appointment } from '../types';
-import { hasPermission } from '../utils/rbac';
+import { hasPermission, Permissions } from '../utils/rbac'; // Import Permissions
 
 export const Billing = () => {
   const [bills, setBills] = useState<Bill[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]); // Not directly used in UI, but fetched
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  // Add state for modal visibility and selected bill
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Form
   const [formData, setFormData] = useState({
@@ -21,16 +22,23 @@ export const Billing = () => {
   });
 
   const loadData = async () => {
-    const [b, p, a, u] = await Promise.all([
-      api.getBills(), 
-      api.getPatients(), 
-      api.getAppointments(),
-      api.me()
-    ]);
-    setBills(b);
-    setPatients(p);
-    setAppointments(a);
-    setCurrentUser(u);
+    try {
+      const [b, p, a, u] = await Promise.all([
+        api.getBills().catch(err => { console.error("API Error - getBills:", err); return []; }),
+        api.getPatients().catch(err => { console.error("API Error - getPatients (Billing):", err); return []; }),
+        api.getAppointments().catch(err => { console.error("API Error - getAppointments (Billing):", err); return []; }), // Still fetch, but guard usage
+        api.me().catch(err => { console.error("API Error - me (Billing):", err); return null; })
+      ]);
+      setBills(Array.isArray(b) ? b : []);
+      setPatients(Array.isArray(p) ? p : []);
+      setAppointments(Array.isArray(a) ? a : []);
+      setCurrentUser(u);
+    } catch (error) {
+      console.error("Failed to load core data (Promise.all catch) in Billing:", error);
+      setBills([]);
+      setPatients([]);
+      setAppointments([]);
+    }
   };
 
   useEffect(() => {
@@ -39,23 +47,34 @@ export const Billing = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const patient = patients.find(p => p.id === parseInt(formData.patientId));
+    const patient = (Array.isArray(patients) ? patients : []).find(p => p.id === parseInt(formData.patientId));
     if (patient) {
-      await api.createBill({
-        patientId: patient.id,
-        patientName: patient.fullName,
-        totalAmount: parseFloat(formData.amount),
-        date: new Date().toISOString().split('T')[0],
-        items: [{ description: formData.description, amount: parseFloat(formData.amount) }]
-      });
-      setIsModalOpen(false);
-      loadData();
+      try {
+        await api.createBill({
+          patientId: patient.id,
+          patientName: patient.fullName,
+          totalAmount: parseFloat(formData.amount),
+          date: new Date().toISOString().split('T')[0],
+          items: [{ description: formData.description, amount: parseFloat(formData.amount) }]
+        });
+        setIsModalOpen(false);
+        loadData();
+        setFormData({patientId: '', amount: '', description: ''}); // Clear form
+      } catch (err: any) {
+        console.error("Failed to create bill:", err);
+        alert(err.response?.data?.error || "Failed to create bill.");
+      }
     }
   };
 
   const handlePay = async (billId: number) => {
-    await api.recordPayment(billId, 50); 
-    loadData();
+    try {
+      await api.recordPayment(billId, 50); // Hardcoded 50 for demo, would be dynamic
+      loadData();
+    } catch (err: any) {
+      console.error("Failed to record payment:", err);
+      alert(err.response?.data?.error || "Failed to record payment.");
+    }
   };
 
   const InvoiceView = ({ bill }: { bill: Bill }) => (
@@ -82,7 +101,7 @@ export const Billing = () => {
           </tr>
         </thead>
         <tbody>
-          {bill.items.map((item, i) => (
+          {(Array.isArray(bill.items) ? bill.items : []).map((item, i) => ( // Guard with Array.isArray
             <tr key={i} className="border-b border-gray-100">
               <td className="py-3 text-gray-700">{item.description}</td>
               <td className="py-3 text-right text-gray-900">${item.amount.toFixed(2)}</td>
@@ -101,7 +120,7 @@ export const Billing = () => {
     </div>
   );
 
-  const canManageBilling = hasPermission(currentUser, 'MANAGE_BILLING');
+  const canManageBilling = hasPermission(currentUser, Permissions.MANAGE_BILLING); // Use Permissions
 
   return (
     <div className="space-y-6">
@@ -135,7 +154,7 @@ export const Billing = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {bills.map((bill) => (
+              {(Array.isArray(bills) ? bills : []).map((bill) => ( // Guard with Array.isArray
                 <tr key={bill.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 align-top">
                     <span className="font-mono text-xs text-slate-500">{bill.billNumber}</span>
@@ -178,7 +197,7 @@ export const Billing = () => {
             onChange={e => setFormData({...formData, patientId: e.target.value})}
           >
             <option value="">Select Patient</option>
-            {patients.map(p => <option key={p.id} value={p.id}>{p.fullName}</option>)}
+            {(Array.isArray(patients) ? patients : []).map(p => <option key={p.id} value={p.id}>{p.fullName}</option>)}
           </Select>
           <Input 
             label="Description" 

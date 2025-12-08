@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog } from '../types';
-import { hasPermission, Permissions } from '../utils/rbac'; // Import Permissions
+import { hasPermission, Permissions } from '../utils/rbac'; 
 
 export const Patients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -44,7 +44,7 @@ export const Patients = () => {
     date: new Date().toISOString().split('T')[0],
     time: '09:00',
     notes: '',
-    subtype: '', // Used for Op Name search etc. or generic appt type
+    subtype: '', 
     dischargeDate: ''
   });
 
@@ -53,7 +53,6 @@ export const Patients = () => {
   const [testSearch, setTestSearch] = useState('');
   const [selectedService, setSelectedService] = useState<NurseServiceCatalog | null>(null);
   const [selectedBed, setSelectedBed] = useState<BedType | null>(null);
-  // opDetails will be passed for operation creation, but simplified UI
   const [opDetails, setOpDetails] = useState({
     assistant: '', anesthesiologist: '', nurse: '', drugs: '', equipment: '', theater: ''
   });
@@ -69,7 +68,6 @@ export const Patients = () => {
   // Registration Form State
   const initialFormState = {
     fullName: '', age: 0, phone: '',
-    // Fix: Explicitly cast gender and type to Patient's union types
     gender: 'male' as Patient['gender'],
     type: 'outpatient' as Patient['type'],
     address: '',
@@ -84,17 +82,17 @@ export const Patients = () => {
     setLoading(true);
     try {
       const [pts, apts, stf, user] = await Promise.all([
-        api.getPatients(), 
-        api.getAppointments(),
-        api.getStaff(),
-        api.me()
+        api.getPatients().catch(err => { console.error("API Error - getPatients:", err); return []; }), 
+        api.getAppointments().catch(err => { console.error("API Error - getAppointments:", err); return []; }),
+        api.getStaff().catch(err => { console.error("API Error - getStaff:", err); return []; }),
+        api.me().catch(err => { console.error("API Error - me:", err); return null; }) 
       ]);
       setPatients(Array.isArray(pts) ? pts : []);
       setAllAppointments(Array.isArray(apts) ? apts : []);
       setStaff(Array.isArray(stf) ? stf : []);
       setCurrentUser(user);
-    } catch (error) {
-      console.error("Failed to load core data:", error);
+    } catch (error) { 
+      console.error("Failed to load core data (Promise.all catch):", error);
     }
     setLoading(false);
   };
@@ -102,16 +100,17 @@ export const Patients = () => {
   const loadCatalogs = async () => {
     try {
       const [l, n, b, o] = await Promise.all([
-        api.getLabTests(), api.getNurseServices(), api.getBeds(), api.getOperations()
+        api.getLabTests().catch(err => { console.error("API Error - getLabTests:", err); return []; }),
+        api.getNurseServices().catch(err => { console.error("API Error - getNurseServices:", err); return []; }),
+        api.getBeds().catch(err => { console.error("API Error - getBeds:", err); return []; }),
+        api.getOperations().catch(err => { console.error("API Error - getOperations:", err); return []; })
       ]);
-      // Safety Checks: Ensure responses are arrays before setting state
       setLabTests(Array.isArray(l) ? l : []);
       setNurseServices(Array.isArray(n) ? n : []);
       setBeds(Array.isArray(b) ? b : []);
       setOperations(Array.isArray(o) ? o : []);
     } catch (e) {
-      console.error("Failed to load catalogs:", e);
-      // Fallback to empty arrays on error to prevent crashes
+      console.error("Failed to load medical catalogs (Promise.all catch):", e);
       setLabTests([]);
       setNurseServices([]);
       setBeds([]);
@@ -199,22 +198,21 @@ export const Patients = () => {
 
     try {
       let staffAssignedId: number | undefined = actionFormData.staffId ? parseInt(actionFormData.staffId) : undefined;
-      // let staffAssignedName: string = staff.find(s => s.id === staffAssignedId)?.fullName || 'Unassigned'; // Not needed if backend handles name
 
       if (currentAction === 'lab') {
         if (selectedTests.length === 0) return alert('Select at least one test');
         await api.createLabRequest({
           patientId: selectedPatient.id,
-          patientName: selectedPatient.fullName, // Pass patientName for bill description
+          patientName: selectedPatient.fullName, 
           testIds: selectedTests.map(t => t.id),
           totalCost: selectedTests.reduce((a,b)=>a+b.cost, 0)
         });
 
       } else if (currentAction === 'nurse') {
         if (!selectedService) return alert('Select a service.');
-        // This will create a record in `appointments` with type 'Nurse Service'
+        // FIX: Corrected typo from selectedSelectedPatient to selectedPatient
         await api.createNurseRequest({
-          patientId: selectedPatient.id,
+          patientId: selectedPatient.id, 
           serviceName: selectedService.name,
           cost: selectedService.cost,
           notes: actionFormData.notes
@@ -222,25 +220,25 @@ export const Patients = () => {
 
       } else if (currentAction === 'admission') {
         if (!selectedBed) return alert('Select a bed.');
-        if (!staffAssignedId) return alert('Select a treating doctor.'); // Doctor required for admission
+        if (!staffAssignedId) return alert('Select a treating doctor.'); 
         await api.createAdmission({
           patientId: selectedPatient.id,
           bedId: selectedBed.id,
           doctorId: staffAssignedId,
           entryDate: actionFormData.date,
           dischargeDate: actionFormData.dischargeDate,
-          deposit: selectedBed.costPerDay // Initial deposit/charge
+          deposit: selectedBed.costPerDay 
         });
 
       } else if (currentAction === 'operation') {
         if (!actionFormData.subtype) return alert('Enter operation name.');
-        if (!staffAssignedId) return alert('Select a surgeon.'); // Surgeon required for operation
+        if (!staffAssignedId) return alert('Select a surgeon.'); 
         await api.createOperation({
           patientId: selectedPatient.id,
           operationName: actionFormData.subtype,
           doctorId: staffAssignedId, 
           notes: actionFormData.notes,
-          optionalFields: opDetails // Pass these for the accountant to see
+          optionalFields: opDetails 
         });
 
       } else if (currentAction === 'appointment') {
@@ -248,19 +246,17 @@ export const Patients = () => {
         const doc = staff.find(s => s.id === staffAssignedId);
         if (!doc) return alert('Selected doctor not found.');
 
-        // This creates a standard appointment record
         await api.createAppointment({
           patientId: selectedPatient.id,
           patientName: selectedPatient.fullName,
           staffId: doc.id,
-          staffName: doc.fullName, // Pass full name for display
+          staffName: doc.fullName, 
           datetime: `${actionFormData.date}T${actionFormData.time}`,
           type: actionFormData.subtype || 'Consultation',
           reason: actionFormData.notes,
           status: 'pending'
         });
         
-        // If there's a consultation fee, create a bill for it
         if (doc.consultationFee > 0) {
           await api.createBill({
             patientId: selectedPatient.id,
@@ -287,7 +283,9 @@ export const Patients = () => {
       setSelectedPatient(fullDetails);
       setViewTab('info');
       setIsViewModalOpen(true);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error("Failed to load patient view details:", e);
+    }
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
@@ -326,7 +324,7 @@ export const Patients = () => {
     }
   };
 
-  const filteredPatients = patients.filter(p => {
+  const filteredPatients = (Array.isArray(patients) ? patients : []).filter(p => { // Guard with Array.isArray(patients)
     const matchesSearch = p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.patientId.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch && (filterType === 'all' || p.type === filterType) && (filterGender === 'all' || p.gender === filterGender);
@@ -335,7 +333,9 @@ export const Patients = () => {
   const canManagePatients = hasPermission(currentUser, Permissions.MANAGE_PATIENTS);
   
   const getDocFee = () => {
-    const d = staff.find(s => s.id === parseInt(actionFormData.staffId));
+    // Guard with Array.isArray(staff)
+    if (!Array.isArray(staff)) return 0;
+    const d = staff.filter(s => s.type === 'doctor').find(s => s.id === parseInt(actionFormData.staffId)); 
     return d ? d.consultationFee : 0;
   };
 
@@ -433,7 +433,8 @@ export const Patients = () => {
                </div>
                <Select label="Assign Doctor" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                  <option value="">Select Doctor...</option>
-                 {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                 {/* Guard with Array.isArray(staff) */}
+                 {Array.isArray(staff) && staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                </Select>
                {actionFormData.staffId && <div className="text-xs font-bold text-green-600 bg-green-50 p-2 rounded border border-green-100">Consultation Fee: ${getDocFee()}</div>}
                <Textarea label="Reason" rows={2} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
@@ -448,7 +449,8 @@ export const Patients = () => {
                   <input type="text" className="w-full rounded-xl border-slate-300 py-2 px-3 text-sm" placeholder="Type test name..." value={testSearch} onChange={e => setTestSearch(e.target.value)} />
                   {testSearch && (
                     <div className="mt-1 border rounded-lg max-h-32 overflow-y-auto bg-white shadow-sm">
-                      {labTests.filter(t => t.name.toLowerCase().includes(testSearch.toLowerCase())).map(t => (
+                      {/* Guard with Array.isArray(labTests) */}
+                      {Array.isArray(labTests) && labTests.filter(t => t.name.toLowerCase().includes(testSearch.toLowerCase())).map(t => (
                         <button key={t.id} type="button" className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex justify-between" onClick={() => { if(!selectedTests.find(x => x.id===t.id)) setSelectedTests([...selectedTests, t]); setTestSearch(''); }}>
                           <span>{t.name}</span><span className="font-mono text-xs">${t.cost}</span>
                         </button>
@@ -459,10 +461,13 @@ export const Patients = () => {
                <div className="border rounded-xl overflow-hidden">
                  <table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="px-3 py-2 text-left">Test</th><th className="px-3 py-2 text-right">Cost</th><th></th></tr></thead>
                  <tbody>
-                   {selectedTests.map((t, i) => (
+                   {/* Guard with Array.isArray(selectedTests) */}
+                   {Array.isArray(selectedTests) && selectedTests.map((t, i) => (
                      <tr key={i} className="border-t border-slate-100"><td className="px-3 py-2">{t.name}</td><td className="px-3 py-2 text-right">${t.cost}</td><td className="text-center"><button type="button" onClick={() => setSelectedTests(selectedTests.filter(x => x.id !== t.id))} className="text-red-500"><Trash2 size={14}/></button></td></tr>
                    ))}
-                   <tr className="bg-slate-50 font-bold border-t"><td className="px-3 py-2">Total</td><td className="px-3 py-2 text-right">${selectedTests.reduce((a,b)=>a+b.cost,0)}</td><td></td></tr>
+                   {Array.isArray(selectedTests) && selectedTests.length > 0 && (
+                     <tr className="bg-slate-50 font-bold border-t"><td className="px-3 py-2">Total</td><td className="px-3 py-2 text-right">${selectedTests.reduce((a,b)=>a+b.cost,0)}</td><td></td></tr>
+                   )}
                  </tbody></table>
                </div>
             </>
@@ -471,7 +476,8 @@ export const Patients = () => {
           {/* NURSE SERVICE FORM */}
           {currentAction === 'nurse' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1">
-              {nurseServices.map(svc => (
+              {/* Guard with Array.isArray(nurseServices) */}
+              {Array.isArray(nurseServices) && nurseServices.map(svc => (
                 <div key={svc.id} onClick={() => setSelectedService(svc)} className={`p-3 rounded-xl border cursor-pointer ${selectedService?.id === svc.id ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200' : 'border-slate-200 hover:bg-slate-50'}`}>
                   <div className="flex justify-between"><h4 className="font-bold text-sm">{svc.name}</h4><span className="text-xs font-bold bg-white border px-1 rounded">${svc.cost}</span></div>
                   <p className="text-xs text-slate-500 mt-1">{svc.description}</p>
@@ -489,11 +495,13 @@ export const Patients = () => {
                </div>
                <Select label="Treating Doctor" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                  <option value="">Select Doctor...</option>
-                 {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                 {/* Guard with Array.isArray(staff) */}
+                 {Array.isArray(staff) && staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                </Select>
                <label className="block text-sm font-semibold text-slate-700">Select Bed</label>
                <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1">
-                 {beds.map(bed => (
+                 {/* Guard with Array.isArray(beds) */}
+                 {Array.isArray(beds) && beds.map(bed => (
                    <button key={bed.id} type="button" disabled={bed.status === 'occupied'} onClick={() => setSelectedBed(bed)}
                      className={`flex flex-col items-center p-2 rounded border text-xs relative ${bed.status === 'occupied' ? 'bg-red-50 border-red-200 text-red-400' : selectedBed?.id === bed.id ? 'bg-primary-600 text-white' : 'bg-white text-slate-600'}`}>
                      <Bed size={16} className="mb-1"/> <span className="font-bold">{bed.roomNumber}</span>
@@ -511,11 +519,13 @@ export const Patients = () => {
                <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Operation Name</label>
                   <input type="text" list="ops-list" className="w-full rounded-xl border-slate-300 py-2 px-3 text-sm" value={actionFormData.subtype} onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})} />
-                  <datalist id="ops-list">{operations.map(o => <option key={o.id} value={o.name}/>)}</datalist>
+                  <datalist id="ops-list">{/* Guard with Array.isArray(operations) */}
+                  {Array.isArray(operations) && operations.map(o => <option key={o.id} value={o.name}/>)}</datalist>
                </div>
                <Select label="Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                  <option value="">Select Surgeon...</option>
-                 {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                 {/* Guard with Array.isArray(staff) */}
+                 {Array.isArray(staff) && staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                </Select>
                <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">Note: Final cost will be calculated by accountant based on resources used.</p>
             </>

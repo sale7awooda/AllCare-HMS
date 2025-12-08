@@ -3,9 +3,9 @@ import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { Plus, Search, Filter, Mail, Phone, Briefcase, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, User } from '../types';
-import { hasPermission, Permissions } from '../utils/rbac'; // Import Permissions
+import { hasPermission, Permissions } from '../utils/rbac'; 
 
-export const Staff = () => { // This component is now HR Management
+export const Staff = () => { 
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,14 +29,14 @@ export const Staff = () => { // This component is now HR Management
     setLoading(true);
     try {
       const [data, user] = await Promise.all([
-        api.getStaff(), // This now maps to /api/hr
-        api.me()
+        api.getStaff().catch(err => { console.error("API Error - getStaff (HR):", err); return []; }), 
+        api.me().catch(err => { console.error("API Error - me (HR):", err); return null; })
       ]);
       setStaff(Array.isArray(data) ? data : []);
       setCurrentUser(user);
     } catch (e) {
-      console.error("Failed to load staff/HR data:", e);
-      setStaff([]); // Ensure staff is an array on error
+      console.error("Failed to load staff/HR data (Promise.all catch):", e);
+      setStaff([]); 
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,7 @@ export const Staff = () => { // This component is now HR Management
     e.preventDefault();
     if (formData.fullName && formData.type) {
       try {
-        await api.addStaff(formData as any); // This now maps to /api/hr
+        await api.addStaff(formData as any); 
         setIsModalOpen(false);
         loadData();
         setFormData({ 
@@ -65,9 +65,9 @@ export const Staff = () => { // This component is now HR Management
   };
 
   const toggleAvailability = async (id: number, currentStatus: boolean) => {
-    if (!canManageHR) return; // Use new permission
+    if (!canManageHR) return; 
     try {
-      await api.updateStaff(id, { isAvailable: !currentStatus }); // This now maps to /api/hr
+      await api.updateStaff(id, { isAvailable: !currentStatus }); 
       loadData();
     } catch (err: any) {
       console.error("Failed to update staff availability:", err);
@@ -75,19 +75,19 @@ export const Staff = () => { // This component is now HR Management
     }
   };
 
-  const filteredStaff = staff.filter(s => {
+  const filteredStaff = (Array.isArray(staff) ? staff : []).filter(s => { // Guard with Array.isArray(staff)
     const matchesSearch = s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (s.employeeId && s.employeeId.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesFilter = filterType === 'all' || s.type === filterType;
     return matchesSearch && matchesFilter;
   });
 
-  const canManageHR = hasPermission(currentUser, Permissions.MANAGE_HR); // New permission check
+  const canManageHR = hasPermission(currentUser, Permissions.MANAGE_HR); 
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">HR Management (Medical Staff)</h1> {/* Updated title */}
+        <h1 className="text-2xl font-bold text-gray-900">HR Management (Medical Staff)</h1> 
         {canManageHR ? (
           <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Add Staff Member</Button>
         ) : (

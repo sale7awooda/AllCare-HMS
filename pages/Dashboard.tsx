@@ -9,25 +9,25 @@ import {
 
 export const Dashboard = () => {
   const [stats, setStats] = useState({ patients: 0, appointments: 0, revenue: 0 });
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]); // Keep as any[] to match backend flexibility
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       const [pts, apts, bills] = await Promise.all([
-        api.getPatients(),
-        api.getAppointments(),
-        api.getBills()
+        api.getPatients().catch(err => { console.error("API Error - getPatients (Dashboard):", err); return []; }),
+        api.getAppointments().catch(err => { console.error("API Error - getAppointments (Dashboard):", err); return []; }),
+        api.getBills().catch(err => { console.error("API Error - getBills (Dashboard):", err); return []; })
       ]);
 
-      const totalRevenue = bills.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
+      const totalRevenue = (Array.isArray(bills) ? bills : []).reduce((sum, b) => sum + (b.paidAmount || 0), 0);
       
       setStats({
-        patients: pts.length,
-        appointments: apts.length,
+        patients: (Array.isArray(pts) ? pts : []).length,
+        appointments: (Array.isArray(apts) ? apts : []).length,
         revenue: totalRevenue
       });
-      setAppointments(apts.slice(0, 5)); // Recent 5
+      setAppointments(Array.isArray(apts) ? apts.slice(0, 5) : []); // Recent 5
       setLoading(false);
     };
     loadData();
@@ -129,7 +129,7 @@ export const Dashboard = () => {
         <div className="lg:col-span-2">
           <Card title="Revenue Analytics" action={<Button size="sm" variant="outline">View Report</Button>}>
             <div className="h-80 w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <AreaChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -153,7 +153,7 @@ export const Dashboard = () => {
         <div className="lg:col-span-1">
           <Card title="Patient Demographics">
             <div className="h-80 w-full mt-4 relative">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
                     data={pieData}
@@ -196,7 +196,8 @@ export const Dashboard = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
-              {appointments.map((apt) => (
+              {/* Guard with Array.isArray(appointments) */}
+              {Array.isArray(appointments) && appointments.map((apt) => (
                 <tr key={apt.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-3 align-top">
                     <div className="flex items-start">
