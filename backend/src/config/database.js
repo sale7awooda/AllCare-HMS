@@ -131,13 +131,17 @@ const initDB = () => {
     }
   });
 
-  // 3. Seed Users (Only the 5 specified roles)
+  // 3. Seed Users (Include all expanded roles)
   const usersToSeed = [
     { username: 'admin', role: 'admin', fullName: 'System Admin' },
     { username: 'manager', role: 'manager', fullName: 'Hospital Manager' },
     { username: 'receptionist', role: 'receptionist', fullName: 'Front Desk' },
     { username: 'accountant', role: 'accountant', fullName: 'Chief Accountant' },
     { username: 'labtech', role: 'technician', fullName: 'Lab Technician' },
+    { username: 'doctor', role: 'doctor', fullName: 'General Doctor' }, 
+    { username: 'nurse', role: 'nurse', fullName: 'Head Nurse' },       
+    { username: 'pharmacist', role: 'pharmacist', fullName: 'Chief Pharmacist' },
+    { username: 'hr', role: 'hr', fullName: 'HR Manager' },             
   ];
 
   const bcrypt = require('bcryptjs');
@@ -201,7 +205,7 @@ const initDB = () => {
     console.log('Seeded operations catalog.');
   }
 
-  // 5. Seed Medical Staff (Only specified types, check count)
+  // 5. Seed Medical Staff (Include all expanded types)
   const existingStaff = db.prepare('SELECT COUNT(*) as count FROM medical_staff').get();
   
   if (existingStaff.count === 0) {
@@ -211,6 +215,8 @@ const initDB = () => {
       { employee_id: 'TEC-001', full_name: 'Technician Alex', type: 'technician', department: 'Laboratory', specialization: 'Medical Imaging', consultation_fee: 0, email: 'alex@allcare.com', phone: '555-0104' },
       { employee_id: 'ANS-001', full_name: 'Dr. John Anest', type: 'anesthesiologist', department: 'Anesthesiology', specialization: 'General Anesthesia', consultation_fee: 200, email: 'anest@allcare.com', phone: '555-0108' },
       { employee_id: 'MAS-001', full_name: 'Assistant Maria', type: 'medical_assistant', department: 'General', specialization: 'Patient Support', consultation_fee: 0, email: 'maria@allcare.com', phone: '555-0109' },
+      { employee_id: 'PHR-001', full_name: 'Pharmacist Ben', type: 'pharmacist', department: 'Pharmacy', specialization: 'Clinical Pharmacy', consultation_fee: 0, email: 'ben@allcare.com', phone: '555-0105' },
+      { employee_id: 'HRM-001', full_name: 'HR Mark Lee', type: 'hr_manager', department: 'Human Resources', specialization: 'HR Specialist', consultation_fee: 0, email: 'mark@allcare.com', phone: '555-0107' },
     ];
     const insertStaff = db.prepare(`
       INSERT INTO medical_staff (employee_id, full_name, type, department, specialization, consultation_fee, email, phone)

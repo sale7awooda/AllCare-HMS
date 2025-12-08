@@ -1,9 +1,9 @@
 import React from 'react';
 
-// Define the 5 comprehensive roles as per requirements
+// Define a comprehensive set of roles as per requirements
 export type Role = 
   'admin' | 'receptionist' | 'manager' | 'accountant' | 
-  'technician'; // Technician is the 'labtech' user
+  'technician' | 'doctor' | 'nurse' | 'pharmacist' | 'hr'; 
 
 export interface User {
   id: number;
@@ -56,8 +56,8 @@ export interface MedicalStaff {
   id: number;
   employeeId: string;
   fullName: string;
-  // Staff types managed, aligning with requirements (doctor, nurse, technician, anesthesiologist, medical_assistant)
-  type: 'doctor' | 'nurse' | 'anesthesiologist' | 'technician' | 'medical_assistant'; 
+  // Expanded staff types to include all potential roles/types
+  type: 'doctor' | 'nurse' | 'anesthesiologist' | 'technician' | 'medical_assistant' | 'pharmacist' | 'admin_staff' | 'hr_manager'; 
   department: string;
   specialization: string;
   consultationFee: number;

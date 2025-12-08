@@ -7,7 +7,7 @@ const appointmentController = require('../controllers/appointment.controller');
 const billingController = require('../controllers/billing.controller');
 const medicalController = require('../controllers/medical.controller'); 
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { Permissions } = require('../../../backend/utils/rbac_backend_mirror'); // Import Permissions for clear use
+const { Permissions } = require('../../utils/rbac_backend_mirror'); // Import Permissions for clear use
 
 // --- PUBLIC ROUTES ---
 router.post('/login', authController.login);
@@ -47,7 +47,7 @@ router.delete('/billing/:id', authorizeRoles(Permissions.DELETE_BILLING), (req, 
 
 // Medical Modules (Catalogs & Requests for Patient Actions)
 router.get('/medical/tests', authorizeRoles(Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY), medicalController.getLabTests);
-router.get('/medical/services', authorizeRoles(Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS), medicalController.getNurseServices); 
+router.get('/medical/services', authorizeRoles(Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS), medicalController.getNurseServices); 
 router.get('/medical/beds', authorizeRoles(Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS), medicalController.getBeds);
 router.get('/medical/operations_catalog', authorizeRoles(Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS), medicalController.getOperations);
 

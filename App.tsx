@@ -6,7 +6,7 @@ import { Patients } from './pages/Patients';
 import { Appointments } from './pages/Appointments';
 import { Billing } from './pages/Billing';
 import { Staff } from './pages/Staff'; 
-import { User, Role } from './types'; // Import Role for type safety in Login helper
+import { User, Role } from './types'; 
 import { api } from './services/api';
 import { AlertCircle } from 'lucide-react';
 
@@ -41,9 +41,8 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
     }
   };
 
-  const handleDevLogin = (role: Role) => { // Use Role type for type safety
+  const handleDevLogin = (role: Role) => { 
     setUsername(role);
-    // Matches seed data logic: username + 123
     setPassword(`${role}123`); 
   };
 
@@ -102,6 +101,10 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
             <button type="button" onClick={() => handleDevLogin('receptionist')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Receptionist</button>
             <button type="button" onClick={() => handleDevLogin('accountant')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Accountant</button>
             <button type="button" onClick={() => handleDevLogin('technician')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Lab Tech</button>
+            <button type="button" onClick={() => handleDevLogin('doctor')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Doctor</button>
+            <button type="button" onClick={() => handleDevLogin('nurse')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Nurse</button>
+            <button type="button" onClick={() => handleDevLogin('pharmacist')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">Pharmacist</button>
+            <button type="button" onClick={() => handleDevLogin('hr')} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded border border-gray-200">HR</button>
           </div>
         </div>
       </div>

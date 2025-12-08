@@ -21,7 +21,7 @@ import {
   Briefcase // HR specific icon
 } from 'lucide-react';
 import { User } from '../types';
-import { canAccessRoute } from '../utils/rbac';
+import { canAccessRoute, Permissions } from '../utils/rbac'; // Import Permissions
 
 interface LayoutProps {
   children: React.ReactNode;

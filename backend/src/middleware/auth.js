@@ -3,7 +3,8 @@ const jwt = require('jsonwebtoken');
 const SECRET = process.env.JWT_SECRET || 'dev_secret_key_123'; 
 
 // Importing roles and permissions for backend enforcement logic
-const { ROLE_PERMISSIONS, Permissions } = require('../../../backend/utils/rbac_backend_mirror'); // Correct path to backend mirror
+// Fix: Corrected relative path from backend/src/middleware to backend/utils
+const { ROLE_PERMISSIONS, Permissions } = require('../../utils/rbac_backend_mirror'); 
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];

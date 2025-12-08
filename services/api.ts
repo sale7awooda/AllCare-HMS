@@ -1,17 +1,28 @@
 import axios from 'axios';
 import { Patient, Appointment, MedicalStaff, Bill, User, LabTestCatalog, NurseServiceCatalog, Bed, OperationCatalog } from '../types';
 
-// Use relative path '/api'. 
-// This relies on the browser's own origin.
-// In Dev: Vite Proxy forwards to Railway.
-// In Prod: Backend serves Frontend, so origin is same.
-const API_URL = '/api';
+// NETWORK CONFIGURATION
+// 1. Localhost: Use relative path '/api' (uses Vite Proxy to avoid CORS locally)
+// 2. Cloud IDE / Production: Use direct URL to Railway (Bypasses flaky internal proxies or same-origin in prod)
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isRailwayProduction = window.location.hostname.includes('railway.app'); // Check if the frontend itself is on Railway
 
-console.log('🔗 Connecting to API:', API_URL);
+const RAILWAY_BACKEND_URL = 'https://railway-hms-production.up.railway.app/api';
+
+// If running on localhost, use Vite proxy.
+// If frontend is deployed on Railway, use relative path (same origin).
+// Otherwise (e.g., Google AI Studio preview), use direct Railway backend URL.
+const API_BASE_URL = isLocal 
+  ? '/api' 
+  : (isRailwayProduction ? '/api' : RAILWAY_BACKEND_URL);
+
+console.log(`🔗 Network Mode: ${isLocal ? 'Local Dev Proxy' : (isRailwayProduction ? 'Railway Production (Same Origin)' : 'Cloud IDE Direct Connection')}`);
+console.log(`🔗 Connecting to: ${API_BASE_URL}`);
 
 const client = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // IMPORTANT: Send cookies/JWT with requests
 });
 
 client.interceptors.request.use((config) => {
@@ -61,17 +72,17 @@ export const api = {
     await client.patch(`/patients/${id}`, patient);
   },
 
-  // Staff
+  // Staff (now HR)
   async getStaff(): Promise<MedicalStaff[]> {
-    const { data } = await client.get('/staff');
+    const { data } = await client.get('/hr'); // Changed to /hr
     return data;
   },
   async addStaff(staff: Partial<MedicalStaff>): Promise<MedicalStaff> {
-    const { data } = await client.post('/staff', staff);
+    const { data } = await client.post('/hr', staff); // Changed to /hr
     return data;
   },
   async updateStaff(id: number, updates: Partial<MedicalStaff>): Promise<void> {
-    await client.patch(`/staff/${id}`, updates);
+    await client.patch(`/hr/${id}`, updates); // Changed to /hr
   },
 
   // Appointments
@@ -114,7 +125,7 @@ export const api = {
     return data;
   },
   async getOperations(): Promise<OperationCatalog[]> {
-    const { data } = await client.get('/medical/operations');
+    const { data } = await client.get('/medical/operations_catalog'); // Renamed route
     return data;
   },
 

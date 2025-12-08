@@ -92,7 +92,38 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_APPOINTMENTS, 
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
     Permissions.VIEW_OPERATIONS 
-  ]
+  ],
+  // Fix: Add missing roles to ROLE_PERMISSIONS in backend mirror
+  doctor: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_PATIENTS,
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS,
+    Permissions.VIEW_LABORATORY,
+    Permissions.VIEW_OPERATIONS,
+    Permissions.VIEW_ADMISSIONS,
+    Permissions.VIEW_SETTINGS,
+  ],
+  nurse: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_PATIENTS,
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS,
+    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS,
+    Permissions.VIEW_LABORATORY,
+    Permissions.VIEW_SETTINGS,
+  ],
+  pharmacist: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_PATIENTS,
+    Permissions.VIEW_BILLING,
+    Permissions.VIEW_LABORATORY,
+    Permissions.VIEW_SETTINGS,
+  ],
+  hr: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_HR, Permissions.MANAGE_HR,
+    Permissions.VIEW_REPORTS,
+    Permissions.VIEW_SETTINGS,
+  ],
 };
 
 module.exports = { ROLE_PERMISSIONS, Permissions };

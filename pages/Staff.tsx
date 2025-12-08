@@ -3,8 +3,7 @@ import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { Plus, Search, Filter, Mail, Phone, Briefcase, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, User } from '../types';
-// Fix: Updated Permissions import to correctly reference the frontend `utils/rbac` definition.
-import { hasPermission, Permissions } from '../utils/rbac';
+import { hasPermission, Permissions } from '../utils/rbac'; // Import Permissions
 
 export const Staff = () => { // This component is now HR Management
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
