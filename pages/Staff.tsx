@@ -245,7 +245,7 @@ export const Staff = () => { // This component is now HR Management
               label="Consultation Fee ($)" 
               type="number" 
               value={formData.consultationFee} 
-              onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value || '0'))} 
+              onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value || '0')})} 
             />
           </div>
 
