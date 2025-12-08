@@ -78,27 +78,41 @@ export const Patients = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const [pts, apts, stf, user] = await Promise.all([
-      api.getPatients(), 
-      api.getAppointments(),
-      api.getStaff(),
-      api.me()
-    ]);
-    setPatients(pts);
-    setAllAppointments(apts);
-    setStaff(stf);
-    setCurrentUser(user);
+    try {
+      const [pts, apts, stf, user] = await Promise.all([
+        api.getPatients(), 
+        api.getAppointments(),
+        api.getStaff(),
+        api.me()
+      ]);
+      setPatients(Array.isArray(pts) ? pts : []);
+      setAllAppointments(Array.isArray(apts) ? apts : []);
+      setStaff(Array.isArray(stf) ? stf : []);
+      setCurrentUser(user);
+    } catch (error) {
+      console.error("Failed to load core data:", error);
+    }
     setLoading(false);
   };
 
   const loadCatalogs = async () => {
-    const [l, n, b, o] = await Promise.all([
-      api.getLabTests(), api.getNurseServices(), api.getBeds(), api.getOperations()
-    ]);
-    setLabTests(l);
-    setNurseServices(n);
-    setBeds(b);
-    setOperations(o);
+    try {
+      const [l, n, b, o] = await Promise.all([
+        api.getLabTests(), api.getNurseServices(), api.getBeds(), api.getOperations()
+      ]);
+      // Safety Checks: Ensure responses are arrays before setting state
+      setLabTests(Array.isArray(l) ? l : []);
+      setNurseServices(Array.isArray(n) ? n : []);
+      setBeds(Array.isArray(b) ? b : []);
+      setOperations(Array.isArray(o) ? o : []);
+    } catch (e) {
+      console.error("Failed to load catalogs:", e);
+      // Fallback to empty arrays on error to prevent crashes
+      setLabTests([]);
+      setNurseServices([]);
+      setBeds([]);
+      setOperations([]);
+    }
   };
 
   useEffect(() => {
@@ -114,30 +128,34 @@ export const Patients = () => {
   };
 
   const openEditModal = async (patient: Patient) => {
-    const fullDetails = await api.getPatient(patient.id);
-    setFormData({
-      fullName: fullDetails.fullName,
-      age: fullDetails.age,
-      phone: fullDetails.phone,
-      gender: fullDetails.gender,
-      type: fullDetails.type,
-      address: fullDetails.address,
-      symptoms: fullDetails.symptoms || '',
-      medicalHistory: fullDetails.medicalHistory || '',
-      allergies: fullDetails.allergies || '',
-      bloodGroup: fullDetails.bloodGroup || '',
-      hasInsurance: fullDetails.hasInsurance,
-      emergencyName: fullDetails.emergencyContact?.name || '',
-      emergencyPhone: fullDetails.emergencyContact?.phone || '',
-      emergencyRelation: fullDetails.emergencyContact?.relation || '',
-      insProvider: fullDetails.insuranceDetails?.provider || '',
-      insPolicy: fullDetails.insuranceDetails?.policyNumber || '',
-      insExpiry: fullDetails.insuranceDetails?.expiryDate || '',
-      insNotes: fullDetails.insuranceDetails?.notes || ''
-    });
-    setSelectedPatient(fullDetails);
-    setIsEditing(true);
-    setIsFormModalOpen(true);
+    try {
+      const fullDetails = await api.getPatient(patient.id);
+      setFormData({
+        fullName: fullDetails.fullName,
+        age: fullDetails.age,
+        phone: fullDetails.phone,
+        gender: fullDetails.gender,
+        type: fullDetails.type,
+        address: fullDetails.address,
+        symptoms: fullDetails.symptoms || '',
+        medicalHistory: fullDetails.medicalHistory || '',
+        allergies: fullDetails.allergies || '',
+        bloodGroup: fullDetails.bloodGroup || '',
+        hasInsurance: fullDetails.hasInsurance,
+        emergencyName: fullDetails.emergencyContact?.name || '',
+        emergencyPhone: fullDetails.emergencyContact?.phone || '',
+        emergencyRelation: fullDetails.emergencyContact?.relation || '',
+        insProvider: fullDetails.insuranceDetails?.provider || '',
+        insPolicy: fullDetails.insuranceDetails?.policyNumber || '',
+        insExpiry: fullDetails.insuranceDetails?.expiryDate || '',
+        insNotes: fullDetails.insuranceDetails?.notes || ''
+      });
+      setSelectedPatient(fullDetails);
+      setIsEditing(true);
+      setIsFormModalOpen(true);
+    } catch (err) {
+      console.error("Failed to load patient details", err);
+    }
   };
 
   // --- ACTION MENU ---
@@ -175,82 +193,88 @@ export const Patients = () => {
     e.preventDefault();
     if (!selectedPatient || !currentAction) return;
 
-    if (currentAction === 'lab') {
-      if (selectedTests.length === 0) return alert('Select at least one test');
-      await api.createLabRequest({
-        patientId: selectedPatient.id,
-        patientName: selectedPatient.fullName,
-        testIds: selectedTests.map(t => t.id),
-        totalCost: selectedTests.reduce((a,b)=>a+b.cost, 0)
-      });
-    }
-    else if (currentAction === 'nurse') {
-      if (!selectedService) return alert('Select a service');
-      await api.createNurseRequest({
-        patientId: selectedPatient.id,
-        serviceName: selectedService.name,
-        cost: selectedService.cost,
-        notes: actionFormData.notes
-      });
-    }
-    else if (currentAction === 'admission') {
-      if (!selectedBed) return alert('Select a bed');
-      await api.createAdmission({
-        patientId: selectedPatient.id,
-        bedId: selectedBed.id,
-        doctorId: actionFormData.staffId,
-        entryDate: actionFormData.date,
-        dischargeDate: actionFormData.dischargeDate,
-        deposit: selectedBed.costPerDay
-      });
-    }
-    else if (currentAction === 'operation') {
-      await api.createOperation({
-        patientId: selectedPatient.id,
-        operationName: actionFormData.subtype,
-        doctorId: actionFormData.staffId, // Surgeon
-        notes: actionFormData.notes,
-        optionalFields: opDetails // Passed for accountant to see
-      });
-    }
-    else if (currentAction === 'appointment') {
-      const doc = staff.find(s => s.id === parseInt(actionFormData.staffId));
-      await api.createAppointment({
-        patientId: selectedPatient.id,
-        patientName: selectedPatient.fullName,
-        staffId: doc?.id || 0,
-        staffName: doc?.fullName || 'Unassigned',
-        datetime: `${actionFormData.date}T${actionFormData.time}`,
-        type: actionFormData.subtype || 'Consultation',
-        reason: actionFormData.notes,
-        status: 'pending'
-      });
-      if (doc?.consultationFee) {
-        await api.createBill({
+    try {
+      if (currentAction === 'lab') {
+        if (selectedTests.length === 0) return alert('Select at least one test');
+        await api.createLabRequest({
           patientId: selectedPatient.id,
           patientName: selectedPatient.fullName,
-          totalAmount: doc.consultationFee,
-          date: new Date().toISOString().split('T')[0],
-          items: [{description: `Consultation: ${doc.fullName}`, amount: doc.consultationFee}]
+          testIds: selectedTests.map(t => t.id),
+          totalCost: selectedTests.reduce((a,b)=>a+b.cost, 0)
         });
       }
-    }
+      else if (currentAction === 'nurse') {
+        if (!selectedService) return alert('Select a service');
+        await api.createNurseRequest({
+          patientId: selectedPatient.id,
+          serviceName: selectedService.name,
+          cost: selectedService.cost,
+          notes: actionFormData.notes
+        });
+      }
+      else if (currentAction === 'admission') {
+        if (!selectedBed) return alert('Select a bed');
+        await api.createAdmission({
+          patientId: selectedPatient.id,
+          bedId: selectedBed.id,
+          doctorId: actionFormData.staffId,
+          entryDate: actionFormData.date,
+          dischargeDate: actionFormData.dischargeDate,
+          deposit: selectedBed.costPerDay
+        });
+      }
+      else if (currentAction === 'operation') {
+        await api.createOperation({
+          patientId: selectedPatient.id,
+          operationName: actionFormData.subtype,
+          doctorId: actionFormData.staffId, // Surgeon
+          notes: actionFormData.notes,
+          optionalFields: opDetails
+        });
+      }
+      else if (currentAction === 'appointment') {
+        const doc = staff.find(s => s.id === parseInt(actionFormData.staffId));
+        await api.createAppointment({
+          patientId: selectedPatient.id,
+          patientName: selectedPatient.fullName,
+          staffId: doc?.id || 0,
+          staffName: doc?.fullName || 'Unassigned',
+          datetime: `${actionFormData.date}T${actionFormData.time}`,
+          type: actionFormData.subtype || 'Consultation',
+          reason: actionFormData.notes,
+          status: 'pending'
+        });
+        if (doc?.consultationFee) {
+          await api.createBill({
+            patientId: selectedPatient.id,
+            patientName: selectedPatient.fullName,
+            totalAmount: doc.consultationFee,
+            date: new Date().toISOString().split('T')[0],
+            items: [{description: `Consultation: ${doc.fullName}`, amount: doc.consultationFee}]
+          });
+        }
+      }
 
-    setIsActionModalOpen(false);
-    loadData();
-    loadCatalogs();
+      setIsActionModalOpen(false);
+      loadData();
+      loadCatalogs();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.error || 'Failed to submit request.');
+    }
   };
 
   const openViewModal = async (patient: Patient) => {
-    const fullDetails = await api.getPatient(patient.id);
-    setSelectedPatient(fullDetails);
-    setViewTab('info');
-    setIsViewModalOpen(true);
+    try {
+      const fullDetails = await api.getPatient(patient.id);
+      setSelectedPatient(fullDetails);
+      setViewTab('info');
+      setIsViewModalOpen(true);
+    } catch (e) { console.error(e); }
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // (Registration Logic - Same as before)
     const payload = {
       fullName: formData.fullName,
       age: formData.age,
@@ -271,13 +295,18 @@ export const Patients = () => {
       } : undefined
     };
 
-    if (isEditing && selectedPatient) {
-      await api.updatePatient(selectedPatient.id, payload as any);
-    } else {
-      await api.addPatient(payload as any);
+    try {
+      if (isEditing && selectedPatient) {
+        await api.updatePatient(selectedPatient.id, payload as any);
+      } else {
+        await api.addPatient(payload as any);
+      }
+      setIsFormModalOpen(false);
+      loadData();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.error || 'Failed to save patient data.');
     }
-    setIsFormModalOpen(false);
-    loadData();
   };
 
   const filteredPatients = patients.filter(p => {
@@ -488,10 +517,9 @@ export const Patients = () => {
         </form>
       </Modal>
 
-      {/* Register/Edit Modal (Existing) - Kept for completeness but hidden in diff for brevity if unchanged */}
+      {/* Register/Edit Modal */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient" : "Register Patient"}>
-        <form onSubmit={handleRegisterSubmit} className="space-y-4">
-           {/* ... Same Form as previous turn ... */}
+         <form onSubmit={handleRegisterSubmit} className="space-y-4">
            <Input label="Full Name" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
            <Input label="Phone" required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
            <div className="flex gap-4">
@@ -500,7 +528,7 @@ export const Patients = () => {
            </div>
            <Input label="Address" required value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
            <div className="pt-4 flex justify-end gap-3"><Button type="button" variant="secondary" onClick={() => setIsFormModalOpen(false)}>Cancel</Button><Button type="submit">Save</Button></div>
-        </form>
+         </form>
       </Modal>
     </div>
   );
