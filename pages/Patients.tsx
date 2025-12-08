@@ -4,7 +4,7 @@ import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../componen
 import { 
   Plus, Search, Filter, Heart, Shield, AlertTriangle, Edit, Calendar, Lock, 
   Stethoscope, FlaskConical, Bed, Activity, FileClock, Settings, Thermometer, Trash2, CheckCircle,
-  Phone, User as UserIcon, History
+  Phone, User as UserIcon, History, Syringe, Zap, Briefcase, FileText, XCircle, Clock
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill } from '../types';
@@ -15,6 +15,7 @@ export const Patients = () => {
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [activeAdmissions, setActiveAdmissions] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Catalogs
@@ -29,6 +30,7 @@ export const Patients = () => {
   const [filterType, setFilterType] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Modal States
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -42,6 +44,10 @@ export const Patients = () => {
 
   // Action Logic
   const [currentAction, setCurrentAction] = useState<'appointment' | 'lab' | 'nurse' | 'admission' | 'operation' | null>(null);
+  
+  // Appointment specific
+  const [selectedSpecialty, setSelectedSpecialty] = useState('');
+
   const [actionFormData, setActionFormData] = useState({
     staffId: '',
     date: new Date().toISOString().split('T')[0],
@@ -60,17 +66,11 @@ export const Patients = () => {
   
   // Operation specific
   const [opDetails, setOpDetails] = useState({
-    assistantId: '', 
-    anesthesiologistId: '', 
-    nurseId: '', 
     drugs: '', 
     equipment: '', 
     others: '',
     // Costs
     surgeonCost: 0,
-    anesthesiologistCost: 0,
-    assistantCost: 0,
-    nurseCost: 0,
     drugsCost: 0,
     equipmentCost: 0,
     othersCost: 0,
@@ -101,17 +101,19 @@ export const Patients = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [pts, apts, b, stf, user] = await Promise.all([
+      const [pts, apts, b, stf, user, adms] = await Promise.all([
         api.getPatients(), 
         api.getAppointments(),
         api.getBills(),
         api.getStaff(),
-        api.me()
+        api.me(),
+        api.getActiveAdmissions()
       ]);
       setPatients(Array.isArray(pts) ? pts : []);
       setAppointments(Array.isArray(apts) ? apts : []);
       setBills(Array.isArray(b) ? b : []);
       setStaff(Array.isArray(stf) ? stf : []);
+      setActiveAdmissions(Array.isArray(adms) ? adms : []);
       setCurrentUser(user);
     } catch (error) {
       console.error("Failed to load core data:", error);
@@ -188,14 +190,22 @@ export const Patients = () => {
       openViewModal(selectedPatient!);
       return;
     }
+    
+    // Reset specific states
     setSelectedTests([]);
     setTestSearch('');
     setSelectedService(null);
     setSelectedBed(null);
+    setSelectedSpecialty('');
     setOpDetails({ 
-      assistantId: '', anesthesiologistId: '', nurseId: '', drugs: '', equipment: '', others: '',
-      surgeonCost: 0, anesthesiologistCost: 0, assistantCost: 0, nurseCost: 0, drugsCost: 0, equipmentCost: 0, othersCost: 0, theaterCost: 0
+      drugs: '', equipment: '', others: '',
+      surgeonCost: 0, drugsCost: 0, equipmentCost: 0, othersCost: 0, theaterCost: 0
     });
+    
+    // Check admission status
+    if (action === 'admission' && selectedPatient?.type === 'inpatient') {
+      // Logic handled in render
+    }
     
     setCurrentAction(action);
     setActionFormData({
@@ -203,7 +213,7 @@ export const Patients = () => {
       date: new Date().toISOString().split('T')[0],
       time: '09:00',
       notes: '',
-      subtype: '', // Reset subtype
+      subtype: '', 
       dischargeDate: '',
       totalCost: 0
     });
@@ -226,9 +236,6 @@ export const Patients = () => {
     if (currentAction === 'operation') {
       const total = 
         (opDetails.surgeonCost || 0) +
-        (opDetails.anesthesiologistCost || 0) +
-        (opDetails.assistantCost || 0) +
-        (opDetails.nurseCost || 0) +
         (opDetails.drugsCost || 0) +
         (opDetails.equipmentCost || 0) +
         (opDetails.othersCost || 0) +
@@ -237,7 +244,7 @@ export const Patients = () => {
     }
   }, [opDetails, currentAction]);
 
-  // Effect to set Theater Cost (1x Surgeon as requested)
+  // Effect to set Theater Cost (1x Surgeon)
   useEffect(() => {
     if (currentAction === 'operation') {
        setOpDetails(prev => ({...prev, theaterCost: (prev.surgeonCost || 0) * 1}));
@@ -261,21 +268,24 @@ export const Patients = () => {
     e.preventDefault();
     if (!selectedPatient || !currentAction) return;
 
+    setActionLoading(true);
     try {
       let staffAssignedId: number | undefined = actionFormData.staffId ? parseInt(actionFormData.staffId) : undefined;
+      let successMessage = 'Request submitted successfully.';
 
       if (currentAction === 'lab') {
-        if (selectedTests.length === 0) return alert('Select at least one test');
+        if (selectedTests.length === 0) throw new Error('Select at least one test');
         await api.createLabRequest({
           patientId: selectedPatient.id,
           patientName: selectedPatient.fullName,
           testIds: selectedTests.map(t => t.id),
           totalCost: selectedTests.reduce((a,b)=>a+b.cost, 0)
         });
+        successMessage = 'Lab Request created. Confirm in Laboratory to bill.';
 
       } else if (currentAction === 'nurse') {
-        if (!selectedService) return alert('Select a service.');
-        if (!staffAssignedId) return alert('Select a nurse.');
+        if (!selectedService) throw new Error('Select a service.');
+        if (!staffAssignedId) throw new Error('Select a nurse.');
         await api.createNurseRequest({
           patientId: selectedPatient.id,
           serviceName: selectedService.name,
@@ -283,10 +293,11 @@ export const Patients = () => {
           notes: actionFormData.notes,
           staffId: staffAssignedId
         });
+        successMessage = 'Nurse Service recorded.';
 
       } else if (currentAction === 'admission') {
-        if (!selectedBed) return alert('Select a bed.');
-        if (!staffAssignedId) return alert('Select a treating doctor.');
+        if (!selectedBed) throw new Error('Select a bed.');
+        if (!staffAssignedId) throw new Error('Select a treating doctor.');
         await api.createAdmission({
           patientId: selectedPatient.id,
           bedId: selectedBed.id,
@@ -296,14 +307,15 @@ export const Patients = () => {
           deposit: selectedBed.costPerDay,
           notes: actionFormData.notes 
         });
+        successMessage = 'Admission Request created. Confirm in Admissions.';
 
       } else if (currentAction === 'operation') {
-        if (!actionFormData.subtype) return alert('Enter operation name.');
-        if (!staffAssignedId) return alert('Select a surgeon.');
+        if (!actionFormData.subtype) throw new Error('Enter operation name.');
+        if (!staffAssignedId) throw new Error('Select a surgeon.');
         
         const breakdown = {
           ...opDetails,
-          breakdownString: `Surgeon: ${opDetails.surgeonCost}, Anest: ${opDetails.anesthesiologistCost}, Asst: ${opDetails.assistantCost}, Nurse: ${opDetails.nurseCost}, Drugs: ${opDetails.drugsCost}, Equip: ${opDetails.equipmentCost}, Theater: ${opDetails.theaterCost}, Other: ${opDetails.othersCost}`
+          breakdownString: `Surgeon: ${opDetails.surgeonCost}, Theater: ${opDetails.theaterCost}, Drugs: ${opDetails.drugsCost}, Equip: ${opDetails.equipmentCost}, Other: ${opDetails.othersCost}`
         };
 
         await api.createOperation({
@@ -314,11 +326,12 @@ export const Patients = () => {
           optionalFields: breakdown,
           totalCost: actionFormData.totalCost
         });
+        successMessage = 'Operation Scheduled. Confirm in Operations to bill.';
 
       } else if (currentAction === 'appointment') {
-        if (!staffAssignedId) return alert('Select a doctor.');
+        if (!staffAssignedId) throw new Error('Select a doctor.');
         const doc = staff.find(s => s.id === staffAssignedId);
-        if (!doc) return alert('Selected doctor not found.');
+        if (!doc) throw new Error('Selected doctor not found.');
 
         await api.createAppointment({
           patientId: selectedPatient.id,
@@ -328,16 +341,19 @@ export const Patients = () => {
           datetime: `${actionFormData.date}T${actionFormData.time}`,
           type: actionFormData.subtype || 'Consultation',
           reason: actionFormData.notes,
-          status: 'pending' // Creates request, confirm in Appointments to bill
+          status: 'pending' 
         });
+        successMessage = 'Appointment Scheduled. Confirm in Appointments.';
       }
 
       setIsActionModalOpen(false);
       loadData();
-      alert('Request submitted successfully. Please confirm in the related module to generate billing.');
+      alert(successMessage);
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.error || 'Failed to submit request.');
+      alert(err.response?.data?.error || err.message || 'Failed to submit request.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -412,9 +428,14 @@ export const Patients = () => {
     return { historyApps, historyBills };
   };
 
+  const getCurrentAdmission = () => {
+    if (!selectedPatient) return null;
+    return activeAdmissions.find(a => a.patient_id === selectedPatient.id);
+  };
+
   return (
     <div className="space-y-6">
-      {/* ... (Existing Patient List UI - Unchanged) ... */}
+      {/* ... (Existing Patient List UI) ... */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Patient Management</h1>
         {canManagePatients ? <Button onClick={openCreateModal} icon={Plus}>Register Patient</Button> : <Button disabled variant="secondary" icon={Lock}>Register Patient</Button>}
@@ -455,11 +476,15 @@ export const Patients = () => {
                filteredPatients.map((patient) => (
                   <tr key={patient.id} className="hover:bg-gray-50 transition-colors group text-sm">
                     <td className="px-3 py-3 align-top whitespace-nowrap"><span className="font-mono text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">{patient.patientId}</span></td>
-                    <td className="px-3 py-3 align-top font-bold text-gray-900">{patient.fullName}</td>
+                    <td className="px-3 py-3 align-top">
+                      <button onClick={() => openViewModal(patient)} className="font-bold text-gray-900 hover:text-primary-600 hover:underline text-left">
+                        {patient.fullName}
+                      </button>
+                    </td>
                     <td className="px-3 py-3 align-top text-xs text-gray-600 max-w-[150px]">{patient.address}</td>
                     <td className="px-3 py-3 align-top">{patient.phone}</td>
                     <td className="px-3 py-3 align-top">{patient.age} / <span className="capitalize">{patient.gender}</span></td>
-                    <td className="px-3 py-3 align-top"><Badge color={patient.type === 'emergency' ? 'red' : 'green'}>{patient.type}</Badge></td>
+                    <td className="px-3 py-3 align-top"><Badge color={patient.type === 'emergency' ? 'red' : patient.type === 'inpatient' ? 'orange' : 'green'}>{patient.type}</Badge></td>
                     <td className="px-3 py-3 text-right align-top">
                       <div className="flex justify-end gap-2">
                         <Button onClick={() => openActionMenu(patient)} size="sm" variant="secondary" icon={Settings} className="!py-1 !px-2 !text-xs">Manage</Button>
@@ -473,7 +498,7 @@ export const Patients = () => {
         </div>
       </Card>
 
-      {/* Register/Edit Modal (Unchanged) */}
+      {/* Register/Edit Modal - (Unchanged) */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient" : "Register Patient"}>
          <form onSubmit={handleRegisterSubmit} className="space-y-6">
            <div className="space-y-4">
@@ -580,16 +605,71 @@ export const Patients = () => {
           {/* APPOINTMENT FORM */}
           {currentAction === 'appointment' && (
             <>
+               {/* 1. Date & Time */}
                <div className="grid grid-cols-2 gap-4">
                   <Input label="Date" type="date" required value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
                   <Input label="Time" type="time" required value={actionFormData.time} onChange={e => setActionFormData({...actionFormData, time: e.target.value})} />
                </div>
                
-               <Select label="Assign Doctor" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
-                 <option value="">Select Doctor...</option>
-                 {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-               </Select>
+               {/* 2. Select Department/Specialty */}
+               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Department / Specialty</label>
+               <select 
+                className="block w-full rounded-xl bg-white border-slate-300 shadow-sm py-2.5 px-4 border mb-2"
+                value={selectedSpecialty}
+                onChange={e => { setSelectedSpecialty(e.target.value); setActionFormData({...actionFormData, staffId: ''}); }}
+               >
+                 <option value="">Select Specialty...</option>
+                 {Array.from(new Set(staff.filter(s => s.type === 'doctor').map(s => s.specialization))).map(spec => (
+                   <option key={spec} value={spec}>{spec}</option>
+                 ))}
+               </select>
 
+               {/* 3. Horizontal Doctor Cards */}
+               {selectedSpecialty && (
+                 <div>
+                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">Select Doctor</label>
+                   <div className="flex overflow-x-auto gap-3 pb-2 custom-scrollbar">
+                     {staff.filter(s => s.type === 'doctor' && s.specialization === selectedSpecialty).map(doc => {
+                       // Parse availability - simplified check for demo
+                       // In real app, check 'available_days' vs selected Date
+                       const isAvail = doc.isAvailable; 
+                       const availableDays = doc.schedule ? JSON.parse(doc.schedule) : ['Mon','Tue','Wed','Thu','Fri'];
+                       
+                       return (
+                         <div 
+                           key={doc.id} 
+                           onClick={() => isAvail && setActionFormData({...actionFormData, staffId: doc.id.toString()})}
+                           className={`
+                             min-w-[160px] p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between
+                             ${actionFormData.staffId === doc.id.toString() ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200' : ''}
+                             ${!isAvail ? 'opacity-60 bg-gray-50 cursor-not-allowed grayscale' : 'hover:border-primary-300 bg-white'}
+                           `}
+                         >
+                            <div>
+                              <div className="font-bold text-sm text-gray-900 truncate" title={doc.fullName}>{doc.fullName}</div>
+                              <div className="text-xs text-gray-500 mb-2">{doc.specialization}</div>
+                            </div>
+                            
+                            <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
+                               <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-1">
+                                 <Calendar size={10} /> {availableDays.slice(0,3).join(', ')}...
+                               </div>
+                               <div className={`text-xs font-bold flex items-center gap-1 ${isAvail ? 'text-green-600' : 'text-gray-400'}`}>
+                                 <div className={`w-2 h-2 rounded-full ${isAvail ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                                 {isAvail ? 'Available' : 'Unavailable'}
+                               </div>
+                            </div>
+                         </div>
+                       );
+                     })}
+                   </div>
+                   {staff.filter(s => s.type === 'doctor' && s.specialization === selectedSpecialty).length === 0 && (
+                     <p className="text-sm text-gray-500 italic">No doctors found for this specialty.</p>
+                   )}
+                 </div>
+               )}
+
+               {/* 4. Type & Cost */}
                {actionFormData.staffId && (
                  <Select label="Type" value={actionFormData.subtype} onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})}>
                    <option value="">Select Type...</option>
@@ -599,7 +679,6 @@ export const Patients = () => {
                  </Select>
                )}
 
-               {/* Show Fees ONLY after type is selected */}
                {actionFormData.subtype && actionFormData.totalCost > 0 && (
                   <div className="text-sm font-bold text-green-700 bg-green-50 p-3 rounded border border-green-100 flex justify-between items-center animate-in fade-in">
                     <span>Calculated Fee:</span>
@@ -614,25 +693,29 @@ export const Patients = () => {
           {/* LAB TEST FORM */}
           {currentAction === 'lab' && (
             <>
-               <div>
+               <div className="relative">
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Search & Add Tests</label>
                   <input type="text" className="w-full rounded-xl border-slate-300 py-2 px-3 text-sm" placeholder="Type test name..." value={testSearch} onChange={e => setTestSearch(e.target.value)} />
                   {testSearch && (
-                    <div className="mt-1 border rounded-lg max-h-32 overflow-y-auto bg-white shadow-sm">
+                    <div className="absolute top-full left-0 right-0 mt-1 border rounded-lg max-h-48 overflow-y-auto bg-white shadow-xl z-50">
                       {labTests.filter(t => t.name.toLowerCase().includes(testSearch.toLowerCase())).map(t => (
-                        <button key={t.id} type="button" className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex justify-between" onClick={() => { if(!selectedTests.find(x => x.id===t.id)) setSelectedTests([...selectedTests, t]); setTestSearch(''); }}>
-                          <span>{t.name}</span><span className="font-mono text-xs">${t.cost}</span>
+                        <button key={t.id} type="button" className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex justify-between border-b border-gray-50 last:border-0" onClick={() => { if(!selectedTests.find(x => x.id===t.id)) setSelectedTests([...selectedTests, t]); setTestSearch(''); }}>
+                          <span>{t.name}</span><span className="font-mono text-xs font-bold text-gray-600">${t.cost}</span>
                         </button>
                       ))}
                     </div>
                   )}
                </div>
-               <div className="border rounded-xl overflow-hidden">
+               <div className="border rounded-xl overflow-hidden mt-4">
                  <table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="px-3 py-2 text-left">Test</th><th className="px-3 py-2 text-right">Cost</th><th></th></tr></thead>
                  <tbody>
-                   {selectedTests.map((t, i) => (
-                     <tr key={i} className="border-t border-slate-100"><td className="px-3 py-2">{t.name}</td><td className="px-3 py-2 text-right">${t.cost}</td><td className="text-center"><button type="button" onClick={() => setSelectedTests(selectedTests.filter(x => x.id !== t.id))} className="text-red-500"><Trash2 size={14}/></button></td></tr>
-                   ))}
+                   {selectedTests.length === 0 ? (
+                     <tr><td colSpan={3} className="text-center py-4 text-gray-400 italic">No tests selected</td></tr>
+                   ) : (
+                    selectedTests.map((t, i) => (
+                      <tr key={i} className="border-t border-slate-100"><td className="px-3 py-2">{t.name}</td><td className="px-3 py-2 text-right">${t.cost}</td><td className="text-center"><button type="button" onClick={() => setSelectedTests(selectedTests.filter(x => x.id !== t.id))} className="text-red-500"><Trash2 size={14}/></button></td></tr>
+                    ))
+                   )}
                    <tr className="bg-slate-50 font-bold border-t"><td className="px-3 py-2">Total</td><td className="px-3 py-2 text-right">${selectedTests.reduce((a,b)=>a+b.cost,0)}</td><td></td></tr>
                  </tbody></table>
                </div>
@@ -666,26 +749,45 @@ export const Patients = () => {
           {/* ADMISSION FORM */}
           {currentAction === 'admission' && (
              <>
-               <div className="grid grid-cols-2 gap-4">
-                  <Input label="Entry Date" type="date" required value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
-                  <Input label="Discharge Date" type="date" value={actionFormData.dischargeDate} onChange={e => setActionFormData({...actionFormData, dischargeDate: e.target.value})} />
-               </div>
-               <Select label="Treating Doctor" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
-                 <option value="">Select Doctor...</option>
-                 {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-               </Select>
-               <label className="block text-sm font-semibold text-slate-700">Select Bed</label>
-               <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1">
-                 {beds.map(bed => (
-                   <button key={bed.id} type="button" disabled={bed.status === 'occupied'} onClick={() => setSelectedBed(bed)}
-                     className={`flex flex-col items-center p-2 rounded border text-xs relative ${bed.status === 'occupied' ? 'bg-red-50 border-red-200 text-red-400' : selectedBed?.id === bed.id ? 'bg-primary-600 text-white' : 'bg-white text-slate-600'}`}>
-                     <Bed size={16} className="mb-1"/> <span className="font-bold">{bed.roomNumber}</span>
-                     {selectedBed?.id === bed.id && <CheckCircle size={12} className="absolute top-1 right-1 text-white"/>}
-                   </button>
-                 ))}
-               </div>
-               {selectedBed && <p className="text-xs text-right font-bold text-slate-500">Deposit: ${selectedBed.costPerDay}</p>}
-               <Textarea label="Admission Notes" rows={2} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
+               {selectedPatient?.type === 'inpatient' ? (
+                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex flex-col items-center text-center space-y-2">
+                   <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mb-2">
+                     <Bed size={24} />
+                   </div>
+                   <h3 className="font-bold text-orange-800">Patient Already Admitted</h3>
+                   <p className="text-sm text-orange-700">This patient is currently an inpatient.</p>
+                   {getCurrentAdmission() && (
+                      <div className="text-xs bg-white p-3 rounded border border-orange-100 w-full mt-2 text-left">
+                        <div className="flex justify-between border-b border-orange-50 pb-1 mb-1"><span>Room:</span> <strong>{getCurrentAdmission()?.roomNumber}</strong></div>
+                        <div className="flex justify-between border-b border-orange-50 pb-1 mb-1"><span>Since:</span> <strong>{new Date(getCurrentAdmission()?.entry_date).toLocaleDateString()}</strong></div>
+                        <div className="flex justify-between"><span>Doctor:</span> <strong>{staff.find(s => s.id === getCurrentAdmission()?.doctor_id)?.fullName || 'Unknown'}</strong></div>
+                      </div>
+                   )}
+                 </div>
+               ) : (
+                 <>
+                   <div className="grid grid-cols-2 gap-4">
+                      <Input label="Entry Date" type="date" required value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
+                      <Input label="Discharge Date" type="date" value={actionFormData.dischargeDate} onChange={e => setActionFormData({...actionFormData, dischargeDate: e.target.value})} />
+                   </div>
+                   <Select label="Treating Doctor" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
+                     <option value="">Select Doctor...</option>
+                     {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                   </Select>
+                   <label className="block text-sm font-semibold text-slate-700">Select Bed</label>
+                   <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1">
+                     {beds.map(bed => (
+                       <button key={bed.id} type="button" disabled={bed.status === 'occupied'} onClick={() => setSelectedBed(bed)}
+                         className={`flex flex-col items-center p-2 rounded border text-xs relative ${bed.status === 'occupied' ? 'bg-red-50 border-red-200 text-red-400 opacity-60 cursor-not-allowed' : selectedBed?.id === bed.id ? 'bg-primary-600 text-white' : 'bg-white text-slate-600'}`}>
+                         <Bed size={16} className="mb-1"/> <span className="font-bold">{bed.roomNumber}</span>
+                         {selectedBed?.id === bed.id && <CheckCircle size={12} className="absolute top-1 right-1 text-white"/>}
+                       </button>
+                     ))}
+                   </div>
+                   {selectedBed && <p className="text-xs text-right font-bold text-slate-500">Deposit: ${selectedBed.costPerDay}</p>}
+                   <Textarea label="Admission Notes" rows={2} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
+                 </>
+               )}
              </>
           )}
 
@@ -703,7 +805,7 @@ export const Patients = () => {
                   <input 
                     type="text" 
                     list="ops-list" 
-                    className="w-full rounded-xl border-slate-300 py-2 px-3 text-sm text-slate-900" 
+                    className="w-full rounded-xl border-slate-300 py-2 px-3 text-sm text-slate-900 bg-white" 
                     placeholder="Type to search..."
                     value={actionFormData.subtype} 
                     onChange={e => handleOperationSelect(e.target.value)} 
@@ -711,46 +813,26 @@ export const Patients = () => {
                   <datalist id="ops-list">{operations.map(o => <option key={o.id} value={o.name}/>)}</datalist>
                </div>
 
-               {/* Staffing & Costs */}
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                 <div className="col-span-1">
-                    <Select label="Lead Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
-                      <option value="">Select Surgeon...</option>
-                      {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                    </Select>
-                    <Input className="mt-1" type="number" placeholder="Cost" value={opDetails.surgeonCost} onChange={e => setOpDetails({...opDetails, surgeonCost: parseFloat(e.target.value || '0')})} />
-                 </div>
-
-                 <div className="col-span-1">
-                    <Select label="Anesthesiologist" value={opDetails.anesthesiologistId} onChange={e => setOpDetails({...opDetails, anesthesiologistId: e.target.value})}>
-                      <option value="">Select Anesthesiologist...</option>
-                      {staff.filter(s => s.type === 'anesthesiologist' || s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                    </Select>
-                    <Input className="mt-1" type="number" placeholder="Cost" value={opDetails.anesthesiologistCost} onChange={e => setOpDetails({...opDetails, anesthesiologistCost: parseFloat(e.target.value || '0')})} />
-                 </div>
-
-                 <div className="col-span-1">
-                    <Select label="Medical Assistant" value={opDetails.assistantId} onChange={e => setOpDetails({...opDetails, assistantId: e.target.value})}>
-                      <option value="">Select Assistant...</option>
-                      {staff.filter(s => s.type === 'medical_assistant' || s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                    </Select>
-                    <Input className="mt-1" type="number" placeholder="Cost" value={opDetails.assistantCost} onChange={e => setOpDetails({...opDetails, assistantCost: parseFloat(e.target.value || '0')})} />
-                 </div>
-
-                 <div className="col-span-1">
-                    <Select label="Scrub Nurse" value={opDetails.nurseId} onChange={e => setOpDetails({...opDetails, nurseId: e.target.value})}>
-                      <option value="">Select Nurse...</option>
-                      {staff.filter(s => s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                    </Select>
-                    <Input className="mt-1" type="number" placeholder="Cost" value={opDetails.nurseCost} onChange={e => setOpDetails({...opDetails, nurseCost: parseFloat(e.target.value || '0')})} />
+               {/* Section: Surgical Team */}
+               <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
+                 <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><UserIcon size={12}/> Surgical Team</h4>
+                 <div className="grid grid-cols-1 gap-3">
+                   <div className="col-span-1">
+                      <Select label="Lead Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
+                        <option value="">Select Surgeon...</option>
+                        {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                      </Select>
+                      <Input className="mt-1" type="number" placeholder="Cost" value={opDetails.surgeonCost} onChange={e => setOpDetails({...opDetails, surgeonCost: parseFloat(e.target.value || '0')})} />
+                   </div>
                  </div>
                </div>
 
-               {/* Resources & Costs */}
-               <div className="space-y-3 pt-2 border-t border-slate-100">
+               {/* Section: Resources */}
+               <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
+                 <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><Briefcase size={12}/> Resources & Consumables</h4>
                   <div className="grid grid-cols-3 gap-2">
                      <div className="col-span-2 flex items-center"><span className="text-sm font-semibold text-slate-700">Theater Charges (1x Surgeon Fee)</span></div>
-                     <div className="col-span-1"><Input label="Cost" type="number" value={opDetails.theaterCost} onChange={e => setOpDetails({...opDetails, theaterCost: parseFloat(e.target.value || '0')})} /></div>
+                     <div className="col-span-1"><Input label="Cost" type="number" disabled value={opDetails.theaterCost} onChange={e => setOpDetails({...opDetails, theaterCost: parseFloat(e.target.value || '0')})} /></div>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                      <div className="col-span-2"><Input label="Drugs & Consumables" placeholder="Anesthesia, antibiotics..." value={opDetails.drugs} onChange={e => setOpDetails({...opDetails, drugs: e.target.value})} /></div>
@@ -767,16 +849,29 @@ export const Patients = () => {
                </div>
 
                {/* Costing */}
-               <div className="pt-2 border-t border-slate-100 bg-slate-50 p-3 rounded-lg flex justify-between items-center">
-                  <span className="font-bold text-gray-700">Projected Operation Cost:</span>
-                  <span className="text-xl font-bold text-gray-900">${actionFormData.totalCost.toFixed(2)}</span>
+               <div className="p-3 bg-slate-900 text-white rounded-xl flex justify-between items-center shadow-lg">
+                  <span className="font-bold text-slate-300">Projected Operation Cost:</span>
+                  <span className="text-2xl font-bold text-white">${actionFormData.totalCost.toFixed(2)}</span>
                </div>
             </div>
           )}
 
           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
              <Button type="button" variant="secondary" onClick={() => setIsActionModalOpen(false)}>Cancel</Button>
-             <Button type="submit">Submit Request</Button>
+             
+             {/* Dynamic Submit Button with Loading & Validation */}
+             <Button 
+               type="submit" 
+               disabled={
+                 actionLoading || 
+                 (currentAction === 'lab' && selectedTests.length === 0) ||
+                 (currentAction === 'admission' && selectedPatient?.type === 'inpatient')
+               }
+             >
+               {actionLoading ? (
+                 <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Processing...</span>
+               ) : 'Submit Request'}
+             </Button>
           </div>
         </form>
       </Modal>
