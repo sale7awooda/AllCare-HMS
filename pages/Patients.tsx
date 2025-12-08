@@ -4,15 +4,17 @@ import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../componen
 import { 
   Plus, Search, Filter, Heart, Shield, AlertTriangle, Edit, Eye, Calendar, Lock, 
   Stethoscope, FlaskConical, Bed, Activity, FileClock, Settings, Thermometer, Trash2, CheckCircle,
-  Phone, User as UserIcon, AlertCircle, Pill, Syringe
+  Phone, User as UserIcon, AlertCircle, Pill, Syringe, History
 } from 'lucide-react';
 import { api } from '../services/api';
-import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog } from '../types';
+import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
 
 export const Patients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Catalogs
@@ -35,7 +37,7 @@ export const Patients = () => {
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [viewTab, setViewTab] = useState<'info' | 'records'>('info');
+  const [viewTab, setViewTab] = useState<'info' | 'history'>('info');
   const [isEditing, setIsEditing] = useState(false);
 
   // Action Logic
@@ -63,7 +65,15 @@ export const Patients = () => {
     nurseId: '', 
     drugs: '', 
     equipment: '', 
-    others: ''
+    others: '',
+    // Costs
+    surgeonCost: 0,
+    anesthesiologistCost: 0,
+    assistantCost: 0,
+    nurseCost: 0,
+    drugsCost: 0,
+    equipmentCost: 0,
+    othersCost: 0
   });
 
   // SUDAN INSURANCE PROVIDERS
@@ -92,13 +102,16 @@ export const Patients = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [pts, apts, stf, user] = await Promise.all([
+      const [pts, apts, b, stf, user] = await Promise.all([
         api.getPatients(), 
         api.getAppointments(),
+        api.getBills(),
         api.getStaff(),
         api.me()
       ]);
       setPatients(Array.isArray(pts) ? pts : []);
+      setAppointments(Array.isArray(apts) ? apts : []);
+      setBills(Array.isArray(b) ? b : []);
       setStaff(Array.isArray(stf) ? stf : []);
       setCurrentUser(user);
     } catch (error) {
@@ -180,7 +193,10 @@ export const Patients = () => {
     setTestSearch('');
     setSelectedService(null);
     setSelectedBed(null);
-    setOpDetails({ assistantId: '', anesthesiologistId: '', nurseId: '', drugs: '', equipment: '', others: '' });
+    setOpDetails({ 
+      assistantId: '', anesthesiologistId: '', nurseId: '', drugs: '', equipment: '', others: '',
+      surgeonCost: 0, anesthesiologistCost: 0, assistantCost: 0, nurseCost: 0, drugsCost: 0, equipmentCost: 0, othersCost: 0
+    });
     
     setCurrentAction(action);
     setActionFormData({
@@ -188,7 +204,7 @@ export const Patients = () => {
       date: new Date().toISOString().split('T')[0],
       time: '09:00',
       notes: '',
-      subtype: '',
+      subtype: action === 'appointment' ? 'Consultation' : '',
       dischargeDate: '',
       totalCost: 0
     });
@@ -200,9 +216,40 @@ export const Patients = () => {
     setActionFormData({
       ...actionFormData,
       subtype: opName,
-      totalCost: op ? op.baseCost : 0
+      // We don't set totalCost here anymore, it's calculated from components
     });
+    if (op) {
+      setOpDetails(prev => ({...prev, surgeonCost: op.baseCost}));
+    }
   };
+
+  // Effect to calculate Operation Total Cost
+  useEffect(() => {
+    if (currentAction === 'operation') {
+      const total = 
+        (opDetails.surgeonCost || 0) +
+        (opDetails.anesthesiologistCost || 0) +
+        (opDetails.assistantCost || 0) +
+        (opDetails.nurseCost || 0) +
+        (opDetails.drugsCost || 0) +
+        (opDetails.equipmentCost || 0) +
+        (opDetails.othersCost || 0);
+      setActionFormData(prev => ({...prev, totalCost: total}));
+    }
+  }, [opDetails, currentAction]);
+
+  // Effect to calculate Appointment Cost
+  useEffect(() => {
+    if (currentAction === 'appointment' && actionFormData.staffId) {
+       const doc = staff.find(s => s.id === parseInt(actionFormData.staffId));
+       if (doc) {
+         let cost = doc.consultationFee;
+         if (actionFormData.subtype === 'Follow-up') cost = cost * 0.5;
+         if (actionFormData.subtype === 'Emergency') cost = cost * 1.5;
+         setActionFormData(prev => ({...prev, totalCost: cost}));
+       }
+    }
+  }, [actionFormData.staffId, actionFormData.subtype, currentAction, staff]);
 
   const submitAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,12 +293,19 @@ export const Patients = () => {
       } else if (currentAction === 'operation') {
         if (!actionFormData.subtype) return alert('Enter operation name.');
         if (!staffAssignedId) return alert('Select a surgeon.');
+        
+        // Store breakdown in optionalFields/notes
+        const breakdown = {
+          ...opDetails,
+          breakdownString: `Surgeon: ${opDetails.surgeonCost}, Anest: ${opDetails.anesthesiologistCost}, Asst: ${opDetails.assistantCost}, Nurse: ${opDetails.nurseCost}, Drugs: ${opDetails.drugsCost}, Equip: ${opDetails.equipmentCost}, Other: ${opDetails.othersCost}`
+        };
+
         await api.createOperation({
           patientId: selectedPatient.id,
           operationName: actionFormData.subtype,
           doctorId: staffAssignedId, 
           notes: actionFormData.notes,
-          optionalFields: opDetails,
+          optionalFields: breakdown,
           totalCost: actionFormData.totalCost
         });
 
@@ -271,13 +325,17 @@ export const Patients = () => {
           status: 'pending'
         });
         
-        if (doc.consultationFee > 0) {
+        // Bill creation with calculated cost
+        if (actionFormData.totalCost > 0) {
           await api.createBill({
             patientId: selectedPatient.id,
             patientName: selectedPatient.fullName,
-            totalAmount: doc.consultationFee,
+            totalAmount: actionFormData.totalCost,
             date: new Date().toISOString().split('T')[0],
-            items: [{description: `Consultation: ${doc.fullName} for ${selectedPatient.fullName}`, amount: doc.consultationFee}]
+            items: [{
+              description: `${actionFormData.subtype}: ${doc.fullName}`, 
+              amount: actionFormData.totalCost
+            }]
           });
         }
       }
@@ -344,11 +402,6 @@ export const Patients = () => {
 
   const canManagePatients = hasPermission(currentUser, Permissions.MANAGE_PATIENTS);
   
-  const getDocFee = () => {
-    const d = staff.find(s => s.id === parseInt(actionFormData.staffId));
-    return d ? d.consultationFee : 0;
-  };
-
   const getActionModalTitle = () => {
     switch (currentAction) {
       case 'appointment': return 'Schedule Appointment';
@@ -358,6 +411,13 @@ export const Patients = () => {
       case 'operation': return 'Schedule Operation';
       default: return 'Medical Action';
     }
+  };
+
+  const getPatientHistory = () => {
+    if (!selectedPatient) return { historyApps: [], historyBills: [] };
+    const historyApps = appointments.filter(a => a.patientId === selectedPatient.id);
+    const historyBills = bills.filter(b => b.patientId === selectedPatient.id);
+    return { historyApps, historyBills };
   };
 
   return (
@@ -512,7 +572,7 @@ export const Patients = () => {
             { id: 'nurse', icon: Thermometer, label: 'Nurse Service', color: 'emerald' },
             { id: 'admission', icon: Bed, label: 'Admission', color: 'orange' }, 
             { id: 'operation', icon: Activity, label: 'Operation', color: 'red' },
-            { id: 'history', icon: FileClock, label: 'History / View', color: 'gray' },
+            { id: 'history', icon: History, label: 'History / View', color: 'gray' },
           ].map((action: any) => (
             <button key={action.id} onClick={() => handleActionSelect(action.id)} 
               className={`flex flex-col items-center justify-center p-4 bg-${action.color}-50 hover:bg-${action.color}-100 text-${action.color}-700 rounded-xl transition-all border border-${action.color}-100`}>
@@ -535,11 +595,23 @@ export const Patients = () => {
                   <Input label="Date" type="date" required value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
                   <Input label="Time" type="time" required value={actionFormData.time} onChange={e => setActionFormData({...actionFormData, time: e.target.value})} />
                </div>
+               
+               <Select label="Type" value={actionFormData.subtype} onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})}>
+                 <option value="Consultation">Consultation</option>
+                 <option value="Follow-up">Follow-up</option>
+                 <option value="Emergency">Emergency</option>
+               </Select>
+
                <Select label="Assign Doctor" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                  <option value="">Select Doctor...</option>
                  {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                </Select>
-               {actionFormData.staffId && <div className="text-xs font-bold text-green-600 bg-green-50 p-2 rounded border border-green-100">Consultation Fee: ${getDocFee()}</div>}
+
+               <div className="text-sm font-bold text-green-700 bg-green-50 p-3 rounded border border-green-100 flex justify-between items-center">
+                 <span>Calculated Fee:</span>
+                 <span className="text-lg">${actionFormData.totalCost}</span>
+               </div>
+               
                <Textarea label="Reason" rows={2} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
             </>
           )}
@@ -626,7 +698,7 @@ export const Patients = () => {
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-xs text-yellow-800 flex items-start gap-2 mb-2">
                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                 Confirming this operation will generate a bill. Ensure all resource usage is estimated correctly.
+                 Confirming this operation will generate a bill. Enter costs for all resources.
                </div>
 
                {/* Operation Selection */}
@@ -643,52 +715,68 @@ export const Patients = () => {
                   <datalist id="ops-list">{operations.map(o => <option key={o.id} value={o.name}/>)}</datalist>
                </div>
 
-               {/* Staffing */}
+               {/* Staffing & Costs */}
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                 <Select label="Lead Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
-                   <option value="">Select Surgeon...</option>
-                   {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                 </Select>
+                 <div className="col-span-1">
+                    <Select label="Lead Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
+                      <option value="">Select Surgeon...</option>
+                      {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                    </Select>
+                    <Input className="mt-1" type="number" placeholder="Cost" value={opDetails.surgeonCost} onChange={e => setOpDetails({...opDetails, surgeonCost: parseFloat(e.target.value || '0')})} />
+                 </div>
 
-                 <Select label="Anesthesiologist" value={opDetails.anesthesiologistId} onChange={e => setOpDetails({...opDetails, anesthesiologistId: e.target.value})}>
-                   <option value="">Select Anesthesiologist...</option>
-                   {staff.filter(s => s.type === 'anesthesiologist' || s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                 </Select>
+                 <div className="col-span-1">
+                    <Select label="Anesthesiologist" value={opDetails.anesthesiologistId} onChange={e => setOpDetails({...opDetails, anesthesiologistId: e.target.value})}>
+                      <option value="">Select Anesthesiologist...</option>
+                      {staff.filter(s => s.type === 'anesthesiologist' || s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                    </Select>
+                    <Input className="mt-1" type="number" placeholder="Cost" value={opDetails.anesthesiologistCost} onChange={e => setOpDetails({...opDetails, anesthesiologistCost: parseFloat(e.target.value || '0')})} />
+                 </div>
 
-                 <Select label="Medical Assistant" value={opDetails.assistantId} onChange={e => setOpDetails({...opDetails, assistantId: e.target.value})}>
-                   <option value="">Select Assistant...</option>
-                   {staff.filter(s => s.type === 'medical_assistant' || s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                 </Select>
+                 <div className="col-span-1">
+                    <Select label="Medical Assistant" value={opDetails.assistantId} onChange={e => setOpDetails({...opDetails, assistantId: e.target.value})}>
+                      <option value="">Select Assistant...</option>
+                      {staff.filter(s => s.type === 'medical_assistant' || s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                    </Select>
+                    <Input className="mt-1" type="number" placeholder="Cost" value={opDetails.assistantCost} onChange={e => setOpDetails({...opDetails, assistantCost: parseFloat(e.target.value || '0')})} />
+                 </div>
 
-                 <Select label="Scrub Nurse" value={opDetails.nurseId} onChange={e => setOpDetails({...opDetails, nurseId: e.target.value})}>
-                   <option value="">Select Nurse...</option>
-                   {staff.filter(s => s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                 </Select>
+                 <div className="col-span-1">
+                    <Select label="Scrub Nurse" value={opDetails.nurseId} onChange={e => setOpDetails({...opDetails, nurseId: e.target.value})}>
+                      <option value="">Select Nurse...</option>
+                      {staff.filter(s => s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                    </Select>
+                    <Input className="mt-1" type="number" placeholder="Cost" value={opDetails.nurseCost} onChange={e => setOpDetails({...opDetails, nurseCost: parseFloat(e.target.value || '0')})} />
+                 </div>
                </div>
 
-               {/* Resources */}
+               {/* Resources & Costs */}
                <div className="space-y-3 pt-2 border-t border-slate-100">
-                  <Textarea label="Drugs & Consumables" placeholder="List anesthesia, antibiotics, sutures..." rows={2} value={opDetails.drugs} onChange={e => setOpDetails({...opDetails, drugs: e.target.value})} />
-                  <Textarea label="Equipment Used" placeholder="Specialized equipment..." rows={2} value={opDetails.equipment} onChange={e => setOpDetails({...opDetails, equipment: e.target.value})} />
+                  <div className="grid grid-cols-3 gap-2">
+                     <div className="col-span-2"><Input label="Drugs & Consumables" placeholder="Anesthesia, antibiotics..." value={opDetails.drugs} onChange={e => setOpDetails({...opDetails, drugs: e.target.value})} /></div>
+                     <div className="col-span-1"><Input label="Cost" type="number" value={opDetails.drugsCost} onChange={e => setOpDetails({...opDetails, drugsCost: parseFloat(e.target.value || '0')})} /></div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                     <div className="col-span-2"><Input label="Equipment Used" placeholder="Specialized equipment..." value={opDetails.equipment} onChange={e => setOpDetails({...opDetails, equipment: e.target.value})} /></div>
+                     <div className="col-span-1"><Input label="Cost" type="number" value={opDetails.equipmentCost} onChange={e => setOpDetails({...opDetails, equipmentCost: parseFloat(e.target.value || '0')})} /></div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                     <div className="col-span-2"><Input label="Others" placeholder="Other charges..." value={opDetails.others} onChange={e => setOpDetails({...opDetails, others: e.target.value})} /></div>
+                     <div className="col-span-1"><Input label="Cost" type="number" value={opDetails.othersCost} onChange={e => setOpDetails({...opDetails, othersCost: parseFloat(e.target.value || '0')})} /></div>
+                  </div>
                </div>
 
                {/* Costing */}
-               <div className="pt-2 border-t border-slate-100">
-                  <Input 
-                    label="Total Operation Cost ($)" 
-                    type="number" 
-                    required 
-                    value={actionFormData.totalCost} 
-                    onChange={e => setActionFormData({...actionFormData, totalCost: parseFloat(e.target.value)})} 
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Base cost pre-filled. Adjust based on additional resources.</p>
+               <div className="pt-2 border-t border-slate-100 bg-slate-50 p-3 rounded-lg flex justify-between items-center">
+                  <span className="font-bold text-gray-700">Total Operation Cost:</span>
+                  <span className="text-xl font-bold text-gray-900">${actionFormData.totalCost.toFixed(2)}</span>
                </div>
             </div>
           )}
 
           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
              <Button type="button" variant="secondary" onClick={() => setIsActionModalOpen(false)}>Cancel</Button>
-             <Button type="submit">Confirm & Generate Bill</Button>
+             <Button type="submit">Confirm & Process</Button>
           </div>
         </form>
       </Modal>
@@ -722,77 +810,129 @@ export const Patients = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Medical History */}
-              <Card title="Medical Profile" className="h-full">
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1"><Heart className="text-red-500" size={18} /></div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-500 uppercase">Blood Group</p>
-                      <p className="font-semibold text-slate-800">{selectedPatient.bloodGroup || 'Not recorded'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1"><AlertTriangle className="text-orange-500" size={18} /></div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-500 uppercase">Allergies</p>
-                      <p className="text-sm text-slate-700">{selectedPatient.allergies || 'None known'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1"><Activity className="text-blue-500" size={18} /></div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-500 uppercase">Current Symptoms</p>
-                      <p className="text-sm text-slate-700">{selectedPatient.symptoms || 'None recorded'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1"><FileClock className="text-slate-400" size={18} /></div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-500 uppercase">Medical History</p>
-                      <p className="text-sm text-slate-700 leading-relaxed">{selectedPatient.medicalHistory || 'No history recorded'}</p>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              <div className="space-y-6">
-                {/* Emergency Contact */}
-                <Card title="Emergency Contact">
-                   {selectedPatient.emergencyContact ? (
-                     <div className="space-y-2">
-                       <p className="font-bold text-slate-800">{selectedPatient.emergencyContact.name} <span className="text-xs font-normal text-slate-500">({selectedPatient.emergencyContact.relation})</span></p>
-                       <p className="flex items-center gap-2 text-slate-600"><Phone size={14}/> {selectedPatient.emergencyContact.phone}</p>
-                     </div>
-                   ) : <p className="text-slate-400 italic">No emergency contact.</p>}
-                </Card>
-
-                {/* Insurance */}
-                <Card title="Insurance">
-                   {selectedPatient.hasInsurance && selectedPatient.insuranceDetails ? (
-                     <div className="space-y-2">
-                       <div className="flex justify-between">
-                         <span className="text-sm text-slate-500">Provider</span>
-                         <span className="font-bold text-slate-800">{selectedPatient.insuranceDetails.provider}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span className="text-sm text-slate-500">Policy #</span>
-                         <span className="font-mono text-sm bg-slate-50 px-2 py-0.5 rounded">{selectedPatient.insuranceDetails.policyNumber}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span className="text-sm text-slate-500">Expires</span>
-                         <span className={`text-sm font-medium ${new Date(selectedPatient.insuranceDetails.expiryDate) < new Date() ? 'text-red-600' : 'text-green-600'}`}>{selectedPatient.insuranceDetails.expiryDate}</span>
-                       </div>
-                     </div>
-                   ) : (
-                     <div className="flex items-center gap-2 text-slate-500 italic bg-slate-50 p-3 rounded-lg">
-                       <Shield size={16} className="text-slate-400"/> Self Pay / No Insurance
-                     </div>
-                   )}
-                </Card>
-              </div>
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200">
+              <button onClick={() => setViewTab('info')} className={`px-4 py-2 font-medium text-sm ${viewTab === 'info' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500 hover:text-gray-700'}`}>Medical Profile</button>
+              <button onClick={() => setViewTab('history')} className={`px-4 py-2 font-medium text-sm ${viewTab === 'history' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500 hover:text-gray-700'}`}>History & Records</button>
             </div>
+
+            {viewTab === 'info' ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
+                 {/* Medical History */}
+                 <Card title="Medical Details" className="h-full">
+                   <div className="space-y-4">
+                     <div className="flex items-start gap-3">
+                       <div className="mt-1"><Heart className="text-red-500" size={18} /></div>
+                       <div>
+                         <p className="text-xs font-bold text-slate-500 uppercase">Blood Group</p>
+                         <p className="font-semibold text-slate-800">{selectedPatient.bloodGroup || 'Not recorded'}</p>
+                       </div>
+                     </div>
+                     <div className="flex items-start gap-3">
+                       <div className="mt-1"><AlertTriangle className="text-orange-500" size={18} /></div>
+                       <div>
+                         <p className="text-xs font-bold text-slate-500 uppercase">Allergies</p>
+                         <p className="text-sm text-slate-700">{selectedPatient.allergies || 'None known'}</p>
+                       </div>
+                     </div>
+                     <div className="flex items-start gap-3">
+                       <div className="mt-1"><Activity className="text-blue-500" size={18} /></div>
+                       <div>
+                         <p className="text-xs font-bold text-slate-500 uppercase">Current Symptoms</p>
+                         <p className="text-sm text-slate-700">{selectedPatient.symptoms || 'None recorded'}</p>
+                       </div>
+                     </div>
+                     <div className="flex items-start gap-3">
+                       <div className="mt-1"><FileClock className="text-slate-400" size={18} /></div>
+                       <div>
+                         <p className="text-xs font-bold text-slate-500 uppercase">Medical History</p>
+                         <p className="text-sm text-slate-700 leading-relaxed">{selectedPatient.medicalHistory || 'No history recorded'}</p>
+                       </div>
+                     </div>
+                   </div>
+                 </Card>
+   
+                 <div className="space-y-6">
+                   {/* Emergency Contact */}
+                   <Card title="Emergency Contact">
+                      {selectedPatient.emergencyContact ? (
+                        <div className="space-y-2">
+                          <p className="font-bold text-slate-800">{selectedPatient.emergencyContact.name} <span className="text-xs font-normal text-slate-500">({selectedPatient.emergencyContact.relation})</span></p>
+                          <p className="flex items-center gap-2 text-slate-600"><Phone size={14}/> {selectedPatient.emergencyContact.phone}</p>
+                        </div>
+                      ) : <p className="text-slate-400 italic">No emergency contact.</p>}
+                   </Card>
+   
+                   {/* Insurance */}
+                   <Card title="Insurance">
+                      {selectedPatient.hasInsurance && selectedPatient.insuranceDetails ? (
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-slate-500">Provider</span>
+                            <span className="font-bold text-slate-800">{selectedPatient.insuranceDetails.provider}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-slate-500">Policy #</span>
+                            <span className="font-mono text-sm bg-slate-50 px-2 py-0.5 rounded">{selectedPatient.insuranceDetails.policyNumber}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-slate-500">Expires</span>
+                            <span className={`text-sm font-medium ${new Date(selectedPatient.insuranceDetails.expiryDate) < new Date() ? 'text-red-600' : 'text-green-600'}`}>{selectedPatient.insuranceDetails.expiryDate}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-slate-500 italic bg-slate-50 p-3 rounded-lg">
+                          <Shield size={16} className="text-slate-400"/> Self Pay / No Insurance
+                        </div>
+                      )}
+                   </Card>
+                 </div>
+               </div>
+            ) : (
+               <div className="space-y-6 animate-in fade-in">
+                  <div className="space-y-4">
+                     <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Appointment History</h3>
+                     {getPatientHistory().historyApps.length > 0 ? (
+                       <div className="border rounded-lg overflow-hidden">
+                         <table className="w-full text-sm">
+                           <thead className="bg-slate-50"><tr><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Type</th><th className="px-3 py-2 text-left">Doctor</th><th className="px-3 py-2">Status</th></tr></thead>
+                           <tbody>
+                             {getPatientHistory().historyApps.map(a => (
+                               <tr key={a.id} className="border-t">
+                                 <td className="px-3 py-2">{new Date(a.datetime).toLocaleDateString()}</td>
+                                 <td className="px-3 py-2">{a.type}</td>
+                                 <td className="px-3 py-2">{a.staffName}</td>
+                                 <td className="px-3 py-2 text-center"><Badge color={a.status==='confirmed'?'green':a.status==='cancelled'?'red':'yellow'}>{a.status}</Badge></td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                       </div>
+                     ) : <p className="text-slate-400 text-sm italic">No appointment history found.</p>}
+                  </div>
+
+                  <div className="space-y-4">
+                     <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Billing History</h3>
+                     {getPatientHistory().historyBills.length > 0 ? (
+                       <div className="border rounded-lg overflow-hidden">
+                         <table className="w-full text-sm">
+                           <thead className="bg-slate-50"><tr><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Invoice #</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2">Status</th></tr></thead>
+                           <tbody>
+                             {getPatientHistory().historyBills.map(b => (
+                               <tr key={b.id} className="border-t">
+                                 <td className="px-3 py-2">{b.date}</td>
+                                 <td className="px-3 py-2 font-mono text-xs">{b.billNumber}</td>
+                                 <td className="px-3 py-2 text-right font-bold">${b.totalAmount}</td>
+                                 <td className="px-3 py-2 text-center"><Badge color={b.status==='paid'?'green':'yellow'}>{b.status}</Badge></td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                       </div>
+                     ) : <p className="text-slate-400 text-sm italic">No billing records found.</p>}
+                  </div>
+               </div>
+            )}
             
             <div className="flex justify-end pt-4 border-t">
               <Button onClick={() => setIsViewModalOpen(false)}>Close File</Button>
