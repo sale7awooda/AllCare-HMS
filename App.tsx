@@ -124,6 +124,7 @@ export default function App() {
           const userData = await api.me();
           setUser(userData);
         } catch (e) {
+          console.error("Auth check failed:", e); // Added explicit error log
           localStorage.removeItem('token');
         }
       }

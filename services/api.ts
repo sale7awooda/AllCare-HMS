@@ -34,6 +34,9 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Log the error for all non-2xx responses
+    console.error("API call failed:", error);
+
     if (error.response?.status === 401 && window.location.hash !== '#/') {
       localStorage.removeItem('token');
       window.location.href = '/';
