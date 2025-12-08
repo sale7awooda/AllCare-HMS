@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
 import { 
   Plus, Search, Filter, Heart, Shield, AlertTriangle, Edit, Eye, Calendar, Lock, 
-  Stethoscope, FlaskConical, Bed, Activity, FileClock, Settings, Thermometer, Trash2, CheckCircle
+  Stethoscope, FlaskConical, Bed, Activity, FileClock, Settings, Thermometer, Trash2, CheckCircle,
+  Phone, User as UserIcon, AlertCircle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog } from '../types';
-import { hasPermission, Permissions } from '../utils/rbac'; // Import Permissions
+import { hasPermission, Permissions } from '../utils/rbac';
 
 export const Patients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
-  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Catalogs
@@ -44,7 +44,7 @@ export const Patients = () => {
     date: new Date().toISOString().split('T')[0],
     time: '09:00',
     notes: '',
-    subtype: '', // Used for Op Name search etc. or generic appt type
+    subtype: '',
     dischargeDate: ''
   });
 
@@ -53,11 +53,9 @@ export const Patients = () => {
   const [testSearch, setTestSearch] = useState('');
   const [selectedService, setSelectedService] = useState<NurseServiceCatalog | null>(null);
   const [selectedBed, setSelectedBed] = useState<BedType | null>(null);
-  // opDetails will be passed for operation creation, but simplified UI
   const [opDetails, setOpDetails] = useState({
     assistant: '', anesthesiologist: '', nurse: '', drugs: '', equipment: '', theater: ''
   });
-
 
   // SUDAN INSURANCE PROVIDERS
   const SUDAN_INSURANCE_PROVIDERS = [
@@ -69,13 +67,15 @@ export const Patients = () => {
   // Registration Form State
   const initialFormState = {
     fullName: '', age: 0, phone: '',
-    // Fix: Explicitly cast gender and type to Patient's union types
     gender: 'male' as Patient['gender'],
     type: 'outpatient' as Patient['type'],
     address: '',
+    // Medical Details
     symptoms: '', medicalHistory: '', allergies: '', bloodGroup: '',
-    hasInsurance: false,
+    // Emergency Contact
     emergencyName: '', emergencyPhone: '', emergencyRelation: '',
+    // Insurance
+    hasInsurance: false,
     insProvider: '', insPolicy: '', insExpiry: '', insNotes: ''
   };
   const [formData, setFormData] = useState(initialFormState);
@@ -90,7 +90,6 @@ export const Patients = () => {
         api.me()
       ]);
       setPatients(Array.isArray(pts) ? pts : []);
-      setAllAppointments(Array.isArray(apts) ? apts : []);
       setStaff(Array.isArray(stf) ? stf : []);
       setCurrentUser(user);
     } catch (error) {
@@ -104,18 +103,13 @@ export const Patients = () => {
       const [l, n, b, o] = await Promise.all([
         api.getLabTests(), api.getNurseServices(), api.getBeds(), api.getOperations()
       ]);
-      // Safety Checks: Ensure responses are arrays before setting state
       setLabTests(Array.isArray(l) ? l : []);
       setNurseServices(Array.isArray(n) ? n : []);
       setBeds(Array.isArray(b) ? b : []);
       setOperations(Array.isArray(o) ? o : []);
     } catch (e) {
       console.error("Failed to load catalogs:", e);
-      // Fallback to empty arrays on error to prevent crashes
-      setLabTests([]);
-      setNurseServices([]);
-      setBeds([]);
-      setOperations([]);
+      setLabTests([]); setNurseServices([]); setBeds([]); setOperations([]);
     }
   };
 
@@ -162,7 +156,6 @@ export const Patients = () => {
     }
   };
 
-  // --- ACTION MENU ---
   const openActionMenu = (patient: Patient) => {
     setSelectedPatient(patient);
     setIsActionMenuOpen(true);
@@ -174,12 +167,11 @@ export const Patients = () => {
       openViewModal(selectedPatient!);
       return;
     }
-    // Reset specific states
     setSelectedTests([]);
     setTestSearch('');
     setSelectedService(null);
     setSelectedBed(null);
-    setOpDetails({ assistant: '', anesthesiologist: '', nurse: '', drugs: '', equipment: '', theater: '' }); // Reset opDetails
+    setOpDetails({ assistant: '', anesthesiologist: '', nurse: '', drugs: '', equipment: '', theater: '' });
     
     setCurrentAction(action);
     setActionFormData({
@@ -187,7 +179,7 @@ export const Patients = () => {
       date: new Date().toISOString().split('T')[0],
       time: '09:00',
       notes: '',
-      subtype: '', // Will be used for general type if no specific field
+      subtype: '',
       dischargeDate: ''
     });
     setIsActionModalOpen(true);
@@ -199,20 +191,18 @@ export const Patients = () => {
 
     try {
       let staffAssignedId: number | undefined = actionFormData.staffId ? parseInt(actionFormData.staffId) : undefined;
-      // let staffAssignedName: string = staff.find(s => s.id === staffAssignedId)?.fullName || 'Unassigned'; // Not needed if backend handles name
 
       if (currentAction === 'lab') {
         if (selectedTests.length === 0) return alert('Select at least one test');
         await api.createLabRequest({
           patientId: selectedPatient.id,
-          patientName: selectedPatient.fullName, // Pass patientName for bill description
+          patientName: selectedPatient.fullName,
           testIds: selectedTests.map(t => t.id),
           totalCost: selectedTests.reduce((a,b)=>a+b.cost, 0)
         });
 
       } else if (currentAction === 'nurse') {
         if (!selectedService) return alert('Select a service.');
-        // This will create a record in `appointments` with type 'Nurse Service'
         await api.createNurseRequest({
           patientId: selectedPatient.id,
           serviceName: selectedService.name,
@@ -222,25 +212,25 @@ export const Patients = () => {
 
       } else if (currentAction === 'admission') {
         if (!selectedBed) return alert('Select a bed.');
-        if (!staffAssignedId) return alert('Select a treating doctor.'); // Doctor required for admission
+        if (!staffAssignedId) return alert('Select a treating doctor.');
         await api.createAdmission({
           patientId: selectedPatient.id,
           bedId: selectedBed.id,
           doctorId: staffAssignedId,
           entryDate: actionFormData.date,
           dischargeDate: actionFormData.dischargeDate,
-          deposit: selectedBed.costPerDay // Initial deposit/charge
+          deposit: selectedBed.costPerDay
         });
 
       } else if (currentAction === 'operation') {
         if (!actionFormData.subtype) return alert('Enter operation name.');
-        if (!staffAssignedId) return alert('Select a surgeon.'); // Surgeon required for operation
+        if (!staffAssignedId) return alert('Select a surgeon.');
         await api.createOperation({
           patientId: selectedPatient.id,
           operationName: actionFormData.subtype,
           doctorId: staffAssignedId, 
           notes: actionFormData.notes,
-          optionalFields: opDetails // Pass these for the accountant to see
+          optionalFields: opDetails
         });
 
       } else if (currentAction === 'appointment') {
@@ -248,19 +238,17 @@ export const Patients = () => {
         const doc = staff.find(s => s.id === staffAssignedId);
         if (!doc) return alert('Selected doctor not found.');
 
-        // This creates a standard appointment record
         await api.createAppointment({
           patientId: selectedPatient.id,
           patientName: selectedPatient.fullName,
           staffId: doc.id,
-          staffName: doc.fullName, // Pass full name for display
+          staffName: doc.fullName,
           datetime: `${actionFormData.date}T${actionFormData.time}`,
           type: actionFormData.subtype || 'Consultation',
           reason: actionFormData.notes,
           status: 'pending'
         });
         
-        // If there's a consultation fee, create a bill for it
         if (doc.consultationFee > 0) {
           await api.createBill({
             patientId: selectedPatient.id,
@@ -399,7 +387,91 @@ export const Patients = () => {
         </div>
       </Card>
 
-      {/* Action Menu */}
+      {/* Register/Edit Modal */}
+      <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient" : "Register Patient"}>
+         <form onSubmit={handleRegisterSubmit} className="space-y-6">
+           
+           {/* Section 1: Personal Info */}
+           <div className="space-y-4">
+             <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 mb-2 flex items-center gap-2">
+               <UserIcon size={16} /> Personal Information
+             </h4>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <Input label="Full Name" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
+               <Input label="Phone" required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+             </div>
+             <div className="grid grid-cols-3 gap-4">
+                <Input label="Age" type="number" required value={formData.age} onChange={e => setFormData({...formData, age: parseInt(e.target.value)})} />
+                <Select label="Gender" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value as any})}><option value="male">Male</option><option value="female">Female</option></Select>
+                <Select label="Type" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})}><option value="outpatient">Outpatient</option><option value="inpatient">Inpatient</option><option value="emergency">Emergency</option></Select>
+             </div>
+             <Input label="Address" required value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+           </div>
+
+           {/* Section 2: Medical Profile */}
+           <div className="space-y-4">
+             <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 mb-2 flex items-center gap-2">
+               <Stethoscope size={16} /> Medical Profile
+             </h4>
+             <div className="grid grid-cols-2 gap-4">
+               <Select label="Blood Group" value={formData.bloodGroup} onChange={e => setFormData({...formData, bloodGroup: e.target.value})}>
+                  <option value="">Unknown</option>
+                  <option value="A+">A+</option><option value="A-">A-</option>
+                  <option value="B+">B+</option><option value="B-">B-</option>
+                  <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                  <option value="O+">O+</option><option value="O-">O-</option>
+               </Select>
+               <Input label="Allergies" placeholder="e.g. Penicillin, Peanuts" value={formData.allergies} onChange={e => setFormData({...formData, allergies: e.target.value})} />
+             </div>
+             <Textarea label="Current Symptoms" rows={2} value={formData.symptoms} onChange={e => setFormData({...formData, symptoms: e.target.value})} />
+             <Textarea label="Medical History" placeholder="Chronic conditions, past surgeries..." rows={2} value={formData.medicalHistory} onChange={e => setFormData({...formData, medicalHistory: e.target.value})} />
+           </div>
+
+           {/* Section 3: Emergency Contact */}
+           <div className="space-y-4">
+             <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 mb-2 flex items-center gap-2">
+               <Phone size={16} /> Emergency Contact
+             </h4>
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+               <Input label="Contact Name" value={formData.emergencyName} onChange={e => setFormData({...formData, emergencyName: e.target.value})} />
+               <Input label="Phone" value={formData.emergencyPhone} onChange={e => setFormData({...formData, emergencyPhone: e.target.value})} />
+               <Input label="Relation" placeholder="e.g. Father" value={formData.emergencyRelation} onChange={e => setFormData({...formData, emergencyRelation: e.target.value})} />
+             </div>
+           </div>
+
+           {/* Section 4: Insurance */}
+           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+             <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Shield size={16} /> Insurance Details
+                </h4>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <span className="text-sm font-medium text-slate-700">Has Insurance?</span>
+                  <input type="checkbox" className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500" checked={formData.hasInsurance} onChange={e => setFormData({...formData, hasInsurance: e.target.checked})} />
+                </label>
+             </div>
+             
+             {formData.hasInsurance && (
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                 <Select label="Insurance Provider" value={formData.insProvider} onChange={e => setFormData({...formData, insProvider: e.target.value})}>
+                    <option value="">Select Provider...</option>
+                    {SUDAN_INSURANCE_PROVIDERS.map(p => <option key={p} value={p}>{p}</option>)}
+                 </Select>
+                 <Input label="Policy Number" value={formData.insPolicy} onChange={e => setFormData({...formData, insPolicy: e.target.value})} />
+                 <Input label="Expiry Date" type="date" value={formData.insExpiry} onChange={e => setFormData({...formData, insExpiry: e.target.value})} />
+                 <Input label="Notes / Coverage" value={formData.insNotes} onChange={e => setFormData({...formData, insNotes: e.target.value})} />
+               </div>
+             )}
+           </div>
+
+           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+             <Button type="button" variant="secondary" onClick={() => setIsFormModalOpen(false)}>Cancel</Button>
+             <Button type="submit">Save Patient Record</Button>
+           </div>
+         </form>
+      </Modal>
+
+      {/* Action Menu Modal */}
       <Modal isOpen={isActionMenuOpen} onClose={() => setIsActionMenuOpen(false)} title={`Actions for ${selectedPatient?.fullName}`}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {[
@@ -526,20 +598,6 @@ export const Patients = () => {
              <Button type="submit">Submit Request</Button>
           </div>
         </form>
-      </Modal>
-
-      {/* Register/Edit Modal */}
-      <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient" : "Register Patient"}>
-         <form onSubmit={handleRegisterSubmit} className="space-y-4">
-           <Input label="Full Name" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
-           <Input label="Phone" required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-           <div className="flex gap-4">
-              <Input label="Age" type="number" required value={formData.age} onChange={e => setFormData({...formData, age: parseInt(e.target.value)})} />
-              <Select label="Gender" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value as any})}><option value="male">Male</option><option value="female">Female</option></Select>
-           </div>
-           <Input label="Address" required value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
-           <div className="pt-4 flex justify-end gap-3"><Button type="button" variant="secondary" onClick={() => setIsFormModalOpen(false)}>Cancel</Button><Button type="submit">Save</Button></div>
-         </form>
       </Modal>
     </div>
   );
