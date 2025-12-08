@@ -226,3 +226,5 @@ const initDB = () => {
     console.log('Seeded initial medical staff.');
   }
 };
+
+module.exports = { initDB, db };

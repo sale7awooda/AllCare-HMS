@@ -2,7 +2,7 @@ const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
   const patients = db.prepare('SELECT id, patient_id as patientId, full_name as fullName, phone, address, age, gender, type, has_insurance as hasInsurance, created_at as createdAt FROM patients ORDER BY created_at DESC').all();
-  // Convert 1/0 to boolean for hasInsurance
+  // Convert 1/0 to boolean
   res.json(patients.map(p => ({ ...p, hasInsurance: !!p.hasInsurance })));
 };
 
@@ -79,7 +79,23 @@ exports.getOne = (req, res) => {
   const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id);
   if (!patient) return res.status(404).json({ error: 'Patient not found' });
   
-  // Map snake_case to camelCase and parse JSON
+  // Map snake_case to camelCase and parse JSON with error handling
+  let emergencyContact;
+  try {
+    emergencyContact = patient.emergency_contacts ? JSON.parse(patient.emergency_contacts) : undefined;
+  } catch (e) {
+    console.error(`Error parsing emergency contacts for patient ${patient.id}:`, e);
+    emergencyContact = undefined; // Fallback to undefined on error
+  }
+
+  let insuranceDetails;
+  try {
+    insuranceDetails = patient.insurance_details ? JSON.parse(patient.insurance_details) : undefined;
+  } catch (e) {
+    console.error(`Error parsing insurance details for patient ${patient.id}:`, e);
+    insuranceDetails = undefined; // Fallback to undefined on error
+  }
+
   const formatted = {
     id: patient.id,
     patientId: patient.patient_id,
@@ -95,8 +111,8 @@ exports.getOne = (req, res) => {
     bloodGroup: patient.blood_group,
     createdAt: patient.created_at,
     hasInsurance: !!patient.has_insurance,
-    emergencyContact: patient.emergency_contacts ? JSON.parse(patient.emergency_contacts) : undefined,
-    insuranceDetails: patient.insurance_details ? JSON.parse(patient.insurance_details) : undefined,
+    emergencyContact: emergencyContact,
+    insuranceDetails: insuranceDetails,
   };
 
   res.json(formatted);
