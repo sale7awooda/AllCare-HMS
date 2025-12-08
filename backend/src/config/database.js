@@ -1,3 +1,4 @@
+
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
@@ -93,14 +94,14 @@ const initDB = () => {
       FOREIGN KEY(billing_id) REFERENCES billing(id)
     );
 
-    -- NEW MEDICAL TABLES (Keeping these for data storage, even without dedicated screens)
+    -- NEW MEDICAL TABLES
     CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT, cost REAL NOT NULL);
-    CREATE TABLE IF NOT EXISTS lab_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, test_ids TEXT NOT NULL, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS lab_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, test_ids TEXT NOT NULL, status TEXT DEFAULT 'pending', projected_cost REAL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS nurse_services (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT, cost REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS operations_catalog (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, base_cost REAL DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS operations (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, operation_name TEXT NOT NULL, doctor_id INTEGER, assistant_name TEXT, anesthesiologist_name TEXT, notes TEXT, status TEXT DEFAULT 'scheduled', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS operations (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, operation_name TEXT NOT NULL, doctor_id INTEGER, assistant_name TEXT, anesthesiologist_name TEXT, notes TEXT, status TEXT DEFAULT 'scheduled', projected_cost REAL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS beds (id INTEGER PRIMARY KEY AUTOINCREMENT, room_number TEXT NOT NULL, type TEXT DEFAULT 'General', status TEXT DEFAULT 'available', cost_per_day REAL NOT NULL);
-    CREATE TABLE IF NOT EXISTS admissions (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, bed_id INTEGER NOT NULL, doctor_id INTEGER NOT NULL, entry_date DATETIME NOT NULL, discharge_date DATETIME, status TEXT DEFAULT 'active', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS admissions (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, bed_id INTEGER NOT NULL, doctor_id INTEGER NOT NULL, entry_date DATETIME NOT NULL, discharge_date DATETIME, status TEXT DEFAULT 'active', notes TEXT, projected_cost REAL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   `;
   
   db.exec(schema);
@@ -115,7 +116,11 @@ const initDB = () => {
     { table: 'patients', name: 'has_insurance', type: 'BOOLEAN DEFAULT 0' },
     { table: 'patients', name: 'insurance_details', type: 'TEXT' },
     { table: 'appointments', name: 'reason', type: 'TEXT' },
-    { table: 'beds', name: 'cost_per_day', type: 'REAL DEFAULT 0' }
+    { table: 'beds', name: 'cost_per_day', type: 'REAL DEFAULT 0' },
+    { table: 'admissions', name: 'notes', type: 'TEXT' },
+    { table: 'admissions', name: 'projected_cost', type: 'REAL DEFAULT 0' },
+    { table: 'lab_requests', name: 'projected_cost', type: 'REAL DEFAULT 0' },
+    { table: 'operations', name: 'projected_cost', type: 'REAL DEFAULT 0' }
   ];
 
   columnsToAdd.forEach(col => {

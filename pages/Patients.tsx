@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
 import { 
-  Plus, Search, Filter, Heart, Shield, AlertTriangle, Edit, Eye, Calendar, Lock, 
+  Plus, Search, Filter, Heart, Shield, AlertTriangle, Edit, Calendar, Lock, 
   Stethoscope, FlaskConical, Bed, Activity, FileClock, Settings, Thermometer, Trash2, CheckCircle,
-  Phone, User as UserIcon, AlertCircle, Pill, Syringe, History
+  Phone, User as UserIcon, History
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill } from '../types';
@@ -73,17 +73,16 @@ export const Patients = () => {
     nurseCost: 0,
     drugsCost: 0,
     equipmentCost: 0,
-    othersCost: 0
+    othersCost: 0,
+    theaterCost: 0, 
   });
 
-  // SUDAN INSURANCE PROVIDERS
   const SUDAN_INSURANCE_PROVIDERS = [
     "Shiekan Insurance", "The United Insurance", "Blue Nile Insurance",
     "Al-Salama Insurance", "Juba Insurance", "Prime Health",
     "Wataniya Insurance", "General Insurance"
   ];
 
-  // Registration Form State
   const initialFormState = {
     fullName: '', age: 0, phone: '',
     gender: 'male' as Patient['gender'],
@@ -195,7 +194,7 @@ export const Patients = () => {
     setSelectedBed(null);
     setOpDetails({ 
       assistantId: '', anesthesiologistId: '', nurseId: '', drugs: '', equipment: '', others: '',
-      surgeonCost: 0, anesthesiologistCost: 0, assistantCost: 0, nurseCost: 0, drugsCost: 0, equipmentCost: 0, othersCost: 0
+      surgeonCost: 0, anesthesiologistCost: 0, assistantCost: 0, nurseCost: 0, drugsCost: 0, equipmentCost: 0, othersCost: 0, theaterCost: 0
     });
     
     setCurrentAction(action);
@@ -204,7 +203,7 @@ export const Patients = () => {
       date: new Date().toISOString().split('T')[0],
       time: '09:00',
       notes: '',
-      subtype: action === 'appointment' ? 'Consultation' : '',
+      subtype: '', // Reset subtype
       dischargeDate: '',
       totalCost: 0
     });
@@ -216,7 +215,6 @@ export const Patients = () => {
     setActionFormData({
       ...actionFormData,
       subtype: opName,
-      // We don't set totalCost here anymore, it's calculated from components
     });
     if (op) {
       setOpDetails(prev => ({...prev, surgeonCost: op.baseCost}));
@@ -233,14 +231,22 @@ export const Patients = () => {
         (opDetails.nurseCost || 0) +
         (opDetails.drugsCost || 0) +
         (opDetails.equipmentCost || 0) +
-        (opDetails.othersCost || 0);
+        (opDetails.othersCost || 0) +
+        (opDetails.theaterCost || 0);
       setActionFormData(prev => ({...prev, totalCost: total}));
     }
   }, [opDetails, currentAction]);
 
+  // Effect to set Theater Cost (1x Surgeon as requested)
+  useEffect(() => {
+    if (currentAction === 'operation') {
+       setOpDetails(prev => ({...prev, theaterCost: (prev.surgeonCost || 0) * 1}));
+    }
+  }, [opDetails.surgeonCost, currentAction]);
+
   // Effect to calculate Appointment Cost
   useEffect(() => {
-    if (currentAction === 'appointment' && actionFormData.staffId) {
+    if (currentAction === 'appointment' && actionFormData.staffId && actionFormData.subtype) {
        const doc = staff.find(s => s.id === parseInt(actionFormData.staffId));
        if (doc) {
          let cost = doc.consultationFee;
@@ -287,17 +293,17 @@ export const Patients = () => {
           doctorId: staffAssignedId,
           entryDate: actionFormData.date,
           dischargeDate: actionFormData.dischargeDate,
-          deposit: selectedBed.costPerDay
+          deposit: selectedBed.costPerDay,
+          notes: actionFormData.notes 
         });
 
       } else if (currentAction === 'operation') {
         if (!actionFormData.subtype) return alert('Enter operation name.');
         if (!staffAssignedId) return alert('Select a surgeon.');
         
-        // Store breakdown in optionalFields/notes
         const breakdown = {
           ...opDetails,
-          breakdownString: `Surgeon: ${opDetails.surgeonCost}, Anest: ${opDetails.anesthesiologistCost}, Asst: ${opDetails.assistantCost}, Nurse: ${opDetails.nurseCost}, Drugs: ${opDetails.drugsCost}, Equip: ${opDetails.equipmentCost}, Other: ${opDetails.othersCost}`
+          breakdownString: `Surgeon: ${opDetails.surgeonCost}, Anest: ${opDetails.anesthesiologistCost}, Asst: ${opDetails.assistantCost}, Nurse: ${opDetails.nurseCost}, Drugs: ${opDetails.drugsCost}, Equip: ${opDetails.equipmentCost}, Theater: ${opDetails.theaterCost}, Other: ${opDetails.othersCost}`
         };
 
         await api.createOperation({
@@ -322,27 +328,13 @@ export const Patients = () => {
           datetime: `${actionFormData.date}T${actionFormData.time}`,
           type: actionFormData.subtype || 'Consultation',
           reason: actionFormData.notes,
-          status: 'pending'
+          status: 'pending' // Creates request, confirm in Appointments to bill
         });
-        
-        // Bill creation with calculated cost
-        if (actionFormData.totalCost > 0) {
-          await api.createBill({
-            patientId: selectedPatient.id,
-            patientName: selectedPatient.fullName,
-            totalAmount: actionFormData.totalCost,
-            date: new Date().toISOString().split('T')[0],
-            items: [{
-              description: `${actionFormData.subtype}: ${doc.fullName}`, 
-              amount: actionFormData.totalCost
-            }]
-          });
-        }
       }
 
       setIsActionModalOpen(false);
       loadData();
-      loadCatalogs();
+      alert('Request submitted successfully. Please confirm in the related module to generate billing.');
     } catch (err: any) {
       console.error(err);
       alert(err.response?.data?.error || 'Failed to submit request.');
@@ -422,6 +414,7 @@ export const Patients = () => {
 
   return (
     <div className="space-y-6">
+      {/* ... (Existing Patient List UI - Unchanged) ... */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Patient Management</h1>
         {canManagePatients ? <Button onClick={openCreateModal} icon={Plus}>Register Patient</Button> : <Button disabled variant="secondary" icon={Lock}>Register Patient</Button>}
@@ -480,10 +473,9 @@ export const Patients = () => {
         </div>
       </Card>
 
-      {/* Register/Edit Modal */}
+      {/* Register/Edit Modal (Unchanged) */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient" : "Register Patient"}>
          <form onSubmit={handleRegisterSubmit} className="space-y-6">
-           {/* Section 1: Personal Info */}
            <div className="space-y-4">
              <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 mb-2 flex items-center gap-2">
                <UserIcon size={16} /> Personal Information
@@ -500,7 +492,6 @@ export const Patients = () => {
              <Input label="Address" required value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
            </div>
 
-           {/* Section 2: Medical Profile */}
            <div className="space-y-4">
              <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 mb-2 flex items-center gap-2">
                <Stethoscope size={16} /> Medical Profile
@@ -519,7 +510,6 @@ export const Patients = () => {
              <Textarea label="Medical History" placeholder="Chronic conditions, past surgeries..." rows={2} value={formData.medicalHistory} onChange={e => setFormData({...formData, medicalHistory: e.target.value})} />
            </div>
 
-           {/* Section 3: Emergency Contact */}
            <div className="space-y-4">
              <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 mb-2 flex items-center gap-2">
                <Phone size={16} /> Emergency Contact
@@ -531,7 +521,6 @@ export const Patients = () => {
              </div>
            </div>
 
-           {/* Section 4: Insurance */}
            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
              <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
@@ -563,7 +552,7 @@ export const Patients = () => {
          </form>
       </Modal>
 
-      {/* Action Menu Modal */}
+      {/* Action Menu Modal (Unchanged) */}
       <Modal isOpen={isActionMenuOpen} onClose={() => setIsActionMenuOpen(false)} title={`Actions for ${selectedPatient?.fullName}`}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {[
@@ -596,21 +585,27 @@ export const Patients = () => {
                   <Input label="Time" type="time" required value={actionFormData.time} onChange={e => setActionFormData({...actionFormData, time: e.target.value})} />
                </div>
                
-               <Select label="Type" value={actionFormData.subtype} onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})}>
-                 <option value="Consultation">Consultation</option>
-                 <option value="Follow-up">Follow-up</option>
-                 <option value="Emergency">Emergency</option>
-               </Select>
-
                <Select label="Assign Doctor" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                  <option value="">Select Doctor...</option>
                  {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                </Select>
 
-               <div className="text-sm font-bold text-green-700 bg-green-50 p-3 rounded border border-green-100 flex justify-between items-center">
-                 <span>Calculated Fee:</span>
-                 <span className="text-lg">${actionFormData.totalCost}</span>
-               </div>
+               {actionFormData.staffId && (
+                 <Select label="Type" value={actionFormData.subtype} onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})}>
+                   <option value="">Select Type...</option>
+                   <option value="Consultation">Consultation</option>
+                   <option value="Follow-up">Follow-up</option>
+                   <option value="Emergency">Emergency</option>
+                 </Select>
+               )}
+
+               {/* Show Fees ONLY after type is selected */}
+               {actionFormData.subtype && actionFormData.totalCost > 0 && (
+                  <div className="text-sm font-bold text-green-700 bg-green-50 p-3 rounded border border-green-100 flex justify-between items-center animate-in fade-in">
+                    <span>Calculated Fee:</span>
+                    <span className="text-lg">${actionFormData.totalCost}</span>
+                  </div>
+               )}
                
                <Textarea label="Reason" rows={2} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
             </>
@@ -689,7 +684,8 @@ export const Patients = () => {
                    </button>
                  ))}
                </div>
-               {selectedBed && <p className="text-xs text-right font-bold text-slate-500">Cost: ${selectedBed.costPerDay}/day</p>}
+               {selectedBed && <p className="text-xs text-right font-bold text-slate-500">Deposit: ${selectedBed.costPerDay}</p>}
+               <Textarea label="Admission Notes" rows={2} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
              </>
           )}
 
@@ -698,16 +694,16 @@ export const Patients = () => {
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-xs text-yellow-800 flex items-start gap-2 mb-2">
                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                 Confirming this operation will generate a bill. Enter costs for all resources.
+                 Confirming this operation will schedule it. Billing happens in the Operations module.
                </div>
 
                {/* Operation Selection */}
                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Search Operation</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Operation Name</label>
                   <input 
                     type="text" 
                     list="ops-list" 
-                    className="w-full rounded-xl border-slate-300 py-2 px-3 text-sm" 
+                    className="w-full rounded-xl border-slate-300 py-2 px-3 text-sm text-slate-900" 
                     placeholder="Type to search..."
                     value={actionFormData.subtype} 
                     onChange={e => handleOperationSelect(e.target.value)} 
@@ -753,6 +749,10 @@ export const Patients = () => {
                {/* Resources & Costs */}
                <div className="space-y-3 pt-2 border-t border-slate-100">
                   <div className="grid grid-cols-3 gap-2">
+                     <div className="col-span-2 flex items-center"><span className="text-sm font-semibold text-slate-700">Theater Charges (1x Surgeon Fee)</span></div>
+                     <div className="col-span-1"><Input label="Cost" type="number" value={opDetails.theaterCost} onChange={e => setOpDetails({...opDetails, theaterCost: parseFloat(e.target.value || '0')})} /></div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
                      <div className="col-span-2"><Input label="Drugs & Consumables" placeholder="Anesthesia, antibiotics..." value={opDetails.drugs} onChange={e => setOpDetails({...opDetails, drugs: e.target.value})} /></div>
                      <div className="col-span-1"><Input label="Cost" type="number" value={opDetails.drugsCost} onChange={e => setOpDetails({...opDetails, drugsCost: parseFloat(e.target.value || '0')})} /></div>
                   </div>
@@ -768,7 +768,7 @@ export const Patients = () => {
 
                {/* Costing */}
                <div className="pt-2 border-t border-slate-100 bg-slate-50 p-3 rounded-lg flex justify-between items-center">
-                  <span className="font-bold text-gray-700">Total Operation Cost:</span>
+                  <span className="font-bold text-gray-700">Projected Operation Cost:</span>
                   <span className="text-xl font-bold text-gray-900">${actionFormData.totalCost.toFixed(2)}</span>
                </div>
             </div>
@@ -776,16 +776,15 @@ export const Patients = () => {
 
           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
              <Button type="button" variant="secondary" onClick={() => setIsActionModalOpen(false)}>Cancel</Button>
-             <Button type="submit">Confirm & Process</Button>
+             <Button type="submit">Submit Request</Button>
           </div>
         </form>
       </Modal>
 
-      {/* Patient History / View Modal */}
+      {/* Patient History / View Modal (Unchanged) */}
       <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Patient File">
         {selectedPatient && (
           <div className="space-y-6">
-            {/* Header / Basic Info */}
             <div className="flex flex-col sm:flex-row gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
               <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center text-3xl font-bold text-primary-600 shadow-sm border border-slate-200 shrink-0">
                 {selectedPatient.fullName.charAt(0)}
@@ -810,7 +809,6 @@ export const Patients = () => {
               </div>
             </div>
 
-            {/* Tabs */}
             <div className="flex border-b border-gray-200">
               <button onClick={() => setViewTab('info')} className={`px-4 py-2 font-medium text-sm ${viewTab === 'info' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500 hover:text-gray-700'}`}>Medical Profile</button>
               <button onClick={() => setViewTab('history')} className={`px-4 py-2 font-medium text-sm ${viewTab === 'history' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500 hover:text-gray-700'}`}>History & Records</button>
@@ -818,7 +816,6 @@ export const Patients = () => {
 
             {viewTab === 'info' ? (
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
-                 {/* Medical History */}
                  <Card title="Medical Details" className="h-full">
                    <div className="space-y-4">
                      <div className="flex items-start gap-3">
@@ -853,7 +850,6 @@ export const Patients = () => {
                  </Card>
    
                  <div className="space-y-6">
-                   {/* Emergency Contact */}
                    <Card title="Emergency Contact">
                       {selectedPatient.emergencyContact ? (
                         <div className="space-y-2">
@@ -863,7 +859,6 @@ export const Patients = () => {
                       ) : <p className="text-slate-400 italic">No emergency contact.</p>}
                    </Card>
    
-                   {/* Insurance */}
                    <Card title="Insurance">
                       {selectedPatient.hasInsurance && selectedPatient.insuranceDetails ? (
                         <div className="space-y-2">

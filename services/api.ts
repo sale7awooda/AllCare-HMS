@@ -1,17 +1,13 @@
+
 import axios from 'axios';
 import { Patient, Appointment, MedicalStaff, Bill, User, LabTestCatalog, NurseServiceCatalog, Bed, OperationCatalog } from '../types';
 
 // NETWORK CONFIGURATION
-// 1. Localhost: Use relative path '/api' (uses Vite Proxy to avoid CORS locally)
-// 2. Cloud IDE / Production: Use direct URL to Railway (Bypasses flaky internal proxies or same-origin in prod)
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const isRailwayProduction = window.location.hostname.includes('railway.app'); // Check if the frontend itself is on Railway
+const isRailwayProduction = window.location.hostname.includes('railway.app'); 
 
 const RAILWAY_BACKEND_URL = 'https://railway-hms-production.up.railway.app/api';
 
-// If running on localhost, use Vite proxy.
-// If frontend is deployed on Railway, use relative path (same origin).
-// Otherwise (e.g., Google AI Studio preview), use direct Railway backend URL.
 const API_BASE_URL = isLocal 
   ? '/api' 
   : (isRailwayProduction ? '/api' : RAILWAY_BACKEND_URL);
@@ -22,7 +18,7 @@ console.log(`🔗 Connecting to: ${API_BASE_URL}`);
 const client = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-  withCredentials: true, // IMPORTANT: Send cookies/JWT with requests
+  withCredentials: true, 
 });
 
 client.interceptors.request.use((config) => {
@@ -34,9 +30,7 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Log the error for all non-2xx responses
     console.error("API call failed:", error);
-
     if (error.response?.status === 401 && window.location.hash !== '#/') {
       localStorage.removeItem('token');
       window.location.href = '/';
@@ -75,17 +69,17 @@ export const api = {
     await client.patch(`/patients/${id}`, patient);
   },
 
-  // Staff (now HR)
+  // Staff (HR)
   async getStaff(): Promise<MedicalStaff[]> {
-    const { data } = await client.get('/hr'); // Changed to /hr
+    const { data } = await client.get('/hr'); 
     return data;
   },
   async addStaff(staff: Partial<MedicalStaff>): Promise<MedicalStaff> {
-    const { data } = await client.post('/hr', staff); // Changed to /hr
+    const { data } = await client.post('/hr', staff); 
     return data;
   },
   async updateStaff(id: number, updates: Partial<MedicalStaff>): Promise<void> {
-    await client.patch(`/hr/${id}`, updates); // Changed to /hr
+    await client.patch(`/hr/${id}`, updates); 
   },
 
   // Appointments
@@ -128,11 +122,11 @@ export const api = {
     return data;
   },
   async getOperations(): Promise<OperationCatalog[]> {
-    const { data } = await client.get('/medical/operations_catalog'); // Renamed route
+    const { data } = await client.get('/medical/operations_catalog'); 
     return data;
   },
 
-  // Requests
+  // Requests (Step 1)
   async createLabRequest(payload: any): Promise<void> {
     await client.post('/medical/lab-request', payload);
   },
@@ -144,5 +138,30 @@ export const api = {
   },
   async createOperation(payload: any): Promise<void> {
     await client.post('/medical/operation', payload);
+  },
+
+  // Confirmations (Step 2 - Get Pending & Confirm)
+  async getPendingLabRequests(): Promise<any[]> {
+    const { data } = await client.get('/medical/requests/lab');
+    return data;
+  },
+  async confirmLabRequest(id: number): Promise<void> {
+    await client.post(`/medical/requests/lab/${id}/confirm`);
+  },
+
+  async getActiveAdmissions(): Promise<any[]> {
+    const { data } = await client.get('/medical/requests/admissions');
+    return data;
+  },
+  async confirmAdmissionDeposit(id: number): Promise<void> {
+    await client.post(`/medical/requests/admissions/${id}/confirm`);
+  },
+
+  async getScheduledOperations(): Promise<any[]> {
+    const { data } = await client.get('/medical/requests/operations');
+    return data;
+  },
+  async confirmOperation(id: number): Promise<void> {
+    await client.post(`/medical/requests/operations/${id}/confirm`);
   }
 };
