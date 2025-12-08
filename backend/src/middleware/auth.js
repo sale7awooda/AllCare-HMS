@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 // IMPORTANT: Set JWT_SECRET in production ENV
 const SECRET = process.env.JWT_SECRET || 'dev_secret_key_123'; 
 
+// Importing roles and permissions for backend enforcement logic
 // Fix: Corrected relative path from backend/src/middleware to backend/utils
 const { ROLE_PERMISSIONS, Permissions } = require('../../utils/rbac_backend_mirror'); 
 
@@ -53,8 +54,8 @@ const authorizeRoles = (...requiredPermissions) => {
     if (!hasAnyRequiredPermission) {
       return res.status(403).json({ 
         error: `Access denied. Requires permission(s): ${requiredPermissions.join(', ')}.`,
-        userRole: userRole, 
-        userPermissions: userPermissions 
+        userRole: userRole, // For debugging
+        userPermissions: userPermissions // For debugging
       });
     }
 

@@ -79,30 +79,6 @@ exports.getOne = (req, res) => {
   const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id);
   if (!patient) return res.status(404).json({ error: 'Patient not found' });
   
-  let emergencyContactParsed;
-  if (patient.emergency_contacts) {
-    try {
-      emergencyContactParsed = JSON.parse(patient.emergency_contacts);
-    } catch (e) {
-      console.error(`Error parsing emergency_contacts for patient ${patient.id}:`, e);
-      emergencyContactParsed = undefined; // Default to undefined on error
-    }
-  } else {
-    emergencyContactParsed = undefined;
-  }
-
-  let insuranceDetailsParsed;
-  if (patient.insurance_details) {
-    try {
-      insuranceDetailsParsed = JSON.parse(patient.insurance_details);
-    } catch (e) {
-      console.error(`Error parsing insurance_details for patient ${patient.id}:`, e);
-      insuranceDetailsParsed = undefined; // Default to undefined on error
-    }
-  } else {
-    insuranceDetailsParsed = undefined;
-  }
-
   // Map snake_case to camelCase and parse JSON
   const formatted = {
     id: patient.id,
@@ -118,9 +94,9 @@ exports.getOne = (req, res) => {
     allergies: patient.allergies,
     bloodGroup: patient.blood_group,
     createdAt: patient.created_at,
-    hasInsurance: patient.has_insurance === 1, // Explicitly convert 1/0 to boolean
-    emergencyContact: emergencyContactParsed,
-    insuranceDetails: insuranceDetailsParsed,
+    hasInsurance: !!patient.has_insurance,
+    emergencyContact: patient.emergency_contacts ? JSON.parse(patient.emergency_contacts) : undefined,
+    insuranceDetails: patient.insurance_details ? JSON.parse(patient.insurance_details) : undefined,
   };
 
   res.json(formatted);

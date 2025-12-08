@@ -37,12 +37,6 @@ client.interceptors.response.use(
     if (error.response?.status === 401 && window.location.hash !== '#/') {
       localStorage.removeItem('token');
       window.location.href = '/';
-    } else if (error.response?.status >= 500) {
-      console.error("Backend Error (5xx):", error.response.data || error.message, error);
-    } else if (error.response?.status >= 400) {
-      console.warn("Client Error (4xx):", error.response.data || error.message, error);
-    } else {
-      console.error("Network or Unknown Error:", error.message, error);
     }
     return Promise.reject(error);
   }

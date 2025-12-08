@@ -3,7 +3,7 @@ import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { Plus, Calendar, Clock, User, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, MedicalStaff, User as UserType } from '../types';
-import { hasPermission, Permissions } from '../utils/rbac'; // Import Permissions
+import { hasPermission } from '../utils/rbac';
 
 export const Appointments = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -24,25 +24,17 @@ export const Appointments = () => {
 
   const loadData = async () => {
     setLoading(true);
-    try {
-      const [apts, pts, stf, user] = await Promise.all([
-        api.getAppointments().catch(err => { console.error("API Error - getAppointments:", err); return []; }),
-        api.getPatients().catch(err => { console.error("API Error - getPatients (Appointments):", err); return []; }),
-        api.getStaff().catch(err => { console.error("API Error - getStaff (Appointments):", err); return []; }),
-        api.me().catch(err => { console.error("API Error - me (Appointments):", err); return null; })
-      ]);
-      setAppointments(Array.isArray(apts) ? apts : []);
-      setPatients(Array.isArray(pts) ? pts : []);
-      setStaff(Array.isArray(stf) ? stf : []);
-      setCurrentUser(user);
-    } catch (e) {
-      console.error("Failed to load core data (Promise.all catch) in Appointments:", e);
-      setAppointments([]);
-      setPatients([]);
-      setStaff([]);
-    } finally {
-      setLoading(false);
-    }
+    const [apts, pts, stf, user] = await Promise.all([
+      api.getAppointments(),
+      api.getPatients(),
+      api.getStaff(),
+      api.me()
+    ]);
+    setAppointments(apts);
+    setPatients(pts);
+    setStaff(stf);
+    setCurrentUser(user);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -51,30 +43,25 @@ export const Appointments = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const patient = (Array.isArray(patients) ? patients : []).find(p => p.id === parseInt(formData.patientId));
-    const doctor = (Array.isArray(staff) ? staff : []).find(s => s.id === parseInt(formData.staffId));
+    const patient = patients.find(p => p.id === parseInt(formData.patientId));
+    const doctor = staff.find(s => s.id === parseInt(formData.staffId));
     
     if (patient && doctor && formData.date && formData.time) {
-      try {
-        await api.createAppointment({
-          patientId: patient.id,
-          patientName: patient.fullName,
-          staffId: doctor.id,
-          staffName: doctor.fullName,
-          datetime: `${formData.date}T${formData.time}`,
-          type: formData.type
-        });
-        setIsModalOpen(false);
-        loadData();
-        setFormData({ patientId: '', staffId: '', date: '', time: '', type: 'Consultation' });
-      } catch (err: any) {
-        console.error("Failed to create appointment:", err);
-        alert(err.response?.data?.error || "Failed to create appointment.");
-      }
+      await api.createAppointment({
+        patientId: patient.id,
+        patientName: patient.fullName,
+        staffId: doctor.id,
+        staffName: doctor.fullName,
+        datetime: `${formData.date}T${formData.time}`,
+        type: formData.type
+      });
+      setIsModalOpen(false);
+      loadData();
+      setFormData({ patientId: '', staffId: '', date: '', time: '', type: 'Consultation' });
     }
   };
 
-  const canManageAppointments = hasPermission(currentUser, Permissions.MANAGE_APPOINTMENTS); // Use Permissions
+  const canManageAppointments = hasPermission(currentUser, 'MANAGE_APPOINTMENTS');
 
   return (
     <div className="space-y-6">
@@ -110,8 +97,7 @@ export const Appointments = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {/* Guard with Array.isArray(appointments) */}
-                  {Array.isArray(appointments) && appointments.map((apt) => (
+                  {appointments.map((apt) => (
                     <tr key={apt.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 align-top whitespace-nowrap">
                         <span className="font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-xs">{apt.appointmentNumber}</span>
@@ -160,8 +146,7 @@ export const Appointments = () => {
             onChange={e => setFormData({...formData, patientId: e.target.value})}
           >
             <option value="">Select a patient...</option>
-            {/* Guard with Array.isArray(patients) */}
-            {Array.isArray(patients) && patients.map(p => <option key={p.id} value={p.id}>{p.fullName} ({p.patientId})</option>)}
+            {patients.map(p => <option key={p.id} value={p.id}>{p.fullName} ({p.patientId})</option>)}
           </Select>
 
           <Select 
@@ -171,8 +156,7 @@ export const Appointments = () => {
             onChange={e => setFormData({...formData, staffId: e.target.value})}
           >
              <option value="">Select a doctor...</option>
-             {/* Guard with Array.isArray(staff) */}
-             {Array.isArray(staff) && staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName} - {s.specialization}</option>)}
+             {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName} - {s.specialization}</option>)}
           </Select>
 
           <div className="grid grid-cols-2 gap-4">

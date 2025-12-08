@@ -3,9 +3,9 @@ import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { Plus, Search, Filter, Mail, Phone, Briefcase, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, User } from '../types';
-import { hasPermission, Permissions } from '../utils/rbac'; 
+import { hasPermission, Permissions } from '../utils/rbac'; // Import Permissions
 
-export const Staff = () => { 
+export const Staff = () => { // This component is now HR Management
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,14 +29,14 @@ export const Staff = () => {
     setLoading(true);
     try {
       const [data, user] = await Promise.all([
-        api.getStaff().catch(err => { console.error("API Error - getStaff (HR):", err); return []; }), 
-        api.me().catch(err => { console.error("API Error - me (HR):", err); return null; })
+        api.getStaff(), // This now maps to /api/hr
+        api.me()
       ]);
       setStaff(Array.isArray(data) ? data : []);
       setCurrentUser(user);
     } catch (e) {
-      console.error("Failed to load staff/HR data (Promise.all catch):", e);
-      setStaff([]); 
+      console.error("Failed to load staff/HR data:", e);
+      setStaff([]); // Ensure staff is an array on error
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,7 @@ export const Staff = () => {
     e.preventDefault();
     if (formData.fullName && formData.type) {
       try {
-        await api.addStaff(formData as any); 
+        await api.addStaff(formData as any); // This now maps to /api/hr
         setIsModalOpen(false);
         loadData();
         setFormData({ 
@@ -65,9 +65,9 @@ export const Staff = () => {
   };
 
   const toggleAvailability = async (id: number, currentStatus: boolean) => {
-    if (!canManageHR) return; 
+    if (!canManageHR) return; // Use new permission
     try {
-      await api.updateStaff(id, { isAvailable: !currentStatus }); 
+      await api.updateStaff(id, { isAvailable: !currentStatus }); // This now maps to /api/hr
       loadData();
     } catch (err: any) {
       console.error("Failed to update staff availability:", err);
@@ -75,19 +75,19 @@ export const Staff = () => {
     }
   };
 
-  const filteredStaff = (Array.isArray(staff) ? staff : []).filter(s => { // Guard with Array.isArray(staff)
+  const filteredStaff = staff.filter(s => {
     const matchesSearch = s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (s.employeeId && s.employeeId.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesFilter = filterType === 'all' || s.type === filterType;
     return matchesSearch && matchesFilter;
   });
 
-  const canManageHR = hasPermission(currentUser, Permissions.MANAGE_HR); 
+  const canManageHR = hasPermission(currentUser, Permissions.MANAGE_HR); // New permission check
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">HR Management (Medical Staff)</h1> 
+        <h1 className="text-2xl font-bold text-gray-900">HR Management (Medical Staff)</h1> {/* Updated title */}
         {canManageHR ? (
           <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Add Staff Member</Button>
         ) : (
@@ -122,9 +122,6 @@ export const Staff = () => {
               <option value="technician">Technician</option>
               <option value="anesthesiologist">Anesthesiologist</option> 
               <option value="medical_assistant">Medical Assistant</option>
-              <option value="pharmacist">Pharmacist</option> 
-              <option value="admin_staff">Admin Staff</option>
-              <option value="hr_manager">HR Manager</option>
             </Select>
           </div>
         </div>
@@ -227,9 +224,6 @@ export const Staff = () => {
               <option value="technician">Technician</option>
               <option value="anesthesiologist">Anesthesiologist</option> 
               <option value="medical_assistant">Medical Assistant</option>
-              <option value="pharmacist">Pharmacist</option> 
-              <option value="admin_staff">Admin Staff</option>
-              <option value="hr_manager">HR Manager</option>
             </Select>
             <Input 
               label="Department" 
@@ -251,7 +245,7 @@ export const Staff = () => {
               label="Consultation Fee ($)" 
               type="number" 
               value={formData.consultationFee} 
-              onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value || '0')})} 
+              onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value || '0'))} 
             />
           </div>
 

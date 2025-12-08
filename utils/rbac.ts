@@ -46,7 +46,7 @@ export const Permissions = {
 export type Permission = typeof Permissions[keyof typeof Permissions];
 
 // The Matrix: What each role can do (aligned with new granular permissions and 5 roles)
-// Fix: Updated ROLE_PERMISSIONS to use Permissions object properties and include all `Role` types.
+// Fix: Updated ROLE_PERMISSIONS to use Permissions object properties.
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: [
     Permissions.VIEW_DASHBOARD, 
