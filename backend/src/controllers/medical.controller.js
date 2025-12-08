@@ -1,3 +1,4 @@
+
 const { db } = require('../config/database');
 
 // --- GETTERS ---
@@ -43,27 +44,31 @@ exports.createLabRequest = (req, res) => {
 };
 
 exports.createNurseService = (req, res) => {
-  const { patientId, serviceName, cost, notes } = req.body;
+  const { patientId, serviceName, cost, notes, staffId } = req.body;
   try {
-    // 1. Find a valid staff member for FK constraint
-    let nurse = db.prepare("SELECT id FROM medical_staff WHERE type='nurse' LIMIT 1").get();
+    // 1. Use provided staffId or find a fallback
+    let nurseId = staffId;
     
-    // Fallback: If no nurse, try any doctor or staff to avoid crash
-    if (!nurse) {
-       nurse = db.prepare("SELECT id FROM medical_staff LIMIT 1").get();
+    if (!nurseId) {
+       const nurse = db.prepare("SELECT id FROM medical_staff WHERE type='nurse' LIMIT 1").get();
+       if (nurse) nurseId = nurse.id;
     }
 
-    if (!nurse) {
-      return res.status(400).json({ error: "System Error: No medical staff found to assign to this request. Please add staff first." });
+    // Fallback: If still no nurse, try any staff
+    if (!nurseId) {
+       const anyStaff = db.prepare("SELECT id FROM medical_staff LIMIT 1").get();
+       if (anyStaff) nurseId = anyStaff.id;
     }
 
-    const staffId = nurse.id;
+    if (!nurseId) {
+      return res.status(400).json({ error: "System Error: No medical staff found. Please register a nurse first." });
+    }
 
     const apptNum = `NUR-${Date.now()}`;
     db.prepare(`
       INSERT INTO appointments (appointment_number, patient_id, medical_staff_id, appointment_datetime, type, reason, status)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(apptNum, patientId, staffId, new Date().toISOString(), 'Nurse Service', `${serviceName}: ${notes || ''}`, 'confirmed');
+    `).run(apptNum, patientId, nurseId, new Date().toISOString(), 'Nurse Service', `${serviceName}: ${notes || ''}`, 'confirmed');
 
     // 2. Create Bill
     const billNumber = `INV-NUR-${Date.now()}`;
@@ -95,7 +100,7 @@ exports.createAdmission = (req, res) => {
 };
 
 exports.createOperation = (req, res) => {
-  const { patientId, operationName, doctorId, notes, optionalFields } = req.body;
+  const { patientId, operationName, doctorId, notes, optionalFields, totalCost } = req.body;
   try {
     const fullNotes = `${notes || ''} \nDetails: ${JSON.stringify(optionalFields)}`;
     db.prepare(`
@@ -103,9 +108,11 @@ exports.createOperation = (req, res) => {
       VALUES (?, ?, ?, ?)
     `).run(patientId, operationName, doctorId || null, fullNotes);
 
+    // Use the confirmed totalCost for the bill
+    const finalCost = totalCost || 0;
     const billNumber = `INV-OP-${Date.now()}`;
-    const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, 0, 'pending');
-    db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Operation: ${operationName} (Pending Final Calculation)`, 0);
+    const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, finalCost, 'pending');
+    db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Operation: ${operationName}`, finalCost);
 
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
