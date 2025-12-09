@@ -1,3 +1,4 @@
+
 import { User, Role } from './../types';
 
 // Define granular permissions for all modules and actions, including DELETE
@@ -46,7 +47,7 @@ export const Permissions = {
 export type Permission = typeof Permissions[keyof typeof Permissions];
 
 // The Matrix: What each role can do (aligned with new granular permissions and 5 roles)
-// Fix: Updated ROLE_PERMISSIONS to use Permissions object properties and include all `Role` types.
+// Fix: Updated ROLE_PERMISSIONS to use Permissions object properties.
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: [
     Permissions.VIEW_DASHBOARD, 
@@ -76,27 +77,28 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   receptionist: [
     Permissions.VIEW_DASHBOARD, 
-    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, // Can register/update patient details
-    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, // Can book/manage appointments (including lab/nurse/admission/op requests)
+    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, 
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, 
     Permissions.VIEW_BILLING, 
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
-    Permissions.VIEW_HR 
+    Permissions.VIEW_HR,
+    // Expanded permissions for Receptionist
+    Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY,
+    Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS
   ],
   accountant: [
     Permissions.VIEW_DASHBOARD, 
-    Permissions.VIEW_PATIENTS, // View patient details for billing
-    Permissions.VIEW_APPOINTMENTS, // View appointments for billing
-    Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, // Primary role: manage bills and payments (create, update)
-    Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS // Generate financial reports
-    // No DELETE permissions
+    Permissions.VIEW_PATIENTS, 
+    Permissions.VIEW_APPOINTMENTS, 
+    Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, 
+    Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS
   ],
   technician: [ // e.g., Lab Tech
     Permissions.VIEW_DASHBOARD, 
-    Permissions.VIEW_PATIENTS, // View patient info
-    Permissions.VIEW_APPOINTMENTS, // View appointment schedule (relevant for tests)
+    Permissions.VIEW_PATIENTS, 
+    Permissions.VIEW_APPOINTMENTS, 
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
-    Permissions.VIEW_OPERATIONS // Can view operation schedule (relevant for procedures)
-    // No MANAGE or DELETE for other modules.
+    Permissions.VIEW_OPERATIONS 
   ],
   // Fix: Add missing roles to ROLE_PERMISSIONS
   doctor: [
@@ -114,6 +116,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, // Nurses can manage nurse service appointments
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, // Nurses manage beds/admissions for patient care
     Permissions.VIEW_LABORATORY,
+    Permissions.VIEW_OPERATIONS, // Added view operations
     Permissions.VIEW_SETTINGS,
   ],
   pharmacist: [

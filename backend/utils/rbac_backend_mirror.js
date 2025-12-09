@@ -1,3 +1,4 @@
+
 // This file is a mirror of the frontend's src/utils/rbac.ts for backend (Node.js) consumption.
 // It defines roles and granular permissions to ensure consistent access control logic.
 
@@ -65,7 +66,7 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, 
     Permissions.VIEW_HR, Permissions.MANAGE_HR,
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
-    Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
+    Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, // Managers can oversee lab/ops
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, 
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
@@ -77,7 +78,10 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, 
     Permissions.VIEW_BILLING, 
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
-    Permissions.VIEW_HR 
+    Permissions.VIEW_HR,
+    // Expanded permissions for Receptionist to handle requests
+    Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY,
+    Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS
   ],
   accountant: [
     Permissions.VIEW_DASHBOARD, 
@@ -93,7 +97,6 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
     Permissions.VIEW_OPERATIONS 
   ],
-  // Fix: Add missing roles to ROLE_PERMISSIONS in backend mirror
   doctor: [
     Permissions.VIEW_DASHBOARD,
     Permissions.VIEW_PATIENTS,
@@ -109,6 +112,7 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS,
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS,
     Permissions.VIEW_LABORATORY,
+    Permissions.VIEW_OPERATIONS, // Added view operations for reference
     Permissions.VIEW_SETTINGS,
   ],
   pharmacist: [

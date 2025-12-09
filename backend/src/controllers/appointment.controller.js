@@ -20,7 +20,9 @@ exports.getAll = (req, res) => {
 exports.create = (req, res) => {
   const { patientId, staffId, datetime, type } = req.body;
   
-  // Conflict Check
+  // Conflict Check REMOVED to allow queue-based booking (multiple patients per day per doctor)
+  // Since we removed specific time slots from the UI, we assume a daily queue.
+  /*
   const conflict = db.prepare(`
     SELECT id FROM appointments 
     WHERE medical_staff_id = ? AND appointment_datetime = ? AND status != 'cancelled'
@@ -29,6 +31,7 @@ exports.create = (req, res) => {
   if (conflict) {
     return res.status(409).json({ error: 'Doctor is not available at this time' });
   }
+  */
 
   const apptNumber = `APT-${Math.floor(Math.random() * 100000)}`;
 
