@@ -1,3 +1,4 @@
+
 const { db } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -26,7 +27,9 @@ exports.login = (req, res) => {
         id: user.id,
         username: user.username,
         fullName: user.full_name,
-        role: user.role
+        role: user.role,
+        email: user.email,
+        phone: user.phone
       }
     });
   } catch (err) {
@@ -36,7 +39,36 @@ exports.login = (req, res) => {
 };
 
 exports.me = (req, res) => {
-  const user = db.prepare('SELECT id, username, full_name as fullName, role FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare('SELECT id, username, full_name as fullName, role, email, phone FROM users WHERE id = ?').get(req.user.id);
   if (!user) return res.sendStatus(404);
   res.json(user);
+};
+
+exports.updateProfile = (req, res) => {
+  const { id } = req.user;
+  const { fullName, email, phone } = req.body;
+  try {
+    db.prepare('UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?').run(fullName, email, phone, id);
+    res.json({ message: 'Profile updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.changePassword = (req, res) => {
+  const { id } = req.user;
+  const { currentPassword, newPassword } = req.body;
+  
+  try {
+    const user = db.prepare('SELECT password FROM users WHERE id = ?').get(id);
+    if (!bcrypt.compareSync(currentPassword, user.password)) {
+      return res.status(401).json({ error: 'Incorrect current password' });
+    }
+    
+    const hash = bcrypt.hashSync(newPassword, 10);
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, id);
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };

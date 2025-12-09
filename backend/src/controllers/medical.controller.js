@@ -45,10 +45,14 @@ exports.getLabRequests = (req, res) => {
 exports.getAdmissions = (req, res) => {
   try {
     const adms = db.prepare(`
-      SELECT a.*, p.full_name as patientName, b.room_number as roomNumber 
+      SELECT a.*, 
+             p.full_name as patientName, 
+             b.room_number as roomNumber, b.id as bedId,
+             m.full_name as doctorName
       FROM admissions a 
       JOIN patients p ON a.patient_id = p.id 
       JOIN beds b ON a.bed_id = b.id
+      LEFT JOIN medical_staff m ON a.doctor_id = m.id
       WHERE a.status = 'active' ORDER BY a.created_at DESC
     `).all();
     res.json(adms);
@@ -65,6 +69,100 @@ exports.getScheduledOperations = (req, res) => {
       WHERE o.status = 'scheduled' ORDER BY o.created_at DESC
     `).all();
     res.json(ops);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+// --- INPATIENT MANAGEMENT (NEW) ---
+exports.getInpatientDetails = (req, res) => {
+  const { id } = req.params; // Admission ID
+  try {
+    const admission = db.prepare(`
+      SELECT a.*, 
+             p.full_name as patientName, p.age, p.gender, p.blood_group as bloodGroup, p.patient_id as patientCode,
+             b.room_number as roomNumber, b.type as bedType, b.cost_per_day as costPerDay,
+             m.full_name as doctorName
+      FROM admissions a
+      JOIN patients p ON a.patient_id = p.id
+      JOIN beds b ON a.bed_id = b.id
+      JOIN medical_staff m ON a.doctor_id = m.id
+      WHERE a.id = ?
+    `).get(id);
+
+    if (!admission) return res.status(404).json({ error: 'Admission not found' });
+
+    const notes = db.prepare(`
+      SELECT n.*, m.full_name as doctorName
+      FROM inpatient_notes n
+      JOIN medical_staff m ON n.doctor_id = m.id
+      WHERE n.admission_id = ?
+      ORDER BY n.created_at DESC
+    `).all(id);
+
+    // Calculate current estimated cost
+    const entryDate = new Date(admission.entry_date);
+    const now = new Date();
+    const diffTime = Math.abs(now - entryDate);
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+    const currentBill = days * admission.costPerDay;
+
+    res.json({
+      ...admission,
+      notes: notes.map(n => ({...n, vitals: JSON.parse(n.vitals || '{}')})),
+      daysStayed: days,
+      estimatedBill: currentBill
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.addInpatientNote = (req, res) => {
+  const { id } = req.params; // Admission ID
+  const { doctorId, note, vitals } = req.body; // Vitals: { bp, temp, pulse, resp }
+  try {
+    db.prepare(`
+      INSERT INTO inpatient_notes (admission_id, doctor_id, note, vitals)
+      VALUES (?, ?, ?, ?)
+    `).run(id, doctorId, note, JSON.stringify(vitals || {}));
+    res.json({ success: true, message: 'Note added' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.dischargePatient = (req, res) => {
+  const { id } = req.params; // Admission ID
+  const { dischargeNotes, dischargeStatus } = req.body;
+  
+  try {
+    const admission = db.prepare('SELECT a.*, b.cost_per_day FROM admissions a JOIN beds b ON a.bed_id = b.id WHERE a.id = ?').get(id);
+    if (!admission || admission.status !== 'active') return res.status(400).json({ error: 'Invalid admission record' });
+
+    // Calculate Final Cost
+    const entryDate = new Date(admission.entry_date);
+    const dischargeDate = new Date();
+    const days = Math.ceil((dischargeDate - entryDate) / (1000 * 60 * 60 * 24)) || 1;
+    const totalRoomCharge = days * admission.cost_per_day;
+
+    // Transaction for Discharge
+    const dischargeTx = db.transaction(() => {
+      // 1. Generate Bill
+      const billNumber = `INV-DIS-${Date.now()}`;
+      const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, admission.patient_id, totalRoomCharge, 'pending');
+      db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Inpatient Stay (${days} days)`, totalRoomCharge);
+
+      // 2. Update Admission
+      db.prepare(`
+        UPDATE admissions 
+        SET status = 'discharged', actual_discharge_date = ?, discharge_notes = ?, discharge_status = ? 
+        WHERE id = ?
+      `).run(dischargeDate.toISOString(), dischargeNotes, dischargeStatus, id);
+
+      // 3. Free Bed
+      db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(admission.bed_id);
+
+      // 4. Update Patient Status
+      db.prepare("UPDATE patients SET type = 'outpatient' WHERE id = ?").run(admission.patient_id);
+    });
+
+    dischargeTx();
+    res.json({ success: true, message: 'Patient discharged and billed.' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

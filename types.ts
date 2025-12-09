@@ -12,6 +12,7 @@ export interface User {
   fullName: string;
   role: Role; 
   email: string;
+  phone?: string; // Added phone
   is_active?: boolean;
 }
 

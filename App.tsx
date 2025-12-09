@@ -10,14 +10,12 @@ import { Staff } from './pages/Staff';
 import { Admissions } from './pages/Admissions';
 import { Laboratory } from './pages/Laboratory';
 import { Operations } from './pages/Operations';
-import { Configuration } from './pages/Configuration'; // Import real Configuration page
+import { Configuration } from './pages/Configuration';
+import { Settings } from './pages/Settings'; // Import real Settings page
+import { Reports } from './pages/Reports'; // Import real Reports page
 import { User, Role } from './types'; 
 import { api } from './services/api';
 import { AlertCircle } from 'lucide-react';
-
-// Placeholder Pages
-const Reports = () => <div className="p-8 text-slate-700 font-bold text-xl">Reports & Analytics (Under Construction)</div>;
-const Settings = () => <div className="p-8 text-slate-700 font-bold text-xl">Application Settings (Under Construction)</div>;
 
 // Login Component
 const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {

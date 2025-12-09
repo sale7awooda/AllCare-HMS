@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
@@ -50,9 +51,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   ];
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-slate-900 text-slate-300 border-r border-slate-800 shadow-xl">
+    <div className="flex flex-col h-full bg-slate-900 dark:bg-slate-950 text-slate-300 border-r border-slate-800 dark:border-slate-900 shadow-xl">
       {/* Brand Header */}
-      <div className={`h-20 flex items-center ${isSidebarExpanded ? 'px-6' : 'px-0 justify-center'} border-b border-slate-800 transition-all duration-300 shrink-0`}>
+      <div className={`h-20 flex items-center ${isSidebarExpanded ? 'px-6' : 'px-0 justify-center'} border-b border-slate-800 dark:border-slate-900 transition-all duration-300 shrink-0`}>
         <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
           <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary-900/50 flex-shrink-0">
             <Activity size={20} className="stroke-[2.5]" />
@@ -87,7 +88,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                 ${!isSidebarExpanded ? 'justify-center' : ''}
                 
                 ${isAllowed && isActive ? 'bg-primary-600 text-white shadow-md shadow-primary-900/20' : ''}
-                ${isAllowed && !isActive ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : ''}
+                ${isAllowed && !isActive ? 'text-slate-400 hover:bg-slate-800 hover:text-white dark:hover:bg-slate-900' : ''}
                 ${!isAllowed ? 'opacity-40 cursor-not-allowed bg-transparent text-slate-600' : ''}
               `}
               title={!isSidebarExpanded ? item.label : ''}
@@ -117,12 +118,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       </nav>
 
       {/* Footer / User Profile */}
-      <div className="p-4 border-t border-slate-800 shrink-0">
+      <div className="p-4 border-t border-slate-800 dark:border-slate-900 shrink-0">
         <div className={`
-          flex items-center gap-3 p-2 rounded-xl bg-slate-800/50 border border-slate-700/50
+          flex items-center gap-3 p-2 rounded-xl bg-slate-800/50 dark:bg-slate-900/50 border border-slate-700/50 dark:border-slate-800/50
           ${!isSidebarExpanded ? 'justify-center' : ''}
         `}>
-          <div className="w-9 h-9 rounded-lg bg-slate-700 border border-slate-600 flex items-center justify-center text-white font-bold text-sm shadow-sm flex-shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-slate-700 dark:bg-slate-800 border border-slate-600 dark:border-slate-700 flex items-center justify-center text-white font-bold text-sm shadow-sm flex-shrink-0">
             {user?.fullName.charAt(0)}
           </div>
           
@@ -144,7 +145,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   );
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-200">
       {/* Mobile Sidebar (Drawer) */}
       <div className={`fixed inset-0 z-50 lg:hidden pointer-events-none ${isMobileOpen ? 'pointer-events-auto' : ''}`}>
         <div 
@@ -167,7 +168,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         
         <button 
           onClick={() => setSidebarExpanded(!isSidebarExpanded)}
-          className="absolute -right-3 top-24 w-6 h-6 bg-slate-800 border border-slate-600 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-primary-600 hover:border-primary-500 shadow-md transition-all z-50"
+          className="absolute -right-3 top-24 w-6 h-6 bg-slate-800 dark:bg-slate-700 border border-slate-600 dark:border-slate-600 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-primary-600 hover:border-primary-500 shadow-md transition-all z-50"
         >
           <ChevronLeft size={14} className={`transition-transform duration-300 ${!isSidebarExpanded ? 'rotate-180' : ''}`} />
         </button>
@@ -175,30 +176,30 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-6 lg:px-8 shrink-0 z-10 sticky top-0">
+        <header className="h-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 lg:px-8 shrink-0 z-10 sticky top-0 transition-colors duration-200">
           <div className="flex items-center gap-4">
-            <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
+            <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
               <Menu size={24} />
             </button>
-            <h2 className="text-xl font-bold text-slate-800 tracking-tight">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">
               {navItems.find(i => i.path === location.pathname)?.label || 'Overview'}
             </h2>
           </div>
 
           <div className="flex items-center gap-4">
-             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full border border-green-100">
+             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/30 rounded-full border border-green-100 dark:border-green-800">
                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-               <span className="text-xs font-medium text-green-700">System Online</span>
+               <span className="text-xs font-medium text-green-700 dark:text-green-400">System Online</span>
              </div>
-             <div className="h-8 w-[1px] bg-slate-200 mx-2 hidden md:block"></div>
-             <button className="relative p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-full transition-colors">
+             <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2 hidden md:block"></div>
+             <button className="relative p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-slate-800 rounded-full transition-colors">
                <Bell size={20} />
-               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
              </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 lg:p-8 scroll-smooth bg-slate-50/50">
+        <main className="flex-1 overflow-auto p-4 lg:p-8 scroll-smooth bg-slate-50/50 dark:bg-slate-950/50">
           <div className="max-w-7xl mx-auto space-y-8 pb-10">
             {children}
           </div>

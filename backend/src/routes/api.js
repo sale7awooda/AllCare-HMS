@@ -21,8 +21,10 @@ router.post('/login', authController.login);
 // --- PROTECTED ROUTES (Requires authentication) ---
 router.use(authenticateToken);
 
-// User Profile
+// User Profile & Settings
 router.get('/me', authController.me);
+router.patch('/me/profile', authController.updateProfile);
+router.patch('/me/password', authController.changePassword);
 
 // Patients
 router.get('/patients', authorizeRoles(Permissions.VIEW_PATIENTS), patientController.getAll);
@@ -66,6 +68,11 @@ router.post('/medical/requests/lab/:id/confirm', authorizeRoles(Permissions.MANA
 
 router.get('/medical/requests/admissions', authorizeRoles(Permissions.VIEW_ADMISSIONS), medicalController.getAdmissions);
 router.post('/medical/requests/admissions/:id/confirm', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.confirmAdmission);
+
+// Inpatient Management Routes
+router.get('/medical/admissions/:id', authorizeRoles(Permissions.VIEW_ADMISSIONS), medicalController.getInpatientDetails);
+router.post('/medical/admissions/:id/note', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.addInpatientNote);
+router.post('/medical/admissions/:id/discharge', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.dischargePatient);
 
 router.get('/medical/requests/operations', authorizeRoles(Permissions.VIEW_OPERATIONS), medicalController.getScheduledOperations);
 router.post('/medical/requests/operations/:id/confirm', authorizeRoles(Permissions.MANAGE_OPERATIONS), medicalController.confirmOperation);
@@ -120,6 +127,5 @@ router.post('/config/restore', authorizeRoles(Permissions.MANAGE_CONFIGURATION),
 
 // --- Placeholder Routes for others ---
 router.get('/reports', authorizeRoles(Permissions.VIEW_REPORTS), (req, res) => res.json({ message: 'Reports data (placeholder)' }));
-router.get('/settings', authorizeRoles(Permissions.VIEW_SETTINGS), (req, res) => res.json({ message: 'Settings data (placeholder)' }));
 
 module.exports = router;

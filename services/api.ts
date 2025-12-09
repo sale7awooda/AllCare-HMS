@@ -51,6 +51,12 @@ export const api = {
     const { data } = await client.get('/me');
     return data;
   },
+  async updateProfile(data: any): Promise<void> {
+    await client.patch('/me/profile', data);
+  },
+  async changePassword(data: any): Promise<void> {
+    await client.patch('/me/password', data);
+  },
 
   // Patients
   async getPatients(): Promise<Patient[]> {
@@ -140,7 +146,7 @@ export const api = {
     await client.post('/medical/operation', payload);
   },
 
-  // Confirmations (Step 2 - Get Pending & Confirm)
+  // Confirmations & Management (Step 2)
   async getPendingLabRequests(): Promise<any[]> {
     const { data } = await client.get('/medical/requests/lab');
     return data;
@@ -156,6 +162,17 @@ export const api = {
   async confirmAdmissionDeposit(id: number): Promise<void> {
     await client.post(`/medical/requests/admissions/${id}/confirm`);
   },
+  // Inpatient Management (New)
+  async getInpatientDetails(admissionId: number): Promise<any> {
+    const { data } = await client.get(`/medical/admissions/${admissionId}`);
+    return data;
+  },
+  async addInpatientNote(admissionId: number, payload: any): Promise<void> {
+    await client.post(`/medical/admissions/${admissionId}/note`, payload);
+  },
+  async dischargePatient(admissionId: number, payload: any): Promise<void> {
+    await client.post(`/medical/admissions/${admissionId}/discharge`, payload);
+  },
 
   async getScheduledOperations(): Promise<any[]> {
     const { data } = await client.get('/medical/requests/operations');
@@ -166,7 +183,6 @@ export const api = {
   },
 
   // --- CONFIGURATION ---
-  // Note: defaults exposed for easy URL access
   defaults: { baseURL: API_BASE_URL },
 
   async getSystemSettings(): Promise<any> {

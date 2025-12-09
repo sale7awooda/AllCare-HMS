@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, Badge, Button } from '../components/UI';
 import { api } from '../services/api';
@@ -53,18 +54,18 @@ export const Dashboard = () => {
   const COLORS = ['#0891b2', '#10b981', '#f59e0b', '#ef4444'];
 
   const StatCard = ({ title, value, icon: Icon, trend, trendValue, colorClass }: any) => (
-    <div className="bg-white p-6 rounded-2xl shadow-card border border-slate-100 relative overflow-hidden group hover:shadow-lg transition-shadow duration-300">
-      <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${colorClass} opacity-5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+      <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${colorClass} opacity-5 dark:opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
       <div className="flex justify-between items-start relative z-10">
         <div>
-          <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{title}</p>
-          <h3 className="text-3xl font-bold mt-2 text-slate-800">{value}</h3>
+          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</p>
+          <h3 className="text-3xl font-bold mt-2 text-slate-800 dark:text-white">{value}</h3>
           <div className="flex items-center mt-2 gap-2">
-            <span className={`flex items-center text-xs font-bold ${trend === 'up' ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'} px-2 py-0.5 rounded-full`}>
+            <span className={`flex items-center text-xs font-bold ${trend === 'up' ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400' : 'text-red-600 bg-red-50 dark:bg-red-900/30 dark:text-red-400'} px-2 py-0.5 rounded-full`}>
               {trend === 'up' ? <ArrowUpRight size={14} className="mr-1"/> : <ArrowDownRight size={14} className="mr-1"/>}
               {trendValue}
             </span>
-            <span className="text-xs text-slate-400">vs last month</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500">vs last month</span>
           </div>
         </div>
         <div className={`p-3.5 rounded-xl bg-gradient-to-br ${colorClass} text-white shadow-md`}>
@@ -84,8 +85,8 @@ export const Dashboard = () => {
     <div className="space-y-8">
       {/* Header Section */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard Overview</h1>
-        <p className="text-slate-500 mt-1">Welcome back, here is what's happening at your hospital today.</p>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Dashboard Overview</h1>
+        <p className="text-slate-500 dark:text-slate-400 mt-1">Welcome back, here is what's happening at your hospital today.</p>
       </div>
 
       {/* Stats Grid */}
@@ -137,11 +138,11 @@ export const Dashboard = () => {
                       <stop offset="95%" stopColor="#0891b2" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-700" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.1)' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }}
                   />
                   <Area type="monotone" dataKey="revenue" stroke="#0891b2" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
                 </AreaChart>
@@ -175,7 +176,7 @@ export const Dashboard = () => {
               </ResponsiveContainer>
               {/* Center Text Overlay */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                <span className="text-3xl font-bold text-slate-800">1.2k</span>
+                <span className="text-3xl font-bold text-slate-800 dark:text-white">1.2k</span>
                 <span className="text-xs text-slate-400 font-medium uppercase">Patients</span>
               </div>
             </div>
@@ -186,30 +187,30 @@ export const Dashboard = () => {
       {/* Recent Activity Table */}
       <Card title="Recent Appointments" action={<Button variant="ghost" size="sm">View All</Button>}>
         <div className="overflow-x-auto -mx-6">
-          <table className="min-w-full divide-y divide-slate-100">
-            <thead className="bg-slate-50/50">
+          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
+            <thead className="bg-slate-50/50 dark:bg-slate-900/50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Patient Info</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Doctor</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Patient Info</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Doctor</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Status</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-slate-100">
+            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
               {appointments.map((apt) => (
-                <tr key={apt.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr key={apt.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors">
                   <td className="px-4 py-3 align-top">
                     <div className="flex items-start">
-                      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs mr-3 mt-0.5 shrink-0">
+                      <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-bold text-xs mr-3 mt-0.5 shrink-0">
                         {apt.patientName.charAt(0)}
                       </div>
-                      <div className="text-sm font-semibold text-slate-800 break-words leading-snug">{apt.patientName}</div>
+                      <div className="text-sm font-semibold text-slate-800 dark:text-white break-words leading-snug">{apt.patientName}</div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 align-top text-sm text-slate-600 break-words leading-snug">{apt.staffName}</td>
+                  <td className="px-4 py-3 align-top text-sm text-slate-600 dark:text-slate-300 break-words leading-snug">{apt.staffName}</td>
                   <td className="px-4 py-3 align-top whitespace-nowrap">
-                    <div className="flex items-center text-sm text-slate-500">
-                      <Clock size={14} className="mr-1.5 text-slate-400"/>
+                    <div className="flex items-center text-sm text-slate-500 dark:text-slate-400">
+                      <Clock size={14} className="mr-1.5 text-slate-400 dark:text-slate-500"/>
                       {new Date(apt.datetime).toLocaleString()}
                     </div>
                   </td>

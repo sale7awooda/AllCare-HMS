@@ -24,6 +24,8 @@ const initDB = () => {
       password TEXT NOT NULL,
       full_name TEXT NOT NULL,
       role TEXT NOT NULL,
+      is_active BOOLEAN DEFAULT 1,
+      email TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -101,7 +103,33 @@ const initDB = () => {
     CREATE TABLE IF NOT EXISTS operations_catalog (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, base_cost REAL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS operations (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, operation_name TEXT NOT NULL, doctor_id INTEGER, assistant_name TEXT, anesthesiologist_name TEXT, notes TEXT, status TEXT DEFAULT 'scheduled', projected_cost REAL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS beds (id INTEGER PRIMARY KEY AUTOINCREMENT, room_number TEXT NOT NULL, type TEXT DEFAULT 'General', status TEXT DEFAULT 'available', cost_per_day REAL NOT NULL);
-    CREATE TABLE IF NOT EXISTS admissions (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, bed_id INTEGER NOT NULL, doctor_id INTEGER NOT NULL, entry_date DATETIME NOT NULL, discharge_date DATETIME, status TEXT DEFAULT 'active', notes TEXT, projected_cost REAL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS admissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, 
+      patient_id INTEGER NOT NULL, 
+      bed_id INTEGER NOT NULL, 
+      doctor_id INTEGER NOT NULL, 
+      entry_date DATETIME NOT NULL, 
+      discharge_date DATETIME, 
+      actual_discharge_date DATETIME,
+      status TEXT DEFAULT 'active', 
+      notes TEXT, 
+      discharge_notes TEXT,
+      discharge_status TEXT,
+      projected_cost REAL DEFAULT 0, 
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- INPATIENT NOTES (Clinical Rounds)
+    CREATE TABLE IF NOT EXISTS inpatient_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admission_id INTEGER NOT NULL,
+      doctor_id INTEGER NOT NULL, -- or staff_id
+      note TEXT NOT NULL,
+      vitals TEXT, -- JSON string { bp, temp, pulse, resp }
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(admission_id) REFERENCES admissions(id),
+      FOREIGN KEY(doctor_id) REFERENCES medical_staff(id)
+    );
 
     -- CONFIGURATION TABLES
     CREATE TABLE IF NOT EXISTS departments (
@@ -151,7 +179,11 @@ const initDB = () => {
     { table: 'users', name: 'is_active', type: 'BOOLEAN DEFAULT 1' },
     { table: 'users', name: 'email', type: 'TEXT' },
     // Lab Test Update
-    { table: 'lab_tests', name: 'normal_range', type: 'TEXT' }
+    { table: 'lab_tests', name: 'normal_range', type: 'TEXT' },
+    // Admission Discharge Updates
+    { table: 'admissions', name: 'actual_discharge_date', type: 'DATETIME' },
+    { table: 'admissions', name: 'discharge_notes', type: 'TEXT' },
+    { table: 'admissions', name: 'discharge_status', type: 'TEXT' }
   ];
 
   columnsToAdd.forEach(col => {
@@ -194,7 +226,6 @@ const initDB = () => {
 
   // 4. Seed Medical Catalogs with EXTENSIVE common lab tests
   if (db.prepare('SELECT COUNT(*) FROM lab_tests').get()['COUNT(*)'] < 10) {
-    // Clear existing for fresh seed or if count is low (dev mode only mostly)
     db.prepare('DELETE FROM lab_tests').run();
 
     const tests = [
@@ -276,8 +307,7 @@ const initDB = () => {
     console.log('Seeded tax rates.');
   }
 
-  // ... (Keep Staff, Departments, Settings seeds)
-  // Seed Medical Staff (Include all expanded types)
+  // Seed Medical Staff
   const existingStaff = db.prepare('SELECT COUNT(*) as count FROM medical_staff').get();
   if (existingStaff.count === 0) {
     const staff = [
@@ -296,14 +326,12 @@ const initDB = () => {
     staff.forEach(s => insertStaff.run(s.employee_id, s.full_name, s.type, s.department, s.specialization, s.consultation_fee, s.email, s.phone));
   }
 
-  // Seed Departments (if empty)
   if (db.prepare('SELECT COUNT(*) FROM departments').get()['COUNT(*)'] === 0) {
     const depts = ['Cardiology', 'General Ward', 'Pediatrics', 'Surgery', 'Orthopedics', 'Laboratory', 'Pharmacy', 'Human Resources', 'Anesthesiology'];
     const insertDept = db.prepare('INSERT INTO departments (name) VALUES (?)');
     depts.forEach(d => insertDept.run(d));
   }
 
-  // Seed Initial Settings (if empty)
   if (db.prepare('SELECT COUNT(*) FROM system_settings').get()['COUNT(*)'] === 0) {
     const insertSetting = db.prepare('INSERT INTO system_settings (key, value) VALUES (?, ?)');
     insertSetting.run('hospitalName', 'AllCare Hospital');
