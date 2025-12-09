@@ -129,7 +129,7 @@ export const Configuration = () => {
       setUserForm({ ...user, password: '' });
     } else {
       setEditingUserId(null);
-      setUserForm({ username: '', fullName: '', role: 'doctor', isActive: true });
+      setUserForm({ username: '', fullName: '', role: 'manager', isActive: true });
     }
     setIsUserModalOpen(true);
   };
@@ -827,12 +827,8 @@ export const Configuration = () => {
               <option value="admin">Admin</option>
               <option value="manager">Manager</option>
               <option value="receptionist">Receptionist</option>
-              <option value="accountant">Accountant</option>
-              <option value="doctor">Doctor</option>
-              <option value="nurse">Nurse</option>
               <option value="technician">Technician</option>
-              <option value="pharmacist">Pharmacist</option>
-              <option value="hr">HR</option>
+              <option value="accountant">Accountant</option>
             </Select>
             <Input label="Email" type="email" value={userForm.email || ''} onChange={e => setUserForm({...userForm, email: e.target.value})} />
           </div>

@@ -3,8 +3,7 @@ import React from 'react';
 
 // Define a comprehensive set of roles as per requirements
 export type Role = 
-  'admin' | 'receptionist' | 'manager' | 'accountant' | 
-  'technician' | 'doctor' | 'nurse' | 'pharmacist' | 'hr'; 
+  'admin' | 'receptionist' | 'manager' | 'technician' | 'accountant'; 
 
 export interface User {
   id: number;

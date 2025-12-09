@@ -8,10 +8,9 @@ import {
   User as UserIcon, 
   Activity, 
   ArrowRight, 
-  CheckCircle2,
-  Stethoscope,
   ShieldCheck,
-  LayoutDashboard
+  LayoutDashboard,
+  CreditCard
 } from 'lucide-react';
 
 interface LoginProps {
@@ -184,14 +183,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="flex flex-wrap gap-2 justify-center">
                    <DemoButton role="admin" label="Admin" icon={ShieldCheck} />
                    <DemoButton role="manager" label="Manager" icon={LayoutDashboard} />
-                   <DemoButton role="doctor" label="Doctor" icon={Stethoscope} />
-                   <DemoButton role="nurse" label="Nurse" icon={Activity} />
-                </div>
-                <div className="flex flex-wrap gap-2 justify-center">
                    <DemoButton role="receptionist" label="Reception" icon={UserIcon} />
                    <DemoButton role="technician" label="Lab Tech" icon={Activity} />
-                   <DemoButton role="accountant" label="Finance" icon={CheckCircle2} />
-                   <DemoButton role="hr" label="HR" icon={UserIcon} />
+                   <DemoButton role="accountant" label="Accountant" icon={CreditCard} />
                 </div>
               </div>
             </div>

@@ -290,12 +290,8 @@ const initDB = () => {
     { username: 'admin', role: 'admin', fullName: 'System Admin' },
     { username: 'manager', role: 'manager', fullName: 'Hospital Manager' },
     { username: 'receptionist', role: 'receptionist', fullName: 'Front Desk' },
-    { username: 'accountant', role: 'accountant', fullName: 'Chief Accountant' },
     { username: 'labtech', role: 'technician', fullName: 'Lab Technician' },
-    { username: 'doctor', role: 'doctor', fullName: 'General Doctor' }, 
-    { username: 'nurse', role: 'nurse', fullName: 'Head Nurse' },       
-    { username: 'pharmacist', role: 'pharmacist', fullName: 'Chief Pharmacist' },
-    { username: 'hr', role: 'hr', fullName: 'HR Manager' },             
+    { username: 'accountant', role: 'accountant', fullName: 'Finance Officer' },
   ];
 
   const bcrypt = require('bcryptjs');
