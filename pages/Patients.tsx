@@ -107,8 +107,9 @@ export const Patients = () => {
   };
   const [formData, setFormData] = useState(initialFormState);
 
-  const loadData = async () => {
-    setLoading(true);
+  // Optimized loadData to support background refreshing
+  const loadData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const [pts, apts, b, stf, user, adms] = await Promise.all([
         api.getPatients(), 
@@ -126,8 +127,9 @@ export const Patients = () => {
       setCurrentUser(user);
     } catch (error) {
       console.error("Failed to load core data:", error);
+    } finally {
+      if (!isBackground) setLoading(false);
     }
-    setLoading(false);
   };
 
   const loadCatalogs = async () => {
@@ -381,7 +383,7 @@ export const Patients = () => {
         successMessage = 'Admission Request created. Patient status updated to Inpatient.';
 
       } else if (currentAction === 'operation') {
-        if (!actionFormData.subtype) throw new Error('Enter operation name.');
+        if (!actionFormData.subtype) throw new Error('Select an operation.');
         if (!staffAssignedId) throw new Error('Select a surgeon.');
         if (!opDetails.anesthesiologistId || !opDetails.assistantId || !opDetails.nurseId) throw new Error('All surgical team members are required.');
         
@@ -417,7 +419,7 @@ export const Patients = () => {
           patientName: selectedPatient.fullName,
           staffId: doc.id,
           staffName: doc.fullName,
-          datetime: `${actionFormData.date}T${actionFormData.time}`,
+          datetime: `${actionFormData.date}T${actionFormData.time}`, // Time removed from UI, using default state
           type: actionFormData.subtype || 'Consultation',
           reason: actionFormData.notes,
           status: 'pending' 
@@ -425,20 +427,22 @@ export const Patients = () => {
         successMessage = 'Appointment Scheduled. Confirm in Appointments.';
       }
 
-      setProcessMessage(successMessage);
       setProcessStatus('success');
+      setProcessMessage(successMessage);
+      
+      // Fetch new data in the background immediately
+      await loadData(true);
 
-      // Close modal after success delay
       setTimeout(() => {
         setIsActionModalOpen(false);
         setProcessStatus('idle');
-        loadData();
+        setProcessMessage('');
       }, 1500);
 
     } catch (err: any) {
       console.error(err);
-      setProcessMessage(err.response?.data?.error || err.message || 'Failed to submit request.');
       setProcessStatus('error');
+      setProcessMessage(err.response?.data?.error || err.message || 'Failed to submit request.');
     }
   };
 
@@ -480,7 +484,7 @@ export const Patients = () => {
         await api.addPatient(payload as any);
       }
       setIsFormModalOpen(false);
-      loadData();
+      loadData(true); // Background refresh to avoid table flash
     } catch (err: any) {
       console.error(err);
       alert(err.response?.data?.error || 'Failed to save patient data.');
@@ -520,7 +524,6 @@ export const Patients = () => {
 
   return (
     <div className="space-y-6">
-      {/* ... (Existing Patient List UI) ... */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Patient Management</h1>
         {canManagePatients ? <Button onClick={openCreateModal} icon={Plus}>Register Patient</Button> : <Button disabled variant="secondary" icon={Lock}>Register Patient</Button>}
@@ -583,46 +586,51 @@ export const Patients = () => {
         </div>
       </Card>
 
-      {/* Process Status Overlay */}
+      {/* PROCESS STATUS OVERLAY (New) */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 relative transform transition-all">
+          <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 relative overflow-hidden text-center transform scale-100 animate-in zoom-in-95">
             
             {processStatus === 'processing' && (
               <>
-                <Loader2 size={48} className="text-primary-600 animate-spin mb-4" />
-                <h3 className="text-lg font-bold text-slate-900 mb-1">Processing...</h3>
-                <p className="text-slate-500 text-center text-sm">{processMessage}</p>
+                <div className="relative mb-6">
+                   <div className="w-16 h-16 border-4 border-slate-100 border-t-primary-600 rounded-full animate-spin"></div>
+                   <Loader2 className="absolute inset-0 m-auto text-primary-600 animate-pulse" size={24}/>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Processing</h3>
+                <p className="text-slate-500">{processMessage}</p>
               </>
             )}
 
             {processStatus === 'success' && (
               <>
-                <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 animate-in zoom-in spin-in-12 duration-300">
-                  <CheckCircle size={32} />
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-600 animate-in zoom-in duration-300">
+                  <CheckCircle size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-1">Success!</h3>
-                <p className="text-slate-500 text-center text-sm">{processMessage}</p>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">Success!</h3>
+                <p className="text-slate-600 font-medium">{processMessage}</p>
               </>
             )}
 
             {processStatus === 'error' && (
               <>
-                 <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4 animate-in shake duration-300">
-                  <XCircle size={32} />
+                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6 text-red-600 animate-in zoom-in duration-300">
+                  <XCircle size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-1">Error</h3>
-                <p className="text-slate-500 text-center text-sm mb-6">{processMessage}</p>
-                <Button onClick={() => setProcessStatus('idle')} variant="secondary" className="w-full">Close</Button>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Action Failed</h3>
+                <p className="text-red-600 bg-red-50 p-3 rounded-xl border border-red-100 text-sm mb-6 w-full">{processMessage}</p>
+                <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">Close & Fix</Button>
               </>
             )}
+
           </div>
         </div>
       )}
 
-      {/* Register/Edit Modal - (Unchanged) */}
+      {/* Register/Edit Modal (Unchanged) */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient" : "Register Patient"}>
          <form onSubmit={handleRegisterSubmit} className="space-y-6">
+           {/* ... existing fields ... */}
            <div className="space-y-4">
              <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 mb-2 flex items-center gap-2">
                <UserIcon size={16} /> Personal Information
@@ -724,16 +732,15 @@ export const Patients = () => {
         <form onSubmit={submitAction} className="space-y-4">
           <div className="flex items-center justify-between mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
             <span className="text-sm"><span className="font-bold">Patient:</span> {selectedPatient?.fullName}</span>
-            <button type="button" onClick={handleBackToActionMenu} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-200 text-slate-600 text-xs font-semibold transition-colors">
-              <span>Back</span>
-              <ArrowLeft size={16}/>
+            <button type="button" onClick={handleBackToActionMenu} className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-primary-600 transition-colors">
+               Back <ArrowLeft size={16}/>
             </button>
           </div>
 
           {/* APPOINTMENT FORM */}
           {currentAction === 'appointment' && (
             <>
-               {/* 1. Date (Time Removed) */}
+               {/* 1. Date */}
                <div className="grid grid-cols-1 gap-4">
                   <Input label="Date" type="date" required value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
                </div>
@@ -757,9 +764,7 @@ export const Patients = () => {
                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Select Doctor</label>
                    <div className="flex overflow-x-auto gap-3 pb-2 custom-scrollbar">
                      {staff.filter(s => s.type === 'doctor' && s.specialization === selectedSpecialty).map(doc => {
-                       // Pass current selected date to checkAvailability logic
                        const isAvail = checkAvailability(doc); 
-                       const availableDays = doc.schedule ? JSON.parse(doc.schedule) : ['Mon','Tue','Wed','Thu','Fri'];
                        
                        return (
                          <div 
@@ -777,9 +782,6 @@ export const Patients = () => {
                             </div>
                             
                             <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
-                               <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-1">
-                                 <Calendar size={10} /> {availableDays.slice(0,3).join(', ')}...
-                               </div>
                                <div className={`text-xs font-bold flex items-center gap-1 ${isAvail ? 'text-green-600' : 'text-gray-400'}`}>
                                  <div className={`w-2 h-2 rounded-full ${isAvail ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                                  {isAvail ? 'Available' : 'Unavailable'}
@@ -925,59 +927,61 @@ export const Patients = () => {
                  Confirming this operation will schedule it. Billing happens in the Operations module.
                </div>
 
-               {/* Operation Selection - Now a Dropdown */}
-               <Select label="Operation Name" required value={actionFormData.subtype} onChange={e => handleOperationSelect(e.target.value)}>
-                 <option value="">Select Operation...</option>
-                 {operations.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-               </Select>
+               {/* Operation Selection */}
+               <div>
+                  <Select label="Operation Name" required value={actionFormData.subtype} onChange={e => handleOperationSelect(e.target.value)}>
+                    <option value="">Select Operation...</option>
+                    {operations.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+                  </Select>
+               </div>
 
                {/* Section: Surgical Team */}
                <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
                  <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><UserIcon size={12}/> Surgical Team (Required)</h4>
                  
-                 <div className="grid grid-cols-2 gap-3">
-                   {/* Lead Surgeon Row */}
-                   <div>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                   {/* Surgeon Row */}
+                   <div className="col-span-1">
                       <Select label="Lead Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                         <option value="">Select Surgeon...</option>
                         {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                       </Select>
                    </div>
-                   <div>
-                      <Input className="mt-1" label="Surgeon Fee ($)" type="number" required value={opDetails.surgeonCost} onChange={e => setOpDetails({...opDetails, surgeonCost: parseFloat(e.target.value || '0')})} />
+                   <div className="col-span-1">
+                       <Input label="Surgeon Fee ($)" type="number" required value={opDetails.surgeonCost} onChange={e => setOpDetails({...opDetails, surgeonCost: parseFloat(e.target.value || '0')})} />
                    </div>
 
                    {/* Anesthesiologist Row */}
-                   <div>
+                   <div className="col-span-1">
                       <Select label="Anesthesiologist" required value={opDetails.anesthesiologistId} onChange={e => setOpDetails({...opDetails, anesthesiologistId: e.target.value})}>
-                        <option value="">Select Anest...</option>
+                        <option value="">Select Anesthesiologist...</option>
                         {staff.filter(s => s.type === 'anesthesiologist' || s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                       </Select>
                    </div>
-                   <div>
-                      <Input className="mt-1" label="Fee ($)" type="number" required value={opDetails.anesthesiologistCost} onChange={e => setOpDetails({...opDetails, anesthesiologistCost: parseFloat(e.target.value || '0')})} />
+                   <div className="col-span-1">
+                      <Input label="Fee ($)" type="number" required value={opDetails.anesthesiologistCost} onChange={e => setOpDetails({...opDetails, anesthesiologistCost: parseFloat(e.target.value || '0')})} />
                    </div>
 
                    {/* Assistant Row */}
-                   <div>
+                   <div className="col-span-1">
                       <Select label="Medical Assistant" required value={opDetails.assistantId} onChange={e => setOpDetails({...opDetails, assistantId: e.target.value})}>
                         <option value="">Select Assistant...</option>
                         {staff.filter(s => s.type === 'medical_assistant' || s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                       </Select>
                    </div>
-                   <div>
-                      <Input className="mt-1" label="Fee ($)" type="number" required value={opDetails.assistantCost} onChange={e => setOpDetails({...opDetails, assistantCost: parseFloat(e.target.value || '0')})} />
+                   <div className="col-span-1">
+                      <Input label="Fee ($)" type="number" required value={opDetails.assistantCost} onChange={e => setOpDetails({...opDetails, assistantCost: parseFloat(e.target.value || '0')})} />
                    </div>
 
                    {/* Nurse Row */}
-                   <div>
+                   <div className="col-span-1">
                       <Select label="Scrub Nurse" required value={opDetails.nurseId} onChange={e => setOpDetails({...opDetails, nurseId: e.target.value})}>
                         <option value="">Select Nurse...</option>
                         {staff.filter(s => s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                       </Select>
                    </div>
-                   <div>
-                      <Input className="mt-1" label="Fee ($)" type="number" required value={opDetails.nurseCost} onChange={e => setOpDetails({...opDetails, nurseCost: parseFloat(e.target.value || '0')})} />
+                   <div className="col-span-1">
+                      <Input label="Fee ($)" type="number" required value={opDetails.nurseCost} onChange={e => setOpDetails({...opDetails, nurseCost: parseFloat(e.target.value || '0')})} />
                    </div>
                  </div>
                </div>
