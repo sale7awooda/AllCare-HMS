@@ -195,12 +195,40 @@ export const Patients = () => {
     setIsActionMenuOpen(true);
   };
 
+  const getLocalToday = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const openViewModal = async (patient: Patient) => {
+    // Seamless transition logic
+    setProcessStatus('processing');
+    setProcessMessage('Loading patient file...');
+    try {
+      const fullDetails = await api.getPatient(patient.id);
+      setSelectedPatient(fullDetails);
+      setViewTab('info');
+      // Close other modals if open
+      setIsActionMenuOpen(false);
+      setIsViewModalOpen(true);
+    } catch (e) { 
+      console.error(e); 
+    } finally {
+      // Small delay for smooth visual transition
+      setTimeout(() => setProcessStatus('idle'), 300);
+    }
+  };
+
   const handleActionSelect = (action: 'appointment' | 'lab' | 'nurse' | 'admission' | 'operation' | 'history') => {
-    setIsActionMenuOpen(false);
     if (action === 'history') {
       openViewModal(selectedPatient!);
       return;
     }
+    
+    setIsActionMenuOpen(false);
     
     // Reset specific states
     setSelectedTests([]);
@@ -220,8 +248,8 @@ export const Patients = () => {
     setCurrentAction(action);
     setActionFormData({
       staffId: '',
-      date: new Date().toISOString().split('T')[0],
-      time: '09:00', // Default time
+      date: getLocalToday(), // Always initialize to today
+      time: '09:00', 
       notes: '',
       subtype: '', 
       dischargeDate: '',
@@ -282,14 +310,14 @@ export const Patients = () => {
     }
   }, [actionFormData.staffId, actionFormData.subtype, currentAction, staff]);
 
-  // Helper to check doctor availability for specific date
+  // Helper to check doctor availability for CURRENT DAY
   const checkAvailability = (doc: MedicalStaff) => {
     if (!doc.isAvailable) return false;
     if (!doc.schedule) return true; // Default available if no schedule defined
     try {
       const scheduleDays = JSON.parse(doc.schedule); // e.g. ["Mon", "Tue"]
-      const selectedDate = new Date(actionFormData.date);
-      const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'short' }); // "Mon"
+      const today = new Date();
+      const dayName = today.toLocaleDateString('en-US', { weekday: 'short' }); // "Mon"
       return scheduleDays.includes(dayName);
     } catch (e) {
       return true; // Fallback
@@ -301,7 +329,7 @@ export const Patients = () => {
     if (processStatus === 'processing') return false;
 
     if (currentAction === 'appointment') {
-      return !!(actionFormData.date && actionFormData.staffId && actionFormData.subtype);
+      return !!(actionFormData.staffId && actionFormData.subtype);
     }
     
     if (currentAction === 'lab') {
@@ -446,15 +474,6 @@ export const Patients = () => {
     }
   };
 
-  const openViewModal = async (patient: Patient) => {
-    try {
-      const fullDetails = await api.getPatient(patient.id);
-      setSelectedPatient(fullDetails);
-      setViewTab('info');
-      setIsViewModalOpen(true);
-    } catch (e) { console.error(e); }
-  };
-
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = {
@@ -586,11 +605,10 @@ export const Patients = () => {
         </div>
       </Card>
 
-      {/* PROCESS STATUS OVERLAY (New) */}
+      {/* PROCESS STATUS OVERLAY (Unchanged) */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 relative overflow-hidden text-center transform scale-100 animate-in zoom-in-95">
-            
             {processStatus === 'processing' && (
               <>
                 <div className="relative mb-6">
@@ -601,7 +619,6 @@ export const Patients = () => {
                 <p className="text-slate-500">{processMessage}</p>
               </>
             )}
-
             {processStatus === 'success' && (
               <>
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-600 animate-in zoom-in duration-300">
@@ -611,7 +628,6 @@ export const Patients = () => {
                 <p className="text-slate-600 font-medium">{processMessage}</p>
               </>
             )}
-
             {processStatus === 'error' && (
               <>
                 <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6 text-red-600 animate-in zoom-in duration-300">
@@ -622,7 +638,6 @@ export const Patients = () => {
                 <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">Close & Fix</Button>
               </>
             )}
-
           </div>
         </div>
       )}
@@ -707,7 +722,7 @@ export const Patients = () => {
          </form>
       </Modal>
 
-      {/* Action Menu Modal (Unchanged) */}
+      {/* Action Menu Modal */}
       <Modal isOpen={isActionMenuOpen} onClose={() => setIsActionMenuOpen(false)} title={`Actions for ${selectedPatient?.fullName}`}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {[
@@ -717,13 +732,28 @@ export const Patients = () => {
             { id: 'admission', icon: Bed, label: 'Admission', color: 'orange' }, 
             { id: 'operation', icon: Activity, label: 'Operation', color: 'red' },
             { id: 'history', icon: History, label: 'History / View', color: 'gray' },
-          ].map((action: any) => (
-            <button key={action.id} onClick={() => handleActionSelect(action.id)} 
-              className={`flex flex-col items-center justify-center p-4 bg-${action.color}-50 hover:bg-${action.color}-100 text-${action.color}-700 rounded-xl transition-all border border-${action.color}-100`}>
-              <action.icon size={28} className="mb-2" />
-              <span className="font-semibold text-sm">{action.label}</span>
-            </button>
-          ))}
+          ].map((action: any) => {
+            const isAdmissionDisabled = action.id === 'admission' && selectedPatient?.type === 'inpatient';
+            return (
+              <button 
+                key={action.id} 
+                onClick={() => !isAdmissionDisabled && handleActionSelect(action.id)}
+                disabled={isAdmissionDisabled}
+                className={`
+                  flex flex-col items-center justify-center p-4 rounded-xl transition-all border 
+                  ${isAdmissionDisabled 
+                    ? 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed' 
+                    : `bg-${action.color}-50 hover:bg-${action.color}-100 text-${action.color}-700 border-${action.color}-100`
+                  }
+                `}
+              >
+                <action.icon size={28} className="mb-2" />
+                <span className="font-semibold text-sm">
+                  {isAdmissionDisabled ? 'Already Admitted' : action.label}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </Modal>
 
@@ -740,9 +770,17 @@ export const Patients = () => {
           {/* APPOINTMENT FORM */}
           {currentAction === 'appointment' && (
             <>
-               {/* 1. Date */}
-               <div className="grid grid-cols-1 gap-4">
-                  <Input label="Date" type="date" required value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
+               {/* 1. Date (Static Display) */}
+               <div className="bg-primary-50 border border-primary-100 p-4 rounded-xl flex items-center gap-4 mb-4">
+                  <div className="p-3 bg-white rounded-lg shadow-sm text-primary-600">
+                    <Calendar size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary-500 mb-0.5">Booking Date</h4>
+                    <p className="text-lg font-bold text-slate-800 capitalize">
+                      {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} (Today)
+                    </p>
+                  </div>
                </div>
                
                {/* 2. Select Department/Specialty */}
@@ -948,7 +986,7 @@ export const Patients = () => {
                       </Select>
                    </div>
                    <div className="col-span-1">
-                       <Input label="Surgeon Fee ($)" type="number" required value={opDetails.surgeonCost} onChange={e => setOpDetails({...opDetails, surgeonCost: parseFloat(e.target.value || '0')})} />
+                       <Input label="Surgeon Fee" prefix="$" type="number" step="0.01" placeholder="0.00" required value={opDetails.surgeonCost} onChange={e => setOpDetails({...opDetails, surgeonCost: parseFloat(e.target.value || '0')})} />
                    </div>
 
                    {/* Anesthesiologist Row */}
@@ -959,7 +997,7 @@ export const Patients = () => {
                       </Select>
                    </div>
                    <div className="col-span-1">
-                      <Input label="Fee ($)" type="number" required value={opDetails.anesthesiologistCost} onChange={e => setOpDetails({...opDetails, anesthesiologistCost: parseFloat(e.target.value || '0')})} />
+                      <Input label="Fee" prefix="$" type="number" step="0.01" placeholder="0.00" required value={opDetails.anesthesiologistCost} onChange={e => setOpDetails({...opDetails, anesthesiologistCost: parseFloat(e.target.value || '0')})} />
                    </div>
 
                    {/* Assistant Row */}
@@ -970,7 +1008,7 @@ export const Patients = () => {
                       </Select>
                    </div>
                    <div className="col-span-1">
-                      <Input label="Fee ($)" type="number" required value={opDetails.assistantCost} onChange={e => setOpDetails({...opDetails, assistantCost: parseFloat(e.target.value || '0')})} />
+                      <Input label="Fee" prefix="$" type="number" step="0.01" placeholder="0.00" required value={opDetails.assistantCost} onChange={e => setOpDetails({...opDetails, assistantCost: parseFloat(e.target.value || '0')})} />
                    </div>
 
                    {/* Nurse Row */}
@@ -981,7 +1019,7 @@ export const Patients = () => {
                       </Select>
                    </div>
                    <div className="col-span-1">
-                      <Input label="Fee ($)" type="number" required value={opDetails.nurseCost} onChange={e => setOpDetails({...opDetails, nurseCost: parseFloat(e.target.value || '0')})} />
+                      <Input label="Fee" prefix="$" type="number" step="0.01" placeholder="0.00" required value={opDetails.nurseCost} onChange={e => setOpDetails({...opDetails, nurseCost: parseFloat(e.target.value || '0')})} />
                    </div>
                  </div>
                </div>
@@ -991,19 +1029,19 @@ export const Patients = () => {
                  <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><Briefcase size={12}/> Resources & Consumables</h4>
                   <div className="grid grid-cols-3 gap-2">
                      <div className="col-span-2 flex items-center"><span className="text-sm font-semibold text-slate-700">Theater Charges (1x Surgeon Fee)</span></div>
-                     <div className="col-span-1"><Input label="Cost" type="number" disabled value={opDetails.theaterCost} onChange={e => setOpDetails({...opDetails, theaterCost: parseFloat(e.target.value || '0')})} /></div>
+                     <div className="col-span-1"><Input label="Cost" prefix="$" type="number" disabled value={opDetails.theaterCost} onChange={e => setOpDetails({...opDetails, theaterCost: parseFloat(e.target.value || '0')})} /></div>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                      <div className="col-span-2"><Input label="Drugs & Consumables" placeholder="Anesthesia, antibiotics..." value={opDetails.drugs} onChange={e => setOpDetails({...opDetails, drugs: e.target.value})} /></div>
-                     <div className="col-span-1"><Input label="Cost" type="number" value={opDetails.drugsCost} onChange={e => setOpDetails({...opDetails, drugsCost: parseFloat(e.target.value || '0')})} /></div>
+                     <div className="col-span-1"><Input label="Cost" prefix="$" type="number" step="0.01" placeholder="0.00" value={opDetails.drugsCost} onChange={e => setOpDetails({...opDetails, drugsCost: parseFloat(e.target.value || '0')})} /></div>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                      <div className="col-span-2"><Input label="Equipment Used" placeholder="Specialized equipment..." value={opDetails.equipment} onChange={e => setOpDetails({...opDetails, equipment: e.target.value})} /></div>
-                     <div className="col-span-1"><Input label="Cost" type="number" value={opDetails.equipmentCost} onChange={e => setOpDetails({...opDetails, equipmentCost: parseFloat(e.target.value || '0')})} /></div>
+                     <div className="col-span-1"><Input label="Cost" prefix="$" type="number" step="0.01" placeholder="0.00" value={opDetails.equipmentCost} onChange={e => setOpDetails({...opDetails, equipmentCost: parseFloat(e.target.value || '0')})} /></div>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                      <div className="col-span-2"><Input label="Others" placeholder="Other charges..." value={opDetails.others} onChange={e => setOpDetails({...opDetails, others: e.target.value})} /></div>
-                     <div className="col-span-1"><Input label="Cost" type="number" value={opDetails.othersCost} onChange={e => setOpDetails({...opDetails, othersCost: parseFloat(e.target.value || '0')})} /></div>
+                     <div className="col-span-1"><Input label="Cost" prefix="$" type="number" step="0.01" placeholder="0.00" value={opDetails.othersCost} onChange={e => setOpDetails({...opDetails, othersCost: parseFloat(e.target.value || '0')})} /></div>
                   </div>
                </div>
 

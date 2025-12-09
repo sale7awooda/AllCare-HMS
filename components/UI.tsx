@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, Check, AlertCircle } from 'lucide-react';
 
@@ -83,15 +84,22 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: stri
 };
 
 // --- Form Input ---
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string }>(
-  ({ label, error, className = '', ...props }, ref) => (
+export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string; prefix?: string }>(
+  ({ label, error, className = '', prefix, ...props }, ref) => (
     <div className="w-full">
       {label && <label className="block text-sm font-semibold text-slate-700 mb-1.5">{label}</label>}
-      <input
-        ref={ref}
-        className={`block w-full rounded-xl bg-white text-slate-900 placeholder:text-slate-400 border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5 px-4 border transition-all duration-200 ${error ? 'border-red-300 bg-red-50' : ''} ${className}`}
-        {...props}
-      />
+      <div className="relative">
+        {prefix && (
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span className="text-gray-500 sm:text-sm font-medium">{prefix}</span>
+          </div>
+        )}
+        <input
+          ref={ref}
+          className={`block w-full rounded-xl bg-white text-slate-900 placeholder:text-slate-400 border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5 ${prefix ? 'pl-7 pr-4' : 'px-4'} border transition-all duration-200 ${error ? 'border-red-300 bg-red-50' : ''} ${className}`}
+          {...props}
+        />
+      </div>
       {error && <p className="mt-1.5 text-xs text-red-600 font-medium flex items-center gap-1"><AlertCircle size={12}/> {error}</p>}
     </div>
   )
