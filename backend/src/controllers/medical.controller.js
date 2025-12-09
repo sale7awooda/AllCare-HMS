@@ -44,6 +44,7 @@ exports.getLabRequests = (req, res) => {
 
 exports.getAdmissions = (req, res) => {
   try {
+    // Fetch both active and reserved admissions for the dashboard
     const adms = db.prepare(`
       SELECT a.*, 
              p.full_name as patientName, 
@@ -53,7 +54,7 @@ exports.getAdmissions = (req, res) => {
       JOIN patients p ON a.patient_id = p.id 
       JOIN beds b ON a.bed_id = b.id
       LEFT JOIN medical_staff m ON a.doctor_id = m.id
-      WHERE a.status = 'active' ORDER BY a.created_at DESC
+      WHERE a.status IN ('active', 'reserved') ORDER BY a.created_at DESC
     `).all();
     res.json(adms);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -84,7 +85,7 @@ exports.getInpatientDetails = (req, res) => {
       FROM admissions a
       JOIN patients p ON a.patient_id = p.id
       JOIN beds b ON a.bed_id = b.id
-      JOIN medical_staff m ON a.doctor_id = m.id
+      LEFT JOIN medical_staff m ON a.doctor_id = m.id
       WHERE a.id = ?
     `).get(id);
 
@@ -193,13 +194,25 @@ exports.createNurseService = (req, res) => {
 exports.createAdmission = (req, res) => {
   const { patientId, bedId, doctorId, entryDate, dischargeDate, deposit, notes } = req.body;
   try {
-    db.prepare("UPDATE beds SET status = 'occupied' WHERE id = ?").run(bedId);
-    db.prepare(`
+    // 1. Mark Bed as Reserved
+    db.prepare("UPDATE beds SET status = 'reserved' WHERE id = ?").run(bedId);
+    
+    // 2. Create Admission with 'reserved' status
+    const result = db.prepare(`
       INSERT INTO admissions (patient_id, bed_id, doctor_id, entry_date, discharge_date, notes, projected_cost, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(patientId, bedId, doctorId, entryDate, dischargeDate || null, notes || null, deposit, 'active');
-    res.json({ success: true, message: 'Admission recorded.' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    `).run(patientId, bedId, doctorId, entryDate, dischargeDate || null, notes || null, deposit, 'reserved');
+    
+    // 3. Create Bill for Deposit
+    const billNumber = `INV-ADM-${Date.now()}`;
+    const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, deposit, 'pending');
+    db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Admission Deposit (Room Reservation)`, deposit);
+
+    res.json({ success: true, message: 'Bed reserved. Payment required to confirm admission.' });
+  } catch (err) { 
+    console.error(err);
+    res.status(500).json({ error: err.message }); 
+  }
 };
 
 exports.createOperation = (req, res) => {
@@ -233,10 +246,16 @@ exports.confirmAdmission = (req, res) => {
   try {
     const adm = db.prepare('SELECT * FROM admissions WHERE id = ?').get(id);
     if (!adm) return res.status(404).json({ error: 'Admission not found' });
-    const billNumber = `INV-ADM-${Date.now()}`;
-    const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, adm.patient_id, adm.projected_cost, 'pending');
-    db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Admission Deposit`, adm.projected_cost);
-    res.json({ success: true });
+    
+    // Transaction: Active Admission, Occupy Bed, Inpatient Status
+    const confirmTx = db.transaction(() => {
+      db.prepare("UPDATE admissions SET status = 'active' WHERE id = ?").run(id);
+      db.prepare("UPDATE beds SET status = 'occupied' WHERE id = ?").run(adm.bed_id);
+      db.prepare("UPDATE patients SET type = 'inpatient' WHERE id = ?").run(adm.patient_id);
+    });
+    
+    confirmTx();
+    res.json({ success: true, message: 'Admission confirmed. Patient marked as Inpatient.' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge, Modal, Input, Textarea, Select } from '../components/UI';
-import { Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight } from 'lucide-react';
+import { Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, DollarSign } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 
@@ -11,22 +11,23 @@ export const Admissions = () => {
   const [activeAdmissions, setActiveAdmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState<any[]>([]);
-  
-  // Patient Care Modal State (Manage Stay)
-  const [selectedAdmission, setSelectedAdmission] = useState<any | null>(null);
-  const [isCareModalOpen, setIsCareModalOpen] = useState(false);
-  const [careTab, setCareTab] = useState<'overview' | 'notes' | 'discharge'>('overview');
-  
-  // Admit Patient Modal State
-  const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false);
-  const [selectedBedForAdmission, setSelectedBedForAdmission] = useState<any>(null);
-  const [admitForm, setAdmitForm] = useState({ patientId: '', doctorId: '', entryDate: new Date().toISOString().split('T')[0], deposit: '', notes: '' });
   const [staff, setStaff] = useState<any[]>([]);
+  
+  // Modals
+  const [isCareModalOpen, setIsCareModalOpen] = useState(false); // For Active Patients
+  const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false); // For New Reservation
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false); // For Reserved -> Active
 
-  // Care Forms State
+  // Selection States
+  const [selectedAdmission, setSelectedAdmission] = useState<any | null>(null);
+  const [selectedBedForAdmission, setSelectedBedForAdmission] = useState<any>(null);
+  const [inpatientDetails, setInpatientDetails] = useState<any>(null);
+  const [careTab, setCareTab] = useState<'overview' | 'notes' | 'discharge'>('overview');
+
+  // Forms
+  const [admitForm, setAdmitForm] = useState({ patientId: '', doctorId: '', entryDate: new Date().toISOString().split('T')[0], deposit: '', notes: '' });
   const [noteForm, setNoteForm] = useState({ note: '', bp: '', temp: '', pulse: '', resp: '' });
   const [dischargeForm, setDischargeForm] = useState({ notes: '', status: 'Recovered' });
-  const [inpatientDetails, setInpatientDetails] = useState<any>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -60,22 +61,37 @@ export const Admissions = () => {
   };
 
   const handleBedClick = async (bed: any) => {
+    // 1. RESERVED BED -> CONFIRMATION
+    if (bed.status === 'reserved') {
+      const admission = activeAdmissions.find(a => a.bedId === bed.id && a.status === 'reserved');
+      if (admission) {
+        setSelectedAdmission(admission);
+        setIsConfirmModalOpen(true);
+      }
+      return;
+    }
+
+    // 2. OCCUPIED BED -> PATIENT CARE
     if (bed.status === 'occupied') {
-      // RED CARD: Manage Stay
-      const admission = activeAdmissions.find(a => a.bedId === bed.id);
+      const admission = activeAdmissions.find(a => a.bedId === bed.id && a.status === 'active');
       if (admission) {
         setSelectedAdmission(admission);
         try {
+          // Loading indication could be added here
           const details = await api.getInpatientDetails(admission.id);
           setInpatientDetails(details);
           setCareTab('overview');
           setIsCareModalOpen(true);
         } catch (e) {
           console.error("Failed to load details", e);
+          alert("Failed to load patient details. The admission record might be incomplete.");
         }
       }
-    } else if (bed.status === 'available') {
-      // GREEN CARD: Admit Patient
+      return;
+    }
+
+    // 3. AVAILABLE BED -> NEW ADMISSION (RESERVATION)
+    if (bed.status === 'available') {
       setSelectedBedForAdmission(bed);
       setAdmitForm({ 
         patientId: '', 
@@ -86,7 +102,6 @@ export const Admissions = () => {
       });
       setIsAdmitModalOpen(true);
     }
-    // YELLOW CARD: Maintenance (Do nothing for now)
   };
 
   const handleAdmitSubmit = async (e: React.FormEvent) => {
@@ -101,12 +116,24 @@ export const Admissions = () => {
         deposit: parseFloat(admitForm.deposit),
         notes: admitForm.notes
       });
-      await api.updatePatient(parseInt(admitForm.patientId), { type: 'inpatient' });
+      // NOTE: Patient type is NOT updated yet. This happens on confirmation.
       setIsAdmitModalOpen(false);
       loadData();
-      alert('Patient admitted successfully.');
+      alert('Bed reserved successfully. Please collect the deposit to confirm admission.');
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to admit patient.');
+    }
+  };
+
+  const handleConfirmAdmission = async () => {
+    if (!selectedAdmission) return;
+    try {
+      await api.confirmAdmissionDeposit(selectedAdmission.id);
+      setIsConfirmModalOpen(false);
+      loadData();
+      alert('Admission Confirmed. Patient is now an Inpatient.');
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Confirmation failed.');
     }
   };
 
@@ -150,28 +177,32 @@ export const Admissions = () => {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inpatient Ward</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm">Overview of bed occupancy and patient management.</p>
         </div>
-        <div className="flex gap-3">
-          <div className="flex items-center gap-2 px-3 py-1 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg text-sm border border-green-100 dark:border-green-800">
+        <div className="flex gap-3 text-xs font-medium">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg border border-green-100 dark:border-green-800">
             <div className="w-2 h-2 rounded-full bg-green-500"></div> Available
           </div>
-          <div className="flex items-center gap-2 px-3 py-1 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm border border-red-100 dark:border-red-800">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-100 dark:border-blue-800">
+            <div className="w-2 h-2 rounded-full bg-blue-500"></div> Reserved
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg border border-red-100 dark:border-red-800">
             <div className="w-2 h-2 rounded-full bg-red-500"></div> Occupied
           </div>
-          <div className="flex items-center gap-2 px-3 py-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded-lg text-sm border border-yellow-100 dark:border-yellow-800">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded-lg border border-yellow-100 dark:border-yellow-800">
             <div className="w-2 h-2 rounded-full bg-yellow-500"></div> Maintenance
           </div>
         </div>
       </div>
 
-      {/* View A: Ward Dashboard (Bed Grid) */}
+      {/* Ward Dashboard */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {loading ? <p className="col-span-full text-center py-10 text-gray-500">Loading ward status...</p> : 
          beds.map(bed => {
+           // Find any admission (active OR reserved) for this bed
            const admission = activeAdmissions.find(a => a.bedId === bed.id);
            const isOccupied = bed.status === 'occupied';
+           const isReserved = bed.status === 'reserved';
            const isMaintenance = bed.status === 'maintenance';
            
-           // Doctor Name is now joined in backend query
            const doctorName = admission?.doctorName || 'Unassigned';
 
            return (
@@ -181,30 +212,40 @@ export const Admissions = () => {
                className={`
                  relative p-4 rounded-xl border-2 transition-all cursor-pointer group flex flex-col justify-between h-40 shadow-sm hover:shadow-md
                  ${isOccupied 
-                   ? 'bg-white dark:bg-slate-800 border-red-100 dark:border-red-900/50 hover:border-red-300 dark:hover:border-red-700' 
-                   : isMaintenance 
-                     ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 cursor-not-allowed' 
-                     : 'bg-white dark:bg-slate-800 border-green-100 dark:border-green-900/50 hover:border-green-400 dark:hover:border-green-600'
+                   ? 'bg-white dark:bg-slate-800 border-red-100 dark:border-red-900/50 hover:border-red-300' 
+                   : isReserved
+                     ? 'bg-white dark:bg-slate-800 border-blue-100 dark:border-blue-900/50 hover:border-blue-300'
+                     : isMaintenance 
+                       ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 cursor-not-allowed' 
+                       : 'bg-white dark:bg-slate-800 border-green-100 dark:border-green-900/50 hover:border-green-400'
                  }
                `}
              >
                {/* Header: Room Number */}
                <div className="flex justify-between items-start">
-                 <span className={`text-xl font-bold ${isOccupied ? 'text-red-600' : isMaintenance ? 'text-yellow-600' : 'text-green-600'}`}>
+                 <span className={`text-xl font-bold ${isOccupied ? 'text-red-600' : isReserved ? 'text-blue-600' : isMaintenance ? 'text-yellow-600' : 'text-green-600'}`}>
                    {bed.roomNumber}
                  </span>
-                 <Bed size={20} className={`${isOccupied ? 'text-red-400' : isMaintenance ? 'text-yellow-400' : 'text-green-400'}`} />
+                 <Bed size={20} className={`${isOccupied ? 'text-red-400' : isReserved ? 'text-blue-400' : isMaintenance ? 'text-yellow-400' : 'text-green-400'}`} />
                </div>
                
                {/* Body: Status/Details */}
                <div className="flex-1 flex flex-col justify-center">
-                 {isOccupied ? (
+                 {isOccupied || isReserved ? (
                    <div className="space-y-1">
                      <p className="text-sm font-bold text-gray-900 dark:text-white truncate" title={admission?.patientName}>{admission?.patientName}</p>
                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><User size={10}/> Dr. {doctorName.split(' ')[1] || doctorName}</p>
-                     <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-50 text-red-700 rounded text-[10px] font-bold mt-1">
-                       <Clock size={10}/> {calculateDays(admission?.entry_date)} Days
-                     </div>
+                     
+                     {isOccupied && (
+                       <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-50 text-red-700 rounded text-[10px] font-bold mt-1">
+                         <Clock size={10}/> {calculateDays(admission?.entry_date)} Days
+                       </div>
+                     )}
+                     {isReserved && (
+                        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold mt-1">
+                          <DollarSign size={10}/> Payment Pending
+                        </div>
+                     )}
                    </div>
                  ) : isMaintenance ? (
                    <p className="text-sm text-yellow-700 dark:text-yellow-500 font-medium text-center">Maintenance</p>
@@ -219,7 +260,7 @@ export const Admissions = () => {
                {/* Footer: Type */}
                <div className="mt-2 pt-2 border-t border-dashed border-gray-100 dark:border-slate-700 text-[10px] text-gray-400 uppercase tracking-wide flex justify-between">
                  <span>{bed.type}</span>
-                 {isOccupied && <span className="text-blue-500 font-bold">Manage &rarr;</span>}
+                 {(isOccupied || isReserved) && <span className="text-primary-500 font-bold">Manage &rarr;</span>}
                </div>
              </div>
            );
@@ -227,12 +268,12 @@ export const Admissions = () => {
         }
       </div>
 
-      {/* Admit Patient Modal */}
-      <Modal isOpen={isAdmitModalOpen} onClose={() => setIsAdmitModalOpen(false)} title={`Admit to Room ${selectedBedForAdmission?.roomNumber}`}>
+      {/* MODAL 1: ADMIT (RESERVE) PATIENT */}
+      <Modal isOpen={isAdmitModalOpen} onClose={() => setIsAdmitModalOpen(false)} title={`Reserve Bed ${selectedBedForAdmission?.roomNumber}`}>
         <form onSubmit={handleAdmitSubmit} className="space-y-4">
-          <div className="bg-green-50 border border-green-100 p-3 rounded-lg text-sm text-green-800 flex items-center gap-2 mb-2">
+          <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-sm text-blue-800 flex items-center gap-2 mb-2">
             <CheckCircle size={16} />
-            <span>Selected Bed: <strong>{selectedBedForAdmission?.roomNumber}</strong> ({selectedBedForAdmission?.type})</span>
+            <span>This will reserve Bed <strong>{selectedBedForAdmission?.roomNumber}</strong>. Confirmation requires deposit payment.</span>
           </div>
 
           <Select 
@@ -268,12 +309,39 @@ export const Admissions = () => {
 
           <div className="pt-4 flex justify-end gap-3">
             <Button type="button" variant="secondary" onClick={() => setIsAdmitModalOpen(false)}>Cancel</Button>
-            <Button type="submit">Confirm Admission</Button>
+            <Button type="submit">Reserve Bed</Button>
           </div>
         </form>
       </Modal>
 
-      {/* View B: Patient Care Modal */}
+      {/* MODAL 2: CONFIRM ADMISSION (PAYMENT) */}
+      <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title="Confirm Admission">
+        <div className="space-y-6">
+          <div className="text-center p-4">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+              <DollarSign size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Collect Deposit</h3>
+            <p className="text-gray-500 mt-2">
+              Patient <strong>{selectedAdmission?.patientName}</strong> has reserved this bed. 
+              Please confirm that the deposit of <strong>${selectedAdmission?.projected_cost}</strong> has been collected.
+            </p>
+          </div>
+          
+          <div className="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl text-sm space-y-2">
+            <div className="flex justify-between"><span>Bed:</span> <strong>{selectedAdmission?.roomNumber}</strong></div>
+            <div className="flex justify-between"><span>Doctor:</span> <strong>{selectedAdmission?.doctorName}</strong></div>
+            <div className="flex justify-between"><span>Entry Date:</span> <strong>{selectedAdmission?.entry_date ? new Date(selectedAdmission.entry_date).toLocaleDateString() : '-'}</strong></div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-slate-700">
+            <Button variant="secondary" onClick={() => setIsConfirmModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleConfirmAdmission} icon={CheckCircle}>Confirm & Admit</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL 3: PATIENT CARE (EXISTING LOGIC) */}
       {isCareModalOpen && inpatientDetails && (
         <Modal isOpen={isCareModalOpen} onClose={() => setIsCareModalOpen(false)} title="Patient Care & Management">
           <div className="space-y-6">

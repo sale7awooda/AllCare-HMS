@@ -407,8 +407,8 @@ export const Patients = () => {
           deposit: selectedBed.costPerDay,
           notes: actionFormData.notes 
         });
-        await api.updatePatient(selectedPatient.id, { type: 'inpatient' });
-        successMessage = 'Admission Request created. Patient status updated to Inpatient.';
+        // Note: Patient type NOT updated to 'inpatient' yet. Logic moved to confirmation.
+        successMessage = 'Bed Reserved. Payment required to confirm admission.';
 
       } else if (currentAction === 'operation') {
         if (!actionFormData.subtype) throw new Error('Select an operation.');
@@ -465,7 +465,7 @@ export const Patients = () => {
         setIsActionModalOpen(false);
         setProcessStatus('idle');
         setProcessMessage('');
-      }, 1500);
+      }, 2000); // Slightly longer delay to read the message
 
     } catch (err: any) {
       console.error(err);
