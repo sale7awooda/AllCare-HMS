@@ -784,7 +784,23 @@ export const Configuration = () => {
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Cost per Day" prefix={settings.currency} type="number" required value={bedForm.costPerDay} onChange={e => setBedForm({...bedForm, costPerDay: parseFloat(e.target.value)})} />
+            <div>
+              <Input 
+                label="Cost per Day" 
+                prefix={settings.currency} 
+                type="number" 
+                required 
+                value={bedForm.costPerDay} 
+                onChange={e => setBedForm({...bedForm, costPerDay: parseFloat(e.target.value)})}
+                disabled={bedForm.status === 'occupied'}
+                className={bedForm.status === 'occupied' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}
+              />
+              {bedForm.status === 'occupied' && (
+                <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                  <AlertTriangle size={12}/> Cost locked (Occupied)
+                </p>
+              )}
+            </div>
             <Select label="Status" value={bedForm.status} onChange={e => setBedForm({...bedForm, status: e.target.value as any})}>
               <option value="available">Available</option>
               <option value="occupied">Occupied</option>
