@@ -6,7 +6,7 @@ import { Patient, Appointment, MedicalStaff, Bill, User, LabTestCatalog, NurseSe
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const isRailwayProduction = window.location.hostname.includes('railway.app'); 
 
-const RAILWAY_BACKEND_URL = 'https://railway-hms-production.up.railway.app/api';
+const RAILWAY_BACKEND_URL = 'https://allcare.up.railway.app/api';
 
 const API_BASE_URL = isLocal 
   ? '/api' 

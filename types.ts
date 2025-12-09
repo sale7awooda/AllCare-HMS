@@ -80,7 +80,7 @@ export interface Appointment {
   staffName: string; 
   datetime: string;
   type: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'checked_in' | 'in_progress' | 'waiting';
   billingStatus: 'unbilled' | 'billed' | 'paid';
   reason?: string;
 }

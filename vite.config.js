@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
@@ -13,7 +14,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://railway-hms-production.up.railway.app',
+        target: 'https://allcare.up.railway.app',
         changeOrigin: true,
         secure: false,
       }
