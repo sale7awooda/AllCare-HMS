@@ -1,13 +1,28 @@
+
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
-  const staff = db.prepare(`
-    SELECT id, employee_id as employeeId, full_name as fullName, type, department, specialization, 
-    consultation_fee as consultationFee, is_available as isAvailable, email, phone 
-    FROM medical_staff ORDER BY full_name
-  `).all();
-  // Convert 1/0 to boolean
-  res.json(staff.map(s => ({ ...s, isAvailable: !!s.isAvailable })));
+  try {
+    const staff = db.prepare('SELECT * FROM medical_staff ORDER BY full_name').all();
+    
+    const mapped = staff.map(s => ({
+      id: s.id,
+      employeeId: s.employee_id,
+      fullName: s.full_name,
+      type: s.type,
+      department: s.department,
+      specialization: s.specialization,
+      consultationFee: s.consultation_fee,
+      isAvailable: !!s.is_available,
+      email: s.email,
+      phone: s.phone
+    }));
+
+    res.json(mapped);
+  } catch (err) {
+    console.error('Error fetching staff:', err);
+    res.status(500).json({ error: 'Failed to fetch staff list' });
+  }
 };
 
 exports.create = (req, res) => {

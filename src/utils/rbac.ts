@@ -2,7 +2,6 @@
 import { User, Role } from './../types';
 
 // Define granular permissions for all modules and actions, including DELETE
-// Fix: Define Permissions as a constant object with 'as const' to ensure literal types are inferred.
 export const Permissions = {
   VIEW_DASHBOARD: 'VIEW_DASHBOARD',
   
@@ -43,11 +42,9 @@ export const Permissions = {
   MANAGE_CONFIGURATION: 'MANAGE_CONFIGURATION', // Admin-level permission to manage user roles, permissions, departments etc.
 } as const;
 
-// Fix: Derive Permission type from the Permissions object to keep them in sync.
 export type Permission = typeof Permissions[keyof typeof Permissions];
 
-// The Matrix: What each role can do (aligned with new granular permissions and 5 roles)
-// Fix: Updated ROLE_PERMISSIONS to use Permissions object properties.
+// The Matrix: What each role can do
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: [
     Permissions.VIEW_DASHBOARD, 
@@ -62,18 +59,17 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
     Permissions.MANAGE_CONFIGURATION // Full control
   ],
-  manager: [ // Broad view and management, but no configuration management or direct DELETE
+  manager: [ 
     Permissions.VIEW_DASHBOARD, 
     Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, 
     Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, 
     Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, 
     Permissions.VIEW_HR, Permissions.MANAGE_HR,
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
-    Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, // Managers can oversee lab/ops
+    Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, 
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
-    // No DELETE permissions or MANAGE_CONFIGURATION
   ],
   receptionist: [
     Permissions.VIEW_DASHBOARD, 
@@ -82,7 +78,6 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_BILLING, 
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
     Permissions.VIEW_HR,
-    // Expanded permissions for Receptionist
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY,
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS
   ],
@@ -93,17 +88,16 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, 
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS
   ],
-  technician: [ // e.g., Lab Tech
+  technician: [ 
     Permissions.VIEW_DASHBOARD, 
-    Permissions.VIEW_PATIENTS, 
-    Permissions.VIEW_APPOINTMENTS, 
+    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, // Techs can register patients for lab
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, // Techs can book tests
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
     Permissions.VIEW_OPERATIONS 
   ],
-  // Fix: Add missing roles to ROLE_PERMISSIONS
   doctor: [
     Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS,
+    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, // Doctors can create patient records
     Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, // Doctors can manage their own appointments
     Permissions.VIEW_LABORATORY,
     Permissions.VIEW_OPERATIONS,
@@ -112,66 +106,53 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   nurse: [
     Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS,
-    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, // Nurses can manage nurse service appointments
-    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, // Nurses manage beds/admissions for patient care
+    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, // Nurses can register patients
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, 
+    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
     Permissions.VIEW_LABORATORY,
-    Permissions.VIEW_OPERATIONS, // Added view operations
+    Permissions.VIEW_OPERATIONS,
     Permissions.VIEW_SETTINGS,
   ],
   pharmacist: [
     Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS, // View patient details for prescriptions
-    Permissions.VIEW_BILLING, // For drug charges
-    Permissions.VIEW_LABORATORY, // To understand lab results related to drug interactions/effects
+    Permissions.VIEW_PATIENTS, 
+    Permissions.VIEW_BILLING, 
+    Permissions.VIEW_LABORATORY, 
     Permissions.VIEW_SETTINGS,
   ],
-  hr: [ // HR Manager role
+  hr: [ 
     Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_HR, Permissions.MANAGE_HR, // Primary role: manage HR
-    Permissions.VIEW_REPORTS, // For HR reports
+    Permissions.VIEW_HR, Permissions.MANAGE_HR, 
+    Permissions.VIEW_REPORTS, 
     Permissions.VIEW_SETTINGS,
   ],
 };
 
-/**
- * Checks if a user has a specific permission.
- */
 export const hasPermission = (user: User | null, permission: Permission): boolean => {
   if (!user || !user.role) return false;
   
-  // Admin has all permissions
   if (user.role === 'admin') return true; 
 
-  // Manager has all permissions except MANAGE_CONFIGURATION and DELETE actions
   if (user.role === 'manager') {
-    // Fix: Use Permissions.MANAGE_CONFIGURATION for type safety.
     if (permission === Permissions.MANAGE_CONFIGURATION || permission.startsWith('DELETE_')) { 
       return false;
     }
-    return true; // Manager has all other permissions
+    return true; 
   }
 
   const userPermissions = ROLE_PERMISSIONS[user.role] || [];
   return userPermissions.includes(permission);
 };
 
-/**
- * Checks if a user has access to a specific route/module.
- * Used primarily for Sidebar logic.
- */
 export const canAccessRoute = (user: User | null, path: string): boolean => {
   if (!user || !user.role) return false;
   
-  // Admin has access to all routes
   if (user.role === 'admin') return true;
 
-  // Manager has access to all routes except /configuration
   if (user.role === 'manager' && path !== '/configuration') return true;
 
   switch (path) {
-    case '/': return true; // Everyone sees dashboard
-    // Fix: Use Permissions object properties for type safety.
+    case '/': return true; 
     case '/patients': return hasPermission(user, Permissions.VIEW_PATIENTS);
     case '/appointments': return hasPermission(user, Permissions.VIEW_APPOINTMENTS);
     case '/billing': return hasPermission(user, Permissions.VIEW_BILLING);
@@ -181,7 +162,7 @@ export const canAccessRoute = (user: User | null, path: string): boolean => {
     case '/operations': return hasPermission(user, Permissions.VIEW_OPERATIONS);
     case '/reports': return hasPermission(user, Permissions.VIEW_REPORTS);
     case '/settings': return hasPermission(user, Permissions.VIEW_SETTINGS);
-    case '/configuration': return hasPermission(user, Permissions.MANAGE_CONFIGURATION); // Admin only
-    default: return false; // Deny access to unknown paths by default
+    case '/configuration': return hasPermission(user, Permissions.MANAGE_CONFIGURATION);
+    default: return false; 
   }
 };
