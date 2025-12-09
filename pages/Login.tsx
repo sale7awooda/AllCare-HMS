@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { User, Role } from '../types';
 import { 
@@ -23,6 +23,21 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [hospitalName, setHospitalName] = useState('Your Hospital Name');
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settings = await api.getPublicSettings();
+        if (settings?.hospitalName) {
+          setHospitalName(settings.hospitalName);
+        }
+      } catch (e) {
+        console.error("Failed to load public settings", e);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +85,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary-900/20">
                 <Activity size={24} className="stroke-[2.5]" />
               </div>
-              <span className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">AllCare HMS</span>
+              <span className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{hospitalName}</span>
             </div>
             <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
               Welcome back
@@ -148,12 +163,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     Remember me
                   </label>
                 </div>
-
-                <div className="text-sm">
-                  <a href="#" className="font-medium text-primary-600 hover:text-primary-500 transition-colors">
-                    Forgot password?
-                  </a>
-                </div>
               </div>
 
               <button
@@ -206,7 +215,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <div className="absolute inset-0 z-20 flex flex-col justify-between p-20 text-white">
           <div className="flex items-center gap-2 opacity-50">
             <Activity size={24} />
-            <span className="font-bold tracking-widest text-sm uppercase">AllCare Systems</span>
+            <span className="font-bold tracking-widest text-sm uppercase">{hospitalName}</span>
           </div>
 
           <div className="max-w-xl">
@@ -228,13 +237,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                </div>
                <div>
                  <p className="font-bold text-white">2,000+ Staff</p>
-                 <p className="text-xs text-slate-400">Trust AllCare Daily</p>
+                 <p className="text-xs text-slate-400">Trust Us Daily</p>
                </div>
              </div>
           </div>
 
           <div className="flex justify-between items-end text-xs text-slate-500 font-medium">
-             <p>© 2024 AllCare HMS. All rights reserved.</p>
+             <p>© 2024 {hospitalName}. All rights reserved.</p>
              <div className="flex gap-6">
                 <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
                 <a href="#" className="hover:text-white transition-colors">Terms of Service</a>

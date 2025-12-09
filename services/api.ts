@@ -47,6 +47,10 @@ export const api = {
     localStorage.setItem('token', data.token);
     return data.user;
   },
+  async getPublicSettings(): Promise<any> {
+    const { data } = await client.get('/public/settings');
+    return data;
+  },
   async me(): Promise<User> {
     const { data } = await client.get('/me');
     return data;

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Badge, Button } from '../components/UI';
 import { api } from '../services/api';
-import { Users, CreditCard, Calendar, Activity, TrendingUp, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
+import { Users, CreditCard, Calendar, Activity, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area
@@ -15,21 +15,38 @@ export const Dashboard = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      const [pts, apts, bills] = await Promise.all([
-        api.getPatients(),
-        api.getAppointments(),
-        api.getBills()
-      ]);
+      // Helper to safely fetch data or return empty array if permission denied
+      const safeFetch = async (promise: Promise<any>) => {
+        try {
+          const result = await promise;
+          return Array.isArray(result) ? result : [];
+        } catch (error) {
+          // Silently fail for permission issues (403) to allow partial dashboard loading
+          console.warn('Dashboard widget failed to load (likely permission issue):', error);
+          return [];
+        }
+      };
 
-      const totalRevenue = bills.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
-      
-      setStats({
-        patients: pts.length,
-        appointments: apts.length,
-        revenue: totalRevenue
-      });
-      setAppointments(apts.slice(0, 5)); // Recent 5
-      setLoading(false);
+      try {
+        const [pts, apts, bills] = await Promise.all([
+          safeFetch(api.getPatients()),
+          safeFetch(api.getAppointments()),
+          safeFetch(api.getBills())
+        ]);
+
+        const totalRevenue = bills.reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
+        
+        setStats({
+          patients: pts.length,
+          appointments: apts.length,
+          revenue: totalRevenue
+        });
+        setAppointments(apts.slice(0, 5)); // Recent 5
+      } catch (error) {
+        console.error("Critical error loading dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
     };
     loadData();
   }, []);

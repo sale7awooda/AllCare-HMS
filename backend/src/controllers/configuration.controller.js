@@ -16,6 +16,18 @@ exports.getSettings = (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
+exports.getPublicSettings = (req, res) => {
+  try {
+    // Only return safe public settings
+    const rows = db.prepare("SELECT * FROM system_settings WHERE key IN ('hospitalName', 'hospitalAddress', 'hospitalPhone')").all();
+    const settings = rows.reduce((acc, row) => {
+      acc[row.key] = row.value;
+      return acc;
+    }, {});
+    res.json(settings);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
 exports.updateSettings = (req, res) => {
   const updates = req.body;
   const updateStmt = db.prepare('INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)');

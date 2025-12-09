@@ -17,6 +17,7 @@ const upload = multer({ dest: 'uploads/' });
 
 // --- PUBLIC ROUTES ---
 router.post('/login', authController.login);
+router.get('/public/settings', configController.getPublicSettings);
 
 // --- PROTECTED ROUTES (Requires authentication) ---
 router.use(authenticateToken);
