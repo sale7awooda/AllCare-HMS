@@ -102,6 +102,18 @@ const initDB = () => {
     CREATE TABLE IF NOT EXISTS operations (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, operation_name TEXT NOT NULL, doctor_id INTEGER, assistant_name TEXT, anesthesiologist_name TEXT, notes TEXT, status TEXT DEFAULT 'scheduled', projected_cost REAL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS beds (id INTEGER PRIMARY KEY AUTOINCREMENT, room_number TEXT NOT NULL, type TEXT DEFAULT 'General', status TEXT DEFAULT 'available', cost_per_day REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS admissions (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, bed_id INTEGER NOT NULL, doctor_id INTEGER NOT NULL, entry_date DATETIME NOT NULL, discharge_date DATETIME, status TEXT DEFAULT 'active', notes TEXT, projected_cost REAL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+
+    -- CONFIGURATION TABLES
+    CREATE TABLE IF NOT EXISTS departments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS system_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `;
   
   db.exec(schema);
@@ -229,6 +241,24 @@ const initDB = () => {
     `);
     staff.forEach(s => insertStaff.run(s.employee_id, s.full_name, s.type, s.department, s.specialization, s.consultation_fee, s.email, s.phone));
     console.log('Seeded initial medical staff.');
+  }
+
+  // 6. Seed Departments (if empty)
+  if (db.prepare('SELECT COUNT(*) FROM departments').get()['COUNT(*)'] === 0) {
+    const depts = ['Cardiology', 'General Ward', 'Pediatrics', 'Surgery', 'Orthopedics', 'Laboratory', 'Pharmacy', 'Human Resources', 'Anesthesiology'];
+    const insertDept = db.prepare('INSERT INTO departments (name) VALUES (?)');
+    depts.forEach(d => insertDept.run(d));
+    console.log('Seeded departments.');
+  }
+
+  // 7. Seed Initial Settings (if empty)
+  if (db.prepare('SELECT COUNT(*) FROM system_settings').get()['COUNT(*)'] === 0) {
+    const insertSetting = db.prepare('INSERT INTO system_settings (key, value) VALUES (?, ?)');
+    insertSetting.run('hospitalName', 'AllCare Hospital');
+    insertSetting.run('hospitalAddress', '123 Health Ave, Med City');
+    insertSetting.run('hospitalPhone', '555-0100');
+    insertSetting.run('currency', '$');
+    console.log('Seeded system settings.');
   }
 };
 

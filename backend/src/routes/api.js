@@ -7,6 +7,7 @@ const staffController = require('../controllers/staff.controller');
 const appointmentController = require('../controllers/appointment.controller');
 const billingController = require('../controllers/billing.controller');
 const medicalController = require('../controllers/medical.controller'); 
+const configController = require('../controllers/configuration.controller');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { Permissions } = require('../../utils/rbac_backend_mirror'); 
 
@@ -66,9 +67,26 @@ router.get('/medical/requests/operations', authorizeRoles(Permissions.VIEW_OPERA
 router.post('/medical/requests/operations/:id/confirm', authorizeRoles(Permissions.MANAGE_OPERATIONS), medicalController.confirmOperation);
 
 
+// --- CONFIGURATION ROUTES (Admin Only) ---
+router.get('/config/settings', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.getSettings);
+router.post('/config/settings', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.updateSettings);
+
+router.get('/config/departments', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.getDepartments);
+router.post('/config/departments', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.addDepartment);
+router.delete('/config/departments/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.deleteDepartment);
+
+router.post('/config/catalogs/lab-tests', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.addLabTest);
+router.delete('/config/catalogs/lab-tests/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.deleteLabTest);
+
+router.post('/config/catalogs/nurse-services', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.addNurseService);
+router.delete('/config/catalogs/nurse-services/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.deleteNurseService);
+
+router.post('/config/catalogs/operations', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.addOperation);
+router.delete('/config/catalogs/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.deleteOperation);
+
+
 // --- Placeholder Routes for others ---
 router.get('/reports', authorizeRoles(Permissions.VIEW_REPORTS), (req, res) => res.json({ message: 'Reports data (placeholder)' }));
 router.get('/settings', authorizeRoles(Permissions.VIEW_SETTINGS), (req, res) => res.json({ message: 'Settings data (placeholder)' }));
-router.get('/configuration', authorizeRoles(Permissions.MANAGE_CONFIGURATION), (req, res) => res.json({ message: 'Configuration data (placeholder)' }));
 
 module.exports = router;

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -6,18 +7,17 @@ import { Patients } from './pages/Patients';
 import { Appointments } from './pages/Appointments';
 import { Billing } from './pages/Billing';
 import { Staff } from './pages/Staff'; 
+import { Admissions } from './pages/Admissions';
+import { Laboratory } from './pages/Laboratory';
+import { Operations } from './pages/Operations';
+import { Configuration } from './pages/Configuration'; // Import real Configuration page
 import { User, Role } from './types'; 
 import { api } from './services/api';
 import { AlertCircle } from 'lucide-react';
 
-// New Placeholder Pages
-const Admissions = () => <div className="p-8 text-slate-700 font-bold text-xl">Admissions Management (Under Construction)</div>;
-const Laboratory = () => <div className="p-8 text-slate-700 font-bold text-xl">Laboratory Services (Under Construction)</div>;
-const Operations = () => <div className="p-8 text-slate-700 font-bold text-xl">Operations Scheduling (Under Construction)</div>;
+// Placeholder Pages
 const Reports = () => <div className="p-8 text-slate-700 font-bold text-xl">Reports & Analytics (Under Construction)</div>;
 const Settings = () => <div className="p-8 text-slate-700 font-bold text-xl">Application Settings (Under Construction)</div>;
-const Configuration = () => <div className="p-8 text-slate-700 font-bold text-xl">System Configuration (Admin Only - Under Construction)</div>;
-
 
 // Login Component
 const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
@@ -124,7 +124,7 @@ export default function App() {
           const userData = await api.me();
           setUser(userData);
         } catch (e) {
-          console.error("Auth check failed:", e); // Added explicit error log
+          console.error("Auth check failed:", e);
           localStorage.removeItem('token');
         }
       }

@@ -163,5 +163,47 @@ export const api = {
   },
   async confirmOperation(id: number): Promise<void> {
     await client.post(`/medical/requests/operations/${id}/confirm`);
+  },
+
+  // --- CONFIGURATION ---
+  async getSystemSettings(): Promise<any> {
+    const { data } = await client.get('/config/settings');
+    return data;
+  },
+  async updateSystemSettings(settings: any): Promise<void> {
+    await client.post('/config/settings', settings);
+  },
+  
+  async getDepartments(): Promise<any[]> {
+    const { data } = await client.get('/config/departments');
+    return data;
+  },
+  async addDepartment(name: string, description?: string): Promise<void> {
+    await client.post('/config/departments', { name, description });
+  },
+  async deleteDepartment(id: number): Promise<void> {
+    await client.delete(`/config/departments/${id}`);
+  },
+
+  // Catalog Management
+  async addLabTest(test: Partial<LabTestCatalog>): Promise<void> {
+    await client.post('/config/catalogs/lab-tests', test);
+  },
+  async deleteLabTest(id: number): Promise<void> {
+    await client.delete(`/config/catalogs/lab-tests/${id}`);
+  },
+
+  async addNurseService(service: Partial<NurseServiceCatalog>): Promise<void> {
+    await client.post('/config/catalogs/nurse-services', service);
+  },
+  async deleteNurseService(id: number): Promise<void> {
+    await client.delete(`/config/catalogs/nurse-services/${id}`);
+  },
+
+  async addOperationCatalog(op: Partial<OperationCatalog>): Promise<void> {
+    await client.post('/config/catalogs/operations', op);
+  },
+  async deleteOperationCatalog(id: number): Promise<void> {
+    await client.delete(`/config/catalogs/operations/${id}`);
   }
 };
