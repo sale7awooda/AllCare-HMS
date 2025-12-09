@@ -28,6 +28,20 @@ const initDB = () => {
         shouldReset = true;
       }
     }
+    
+    // Check Medical Staff for new fee columns
+    if (!shouldReset) {
+         const staffTableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='medical_staff'").get();
+         if (staffTableCheck) {
+             const columns = db.pragma('table_info(medical_staff)');
+             const hasFollowUp = columns.some(col => col.name === 'consultation_fee_followup');
+             if (!hasFollowUp) {
+                console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing consultation_fee_followup). Resetting database...');
+                shouldReset = true;
+             }
+         }
+    }
+
   } catch (e) {
     console.log('Database check failed, proceeding with initialization.');
   }

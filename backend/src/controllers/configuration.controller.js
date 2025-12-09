@@ -35,8 +35,19 @@ exports.updateSettings = (req, res) => {
 // --- USER MANAGEMENT ---
 exports.getUsers = (req, res) => {
   try {
-    const users = db.prepare('SELECT id, username, full_name, role, email, is_active, created_at FROM users ORDER BY full_name').all();
-    res.json(users.map(u => ({ ...u, is_active: !!u.is_active })));
+    // Use SELECT * to handle missing columns gracefully in older schemas (though DB reset should fix it)
+    const users = db.prepare('SELECT * FROM users ORDER BY full_name').all();
+    // Map to camelCase for frontend consistency
+    const mappedUsers = users.map(u => ({
+      id: u.id,
+      username: u.username,
+      fullName: u.full_name,
+      role: u.role,
+      email: u.email || '',
+      isActive: !!u.is_active, 
+      createdAt: u.created_at
+    }));
+    res.json(mappedUsers);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

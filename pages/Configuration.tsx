@@ -392,10 +392,10 @@ export const Configuration = () => {
                             <td className="px-4 py-3">
                               <div className="flex items-center">
                                 <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs mr-3">
-                                  {u.fullName.charAt(0)}
+                                  {(u.fullName || u.username || '?').charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                  <div className="text-sm font-medium text-gray-900">{u.fullName}</div>
+                                  <div className="text-sm font-medium text-gray-900">{u.fullName || u.username}</div>
                                   <div className="text-xs text-gray-500 font-mono">@{u.username}</div>
                                 </div>
                               </div>
@@ -403,7 +403,7 @@ export const Configuration = () => {
                             <td className="px-4 py-3 text-sm capitalize"><Badge color="blue">{u.role}</Badge></td>
                             <td className="px-4 py-3 text-sm text-gray-500">{u.email || '-'}</td>
                             <td className="px-4 py-3 text-center">
-                              <Badge color={u.is_active ? 'green' : 'red'}>{u.is_active ? 'Active' : 'Inactive'}</Badge>
+                              <Badge color={u.isActive ? 'green' : 'red'}>{u.isActive ? 'Active' : 'Inactive'}</Badge>
                             </td>
                             <td className="px-4 py-3 text-right whitespace-nowrap">
                               <button onClick={() => openUserModal(u)} className="text-slate-400 hover:text-primary-600 p-2 hover:bg-slate-100 rounded-lg transition-colors mr-1"><Edit size={16}/></button>
@@ -850,18 +850,16 @@ export const Configuration = () => {
             />
           </div>
 
-          {editingUserId && (
-            <div className="flex items-center gap-2 mt-2">
-              <input 
-                type="checkbox" 
-                id="isActive" 
-                checked={userForm.is_active} 
-                onChange={e => setUserForm({...userForm, isActive: e.target.checked})}
-                className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 border-gray-300"
-              />
-              <label htmlFor="isActive" className="text-sm text-gray-700">User Account Active</label>
-            </div>
-          )}
+          <div className="flex items-center gap-2 mt-2">
+            <input 
+              type="checkbox" 
+              id="isActive" 
+              checked={userForm.isActive} // Updated to use consistent camelCase
+              onChange={e => setUserForm({...userForm, isActive: e.target.checked})}
+              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 border-gray-300"
+            />
+            <label htmlFor="isActive" className="text-sm text-gray-700">User Account Active</label>
+          </div>
 
           <div className="flex justify-end pt-4 gap-3">
             <Button type="button" variant="secondary" onClick={() => setIsUserModalOpen(false)}>Cancel</Button>

@@ -124,7 +124,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           ${!isSidebarExpanded ? 'justify-center' : ''}
         `}>
           <div className="w-9 h-9 rounded-lg bg-slate-700 dark:bg-slate-800 border border-slate-600 dark:border-slate-700 flex items-center justify-center text-white font-bold text-sm shadow-sm flex-shrink-0">
-            {user?.fullName.charAt(0)}
+            {user?.fullName?.charAt(0) || '?'}
           </div>
           
           {isSidebarExpanded && (

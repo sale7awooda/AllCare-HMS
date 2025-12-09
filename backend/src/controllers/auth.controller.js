@@ -46,11 +46,11 @@ exports.me = (req, res) => {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
     if (!user) return res.sendStatus(404);
     
-    // Explicit mapping for safety
+    // Explicit mapping with safe fallbacks
     const safeUser = {
       id: user.id,
       username: user.username,
-      fullName: user.full_name,
+      fullName: user.full_name || user.username || 'User', // Fallback
       role: user.role,
       email: user.email || '',
       phone: user.phone || '',
