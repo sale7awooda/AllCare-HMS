@@ -19,6 +19,7 @@ const initDB = () => {
   // --- SMART RESET LOGIC ---
   let shouldReset = false;
   try {
+    // 1. Check for bill_id in lab_requests
     const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='lab_requests'").get();
     if (tableCheck) {
       const columns = db.pragma('table_info(lab_requests)');
@@ -29,7 +30,7 @@ const initDB = () => {
       }
     }
     
-    // Check Medical Staff for new fee columns
+    // 2. Check Medical Staff for new fee columns
     if (!shouldReset) {
          const staffTableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='medical_staff'").get();
          if (staffTableCheck) {
@@ -42,8 +43,34 @@ const initDB = () => {
          }
     }
 
+    // 3. Check Appointments for bill_id
+    if (!shouldReset) {
+      const aptTableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='appointments'").get();
+      if (aptTableCheck) {
+        const columns = db.pragma('table_info(appointments)');
+        const hasBillId = columns.some(col => col.name === 'bill_id');
+        if (!hasBillId) {
+           console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing bill_id in appointments). Resetting database...');
+           shouldReset = true;
+        }
+      }
+    }
+
+    // 4. Check Users for full_name (prevent configuration crash)
+    if (!shouldReset) {
+      const userTableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").get();
+      if (userTableCheck) {
+        const columns = db.pragma('table_info(users)');
+        const hasFullName = columns.some(col => col.name === 'full_name');
+        if (!hasFullName) {
+           console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing full_name in users). Resetting database...');
+           shouldReset = true;
+        }
+      }
+    }
+
   } catch (e) {
-    console.log('Database check failed, proceeding with initialization.');
+    console.log('Database check failed, proceeding with initialization.', e);
   }
 
   if (shouldReset) {

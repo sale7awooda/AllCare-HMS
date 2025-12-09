@@ -37,7 +37,7 @@ exports.create = (req, res) => {
     }
 
     // 2. Generate Bill
-    const billNumber = `INV-APT-${Date.now()}`;
+    const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
     const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, fee, 'pending');
     db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Appointment: ${type} with ${staff?.full_name || 'Doctor'}`, fee);
 

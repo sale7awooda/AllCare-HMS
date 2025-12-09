@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
 import { 
-  Plus, Search, Filter, Heart, Shield, AlertTriangle, Edit, Calendar, Lock, 
-  Stethoscope, FlaskConical, Bed, Activity, FileClock, Settings, Thermometer, Trash2, CheckCircle,
-  Phone, User as UserIcon, History, Syringe, Zap, Briefcase, FileText, XCircle, Clock, ArrowLeft, Loader2, ArrowRight,
-  Pill, Wrench, DollarSign, Calculator
+  Plus, Search, Filter, Shield, AlertTriangle, Edit, Calendar, Lock, 
+  FlaskConical, Bed, Activity, FileClock, Settings, Thermometer, Trash2, CheckCircle,
+  Phone, User as UserIcon, History, DollarSign, Loader2, ArrowRight,
+  ChevronLeft, ChevronRight, MapPin, XCircle, FileText, Stethoscope
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill } from '../types';
@@ -27,10 +27,13 @@ export const Patients = () => {
 
   // UI States
   const [searchTerm, setSearchTerm] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [loading, setLoading] = useState(true);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   
   // Advanced Process State
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
@@ -43,7 +46,7 @@ export const Patients = () => {
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [viewTab, setViewTab] = useState<'info' | 'history'>('info');
+  const [viewTab, setViewTab] = useState<'info' | 'timeline' | 'billing'>('info');
   const [isEditing, setIsEditing] = useState(false);
 
   // Action Logic
@@ -60,7 +63,7 @@ export const Patients = () => {
     subtype: '',
     dischargeDate: '',
     totalCost: 0,
-    deposit: 0 // Explicitly typed as number for calculations
+    deposit: 0 
   });
 
   // Specific States for Complex Forms
@@ -73,11 +76,10 @@ export const Patients = () => {
   const [opDetails, setOpDetails] = useState({
     anesthesiologistId: '',
     assistantId: '',
-    nurseId: '', // Scrub Nurse
+    nurseId: '', 
     drugs: '', 
     equipment: '', 
     others: '',
-    // Costs
     surgeonCost: 0,
     anesthesiologistCost: 0,
     assistantCost: 0,
@@ -109,7 +111,6 @@ export const Patients = () => {
   };
   const [formData, setFormData] = useState(initialFormState);
 
-  // Optimized loadData to support background refreshing
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     
@@ -160,7 +161,6 @@ export const Patients = () => {
     loadCatalogs();
   }, []);
 
-  // --- Handlers ---
   const openCreateModal = () => {
     setFormData(initialFormState);
     setIsEditing(false);
@@ -235,7 +235,6 @@ export const Patients = () => {
     
     setIsActionMenuOpen(false);
     
-    // Reset specific states
     setSelectedTests([]);
     setTestSearch('');
     setSelectedService(null);
@@ -264,11 +263,6 @@ export const Patients = () => {
     setIsActionModalOpen(true);
   };
 
-  const handleBackToActionMenu = () => {
-    setIsActionModalOpen(false);
-    setIsActionMenuOpen(true);
-  };
-
   const handleOperationSelect = (opName: string) => {
     const op = operations.find(o => o.name === opName);
     setActionFormData({
@@ -280,7 +274,6 @@ export const Patients = () => {
     }
   };
 
-  // Effect to calculate Operation Total Cost
   useEffect(() => {
     if (currentAction === 'operation') {
       const total = 
@@ -296,14 +289,12 @@ export const Patients = () => {
     }
   }, [opDetails, currentAction]);
 
-  // Effect to set Theater Cost (1x Surgeon) - kept logic but now field is editable
   useEffect(() => {
     if (currentAction === 'operation' && opDetails.theaterCost === 0 && opDetails.surgeonCost > 0) {
        setOpDetails(prev => ({...prev, theaterCost: (prev.surgeonCost || 0) * 1}));
     }
   }, [opDetails.surgeonCost, currentAction]);
 
-  // Effect for Admission Deposit Auto-calculation
   useEffect(() => {
     if (currentAction === 'admission' && selectedBed) {
       const entryDate = new Date(actionFormData.date);
@@ -322,7 +313,6 @@ export const Patients = () => {
   }, [selectedBed, actionFormData.date, actionFormData.dischargeDate, currentAction]);
 
 
-  // Helper to check doctor availability for CURRENT DAY
   const checkAvailability = (doc: MedicalStaff) => {
     if (!doc.isAvailable) return false;
     if (!doc.schedule) return true; 
@@ -336,69 +326,11 @@ export const Patients = () => {
     }
   };
 
-  // Appointment Types definition with Icons
   const APPOINTMENT_TYPES = [
     { id: 'Consultation', label: 'Consultation', icon: UserIcon },
     { id: 'Follow-up', label: 'Follow Up', icon: History },
     { id: 'Emergency', label: 'Emergency', icon: AlertTriangle },
   ];
-
-  // VALIDATION LOGIC
-  const isFormValid = () => {
-    if (processStatus === 'processing') return false;
-
-    if (currentAction === 'appointment') {
-      return !!(actionFormData.staffId && actionFormData.subtype);
-    }
-    
-    if (currentAction === 'lab') {
-      return selectedTests.length > 0;
-    }
-
-    if (currentAction === 'nurse') {
-      return !!(selectedService && actionFormData.staffId);
-    }
-
-    if (currentAction === 'admission') {
-      if (selectedPatient?.type === 'inpatient') return false; 
-      if (!selectedBed || !actionFormData.staffId) return false;
-      
-      // Deposit Validation
-      let minDeposit = 0;
-      if (selectedBed) {
-         const entryDate = new Date(actionFormData.date);
-         let days = 1;
-         if (actionFormData.dischargeDate) {
-            const dischargeDate = new Date(actionFormData.dischargeDate);
-            days = Math.max(1, Math.ceil((dischargeDate.getTime() - entryDate.getTime()) / (1000 * 3600 * 24)));
-         }
-         minDeposit = selectedBed.costPerDay * days;
-      }
-      if (actionFormData.deposit < minDeposit) return false;
-
-      return true;
-    }
-
-    if (currentAction === 'operation') {
-      const basicValid = !!(
-        actionFormData.subtype && 
-        actionFormData.staffId && opDetails.surgeonCost > 0 &&
-        opDetails.anesthesiologistId && opDetails.anesthesiologistCost > 0 &&
-        opDetails.assistantId && opDetails.assistantCost > 0 &&
-        opDetails.nurseId && opDetails.nurseCost > 0 &&
-        opDetails.theaterCost > 0
-      );
-      
-      // Conditional Validation for Optional Fields
-      if (opDetails.drugs && opDetails.drugsCost <= 0) return false;
-      if (opDetails.equipment && opDetails.equipmentCost <= 0) return false;
-      if (opDetails.others && opDetails.othersCost <= 0) return false;
-
-      return basicValid;
-    }
-
-    return false;
-  };
 
   const submitAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -411,7 +343,6 @@ export const Patients = () => {
       let staffAssignedId: number | undefined = actionFormData.staffId ? parseInt(actionFormData.staffId) : undefined;
       let successMessage = 'Request submitted successfully.';
 
-      // Artificial Delay to show loading state (UI UX)
       await new Promise(resolve => setTimeout(resolve, 800));
 
       if (currentAction === 'lab') {
@@ -446,7 +377,7 @@ export const Patients = () => {
           doctorId: staffAssignedId,
           entryDate: actionFormData.date,
           dischargeDate: actionFormData.dischargeDate,
-          deposit: actionFormData.deposit, // Use the calculated/edited deposit
+          deposit: actionFormData.deposit, 
           notes: actionFormData.notes 
         });
         successMessage = 'Bed Reserved. Payment required to confirm admission.';
@@ -454,18 +385,11 @@ export const Patients = () => {
       } else if (currentAction === 'operation') {
         if (!actionFormData.subtype) throw new Error('Select an operation.');
         if (!staffAssignedId) throw new Error('Select a surgeon.');
-        if (!opDetails.anesthesiologistId || !opDetails.assistantId || !opDetails.nurseId) throw new Error('All surgical team members are required.');
         
-        const anestName = staff.find(s => s.id.toString() === opDetails.anesthesiologistId)?.fullName || 'Unknown';
-        const asstName = staff.find(s => s.id.toString() === opDetails.assistantId)?.fullName || 'Unknown';
-        const nurseName = staff.find(s => s.id.toString() === opDetails.nurseId)?.fullName || 'Unknown';
-
+        // Basic Breakdown
         const breakdown = {
           ...opDetails,
-          anesthesiologistName: anestName,
-          assistantName: asstName,
-          scrubNurseName: nurseName,
-          breakdownString: `Surgeon: ${opDetails.surgeonCost}, Anest: ${opDetails.anesthesiologistCost}, Asst: ${opDetails.assistantCost}, Nurse: ${opDetails.nurseCost}, Theater: ${opDetails.theaterCost}, Drugs: ${opDetails.drugsCost} (${opDetails.drugs}), Equip: ${opDetails.equipmentCost} (${opDetails.equipment})`
+          breakdownString: `Surgeon: ${opDetails.surgeonCost}, Theater: ${opDetails.theaterCost}`
         };
 
         await api.createOperation({
@@ -499,7 +423,6 @@ export const Patients = () => {
       setProcessStatus('success');
       setProcessMessage(successMessage);
       
-      // Fetch new data in the background immediately
       await loadData(true);
 
       setTimeout(() => {
@@ -518,7 +441,6 @@ export const Patients = () => {
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Construct Payload
     const payload = {
       fullName: formData.fullName,
       age: formData.age,
@@ -569,11 +491,23 @@ export const Patients = () => {
     }
   };
 
-  const filteredPatients = patients.filter(p => {
-    const matchesSearch = p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          p.patientId.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch && (filterType === 'all' || p.type === filterType) && (filterGender === 'all' || p.gender === filterGender);
-  });
+  // FILTER & PAGINATION LOGIC
+  const filteredPatients = useMemo(() => {
+    return patients.filter(p => {
+      const matchesSearch = p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            p.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            p.phone.includes(searchTerm);
+      const matchesType = filterType === 'all' || p.type === filterType;
+      const matchesGender = filterGender === 'all' || p.gender === filterGender;
+      return matchesSearch && matchesType && matchesGender;
+    });
+  }, [patients, searchTerm, filterType, filterGender]);
+
+  const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
+  const paginatedPatients = filteredPatients.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const canManagePatients = hasPermission(currentUser, Permissions.MANAGE_PATIENTS);
   
@@ -590,108 +524,221 @@ export const Patients = () => {
 
   const getPatientHistory = () => {
     if (!selectedPatient) return { historyApps: [], historyBills: [] };
-    const historyApps = appointments.filter(a => a.patientId === selectedPatient.id);
-    const historyBills = bills.filter(b => b.patientId === selectedPatient.id);
+    const historyApps = appointments.filter(a => a.patientId === selectedPatient.id).sort((a,b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+    const historyBills = bills.filter(b => b.patientId === selectedPatient.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return { historyApps, historyBills };
+  };
+
+  const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+  const getAvatarColor = (name: string) => {
+    const colors = ['bg-blue-100 text-blue-700', 'bg-green-100 text-green-700', 'bg-purple-100 text-purple-700', 'bg-orange-100 text-orange-700', 'bg-pink-100 text-pink-700', 'bg-teal-100 text-teal-700'];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Patient Management</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Patient Registry</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Manage patient records, admissions, and medical history.</p>
+        </div>
         {canManagePatients ? <Button onClick={openCreateModal} icon={Plus}>Register Patient</Button> : <Button disabled variant="secondary" icon={Lock}>Register Patient</Button>}
       </div>
 
-      <Card className="!p-0 overflow-visible z-10">
-        <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col gap-4">
-           {/* Filters UI */}
-           <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input type="text" placeholder="Search patients..." className="pl-10 w-full rounded-lg border-gray-300 py-2 text-slate-900 bg-white" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-            </div>
-            <Button variant={showFilters ? 'primary' : 'outline'} icon={Filter} onClick={() => setShowFilters(!showFilters)}>Filter</Button>
-          </div>
-          {showFilters && (
-             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-               <Select label="Type" value={filterType} onChange={e => setFilterType(e.target.value)}><option value="all">All</option><option value="outpatient">Outpatient</option><option value="inpatient">Inpatient</option><option value="emergency">Emergency</option></Select>
-               <Select label="Gender" value={filterGender} onChange={e => setFilterGender(e.target.value)}><option value="all">All</option><option value="male">Male</option><option value="female">Female</option></Select>
+      <Card className="!p-0 overflow-visible z-10 border-0 shadow-lg">
+        {/* Toolbar */}
+        <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-t-2xl flex flex-col sm:flex-row gap-4 justify-between items-center">
+           <div className="relative w-full sm:max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input 
+                type="text" 
+                placeholder="Search by name, ID or phone..." 
+                className="pl-9 pr-4 w-full rounded-xl border-gray-200 dark:border-slate-700 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all dark:bg-slate-800 dark:text-white"
+                value={searchTerm} 
+                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
+              />
+           </div>
+           
+           <div className="flex gap-2 w-full sm:w-auto">
+             <div className="relative">
+                <select 
+                  className="appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                  value={filterType}
+                  onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}
+                >
+                  <option value="all">All Types</option>
+                  <option value="outpatient">Outpatient</option>
+                  <option value="inpatient">Inpatient</option>
+                  <option value="emergency">Emergency</option>
+                </select>
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
              </div>
-          )}
+             
+             <div className="relative hidden sm:block">
+                <select 
+                   className="appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                   value={filterGender}
+                   onChange={e => { setFilterGender(e.target.value); setCurrentPage(1); }}
+                >
+                  <option value="all">Any Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+             </div>
+           </div>
         </div>
+
+        {/* Table */}
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-100 dark:divide-slate-800">
+            <thead className="bg-slate-50/50 dark:bg-slate-900/50">
               <tr>
-                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">ID</th>
-                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap w-1/5">Patient Name</th>
-                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">Address</th>
-                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">Phone</th>
-                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">Age/Sex</th>
-                <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase whitespace-nowrap">Type</th>
-                <th className="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase whitespace-nowrap">Actions</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Patient</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Contact</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Demographics</th>
+                <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading && patients.length === 0 ? (<tr><td colSpan={7} className="text-center py-8">Loading...</td></tr>) : 
-               filteredPatients.map((patient) => (
-                  <tr key={patient.id} className="hover:bg-gray-50 transition-colors group text-sm">
-                    <td className="px-3 py-3 align-top whitespace-nowrap"><span className="font-mono text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">{patient.patientId}</span></td>
-                    <td className="px-3 py-3 align-top">
-                      <button onClick={() => openViewModal(patient)} className="font-bold text-gray-900 hover:text-primary-600 hover:underline text-left">
-                        {patient.fullName}
-                      </button>
+            <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-100 dark:divide-slate-800">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-6 py-4"><div className="h-10 w-32 bg-slate-100 dark:bg-slate-800 rounded-full"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 w-24 bg-slate-100 dark:bg-slate-800 rounded"></div></td>
+                    <td className="px-6 py-4"><div className="h-6 w-16 bg-slate-100 dark:bg-slate-800 rounded-full"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 w-20 bg-slate-100 dark:bg-slate-800 rounded"></div></td>
+                    <td className="px-6 py-4"></td>
+                  </tr>
+                ))
+              ) : paginatedPatients.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <UserIcon size={48} strokeWidth={1} className="text-slate-200 dark:text-slate-700"/>
+                      <p>No patients found matching your criteria.</p>
+                      <Button variant="outline" size="sm" onClick={() => {setSearchTerm(''); setFilterType('all');}}>Clear Filters</Button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedPatients.map((patient) => (
+                  <tr key={patient.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center cursor-pointer" onClick={() => openViewModal(patient)}>
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shadow-sm ${getAvatarColor(patient.fullName)}`}>
+                          {getInitials(patient.fullName)}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-primary-600 transition-colors">{patient.fullName}</div>
+                          <div className="text-xs text-gray-500 font-mono">{patient.patientId}</div>
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-3 py-3 align-top text-xs text-gray-600 max-w-[150px]">{patient.address}</td>
-                    <td className="px-3 py-3 align-top">{patient.phone}</td>
-                    <td className="px-3 py-3 align-top">{patient.age} / <span className="capitalize">{patient.gender}</span></td>
-                    <td className="px-3 py-3 align-top"><Badge color={patient.type === 'emergency' ? 'red' : patient.type === 'inpatient' ? 'orange' : 'green'}>{patient.type}</Badge></td>
-                    <td className="px-3 py-3 text-right align-top">
-                      <div className="flex justify-end gap-2">
-                        <Button onClick={() => openActionMenu(patient)} size="sm" variant="secondary" icon={Settings} className="!py-1 !px-2 !text-xs">Manage</Button>
-                        {canManagePatients && <button onClick={() => openEditModal(patient)} className="p-1.5 text-gray-400 hover:text-green-600"><Edit size={16}/></button>}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-900 dark:text-gray-300 flex items-center gap-2"><Phone size={14} className="text-gray-400"/> {patient.phone}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-500 truncate max-w-[150px] flex items-center gap-2 mt-1"><MapPin size={14} className="text-gray-400"/> {patient.address}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                       <Badge color={patient.type === 'emergency' ? 'red' : patient.type === 'inpatient' ? 'orange' : 'green'}>
+                         {patient.type === 'inpatient' && <Bed size={12} className="mr-1 inline-block" />}
+                         {patient.type}
+                       </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {patient.age} yrs <span className="text-gray-300 mx-2">|</span> <span className="capitalize">{patient.gender}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end items-center gap-2">
+                        <Button 
+                           size="sm"
+                           variant="secondary"
+                           onClick={() => openActionMenu(patient)}
+                           className="!bg-primary-50 !text-primary-700 hover:!bg-primary-100 border-primary-100 dark:!bg-primary-900/30 dark:!text-primary-400 dark:border-primary-800"
+                           icon={Settings}
+                        >
+                           Manage
+                        </Button>
+                        {canManagePatients && (
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditModal(patient)}
+                            className="text-slate-500"
+                            icon={Edit}
+                          >
+                            Edit
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
-              ))}
-              {!loading && filteredPatients.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-8 text-slate-500">No patients found.</td></tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        {!loading && filteredPatients.length > 0 && (
+           <div className="px-6 py-4 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 rounded-b-2xl">
+             <span className="text-sm text-gray-500 dark:text-gray-400">
+                Showing <span className="font-medium text-gray-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium text-gray-900 dark:text-white">{Math.min(currentPage * itemsPerPage, filteredPatients.length)}</span> of <span className="font-medium text-gray-900 dark:text-white">{filteredPatients.length}</span> results
+             </span>
+             <div className="flex gap-2">
+               <button 
+                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                 disabled={currentPage === 1}
+                 className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+               >
+                 <ChevronLeft size={16} />
+               </button>
+               <button 
+                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                 disabled={currentPage === totalPages}
+                 className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+               >
+                 <ChevronRight size={16} />
+               </button>
+             </div>
+           </div>
+        )}
       </Card>
 
       {/* PROCESS STATUS OVERLAY */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 relative overflow-hidden text-center transform scale-100 animate-in zoom-in-95">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 relative overflow-hidden text-center transform scale-100 animate-in zoom-in-95 border dark:border-slate-700">
             {processStatus === 'processing' && (
               <>
                 <div className="relative mb-6">
-                   <div className="w-16 h-16 border-4 border-slate-100 border-t-primary-600 rounded-full animate-spin"></div>
+                   <div className="w-16 h-16 border-4 border-slate-100 dark:border-slate-800 border-t-primary-600 rounded-full animate-spin"></div>
                    <Loader2 className="absolute inset-0 m-auto text-primary-600 animate-pulse" size={24}/>
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">Processing</h3>
-                <p className="text-slate-500">{processMessage}</p>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Processing</h3>
+                <p className="text-slate-500 dark:text-slate-400">{processMessage}</p>
               </>
             )}
             {processStatus === 'success' && (
               <>
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-600 animate-in zoom-in duration-300">
+                <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-6 text-green-600 dark:text-green-400 animate-in zoom-in duration-300">
                   <CheckCircle size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">Success!</h3>
-                <p className="text-slate-600 font-medium">{processMessage}</p>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Success!</h3>
+                <p className="text-slate-600 dark:text-slate-300 font-medium">{processMessage}</p>
               </>
             )}
             {processStatus === 'error' && (
               <>
-                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6 text-red-600 animate-in zoom-in duration-300">
+                <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6 text-red-600 dark:text-red-400 animate-in zoom-in duration-300">
                   <XCircle size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Action Failed</h3>
-                <p className="text-red-600 bg-red-50 p-3 rounded-xl border border-red-100 text-sm mb-6 w-full">{processMessage}</p>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Action Failed</h3>
+                <p className="text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/50 text-sm mb-6 w-full">{processMessage}</p>
                 <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">Close & Fix</Button>
               </>
             )}
@@ -703,7 +750,7 @@ export const Patients = () => {
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient" : "Register Patient"}>
          <form onSubmit={handleRegisterSubmit} className="space-y-6">
            <div className="space-y-4">
-             <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 mb-2 flex items-center gap-2">
+             <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 mb-2 flex items-center gap-2">
                <UserIcon size={16} /> Personal Information
              </h4>
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -719,7 +766,7 @@ export const Patients = () => {
            </div>
 
            <div className="space-y-4">
-             <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 mb-2 flex items-center gap-2">
+             <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 mb-2 flex items-center gap-2">
                <Stethoscope size={16} /> Medical Profile
              </h4>
              <div className="grid grid-cols-2 gap-4">
@@ -737,7 +784,7 @@ export const Patients = () => {
            </div>
 
            <div className="space-y-4">
-             <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-1 mb-2 flex items-center gap-2">
+             <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 mb-2 flex items-center gap-2">
                <Phone size={16} /> Emergency Contact
              </h4>
              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -747,13 +794,13 @@ export const Patients = () => {
              </div>
            </div>
 
-           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+           <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
                   <Shield size={16} /> Insurance Details
                 </h4>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <span className="text-sm font-medium text-slate-700">Has Insurance?</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Has Insurance?</span>
                   <input type="checkbox" className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500" checked={formData.hasInsurance} onChange={e => setFormData({...formData, hasInsurance: e.target.checked})} />
                 </label>
              </div>
@@ -771,7 +818,7 @@ export const Patients = () => {
              )}
            </div>
 
-           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
              <Button type="button" variant="secondary" onClick={() => setIsFormModalOpen(false)}>Cancel</Button>
              <Button type="submit">Save Patient Record</Button>
            </div>
@@ -787,7 +834,7 @@ export const Patients = () => {
             { id: 'nurse', icon: Thermometer, label: 'Nurse Service', color: 'emerald' },
             { id: 'admission', icon: Bed, label: 'Admission', color: 'orange' }, 
             { id: 'operation', icon: Activity, label: 'Operation', color: 'red' },
-            { id: 'history', icon: History, label: 'History / View', color: 'gray' },
+            { id: 'history', icon: FileText, label: 'Patient File', color: 'gray' },
           ].map((action: any) => {
             const isAdmissionDisabled = action.id === 'admission' && selectedPatient?.type === 'inpatient';
             return (
@@ -796,15 +843,17 @@ export const Patients = () => {
                 onClick={() => !isAdmissionDisabled && handleActionSelect(action.id)}
                 disabled={isAdmissionDisabled}
                 className={`
-                  flex flex-col items-center justify-center p-4 rounded-xl transition-all border 
+                  flex flex-col items-center justify-center p-6 rounded-2xl transition-all border shadow-sm hover:shadow-md
                   ${isAdmissionDisabled 
-                    ? 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed' 
-                    : `bg-${action.color}-50 hover:bg-${action.color}-100 text-${action.color}-700 border-${action.color}-100`
+                    ? 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-300 dark:text-slate-600 cursor-not-allowed' 
+                    : `bg-white dark:bg-slate-800 hover:bg-${action.color}-50 dark:hover:bg-${action.color}-900/20 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-${action.color}-200 dark:hover:border-${action.color}-800`
                   }
                 `}
               >
-                <action.icon size={28} className="mb-2" />
-                <span className="font-semibold text-sm">
+                <div className={`p-3 rounded-full bg-${action.color}-50 dark:bg-${action.color}-900/30 text-${action.color}-600 dark:text-${action.color}-400 mb-3`}>
+                  <action.icon size={28} />
+                </div>
+                <span className="font-bold text-sm">
                   {isAdmissionDisabled ? 'Already Admitted' : action.label}
                 </span>
               </button>
@@ -818,21 +867,21 @@ export const Patients = () => {
         <form onSubmit={submitAction} className="space-y-4">
            {currentAction === 'appointment' && (
             <>
-               <div className="bg-primary-50 border border-primary-100 p-4 rounded-xl flex items-center gap-4 mb-4">
-                  <div className="p-3 bg-white rounded-lg shadow-sm text-primary-600">
+               <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800 p-4 rounded-xl flex items-center gap-4 mb-4">
+                  <div className="p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm text-primary-600">
                     <Calendar size={24} />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold uppercase tracking-wider text-primary-500 mb-0.5">Booking Date</h4>
-                    <p className="text-lg font-bold text-slate-800 capitalize">
+                    <p className="text-lg font-bold text-slate-800 dark:text-white capitalize">
                       {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} (Today)
                     </p>
                   </div>
                </div>
                
-               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Department / Specialty</label>
+               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Department / Specialty</label>
                <select 
-                className="block w-full rounded-xl bg-white border-slate-300 shadow-sm py-2.5 px-4 border mb-2"
+                className="block w-full rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700 shadow-sm py-2.5 px-4 border mb-2"
                 value={selectedSpecialty}
                 onChange={e => { setSelectedSpecialty(e.target.value); setActionFormData({...actionFormData, staffId: '', subtype: ''}); }}
                >
@@ -844,7 +893,7 @@ export const Patients = () => {
 
                {selectedSpecialty && (
                  <div>
-                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">Select Doctor</label>
+                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Select Doctor</label>
                    <div className="flex overflow-x-auto gap-3 pb-2 custom-scrollbar">
                      {staff.filter(s => s.type === 'doctor' && s.specialization === selectedSpecialty).map(doc => {
                        const isAvail = checkAvailability(doc); 
@@ -854,19 +903,19 @@ export const Patients = () => {
                            onClick={() => isAvail && setActionFormData({...actionFormData, staffId: doc.id.toString(), subtype: ''})}
                            className={`
                              min-w-[160px] p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between
-                             ${actionFormData.staffId === doc.id.toString() ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200' : ''}
-                             ${!isAvail ? 'opacity-60 bg-gray-50 cursor-not-allowed grayscale' : 'hover:border-primary-300 bg-white'}
+                             ${actionFormData.staffId === doc.id.toString() ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 ring-2 ring-primary-200 dark:ring-primary-800' : ''}
+                             ${!isAvail ? 'opacity-60 bg-gray-50 dark:bg-slate-800 cursor-not-allowed grayscale' : 'hover:border-primary-300 bg-white dark:bg-slate-900 dark:border-slate-700'}
                            `}
                          >
                             <div>
-                              <div className="font-bold text-sm text-gray-900 truncate" title={doc.fullName}>{doc.fullName}</div>
+                              <div className="font-bold text-sm text-gray-900 dark:text-white truncate" title={doc.fullName}>{doc.fullName}</div>
                               <div className="text-xs text-gray-500 mb-2">{doc.specialization}</div>
                             </div>
-                            <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
-                               <div className={`text-xs font-bold flex items-center gap-1 ${isAvail ? 'text-green-600' : 'text-gray-400'}`}>
+                            <div className="mt-2 pt-2 border-t border-dashed border-gray-200 dark:border-slate-700">
+                               <div className={`text-xs font-bold flex items-center gap-1 ${isAvail ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
                                  <div className={`w-2 h-2 rounded-full ${isAvail ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                                  {isAvail ? 'Available' : 'Unavailable'}
-                               </div>
+                                </div>
                             </div>
                          </div>
                        );
@@ -875,15 +924,13 @@ export const Patients = () => {
                  </div>
                )}
 
-               {/* New Appointment Type Selection */}
                {actionFormData.staffId && (
                  <div className="space-y-2">
-                   <label className="block text-sm font-semibold text-slate-700">Appointment Type</label>
+                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Appointment Type</label>
                    <div className="flex overflow-x-auto gap-3 pb-2 custom-scrollbar">
                       {APPOINTMENT_TYPES.map(type => {
                         const doctor = staff.find(s => s.id === parseInt(actionFormData.staffId));
                         
-                        // New Logic: Use specific fee if doctor selected
                         let fee = 0;
                         if (doctor) {
                           if (type.id === 'Consultation') fee = doctor.consultationFee;
@@ -900,15 +947,15 @@ export const Patients = () => {
                             className={`
                               flex-shrink-0 min-w-[140px] p-3 rounded-xl border cursor-pointer transition-all
                               ${isSelected 
-                                ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200 shadow-md' 
-                                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'}
+                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 ring-2 ring-primary-200 dark:ring-primary-800 shadow-md' 
+                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}
                             `}
                           >
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${isSelected ? 'bg-primary-200 text-primary-700' : 'bg-slate-100 text-slate-500'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${isSelected ? 'bg-primary-200 dark:bg-primary-800 text-primary-700 dark:text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
                               <type.icon size={16} />
                             </div>
-                            <div className="font-bold text-sm text-slate-900">{type.label}</div>
-                            <div className="text-xs font-medium text-slate-500 mt-1">${fee}</div>
+                            <div className="font-bold text-sm text-slate-900 dark:text-white">{type.label}</div>
+                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">${fee}</div>
                           </div>
                         );
                       })}
@@ -923,29 +970,32 @@ export const Patients = () => {
           {currentAction === 'lab' && (
             <>
                <div className="relative">
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Search & Add Tests</label>
-                  <input type="text" className="w-full rounded-xl border-slate-300 py-2 px-3 text-sm" placeholder="Type test name..." value={testSearch} onChange={e => setTestSearch(e.target.value)} />
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Search & Add Tests</label>
+                  <input type="text" className="w-full rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white py-2 px-3 text-sm" placeholder="Type test name..." value={testSearch} onChange={e => setTestSearch(e.target.value)} />
                   {testSearch && (
-                    <div className="absolute top-full left-0 right-0 mt-1 border rounded-lg max-h-48 overflow-y-auto bg-white shadow-xl z-50">
+                    <div className="absolute top-full left-0 right-0 mt-1 border border-slate-200 dark:border-slate-700 rounded-lg max-h-48 overflow-y-auto bg-white dark:bg-slate-800 shadow-xl z-50">
                       {labTests.filter(t => t.name.toLowerCase().includes(testSearch.toLowerCase())).map(t => (
-                        <button key={t.id} type="button" className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex justify-between border-b border-gray-50 last:border-0" onClick={() => { if(!selectedTests.find(x => x.id===t.id)) setSelectedTests([...selectedTests, t]); setTestSearch(''); }}>
-                          <span>{t.name}</span><span className="font-mono text-xs font-bold text-gray-600">${t.cost}</span>
+                        <button key={t.id} type="button" className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex justify-between border-b border-gray-50 dark:border-slate-700 last:border-0 dark:text-white" onClick={() => { if(!selectedTests.find(x => x.id===t.id)) setSelectedTests([...selectedTests, t]); setTestSearch(''); }}>
+                          <span>{t.name}</span><span className="font-mono text-xs font-bold text-gray-600 dark:text-gray-400">${t.cost}</span>
                         </button>
                       ))}
                     </div>
                   )}
                </div>
-               <div className="border rounded-xl overflow-hidden mt-4">
-                 <table className="w-full text-sm"><thead className="bg-slate-50"><tr><th className="px-3 py-2 text-left">Test</th><th className="px-3 py-2 text-right">Cost</th><th></th></tr></thead>
-                 <tbody>
+               <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden mt-4">
+                 <table className="w-full text-sm">
+                   <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                     <tr><th className="px-3 py-2 text-left">Test</th><th className="px-3 py-2 text-right">Cost</th><th></th></tr>
+                   </thead>
+                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                    {selectedTests.length === 0 ? (
                      <tr><td colSpan={3} className="text-center py-4 text-gray-400 italic">No tests selected</td></tr>
                    ) : (
                     selectedTests.map((t, i) => (
-                      <tr key={i} className="border-t border-slate-100"><td className="px-3 py-2">{t.name}</td><td className="px-3 py-2 text-right">${t.cost}</td><td className="text-center"><button type="button" onClick={() => setSelectedTests(selectedTests.filter(x => x.id !== t.id))} className="text-red-500"><Trash2 size={14}/></button></td></tr>
+                      <tr key={i} className="dark:text-white"><td className="px-3 py-2">{t.name}</td><td className="px-3 py-2 text-right">${t.cost}</td><td className="text-center"><button type="button" onClick={() => setSelectedTests(selectedTests.filter(x => x.id !== t.id))} className="text-red-500"><Trash2 size={14}/></button></td></tr>
                     ))
                    )}
-                   <tr className="bg-slate-50 font-bold border-t"><td className="px-3 py-2">Total</td><td className="px-3 py-2 text-right">${selectedTests.reduce((a,b)=>a+b.cost,0)}</td><td></td></tr>
+                   <tr className="bg-slate-50 dark:bg-slate-800 font-bold border-t dark:border-slate-700 dark:text-white"><td className="px-3 py-2">Total</td><td className="px-3 py-2 text-right">${selectedTests.reduce((a,b)=>a+b.cost,0)}</td><td></td></tr>
                  </tbody></table>
                </div>
             </>
@@ -954,12 +1004,12 @@ export const Patients = () => {
           {currentAction === 'nurse' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Select Service</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-48 overflow-y-auto p-1">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Select Service</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-48 overflow-y-auto p-1 custom-scrollbar">
                   {nurseServices.map(svc => (
-                    <div key={svc.id} onClick={() => setSelectedService(svc)} className={`p-3 rounded-xl border cursor-pointer ${selectedService?.id === svc.id ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200' : 'border-slate-200 hover:bg-slate-50'}`}>
-                      <div className="flex justify-between"><h4 className="font-bold text-sm">{svc.name}</h4><span className="text-xs font-bold bg-white border px-1 rounded">${svc.cost}</span></div>
-                      <p className="text-xs text-slate-500 mt-1">{svc.description}</p>
+                    <div key={svc.id} onClick={() => setSelectedService(svc)} className={`p-3 rounded-xl border cursor-pointer ${selectedService?.id === svc.id ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 ring-2 ring-primary-200 dark:ring-primary-800' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-white'}`}>
+                      <div className="flex justify-between"><h4 className="font-bold text-sm">{svc.name}</h4><span className="text-xs font-bold bg-white dark:bg-slate-700 border dark:border-slate-600 px-1 rounded">${svc.cost}</span></div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{svc.description}</p>
                     </div>
                   ))}
                 </div>
@@ -967,244 +1017,239 @@ export const Patients = () => {
               
               <Select label="Assign Nurse" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                  <option value="">Select Nurse...</option>
-                 {staff.filter(s => s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                 {staff.filter(s => s.type === 'nurse').map(n => <option key={n.id} value={n.id}>{n.fullName}</option>)}
               </Select>
-
-              <Textarea label="Notes / Instructions" rows={2} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
+              <Textarea label="Notes" rows={2} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
             </div>
           )}
 
-           {currentAction === 'admission' && (
-             <>
-               {selectedPatient?.type === 'inpatient' ? (
-                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex flex-col items-center text-center space-y-2">
-                   <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mb-2">
-                     <Bed size={24} />
-                   </div>
-                   <h3 className="font-bold text-orange-800">Patient Already Admitted</h3>
-                 </div>
-               ) : (
-                 <>
-                   <Select label="Treating Doctor" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
-                     <option value="">Select Doctor...</option>
-                     {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                   </Select>
-                   <label className="block text-sm font-semibold text-slate-700">Select Bed</label>
-                   <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1 mb-4">
-                     {beds.map(bed => (
-                       <button key={bed.id} type="button" disabled={bed.status === 'occupied'} onClick={() => setSelectedBed(bed)}
-                         className={`flex flex-col items-center p-2 rounded border text-xs relative ${bed.status === 'occupied' ? 'bg-red-50 border-red-200 text-red-400 opacity-60 cursor-not-allowed' : selectedBed?.id === bed.id ? 'bg-primary-600 text-white' : 'bg-white text-slate-600'}`}>
-                         <Bed size={16} className="mb-1"/> <span className="font-bold">{bed.roomNumber}</span>
-                         {selectedBed?.id === bed.id && <CheckCircle size={12} className="absolute top-1 right-1 text-white"/>}
-                       </button>
+          {currentAction === 'admission' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Select Room / Bed</label>
+                   <select 
+                    className="block w-full rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700 shadow-sm py-2.5 px-4 border"
+                    value={selectedBed?.id || ''}
+                    onChange={e => {
+                      const bed = beds.find(b => b.id === parseInt(e.target.value));
+                      setSelectedBed(bed || null);
+                    }}
+                   >
+                     <option value="">Choose Bed...</option>
+                     {beds.filter(b => b.status === 'available').map(b => (
+                       <option key={b.id} value={b.id}>{b.roomNumber} ({b.type}) - ${b.costPerDay}/day</option>
                      ))}
-                   </div>
-                   <div className="grid grid-cols-2 gap-4">
-                      <Input label="Entry Date" type="date" required value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
-                      <Input label="Discharge Date" type="date" value={actionFormData.dischargeDate} onChange={e => setActionFormData({...actionFormData, dischargeDate: e.target.value})} />
-                   </div>
-                   
-                   {/* Deposit Calculation */}
-                   <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                      <Input 
-                        label="Initial Deposit" 
-                        type="number" 
-                        required 
-                        value={actionFormData.deposit} 
-                        onChange={e => setActionFormData({...actionFormData, deposit: parseFloat(e.target.value)})}
-                        prefix="$"
-                      />
-                      {selectedBed && (
-                        <p className="text-xs text-blue-600 mt-1">
-                          Calculated: ${selectedBed.costPerDay} x {Math.max(1, Math.ceil(((actionFormData.dischargeDate ? new Date(actionFormData.dischargeDate).getTime() : new Date(actionFormData.date).getTime()) - new Date(actionFormData.date).getTime()) / (1000 * 3600 * 24)))} days
-                        </p>
-                      )}
-                      {selectedBed && actionFormData.deposit < selectedBed.costPerDay * Math.max(1, Math.ceil(((actionFormData.dischargeDate ? new Date(actionFormData.dischargeDate).getTime() : new Date(actionFormData.date).getTime()) - new Date(actionFormData.date).getTime()) / (1000 * 3600 * 24))) && (
-                        <p className="text-xs text-red-600 font-bold mt-1 flex items-center gap-1">
-                          <AlertTriangle size={10}/> Deposit cannot be less than daily room cost.
-                        </p>
-                      )}
-                   </div>
+                   </select>
+                </div>
+                <Select label="Treating Doctor" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
+                   <option value="">Select Doctor...</option>
+                   {staff.filter(s => s.type === 'doctor').map(d => <option key={d.id} value={d.id}>{d.fullName} - {d.specialization}</option>)}
+                </Select>
+              </div>
 
-                   <Textarea label="Admission Notes" rows={2} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
-                 </>
-               )}
-             </>
-          )}
-
-           {currentAction === 'operation' && (
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-               <div>
-                  <Select label="Operation Name" required value={actionFormData.subtype} onChange={e => handleOperationSelect(e.target.value)}>
-                    <option value="">Select Operation...</option>
-                    {operations.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-                  </Select>
-               </div>
-               
-               <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
-                 <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><UserIcon size={12}/> Surgical Team (Required)</h4>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                   <div className="col-span-1">
-                      <Select label="Lead Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
-                        <option value="">Select Surgeon...</option>
-                        {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                      </Select>
-                   </div>
-                   <div className="col-span-1"><Input label="Fee" type="number" value={opDetails.surgeonCost} onChange={e => setOpDetails({...opDetails, surgeonCost: parseFloat(e.target.value || '0')})} /></div>
-                   
-                   <div className="col-span-1">
-                      <Select label="Anesthesiologist" required value={opDetails.anesthesiologistId} onChange={e => setOpDetails({...opDetails, anesthesiologistId: e.target.value})}>
-                        <option value="">Select Anesthesiologist...</option>
-                        {staff.filter(s => s.type === 'anesthesiologist' || s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                      </Select>
-                   </div>
-                   <div className="col-span-1"><Input label="Fee" type="number" value={opDetails.anesthesiologistCost} onChange={e => setOpDetails({...opDetails, anesthesiologistCost: parseFloat(e.target.value || '0')})} /></div>
-                   <div className="col-span-1">
-                      <Select label="Nurse" required value={opDetails.nurseId} onChange={e => setOpDetails({...opDetails, nurseId: e.target.value})}>
-                        <option value="">Select Nurse...</option>
-                        {staff.filter(s => s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                      </Select>
-                   </div>
-                   <div className="col-span-1"><Input label="Fee" type="number" value={opDetails.nurseCost} onChange={e => setOpDetails({...opDetails, nurseCost: parseFloat(e.target.value || '0')})} /></div>
-                   <div className="col-span-1">
-                      <Select label="Assistant" required value={opDetails.assistantId} onChange={e => setOpDetails({...opDetails, assistantId: e.target.value})}>
-                        <option value="">Select Assistant...</option>
-                        {staff.filter(s => s.type === 'medical_assistant' || s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                      </Select>
-                   </div>
-                   <div className="col-span-1"><Input label="Fee" type="number" value={opDetails.assistantCost} onChange={e => setOpDetails({...opDetails, assistantCost: parseFloat(e.target.value || '0')})} /></div>
-                 </div>
-               </div>
-
-               <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><Wrench size={12}/> Facility & Resources</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                     <div className="col-span-2">
-                        <Input label="Theater Fee" type="number" value={opDetails.theaterCost} onChange={e => setOpDetails({...opDetails, theaterCost: parseFloat(e.target.value || '0')})} />
-                     </div>
-                     <div className="col-span-1">
-                        <Input label="Drugs/Meds (Optional)" placeholder="List drugs..." value={opDetails.drugs} onChange={e => setOpDetails({...opDetails, drugs: e.target.value})} />
-                     </div>
-                     <div className="col-span-1">
-                        <Input label="Drugs Cost" type="number" required={!!opDetails.drugs} disabled={!opDetails.drugs} value={opDetails.drugsCost} onChange={e => setOpDetails({...opDetails, drugsCost: parseFloat(e.target.value || '0')})} />
-                     </div>
-                     <div className="col-span-1">
-                        <Input label="Equipment (Optional)" placeholder="List equipment..." value={opDetails.equipment} onChange={e => setOpDetails({...opDetails, equipment: e.target.value})} />
-                     </div>
-                     <div className="col-span-1">
-                        <Input label="Equip. Cost" type="number" required={!!opDetails.equipment} disabled={!opDetails.equipment} value={opDetails.equipmentCost} onChange={e => setOpDetails({...opDetails, equipmentCost: parseFloat(e.target.value || '0')})} />
-                     </div>
-                     <div className="col-span-1">
-                        <Input label="Others (Optional)" placeholder="Other items..." value={opDetails.others} onChange={e => setOpDetails({...opDetails, others: e.target.value})} />
-                     </div>
-                     <div className="col-span-1">
-                        <Input label="Other Cost" type="number" required={!!opDetails.others} disabled={!opDetails.others} value={opDetails.othersCost} onChange={e => setOpDetails({...opDetails, othersCost: parseFloat(e.target.value || '0')})} />
-                     </div>
-                  </div>
-               </div>
-
-               <div className="bg-primary-50 p-4 rounded-xl flex justify-between items-center border border-primary-200">
-                  <span className="font-bold text-primary-800">Total Operation Cost</span>
-                  <div className="text-2xl font-bold text-primary-700 flex items-center gap-1">
-                     <DollarSign size={20}/> {actionFormData.totalCost.toLocaleString()}
-                  </div>
-               </div>
+              <div className="grid grid-cols-2 gap-4">
+                 <Input label="Admission Date" type="date" required value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
+                 <Input label="Discharge (Est.)" type="date" value={actionFormData.dischargeDate} onChange={e => setActionFormData({...actionFormData, dischargeDate: e.target.value})} />
+              </div>
+              
+              <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-100 dark:border-orange-900/50">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-orange-800 dark:text-orange-300 font-bold text-sm">Required Deposit</h4>
+                  <Badge color="orange">Unpaid</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                   <span className="text-xl font-bold text-slate-800 dark:text-white">$</span>
+                   <input 
+                    type="number" 
+                    className="bg-transparent text-xl font-bold text-slate-800 dark:text-white w-full focus:outline-none border-b border-orange-200 focus:border-orange-500"
+                    value={actionFormData.deposit}
+                    onChange={e => setActionFormData({...actionFormData, deposit: parseFloat(e.target.value)})}
+                   />
+                </div>
+                <p className="text-xs text-orange-600/70 mt-1">Minimum calculated based on estimated stay.</p>
+              </div>
             </div>
           )}
 
-          <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+          {currentAction === 'operation' && (
+             <div className="space-y-4">
+               <div className="grid grid-cols-2 gap-4">
+                 <Select label="Operation Type" required value={actionFormData.subtype} onChange={e => handleOperationSelect(e.target.value)}>
+                    <option value="">Select Procedure...</option>
+                    {operations.map(op => <option key={op.id} value={op.name}>{op.name} (Base: ${op.baseCost})</option>)}
+                 </Select>
+                 <Select label="Lead Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
+                    <option value="">Select Surgeon...</option>
+                    {staff.filter(s => s.type === 'doctor').map(d => <option key={d.id} value={d.id}>{d.fullName}</option>)}
+                 </Select>
+               </div>
+
+               <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
+                 <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Surgical Team</h4>
+                 <div className="grid grid-cols-3 gap-3">
+                   <Select value={opDetails.anesthesiologistId} onChange={e => setOpDetails({...opDetails, anesthesiologistId: e.target.value, anesthesiologistCost: 200})}>
+                      <option value="">Anesthesiologist</option>
+                      {staff.filter(s => s.type === 'anesthesiologist').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                   </Select>
+                   <Select value={opDetails.assistantId} onChange={e => setOpDetails({...opDetails, assistantId: e.target.value, assistantCost: 100})}>
+                      <option value="">Assistant</option>
+                      {staff.filter(s => ['doctor', 'medical_assistant'].includes(s.type)).map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                   </Select>
+                   <Select value={opDetails.nurseId} onChange={e => setOpDetails({...opDetails, nurseId: e.target.value, nurseCost: 50})}>
+                      <option value="">Scrub Nurse</option>
+                      {staff.filter(s => s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                   </Select>
+                 </div>
+               </div>
+
+               <div className="flex justify-between items-center bg-slate-100 dark:bg-slate-800 p-3 rounded-xl">
+                 <span className="font-bold text-slate-700 dark:text-slate-300">Total Estimated Cost</span>
+                 <span className="text-xl font-bold text-primary-600">${actionFormData.totalCost}</span>
+               </div>
+             </div>
+          )}
+
+          <div className="flex justify-end pt-4 gap-3 border-t border-slate-100 dark:border-slate-700">
              <Button type="button" variant="secondary" onClick={() => setIsActionModalOpen(false)}>Cancel</Button>
-             
-             {isFormValid() && (
-               <Button 
-                 type="submit" 
-                 disabled={processStatus === 'processing'}
-               >
-                 Submit Request
-               </Button>
-             )}
+             <Button type="submit" disabled={processStatus === 'processing'}>Confirm Request</Button>
           </div>
         </form>
       </Modal>
-
-      {/* Patient History Modal */}
-      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Patient File">
+      
+      {/* View Patient Modal (Patient 360) */}
+      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Patient 360° View">
         {selectedPatient && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
-              <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center text-3xl font-bold text-primary-600 shadow-sm border border-slate-200 shrink-0">
-                {selectedPatient.fullName.charAt(0)}
-              </div>
-              <div className="flex-1 space-y-2">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">{selectedPatient.fullName}</h2>
-                  <div className="flex flex-wrap gap-2 text-sm text-slate-500 mt-1">
-                    <span className="bg-white px-2 py-0.5 rounded border">{selectedPatient.patientId}</span>
-                    <span className="flex items-center gap-1"><UserIcon size={14}/> {selectedPatient.age} yrs / {selectedPatient.gender}</span>
-                    <span className="flex items-center gap-1"><Phone size={14}/> {selectedPatient.phone}</span>
-                  </div>
+             {/* Header Card */}
+             <div className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                <div className={`h-16 w-16 rounded-full flex items-center justify-center text-xl font-bold shadow-sm border-2 border-white dark:border-slate-700 ${getAvatarColor(selectedPatient.fullName)}`}>
+                   {getInitials(selectedPatient.fullName)}
                 </div>
-                <div className="text-sm text-slate-600 border-t pt-2 mt-1">
-                   <span className="font-semibold">Address:</span> {selectedPatient.address}
-                </div>
-              </div>
-              <div className="text-right">
-                <Badge color={selectedPatient.type === 'inpatient' ? 'orange' : selectedPatient.type === 'emergency' ? 'red' : 'green'}>
-                  {selectedPatient.type.toUpperCase()}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="flex border-b border-gray-200">
-              <button onClick={() => setViewTab('info')} className={`px-4 py-2 font-medium text-sm ${viewTab === 'info' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500 hover:text-gray-700'}`}>Medical Profile</button>
-              <button onClick={() => setViewTab('history')} className={`px-4 py-2 font-medium text-sm ${viewTab === 'history' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500 hover:text-gray-700'}`}>History & Records</button>
-            </div>
-            
-             {viewTab === 'info' ? (
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
-                 <Card title="Medical Details" className="h-full">
-                   <div className="space-y-4">
-                     <div className="flex items-start gap-3">
-                       <div className="mt-1"><Heart className="text-red-500" size={18} /></div>
-                       <div><p className="text-xs font-bold text-slate-500 uppercase">Blood Group</p><p className="font-semibold text-slate-800">{selectedPatient.bloodGroup || 'Not recorded'}</p></div>
-                     </div>
-                     <div className="flex items-start gap-3">
-                       <div className="mt-1"><AlertTriangle className="text-orange-500" size={18} /></div>
-                       <div><p className="text-xs font-bold text-slate-500 uppercase">Allergies</p><p className="text-sm text-slate-700">{selectedPatient.allergies || 'None known'}</p></div>
-                     </div>
-                     <div className="flex items-start gap-3">
-                       <div className="mt-1"><Activity className="text-blue-500" size={18} /></div>
-                       <div><p className="text-xs font-bold text-slate-500 uppercase">Current Symptoms</p><p className="text-sm text-slate-700">{selectedPatient.symptoms || 'None recorded'}</p></div>
-                     </div>
-                     <div className="flex items-start gap-3">
-                       <div className="mt-1"><FileClock className="text-slate-400" size={18} /></div>
-                       <div><p className="text-xs font-bold text-slate-500 uppercase">Medical History</p><p className="text-sm text-slate-700 leading-relaxed">{selectedPatient.medicalHistory || 'No history recorded'}</p></div>
-                     </div>
+                <div className="flex-1">
+                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">{selectedPatient.fullName}</h2>
+                   <div className="flex flex-wrap gap-2 mt-2">
+                      <Badge color="blue">{selectedPatient.patientId}</Badge>
+                      <Badge color={selectedPatient.gender === 'male' ? 'blue' : 'pink'}>{selectedPatient.gender}</Badge>
+                      <Badge color="gray">{selectedPatient.age} Years</Badge>
+                      <Badge color={selectedPatient.type === 'inpatient' ? 'orange' : 'green'}>{selectedPatient.type}</Badge>
                    </div>
-                 </Card>
-               </div>
-            ) : (
-               <div className="space-y-6 animate-in fade-in">
-                  <div className="space-y-4">
-                     <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Appointment History</h3>
-                     {getPatientHistory().historyApps.length > 0 ? (
-                       <div className="border rounded-lg overflow-hidden">
-                         <table className="w-full text-sm">
-                           <thead className="bg-slate-50"><tr><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Type</th><th className="px-3 py-2 text-left">Doctor</th><th className="px-3 py-2">Status</th></tr></thead>
-                           <tbody>{getPatientHistory().historyApps.map(a => (<tr key={a.id} className="border-t"><td className="px-3 py-2">{new Date(a.datetime).toLocaleDateString()}</td><td className="px-3 py-2">{a.type}</td><td className="px-3 py-2">{a.staffName}</td><td className="px-3 py-2 text-center"><Badge color={a.status==='confirmed'?'green':a.status==='cancelled'?'red':'yellow'}>{a.status}</Badge></td></tr>))}</tbody>
-                         </table>
-                       </div>
-                     ) : <p className="text-slate-400 text-sm italic">No appointment history found.</p>}
-                  </div>
-               </div>
-            )}
+                </div>
+             </div>
 
-            <div className="flex justify-end pt-4 border-t">
-              <Button onClick={() => setIsViewModalOpen(false)}>Close File</Button>
-            </div>
+             {/* Tabs */}
+             <div className="flex border-b border-gray-200 dark:border-slate-700">
+                <button onClick={() => setViewTab('info')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${viewTab === 'info' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Overview</button>
+                <button onClick={() => setViewTab('timeline')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${viewTab === 'timeline' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Timeline</button>
+                <button onClick={() => setViewTab('billing')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${viewTab === 'billing' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Financials</button>
+             </div>
+
+             {/* Content */}
+             <div className="min-h-[300px]">
+                {viewTab === 'info' && (
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
+                      <div className="space-y-4">
+                         <h3 className="font-bold text-gray-900 dark:text-white border-b pb-2 dark:border-slate-700">Contact & Personal</h3>
+                         <div className="space-y-3 text-sm">
+                            <div className="flex justify-between"><span className="text-gray-500">Phone</span> <span className="font-medium dark:text-gray-300">{selectedPatient.phone}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">Address</span> <span className="font-medium dark:text-gray-300 text-right">{selectedPatient.address}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">Emergency</span> <span className="font-medium dark:text-gray-300">{selectedPatient.emergencyContact?.name || 'N/A'}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">Contact</span> <span className="font-medium dark:text-gray-300">{selectedPatient.emergencyContact?.phone || 'N/A'}</span></div>
+                         </div>
+                      </div>
+                      <div className="space-y-4">
+                         <h3 className="font-bold text-gray-900 dark:text-white border-b pb-2 dark:border-slate-700">Medical Profile</h3>
+                         <div className="space-y-3 text-sm">
+                            <div className="flex justify-between"><span className="text-gray-500">Blood Group</span> <span className="font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-2 rounded">{selectedPatient.bloodGroup || 'Unknown'}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">Allergies</span> <span className="font-medium text-right text-red-500">{selectedPatient.allergies || 'None'}</span></div>
+                            <div className="col-span-2">
+                               <span className="text-gray-500 block mb-1">Medical History</span>
+                               <p className="bg-gray-50 dark:bg-slate-800 p-2 rounded text-gray-700 dark:text-gray-300">{selectedPatient.medicalHistory || 'No history recorded.'}</p>
+                            </div>
+                         </div>
+                      </div>
+                      {selectedPatient.hasInsurance && (
+                         <div className="md:col-span-2 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/50">
+                            <h3 className="font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2"><Shield size={16}/> Insurance Coverage</h3>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                               <div><span className="text-blue-600/70 block text-xs">Provider</span> <span className="font-bold text-blue-900 dark:text-blue-200">{selectedPatient.insuranceDetails?.provider}</span></div>
+                               <div><span className="text-blue-600/70 block text-xs">Policy No</span> <span className="font-mono text-blue-900 dark:text-blue-200">{selectedPatient.insuranceDetails?.policyNumber}</span></div>
+                            </div>
+                         </div>
+                      )}
+                   </div>
+                )}
+
+                {viewTab === 'timeline' && (
+                   <div className="space-y-4 animate-in fade-in">
+                      {getPatientHistory().historyApps.length === 0 ? (
+                         <div className="text-center py-8 text-gray-500">No appointment history.</div>
+                      ) : (
+                         getPatientHistory().historyApps.map((apt: any) => (
+                            <div key={apt.id} className="flex gap-4 relative">
+                               <div className="flex flex-col items-center">
+                                  <div className="w-2 h-2 rounded-full bg-primary-500 z-10"></div>
+                                  <div className="w-0.5 bg-gray-200 dark:bg-slate-700 h-full -mt-1"></div>
+                               </div>
+                               <div className="pb-6">
+                                  <p className="text-xs text-gray-400 font-mono mb-1">{new Date(apt.datetime).toLocaleString()}</p>
+                                  <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-gray-100 dark:border-slate-700 shadow-sm w-full min-w-[300px]">
+                                     <div className="flex justify-between items-start">
+                                        <div>
+                                           <p className="font-bold text-gray-800 dark:text-white">{apt.type}</p>
+                                           <p className="text-sm text-gray-500">Dr. {apt.staffName}</p>
+                                        </div>
+                                        <Badge color={apt.status === 'completed' ? 'green' : 'gray'}>{apt.status}</Badge>
+                                     </div>
+                                     {apt.reason && <p className="text-xs text-gray-400 mt-2 bg-gray-50 dark:bg-slate-900 p-1.5 rounded">"{apt.reason}"</p>}
+                                  </div>
+                               </div>
+                            </div>
+                         ))
+                      )}
+                   </div>
+                )}
+
+                {viewTab === 'billing' && (
+                   <div className="space-y-4 animate-in fade-in">
+                      {getPatientHistory().historyBills.length === 0 ? (
+                         <div className="text-center py-8 text-gray-500">No billing history.</div>
+                      ) : (
+                         <div className="overflow-hidden border border-gray-200 dark:border-slate-700 rounded-xl">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                               <thead className="bg-gray-50 dark:bg-slate-800">
+                                  <tr>
+                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
+                                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                                  </tr>
+                               </thead>
+                               <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-800 text-sm">
+                                  {getPatientHistory().historyBills.map((bill: any) => (
+                                     <tr key={bill.id}>
+                                        <td className="px-4 py-2 text-gray-500">{new Date(bill.date).toLocaleDateString()}</td>
+                                        <td className="px-4 py-2">
+                                           <div className="truncate max-w-[150px]">{bill.items?.[0]?.description || 'Medical Services'}</div>
+                                           {bill.items?.length > 1 && <span className="text-xs text-gray-400">+{bill.items.length - 1} more</span>}
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-bold text-gray-900 dark:text-white">${bill.totalAmount}</td>
+                                        <td className="px-4 py-2 text-center">
+                                           <Badge color={bill.status === 'paid' ? 'green' : 'red'}>{bill.status}</Badge>
+                                        </td>
+                                     </tr>
+                                  ))}
+                               </tbody>
+                            </table>
+                         </div>
+                      )}
+                   </div>
+                )}
+             </div>
           </div>
         )}
       </Modal>
+
     </div>
   );
 };

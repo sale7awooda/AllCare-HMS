@@ -22,7 +22,7 @@ exports.getAll = (req, res) => {
 
 exports.create = (req, res) => {
   const { patientId, totalAmount, items } = req.body;
-  const billNumber = `INV-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`;
+  const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
 
   const createTransaction = db.transaction(() => {
     const info = db.prepare(`

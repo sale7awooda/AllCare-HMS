@@ -146,7 +146,7 @@ exports.dischargePatient = (req, res) => {
     // Transaction for Discharge
     const dischargeTx = db.transaction(() => {
       // 1. Generate Bill
-      const billNumber = `INV-DIS-${Date.now()}`;
+      const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
       const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, admission.patient_id, totalRoomCharge, 'pending');
       db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Inpatient Stay (${days} days)`, totalRoomCharge);
 
@@ -175,7 +175,7 @@ exports.createLabRequest = (req, res) => {
   const { patientId, testIds, totalCost } = req.body; // testIds is array of IDs
   const tx = db.transaction(() => {
     // 1. Create Bill
-    const billNumber = `INV-LAB-${Date.now()}`;
+    const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
     const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, totalCost, 'pending');
     db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Lab Request (Total Tests: ${testIds.length})`, totalCost);
 
@@ -198,7 +198,7 @@ exports.createNurseService = (req, res) => {
     
     const tx = db.transaction(() => {
       // 1. Create Bill
-      const billNumber = `INV-NUR-${Date.now()}`;
+      const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
       const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, cost, 'pending');
       db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Nurse Service: ${serviceName}`, cost);
 
@@ -223,7 +223,7 @@ exports.createAdmission = (req, res) => {
       db.prepare("UPDATE beds SET status = 'reserved' WHERE id = ?").run(bedId);
       
       // 2. Create Bill (Deposit)
-      const billNumber = `INV-ADM-${Date.now()}`;
+      const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
       const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, deposit, 'pending');
       db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Admission Deposit (Room Reservation)`, deposit);
 
@@ -248,7 +248,7 @@ exports.createOperation = (req, res) => {
     const fullNotes = `${notes || ''} \nDetails: ${JSON.stringify(optionalFields)}`;
     const tx = db.transaction(() => {
       // 1. Create Bill
-      const billNumber = `INV-OP-${Date.now()}`;
+      const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
       const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, totalCost, 'pending');
       db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Operation: ${operationName}`, totalCost);
 

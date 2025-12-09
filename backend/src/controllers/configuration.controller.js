@@ -35,13 +35,14 @@ exports.updateSettings = (req, res) => {
 // --- USER MANAGEMENT ---
 exports.getUsers = (req, res) => {
   try {
-    // Use SELECT * to handle missing columns gracefully in older schemas (though DB reset should fix it)
-    const users = db.prepare('SELECT * FROM users ORDER BY full_name').all();
+    // Use SELECT * to handle missing columns gracefully in older schemas
+    // CHANGED: ORDER BY username instead of full_name to prevent 500 error if full_name missing
+    const users = db.prepare('SELECT * FROM users ORDER BY username').all();
     // Map to camelCase for frontend consistency
     const mappedUsers = users.map(u => ({
       id: u.id,
       username: u.username,
-      fullName: u.full_name,
+      fullName: u.full_name, // This maps snake_case DB to camelCase API
       role: u.role,
       email: u.email || '',
       isActive: !!u.is_active, 
