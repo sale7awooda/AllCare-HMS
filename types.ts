@@ -64,6 +64,8 @@ export interface MedicalStaff {
   department: string;
   specialization: string;
   consultationFee: number;
+  consultationFeeFollowup?: number; // Added
+  consultationFeeEmergency?: number; // Added
   isAvailable: boolean;
   email?: string;
   phone?: string;

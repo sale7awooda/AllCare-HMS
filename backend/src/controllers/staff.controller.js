@@ -13,6 +13,8 @@ exports.getAll = (req, res) => {
       department: s.department,
       specialization: s.specialization,
       consultationFee: s.consultation_fee,
+      consultationFeeFollowup: s.consultation_fee_followup || 0,
+      consultationFeeEmergency: s.consultation_fee_emergency || 0,
       isAvailable: !!s.is_available,
       email: s.email,
       phone: s.phone
@@ -26,15 +28,15 @@ exports.getAll = (req, res) => {
 };
 
 exports.create = (req, res) => {
-  const { fullName, type, department, specialization, consultationFee, email, phone } = req.body;
+  const { fullName, type, department, specialization, consultationFee, consultationFeeFollowup, consultationFeeEmergency, email, phone } = req.body;
   const prefix = type === 'doctor' ? 'DOC' : type === 'nurse' ? 'NUR' : 'STF';
   const employeeId = `${prefix}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
 
   try {
     const info = db.prepare(`
-      INSERT INTO medical_staff (employee_id, full_name, type, department, specialization, consultation_fee, email, phone)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(employeeId, fullName, type, department, specialization, consultationFee, email, phone);
+      INSERT INTO medical_staff (employee_id, full_name, type, department, specialization, consultation_fee, consultation_fee_followup, consultation_fee_emergency, email, phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(employeeId, fullName, type, department, specialization, consultationFee || 0, consultationFeeFollowup || 0, consultationFeeEmergency || 0, email, phone);
     res.status(201).json({ id: info.lastInsertRowid, employeeId, ...req.body });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -44,7 +46,7 @@ exports.create = (req, res) => {
 exports.update = (req, res) => {
   const { id } = req.params;
   const updates = Object.keys(req.body);
-  const allowed = ['isAvailable', 'fullName', 'phone', 'email', 'consultationFee'];
+  const allowed = ['isAvailable', 'fullName', 'phone', 'email', 'consultationFee', 'consultationFeeFollowup', 'consultationFeeEmergency'];
   
   const isValid = updates.every(u => allowed.includes(u));
   if (!isValid) return res.status(400).json({ error: 'Invalid updates' });
@@ -53,6 +55,8 @@ exports.update = (req, res) => {
   const dbFields = {
     isAvailable: 'is_available',
     consultationFee: 'consultation_fee',
+    consultationFeeFollowup: 'consultation_fee_followup',
+    consultationFeeEmergency: 'consultation_fee_emergency',
     fullName: 'full_name'
   };
 

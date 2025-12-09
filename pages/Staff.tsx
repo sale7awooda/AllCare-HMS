@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { Plus, Search, Filter, Mail, Phone, Briefcase, Lock } from 'lucide-react';
@@ -20,6 +21,8 @@ export const Staff = () => { // This component is now HR Management
     department: '',
     specialization: '',
     consultationFee: 0,
+    consultationFeeFollowup: 0,
+    consultationFeeEmergency: 0,
     email: '',
     phone: '',
     isAvailable: true
@@ -55,7 +58,7 @@ export const Staff = () => { // This component is now HR Management
         loadData();
         setFormData({ 
           fullName: '', type: 'doctor', department: '', 
-          specialization: '', consultationFee: 0, email: '', phone: '', isAvailable: true 
+          specialization: '', consultationFee: 0, consultationFeeFollowup: 0, consultationFeeEmergency: 0, email: '', phone: '', isAvailable: true 
         });
       } catch (err: any) {
         console.error("Failed to add staff:", err);
@@ -133,7 +136,7 @@ export const Staff = () => { // This component is now HR Management
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Employee</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Role/Dept</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Contact</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Fee</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Base Fee</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Availability</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
               </tr>
@@ -241,13 +244,32 @@ export const Staff = () => { // This component is now HR Management
               value={formData.specialization} 
               onChange={e => setFormData({...formData, specialization: e.target.value})} 
             />
+            {/* Base Fee */}
             <Input 
-              label="Consultation Fee ($)" 
+              label="Standard Fee ($)" 
               type="number" 
               value={formData.consultationFee} 
               onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value || '0')})} 
             />
           </div>
+          
+          {/* Conditional Fields for Doctors */}
+          {formData.type === 'doctor' && (
+            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+               <Input 
+                 label="Follow-up Fee ($)" 
+                 type="number" 
+                 value={formData.consultationFeeFollowup} 
+                 onChange={e => setFormData({...formData, consultationFeeFollowup: parseFloat(e.target.value || '0')})} 
+               />
+               <Input 
+                 label="Emergency Fee ($)" 
+                 type="number" 
+                 value={formData.consultationFeeEmergency} 
+                 onChange={e => setFormData({...formData, consultationFeeEmergency: parseFloat(e.target.value || '0')})} 
+               />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <Input 

@@ -1,3 +1,4 @@
+
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
@@ -56,6 +57,34 @@ exports.recordPayment = (req, res) => {
   const newPaid = bill.paid_amount + amount;
   const newStatus = newPaid >= bill.total_amount ? 'paid' : 'partial';
 
-  db.prepare('UPDATE billing SET paid_amount = ?, status = ? WHERE id = ?').run(newPaid, newStatus, id);
-  res.json({ status: newStatus, paidAmount: newPaid });
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE billing SET paid_amount = ?, status = ? WHERE id = ?').run(newPaid, newStatus, id);
+
+    if (newStatus === 'paid') {
+      // 1. Confirm Appointments
+      db.prepare("UPDATE appointments SET status = 'confirmed', billing_status = 'paid' WHERE bill_id = ?").run(id);
+
+      // 2. Confirm Lab Requests
+      db.prepare("UPDATE lab_requests SET status = 'confirmed' WHERE bill_id = ?").run(id);
+
+      // 3. Confirm Operations
+      db.prepare("UPDATE operations SET status = 'confirmed' WHERE bill_id = ?").run(id);
+
+      // 4. Confirm Admissions (Activate)
+      const adm = db.prepare("SELECT * FROM admissions WHERE bill_id = ?").get(id);
+      if (adm) {
+        db.prepare("UPDATE admissions SET status = 'active' WHERE id = ?").run(adm.id);
+        db.prepare("UPDATE beds SET status = 'occupied' WHERE id = ?").run(adm.bed_id);
+        db.prepare("UPDATE patients SET type = 'inpatient' WHERE id = ?").run(adm.patient_id);
+      }
+    }
+  });
+
+  try {
+    tx();
+    res.json({ status: newStatus, paidAmount: newPaid });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
 };

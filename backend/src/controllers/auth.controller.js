@@ -14,6 +14,10 @@ exports.login = (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (!user.is_active) {
+      return res.status(403).json({ error: 'Account is inactive. Contact admin.' });
+    }
+
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       SECRET,
@@ -42,14 +46,15 @@ exports.me = (req, res) => {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
     if (!user) return res.sendStatus(404);
     
-    // Manual mapping to handle potential missing columns safely
+    // Explicit mapping for safety
     const safeUser = {
       id: user.id,
       username: user.username,
       fullName: user.full_name,
       role: user.role,
       email: user.email || '',
-      phone: user.phone || ''
+      phone: user.phone || '',
+      is_active: !!user.is_active
     };
     
     res.json(safeUser);

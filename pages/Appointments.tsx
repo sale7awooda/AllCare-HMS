@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
-import { Plus, Calendar, Clock, User, Lock } from 'lucide-react';
+import { Plus, Calendar, Clock, User, Lock, DollarSign } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, MedicalStaff, User as UserType } from '../types';
 import { hasPermission } from '../utils/rbac';
@@ -106,8 +106,8 @@ export const Appointments = () => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Patient</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Doctor</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Date & Time</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Payment</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -134,18 +134,14 @@ export const Appointments = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 align-top whitespace-nowrap">
-                         <Badge color={apt.status === 'confirmed' ? 'green' : apt.status === 'cancelled' ? 'red' : 'yellow'}>{apt.status}</Badge>
+                         <Badge color={apt.billingStatus === 'paid' ? 'green' : 'red'}>
+                            {apt.billingStatus === 'paid' ? 'Paid' : 'Unpaid'}
+                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-right text-sm align-top whitespace-nowrap">
-                        {apt.status === 'pending' && canManageAppointments && (
-                          <button 
-                            onClick={() => { api.updateAppointmentStatus(apt.id, 'confirmed'); loadData(); }}
-                            className="text-green-600 hover:text-green-800 font-medium mr-3 transition-colors"
-                          >
-                            Confirm
-                          </button>
-                        )}
-                         <button className="text-gray-400 hover:text-gray-600 transition-colors">Details</button>
+                      <td className="px-4 py-3 align-top whitespace-nowrap">
+                         <Badge color={apt.status === 'confirmed' ? 'green' : apt.status === 'cancelled' ? 'red' : 'yellow'}>
+                            {apt.status === 'pending' ? 'Pending Payment' : apt.status}
+                         </Badge>
                       </td>
                     </tr>
                   )))}

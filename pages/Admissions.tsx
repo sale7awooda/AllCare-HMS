@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge, Modal, Input, Textarea, Select } from '../components/UI';
-import { Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, DollarSign } from 'lucide-react';
+import { Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, DollarSign, Loader2, XCircle } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 
@@ -13,6 +13,10 @@ export const Admissions = () => {
   const [patients, setPatients] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
   
+  // Advanced Process State
+  const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [processMessage, setProcessMessage] = useState('');
+
   // Modals
   const [isCareModalOpen, setIsCareModalOpen] = useState(false); // For Active Patients
   const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false); // For New Reservation
@@ -29,8 +33,8 @@ export const Admissions = () => {
   const [noteForm, setNoteForm] = useState({ note: '', bp: '', temp: '', pulse: '', resp: '' });
   const [dischargeForm, setDischargeForm] = useState({ notes: '', status: 'Recovered' });
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [bedsData, admissionsData, patientsData, staffData] = await Promise.all([
         api.getBeds(),
@@ -45,7 +49,7 @@ export const Admissions = () => {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -107,6 +111,10 @@ export const Admissions = () => {
   const handleAdmitSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBedForAdmission) return;
+    
+    setProcessStatus('processing');
+    setProcessMessage('Reserving bed...');
+
     try {
       await api.createAdmission({
         patientId: parseInt(admitForm.patientId),
@@ -116,24 +124,41 @@ export const Admissions = () => {
         deposit: parseFloat(admitForm.deposit),
         notes: admitForm.notes
       });
-      // NOTE: Patient type is NOT updated yet. This happens on confirmation.
-      setIsAdmitModalOpen(false);
-      loadData();
-      alert('Bed reserved successfully. Please collect the deposit to confirm admission.');
+      
+      setProcessStatus('success');
+      setProcessMessage('Bed reserved successfully. Please collect deposit.');
+      await loadData(true);
+      
+      setTimeout(() => {
+        setIsAdmitModalOpen(false);
+        setProcessStatus('idle');
+      }, 2000);
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to admit patient.');
+       setProcessStatus('error');
+       setProcessMessage(err.response?.data?.error || 'Failed to admit patient.');
     }
   };
 
   const handleConfirmAdmission = async () => {
     if (!selectedAdmission) return;
+    
+    setProcessStatus('processing');
+    setProcessMessage('Confirming admission...');
+    
     try {
       await api.confirmAdmissionDeposit(selectedAdmission.id);
-      setIsConfirmModalOpen(false);
-      loadData();
-      alert('Admission Confirmed. Patient is now an Inpatient.');
+      
+      setProcessStatus('success');
+      setProcessMessage('Admission Confirmed. Patient is now an Inpatient.');
+      await loadData(true);
+      
+      setTimeout(() => {
+        setIsConfirmModalOpen(false);
+        setProcessStatus('idle');
+      }, 2000);
     } catch (e: any) {
-      alert(e.response?.data?.error || 'Confirmation failed.');
+      setProcessStatus('error');
+      setProcessMessage(e.response?.data?.error || 'Confirmation failed.');
     }
   };
 
@@ -157,16 +182,27 @@ export const Admissions = () => {
 
   const handleDischarge = async () => {
     if (!confirm('Are you sure you want to discharge this patient? This will generate the final bill.')) return;
+    
+    setProcessStatus('processing');
+    setProcessMessage('Processing discharge...');
+
     try {
       await api.dischargePatient(inpatientDetails.id, {
         dischargeNotes: dischargeForm.notes,
         dischargeStatus: dischargeForm.status
       });
-      setIsCareModalOpen(false);
-      loadData();
-      alert('Patient discharged successfully.');
+      
+      setProcessStatus('success');
+      setProcessMessage('Patient discharged successfully.');
+      await loadData(true);
+      
+      setTimeout(() => {
+        setIsCareModalOpen(false);
+        setProcessStatus('idle');
+      }, 2000);
     } catch (e: any) {
-      alert(e.response?.data?.error || 'Discharge failed');
+      setProcessStatus('error');
+      setProcessMessage(e.response?.data?.error || 'Discharge failed');
     }
   };
 
@@ -502,6 +538,43 @@ export const Admissions = () => {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* PROCESS STATUS OVERLAY */}
+      {processStatus !== 'idle' && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 relative overflow-hidden text-center transform scale-100 animate-in zoom-in-95">
+            {processStatus === 'processing' && (
+              <>
+                <div className="relative mb-6">
+                   <div className="w-16 h-16 border-4 border-slate-100 border-t-primary-600 rounded-full animate-spin"></div>
+                   <Loader2 className="absolute inset-0 m-auto text-primary-600 animate-pulse" size={24}/>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Processing</h3>
+                <p className="text-slate-500">{processMessage}</p>
+              </>
+            )}
+            {processStatus === 'success' && (
+              <>
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-600 animate-in zoom-in duration-300">
+                  <CheckCircle size={40} strokeWidth={3} />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">Success!</h3>
+                <p className="text-slate-600 font-medium">{processMessage}</p>
+              </>
+            )}
+            {processStatus === 'error' && (
+              <>
+                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6 text-red-600 animate-in zoom-in duration-300">
+                  <XCircle size={40} strokeWidth={3} />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Action Failed</h3>
+                <p className="text-red-600 bg-red-50 p-3 rounded-xl border border-red-100 text-sm mb-6 w-full">{processMessage}</p>
+                <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">Close & Fix</Button>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
