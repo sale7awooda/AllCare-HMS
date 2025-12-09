@@ -1,6 +1,6 @@
 
 import axios from 'axios';
-import { Patient, Appointment, MedicalStaff, Bill, User, LabTestCatalog, NurseServiceCatalog, Bed, OperationCatalog } from '../types';
+import { Patient, Appointment, MedicalStaff, Bill, User, LabTestCatalog, NurseServiceCatalog, Bed, OperationCatalog, TaxRate, PaymentMethod } from '../types';
 
 // NETWORK CONFIGURATION
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -166,6 +166,9 @@ export const api = {
   },
 
   // --- CONFIGURATION ---
+  // Note: defaults exposed for easy URL access
+  defaults: { baseURL: API_BASE_URL },
+
   async getSystemSettings(): Promise<any> {
     const { data } = await client.get('/config/settings');
     return data;
@@ -174,6 +177,21 @@ export const api = {
     await client.post('/config/settings', settings);
   },
   
+  // User Management
+  async getSystemUsers(): Promise<User[]> {
+    const { data } = await client.get('/config/users');
+    return data;
+  },
+  async addSystemUser(user: Partial<User>): Promise<void> {
+    await client.post('/config/users', user);
+  },
+  async updateSystemUser(id: number, user: Partial<User>): Promise<void> {
+    await client.put(`/config/users/${id}`, user);
+  },
+  async deleteSystemUser(id: number): Promise<void> {
+    await client.delete(`/config/users/${id}`);
+  },
+
   async getDepartments(): Promise<any[]> {
     const { data } = await client.get('/config/departments');
     return data;
@@ -181,13 +199,34 @@ export const api = {
   async addDepartment(name: string, description?: string): Promise<void> {
     await client.post('/config/departments', { name, description });
   },
+  async updateDepartment(id: number, name: string, description?: string): Promise<void> {
+    await client.put(`/config/departments/${id}`, { name, description });
+  },
   async deleteDepartment(id: number): Promise<void> {
     await client.delete(`/config/departments/${id}`);
+  },
+
+  // Bed Configuration
+  async getConfigBeds(): Promise<Bed[]> {
+    const { data } = await client.get('/config/beds');
+    return data;
+  },
+  async addBed(bed: Partial<Bed>): Promise<void> {
+    await client.post('/config/beds', bed);
+  },
+  async updateBed(id: number, bed: Partial<Bed>): Promise<void> {
+    await client.put(`/config/beds/${id}`, bed);
+  },
+  async deleteBed(id: number): Promise<void> {
+    await client.delete(`/config/beds/${id}`);
   },
 
   // Catalog Management
   async addLabTest(test: Partial<LabTestCatalog>): Promise<void> {
     await client.post('/config/catalogs/lab-tests', test);
+  },
+  async updateLabTest(id: number, test: Partial<LabTestCatalog>): Promise<void> {
+    await client.put(`/config/catalogs/lab-tests/${id}`, test);
   },
   async deleteLabTest(id: number): Promise<void> {
     await client.delete(`/config/catalogs/lab-tests/${id}`);
@@ -196,6 +235,9 @@ export const api = {
   async addNurseService(service: Partial<NurseServiceCatalog>): Promise<void> {
     await client.post('/config/catalogs/nurse-services', service);
   },
+  async updateNurseService(id: number, service: Partial<NurseServiceCatalog>): Promise<void> {
+    await client.put(`/config/catalogs/nurse-services/${id}`, service);
+  },
   async deleteNurseService(id: number): Promise<void> {
     await client.delete(`/config/catalogs/nurse-services/${id}`);
   },
@@ -203,7 +245,51 @@ export const api = {
   async addOperationCatalog(op: Partial<OperationCatalog>): Promise<void> {
     await client.post('/config/catalogs/operations', op);
   },
+  async updateOperationCatalog(id: number, op: Partial<OperationCatalog>): Promise<void> {
+    await client.put(`/config/catalogs/operations/${id}`, op);
+  },
   async deleteOperationCatalog(id: number): Promise<void> {
     await client.delete(`/config/catalogs/operations/${id}`);
+  },
+
+  // Financial Config
+  async getTaxRates(): Promise<TaxRate[]> {
+    const { data } = await client.get('/config/finance/taxes');
+    return data;
+  },
+  async addTaxRate(rate: Partial<TaxRate>): Promise<void> {
+    await client.post('/config/finance/taxes', rate);
+  },
+  async updateTaxRate(id: number, rate: Partial<TaxRate>): Promise<void> {
+    await client.put(`/config/finance/taxes/${id}`, rate);
+  },
+  async deleteTaxRate(id: number): Promise<void> {
+    await client.delete(`/config/finance/taxes/${id}`);
+  },
+
+  async getPaymentMethods(): Promise<PaymentMethod[]> {
+    const { data } = await client.get('/config/finance/payment-methods');
+    return data;
+  },
+  async addPaymentMethod(method: Partial<PaymentMethod>): Promise<void> {
+    await client.post('/config/finance/payment-methods', method);
+  },
+  async updatePaymentMethod(id: number, method: Partial<PaymentMethod>): Promise<void> {
+    await client.put(`/config/finance/payment-methods/${id}`, method);
+  },
+  async deletePaymentMethod(id: number): Promise<void> {
+    await client.delete(`/config/finance/payment-methods/${id}`);
+  },
+
+  // Data Management
+  async downloadBackup(): Promise<void> {
+    window.open(`${API_BASE_URL}/config/backup`, '_blank');
+  },
+  async restoreDatabase(file: File): Promise<void> {
+    const formData = new FormData();
+    formData.append('backup', file);
+    await client.post('/config/restore', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
   }
 };

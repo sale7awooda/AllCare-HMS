@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 // Define a comprehensive set of roles as per requirements
@@ -11,6 +12,7 @@ export interface User {
   fullName: string;
   role: Role; 
   email: string;
+  is_active?: boolean;
 }
 
 export interface EmergencyContact {
@@ -105,6 +107,7 @@ export interface LabTestCatalog {
   name: string;
   category: string;
   cost: number;
+  normalRange?: string; // Added normal range
 }
 
 export interface NurseServiceCatalog {
@@ -134,4 +137,18 @@ export interface StatCardProps {
   icon: React.ReactNode;
   trend?: string;
   color: string;
+}
+
+// Financial Config Types
+export interface TaxRate {
+  id: number;
+  name: string;
+  rate: number; // percentage
+  isActive: boolean;
+}
+
+export interface PaymentMethod {
+  id: number;
+  name: string;
+  isActive: boolean;
 }

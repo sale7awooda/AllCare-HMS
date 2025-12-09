@@ -95,7 +95,7 @@ const initDB = () => {
     );
 
     -- NEW MEDICAL TABLES
-    CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT, cost REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT, cost REAL NOT NULL, normal_range TEXT);
     CREATE TABLE IF NOT EXISTS lab_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, test_ids TEXT NOT NULL, status TEXT DEFAULT 'pending', projected_cost REAL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS nurse_services (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT, cost REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS operations_catalog (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, base_cost REAL DEFAULT 0);
@@ -113,6 +113,20 @@ const initDB = () => {
     CREATE TABLE IF NOT EXISTS system_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
+    );
+
+    -- FINANCIAL CONFIG TABLES
+    CREATE TABLE IF NOT EXISTS tax_rates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      rate REAL NOT NULL, -- Percentage (e.g. 15 for 15%)
+      is_active BOOLEAN DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS payment_methods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      is_active BOOLEAN DEFAULT 1
     );
   `;
   
@@ -132,7 +146,12 @@ const initDB = () => {
     { table: 'admissions', name: 'notes', type: 'TEXT' },
     { table: 'admissions', name: 'projected_cost', type: 'REAL DEFAULT 0' },
     { table: 'lab_requests', name: 'projected_cost', type: 'REAL DEFAULT 0' },
-    { table: 'operations', name: 'projected_cost', type: 'REAL DEFAULT 0' }
+    { table: 'operations', name: 'projected_cost', type: 'REAL DEFAULT 0' },
+    // User Management Migrations
+    { table: 'users', name: 'is_active', type: 'BOOLEAN DEFAULT 1' },
+    { table: 'users', name: 'email', type: 'TEXT' },
+    // Lab Test Update
+    { table: 'lab_tests', name: 'normal_range', type: 'TEXT' }
   ];
 
   columnsToAdd.forEach(col => {
@@ -148,7 +167,7 @@ const initDB = () => {
     }
   });
 
-  // 3. Seed Users (Include all expanded roles)
+  // 3. Seed Users
   const usersToSeed = [
     { username: 'admin', role: 'admin', fullName: 'System Admin' },
     { username: 'manager', role: 'manager', fullName: 'Hospital Manager' },
@@ -162,7 +181,7 @@ const initDB = () => {
   ];
 
   const bcrypt = require('bcryptjs');
-  const insertUser = db.prepare('INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)');
+  const insertUser = db.prepare('INSERT INTO users (username, password, full_name, role, is_active) VALUES (?, ?, ?, ?, 1)');
   const checkUser = db.prepare('SELECT id FROM users WHERE username = ?');
 
   usersToSeed.forEach(user => {
@@ -173,22 +192,45 @@ const initDB = () => {
     }
   });
 
-  // 4. Seed Medical Catalogs (Keep existing seeding, as patient actions still use them)
-  if (db.prepare('SELECT COUNT(*) FROM lab_tests').get()['COUNT(*)'] === 0) {
+  // 4. Seed Medical Catalogs with EXTENSIVE common lab tests
+  if (db.prepare('SELECT COUNT(*) FROM lab_tests').get()['COUNT(*)'] < 10) {
+    // Clear existing for fresh seed or if count is low (dev mode only mostly)
+    db.prepare('DELETE FROM lab_tests').run();
+
     const tests = [
-      { name: 'CBC (Complete Blood Count)', cost: 15, category: 'Hematology' },
-      { name: 'Lipid Profile', cost: 25, category: 'Biochemistry' },
-      { name: 'Liver Function Test', cost: 30, category: 'Biochemistry' },
-      { name: 'Thyroid Panel', cost: 40, category: 'Hormones' },
-      { name: 'Urinalysis', cost: 10, category: 'Microbiology' },
-      { name: 'Blood Sugar (Fasting)', cost: 8, category: 'Biochemistry' },
-      { name: 'Malaria Smear', cost: 12, category: 'Microbiology' }
+      // Hematology
+      { name: 'CBC (Complete Blood Count)', category: 'Hematology', cost: 15, range: 'N/A' },
+      { name: 'Hemoglobin', category: 'Hematology', cost: 5, range: 'M: 13.5-17.5, F: 12.0-15.5 g/dL' },
+      { name: 'WBC Count', category: 'Hematology', cost: 5, range: '4,500 - 11,000 /mcL' },
+      { name: 'Platelet Count', category: 'Hematology', cost: 5, range: '150,000 - 450,000 /mcL' },
+      { name: 'ESR', category: 'Hematology', cost: 8, range: 'M: 0-22, F: 0-29 mm/hr' },
+      { name: 'Blood Group & Rh', category: 'Hematology', cost: 10, range: 'N/A' },
+      // Biochemistry
+      { name: 'Fasting Blood Sugar', category: 'Biochemistry', cost: 8, range: '70 - 100 mg/dL' },
+      { name: 'HbA1c', category: 'Biochemistry', cost: 20, range: '< 5.7%' },
+      { name: 'Lipid Profile', category: 'Biochemistry', cost: 35, range: 'Cholesterol < 200 mg/dL' },
+      { name: 'Liver Function Test (LFT)', category: 'Biochemistry', cost: 30, range: 'ALT: 7-56, AST: 10-40 U/L' },
+      { name: 'Kidney Function Test (KFT)', category: 'Biochemistry', cost: 30, range: 'Creatinine: 0.6-1.3 mg/dL' },
+      { name: 'Serum Electrolytes', category: 'Biochemistry', cost: 25, range: 'Na: 135-145, K: 3.5-5.0 mEq/L' },
+      { name: 'Uric Acid', category: 'Biochemistry', cost: 12, range: '3.5 - 7.2 mg/dL' },
+      // Hormones
+      { name: 'Thyroid Profile (T3, T4, TSH)', category: 'Hormones', cost: 45, range: 'TSH: 0.4 - 4.0 mIU/L' },
+      { name: 'Vitamin D', category: 'Hormones', cost: 50, range: '20 - 50 ng/mL' },
+      // Microbiology / Serology
+      { name: 'Urinalysis', category: 'Microbiology', cost: 10, range: 'N/A' },
+      { name: 'Stool Analysis', category: 'Microbiology', cost: 10, range: 'N/A' },
+      { name: 'Malaria Smear', category: 'Microbiology', cost: 12, range: 'Negative' },
+      { name: 'Widal Test', category: 'Serology', cost: 15, range: 'Negative' },
+      { name: 'H. Pylori', category: 'Serology', cost: 20, range: 'Negative' },
+      { name: 'CRP (C-Reactive Protein)', category: 'Serology', cost: 18, range: '< 10 mg/L' }
     ];
-    const insertTest = db.prepare('INSERT INTO lab_tests (name, category, cost) VALUES (?, ?, ?)');
-    tests.forEach(t => insertTest.run(t.name, t.category, t.cost));
-    console.log('Seeded lab tests.');
+    
+    const insertTest = db.prepare('INSERT INTO lab_tests (name, category, cost, normal_range) VALUES (?, ?, ?, ?)');
+    tests.forEach(t => insertTest.run(t.name, t.category, t.cost, t.range));
+    console.log('Seeded extensive lab tests.');
   }
 
+  // ... (Keep existing Nurse Services, Beds, Operations seeds)
   if (db.prepare('SELECT COUNT(*) FROM nurse_services').get()['COUNT(*)'] === 0) {
     const services = [
       { name: 'Injection / IV', desc: 'Medication administration', cost: 5 },
@@ -199,7 +241,6 @@ const initDB = () => {
     ];
     const insertService = db.prepare('INSERT INTO nurse_services (name, description, cost) VALUES (?, ?, ?)');
     services.forEach(s => insertService.run(s.name, s.desc, s.cost));
-    console.log('Seeded nurse services.');
   }
 
   if (db.prepare('SELECT COUNT(*) FROM beds').get()['COUNT(*)'] === 0) {
@@ -207,7 +248,6 @@ const initDB = () => {
     for(let i=1; i<=8; i++) insertBed.run(`10${i}`, 'General', 'available', 20);
     for(let i=1; i<=4; i++) insertBed.run(`20${i}`, 'Private', 'available', 50);
     for(let i=1; i<=2; i++) insertBed.run(`ICU-${i}`, 'ICU', 'available', 150);
-    console.log('Seeded beds.');
   }
 
   if (db.prepare('SELECT COUNT(*) FROM operations_catalog').get()['COUNT(*)'] === 0) {
@@ -219,12 +259,26 @@ const initDB = () => {
     ];
     const insertOp = db.prepare('INSERT INTO operations_catalog (name, base_cost) VALUES (?, ?)');
     ops.forEach(o => insertOp.run(o.name, o.cost));
-    console.log('Seeded operations catalog.');
   }
 
-  // 5. Seed Medical Staff (Include all expanded types)
+  // 5. Seed Payment Methods & Taxes
+  if (db.prepare('SELECT COUNT(*) FROM payment_methods').get()['COUNT(*)'] === 0) {
+    const methods = ['Cash', 'Credit Card', 'Debit Card', 'Insurance', 'Mobile Money', 'Bank Transfer'];
+    const insertMethod = db.prepare('INSERT INTO payment_methods (name, is_active) VALUES (?, 1)');
+    methods.forEach(m => insertMethod.run(m));
+    console.log('Seeded payment methods.');
+  }
+
+  if (db.prepare('SELECT COUNT(*) FROM tax_rates').get()['COUNT(*)'] === 0) {
+    const insertTax = db.prepare('INSERT INTO tax_rates (name, rate, is_active) VALUES (?, ?, 1)');
+    insertTax.run('VAT', 15);
+    insertTax.run('Service Tax', 5);
+    console.log('Seeded tax rates.');
+  }
+
+  // ... (Keep Staff, Departments, Settings seeds)
+  // Seed Medical Staff (Include all expanded types)
   const existingStaff = db.prepare('SELECT COUNT(*) as count FROM medical_staff').get();
-  
   if (existingStaff.count === 0) {
     const staff = [
       { employee_id: 'DOC-001', full_name: 'Dr. Sarah Wilson', type: 'doctor', department: 'Cardiology', specialization: 'Cardiologist', consultation_fee: 100, email: 'sarah@allcare.com', phone: '555-0101' },
@@ -240,25 +294,22 @@ const initDB = () => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     staff.forEach(s => insertStaff.run(s.employee_id, s.full_name, s.type, s.department, s.specialization, s.consultation_fee, s.email, s.phone));
-    console.log('Seeded initial medical staff.');
   }
 
-  // 6. Seed Departments (if empty)
+  // Seed Departments (if empty)
   if (db.prepare('SELECT COUNT(*) FROM departments').get()['COUNT(*)'] === 0) {
     const depts = ['Cardiology', 'General Ward', 'Pediatrics', 'Surgery', 'Orthopedics', 'Laboratory', 'Pharmacy', 'Human Resources', 'Anesthesiology'];
     const insertDept = db.prepare('INSERT INTO departments (name) VALUES (?)');
     depts.forEach(d => insertDept.run(d));
-    console.log('Seeded departments.');
   }
 
-  // 7. Seed Initial Settings (if empty)
+  // Seed Initial Settings (if empty)
   if (db.prepare('SELECT COUNT(*) FROM system_settings').get()['COUNT(*)'] === 0) {
     const insertSetting = db.prepare('INSERT INTO system_settings (key, value) VALUES (?, ?)');
     insertSetting.run('hospitalName', 'AllCare Hospital');
     insertSetting.run('hospitalAddress', '123 Health Ave, Med City');
     insertSetting.run('hospitalPhone', '555-0100');
     insertSetting.run('currency', '$');
-    console.log('Seeded system settings.');
   }
 };
 
