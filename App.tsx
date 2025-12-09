@@ -11,8 +11,8 @@ import { Admissions } from './pages/Admissions';
 import { Laboratory } from './pages/Laboratory';
 import { Operations } from './pages/Operations';
 import { Configuration } from './pages/Configuration';
-import { Settings } from './pages/Settings'; // Import real Settings page
-import { Reports } from './pages/Reports'; // Import real Reports page
+import { Settings } from './pages/Settings'; 
+import { Reports } from './pages/Reports'; 
 import { User, Role } from './types'; 
 import { api } from './services/api';
 import { AlertCircle } from 'lucide-react';
@@ -40,8 +40,13 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
   };
 
   const handleDevLogin = (role: Role) => { 
-    setUsername(role);
-    setPassword(`${role}123`); 
+    // Fix: Map technician role to 'labtech' username as seeded in DB
+    if (role === 'technician') {
+      setUsername('labtech');
+    } else {
+      setUsername(role);
+    }
+    setPassword(`${role === 'technician' ? 'labtech' : role}123`); 
   };
 
   return (
