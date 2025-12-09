@@ -26,6 +26,7 @@ const initDB = () => {
       role TEXT NOT NULL,
       is_active BOOLEAN DEFAULT 1,
       email TEXT,
+      phone TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -178,6 +179,13 @@ const initDB = () => {
     // User Management Migrations
     { table: 'users', name: 'is_active', type: 'BOOLEAN DEFAULT 1' },
     { table: 'users', name: 'email', type: 'TEXT' },
+    { table: 'users', name: 'phone', type: 'TEXT' }, // Fix for Auth 500
+    // Staff Migrations
+    { table: 'medical_staff', name: 'consultation_fee', type: 'REAL DEFAULT 0' }, // Fix for Appt 500
+    { table: 'medical_staff', name: 'email', type: 'TEXT' },
+    { table: 'medical_staff', name: 'phone', type: 'TEXT' },
+    // Appointment Migrations
+    { table: 'appointments', name: 'billing_status', type: "TEXT DEFAULT 'unbilled'" }, // Fix for Appt 500
     // Lab Test Update
     { table: 'lab_tests', name: 'normal_range', type: 'TEXT' },
     // Admission Discharge Updates

@@ -6,7 +6,10 @@ exports.getLabTests = (req, res) => {
   try {
     const tests = db.prepare('SELECT id, name, category, cost, normal_range as normalRange FROM lab_tests ORDER BY category, name').all();
     res.json(tests);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    console.error("Error fetching lab tests:", err);
+    res.status(500).json({ error: err.message }); 
+  }
 };
 
 exports.getNurseServices = (req, res) => {

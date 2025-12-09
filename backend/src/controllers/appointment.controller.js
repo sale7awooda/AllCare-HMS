@@ -2,37 +2,28 @@
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
-  const appointments = db.prepare(`
-    SELECT 
-      a.id, a.appointment_number as appointmentNumber, a.appointment_datetime as datetime, 
-      a.type, a.status, a.billing_status as billingStatus,
-      p.full_name as patientName, p.id as patientId,
-      m.full_name as staffName, m.id as staffId,
-      m.consultation_fee as consultationFee
-    FROM appointments a
-    JOIN patients p ON a.patient_id = p.id
-    JOIN medical_staff m ON a.medical_staff_id = m.id
-    ORDER BY a.appointment_datetime DESC
-  `).all();
-  res.json(appointments);
+  try {
+    const appointments = db.prepare(`
+      SELECT 
+        a.id, a.appointment_number as appointmentNumber, a.appointment_datetime as datetime, 
+        a.type, a.status, a.billing_status as billingStatus,
+        p.full_name as patientName, p.id as patientId,
+        m.full_name as staffName, m.id as staffId,
+        m.consultation_fee as consultationFee
+      FROM appointments a
+      JOIN patients p ON a.patient_id = p.id
+      JOIN medical_staff m ON a.medical_staff_id = m.id
+      ORDER BY a.appointment_datetime DESC
+    `).all();
+    res.json(appointments);
+  } catch (err) {
+    console.error("Error fetching appointments:", err);
+    res.status(500).json({ error: "Failed to fetch appointments", details: err.message });
+  }
 };
 
 exports.create = (req, res) => {
   const { patientId, staffId, datetime, type } = req.body;
-  
-  // Conflict Check REMOVED to allow queue-based booking (multiple patients per day per doctor)
-  // Since we removed specific time slots from the UI, we assume a daily queue.
-  /*
-  const conflict = db.prepare(`
-    SELECT id FROM appointments 
-    WHERE medical_staff_id = ? AND appointment_datetime = ? AND status != 'cancelled'
-  `).get(staffId, datetime);
-
-  if (conflict) {
-    return res.status(409).json({ error: 'Doctor is not available at this time' });
-  }
-  */
-
   const apptNumber = `APT-${Math.floor(Math.random() * 100000)}`;
 
   try {
@@ -64,7 +55,7 @@ exports.updateStatus = (req, res) => {
       `).get(id);
 
       if (appt && appt.billing_status !== 'billed') {
-        let cost = appt.consultation_fee;
+        let cost = appt.consultation_fee || 0;
         if (appt.type === 'Follow-up') cost *= 0.5;
         if (appt.type === 'Emergency') cost *= 1.5;
 

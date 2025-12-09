@@ -11,7 +11,6 @@ exports.login = (req, res) => {
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
     
     if (!user || !user.password || !bcrypt.compareSync(password, user.password)) {
-      // If user not found, or password field is missing/invalid, or password comparison fails
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -39,9 +38,25 @@ exports.login = (req, res) => {
 };
 
 exports.me = (req, res) => {
-  const user = db.prepare('SELECT id, username, full_name as fullName, role, email, phone FROM users WHERE id = ?').get(req.user.id);
-  if (!user) return res.sendStatus(404);
-  res.json(user);
+  try {
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    if (!user) return res.sendStatus(404);
+    
+    // Manual mapping to handle potential missing columns safely
+    const safeUser = {
+      id: user.id,
+      username: user.username,
+      fullName: user.full_name,
+      role: user.role,
+      email: user.email || '',
+      phone: user.phone || ''
+    };
+    
+    res.json(safeUser);
+  } catch (err) {
+    console.error('Error in auth.me:', err);
+    res.status(500).json({ error: 'Failed to fetch user profile' });
+  }
 };
 
 exports.updateProfile = (req, res) => {

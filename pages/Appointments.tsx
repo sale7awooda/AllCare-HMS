@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { Plus, Calendar, Clock, User, Lock } from 'lucide-react';
@@ -24,17 +25,30 @@ export const Appointments = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const [apts, pts, stf, user] = await Promise.all([
-      api.getAppointments(),
-      api.getPatients(),
-      api.getStaff(),
-      api.me()
-    ]);
-    setAppointments(apts);
-    setPatients(pts);
-    setStaff(stf);
-    setCurrentUser(user);
-    setLoading(false);
+    
+    // Independent User Fetch for Resilience
+    try {
+        const user = await api.me();
+        setCurrentUser(user);
+    } catch (e) {
+        console.error("Failed to fetch user permissions:", e);
+    }
+
+    // Main Data Fetch
+    try {
+        const [apts, pts, stf] = await Promise.all([
+          api.getAppointments(),
+          api.getPatients(),
+          api.getStaff()
+        ]);
+        setAppointments(Array.isArray(apts) ? apts : []);
+        setPatients(Array.isArray(pts) ? pts : []);
+        setStaff(Array.isArray(stf) ? stf : []);
+    } catch (error) {
+        console.error("Failed to load appointment data:", error);
+    } finally {
+        setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -97,7 +111,12 @@ export const Appointments = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {appointments.map((apt) => (
+                  {loading ? (
+                    <tr><td colSpan={6} className="text-center py-8">Loading...</td></tr>
+                  ) : appointments.length === 0 ? (
+                     <tr><td colSpan={6} className="text-center py-8 text-gray-500">No appointments found.</td></tr>
+                  ) : (
+                    appointments.map((apt) => (
                     <tr key={apt.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 align-top whitespace-nowrap">
                         <span className="font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-xs">{apt.appointmentNumber}</span>
@@ -129,7 +148,7 @@ export const Appointments = () => {
                          <button className="text-gray-400 hover:text-gray-600 transition-colors">Details</button>
                       </td>
                     </tr>
-                  ))}
+                  )))}
                 </tbody>
               </table>
             </div>
