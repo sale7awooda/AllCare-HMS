@@ -4,7 +4,7 @@ import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../componen
 import { 
   Plus, Search, Filter, Heart, Shield, AlertTriangle, Edit, Calendar, Lock, 
   Stethoscope, FlaskConical, Bed, Activity, FileClock, Settings, Thermometer, Trash2, CheckCircle,
-  Phone, User as UserIcon, History, Syringe, Zap, Briefcase, FileText, XCircle, Clock
+  Phone, User as UserIcon, History, Syringe, Zap, Briefcase, FileText, XCircle, Clock, ArrowLeft, Loader2
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill } from '../types';
@@ -66,11 +66,17 @@ export const Patients = () => {
   
   // Operation specific
   const [opDetails, setOpDetails] = useState({
+    anesthesiologistId: '',
+    assistantId: '',
+    nurseId: '', // Scrub Nurse
     drugs: '', 
     equipment: '', 
     others: '',
     // Costs
     surgeonCost: 0,
+    anesthesiologistCost: 0,
+    assistantCost: 0,
+    nurseCost: 0,
     drugsCost: 0,
     equipmentCost: 0,
     othersCost: 0,
@@ -198,26 +204,28 @@ export const Patients = () => {
     setSelectedBed(null);
     setSelectedSpecialty('');
     setOpDetails({ 
+      anesthesiologistId: '', assistantId: '', nurseId: '',
       drugs: '', equipment: '', others: '',
-      surgeonCost: 0, drugsCost: 0, equipmentCost: 0, othersCost: 0, theaterCost: 0
+      surgeonCost: 0, anesthesiologistCost: 0, assistantCost: 0, nurseCost: 0, 
+      drugsCost: 0, equipmentCost: 0, othersCost: 0, theaterCost: 0
     });
-    
-    // Check admission status
-    if (action === 'admission' && selectedPatient?.type === 'inpatient') {
-      // Logic handled in render
-    }
     
     setCurrentAction(action);
     setActionFormData({
       staffId: '',
       date: new Date().toISOString().split('T')[0],
-      time: '09:00',
+      time: '09:00', // Default time
       notes: '',
       subtype: '', 
       dischargeDate: '',
       totalCost: 0
     });
     setIsActionModalOpen(true);
+  };
+
+  const handleBackToActionMenu = () => {
+    setIsActionModalOpen(false);
+    setIsActionMenuOpen(true);
   };
 
   const handleOperationSelect = (opName: string) => {
@@ -236,6 +244,9 @@ export const Patients = () => {
     if (currentAction === 'operation') {
       const total = 
         (opDetails.surgeonCost || 0) +
+        (opDetails.anesthesiologistCost || 0) +
+        (opDetails.assistantCost || 0) +
+        (opDetails.nurseCost || 0) +
         (opDetails.drugsCost || 0) +
         (opDetails.equipmentCost || 0) +
         (opDetails.othersCost || 0) +
@@ -263,6 +274,55 @@ export const Patients = () => {
        }
     }
   }, [actionFormData.staffId, actionFormData.subtype, currentAction, staff]);
+
+  // Helper to check doctor availability for specific date
+  const checkAvailability = (doc: MedicalStaff) => {
+    if (!doc.isAvailable) return false;
+    if (!doc.schedule) return true; // Default available if no schedule defined
+    try {
+      const scheduleDays = JSON.parse(doc.schedule); // e.g. ["Mon", "Tue"]
+      const selectedDate = new Date(actionFormData.date);
+      const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'short' }); // "Mon"
+      return scheduleDays.includes(dayName);
+    } catch (e) {
+      return true; // Fallback
+    }
+  };
+
+  // VALIDATION LOGIC
+  const isFormValid = () => {
+    if (actionLoading) return false;
+
+    if (currentAction === 'appointment') {
+      return !!(actionFormData.date && actionFormData.staffId && actionFormData.subtype);
+    }
+    
+    if (currentAction === 'lab') {
+      return selectedTests.length > 0;
+    }
+
+    if (currentAction === 'nurse') {
+      return !!(selectedService && actionFormData.staffId);
+    }
+
+    if (currentAction === 'admission') {
+      if (selectedPatient?.type === 'inpatient') return false; // Already admitted
+      return !!(selectedBed && actionFormData.staffId);
+    }
+
+    if (currentAction === 'operation') {
+      // Validates names and ensures costs are entered (required fields)
+      return !!(
+        actionFormData.subtype && // Operation Name
+        actionFormData.staffId && // Surgeon
+        opDetails.anesthesiologistId && opDetails.anesthesiologistCost > 0 &&
+        opDetails.assistantId && opDetails.assistantCost > 0 &&
+        opDetails.nurseId && opDetails.nurseCost > 0
+      );
+    }
+
+    return false;
+  };
 
   const submitAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -298,6 +358,8 @@ export const Patients = () => {
       } else if (currentAction === 'admission') {
         if (!selectedBed) throw new Error('Select a bed.');
         if (!staffAssignedId) throw new Error('Select a treating doctor.');
+        
+        // Create admission record
         await api.createAdmission({
           patientId: selectedPatient.id,
           bedId: selectedBed.id,
@@ -307,15 +369,28 @@ export const Patients = () => {
           deposit: selectedBed.costPerDay,
           notes: actionFormData.notes 
         });
-        successMessage = 'Admission Request created. Confirm in Admissions.';
+
+        // UPDATE PATIENT TYPE TO INPATIENT
+        await api.updatePatient(selectedPatient.id, { type: 'inpatient' });
+
+        successMessage = 'Admission Request created. Patient status updated to Inpatient.';
 
       } else if (currentAction === 'operation') {
         if (!actionFormData.subtype) throw new Error('Enter operation name.');
         if (!staffAssignedId) throw new Error('Select a surgeon.');
+        if (!opDetails.anesthesiologistId || !opDetails.assistantId || !opDetails.nurseId) throw new Error('All surgical team members are required.');
         
+        // Resolve names for backend notes/logging
+        const anestName = staff.find(s => s.id.toString() === opDetails.anesthesiologistId)?.fullName || 'Unknown';
+        const asstName = staff.find(s => s.id.toString() === opDetails.assistantId)?.fullName || 'Unknown';
+        const nurseName = staff.find(s => s.id.toString() === opDetails.nurseId)?.fullName || 'Unknown';
+
         const breakdown = {
           ...opDetails,
-          breakdownString: `Surgeon: ${opDetails.surgeonCost}, Theater: ${opDetails.theaterCost}, Drugs: ${opDetails.drugsCost}, Equip: ${opDetails.equipmentCost}, Other: ${opDetails.othersCost}`
+          anesthesiologistName: anestName,
+          assistantName: asstName,
+          scrubNurseName: nurseName,
+          breakdownString: `Surgeon: ${opDetails.surgeonCost}, Anest: ${opDetails.anesthesiologistCost}, Asst: ${opDetails.assistantCost}, Nurse: ${opDetails.nurseCost}, Theater: ${opDetails.theaterCost}, Drugs: ${opDetails.drugsCost}, Equip: ${opDetails.equipmentCost}, Other: ${opDetails.othersCost}`
         };
 
         await api.createOperation({
@@ -338,7 +413,7 @@ export const Patients = () => {
           patientName: selectedPatient.fullName,
           staffId: doc.id,
           staffName: doc.fullName,
-          datetime: `${actionFormData.date}T${actionFormData.time}`,
+          datetime: `${actionFormData.date}T${actionFormData.time}`, // Time removed from UI, using default state
           type: actionFormData.subtype || 'Consultation',
           reason: actionFormData.notes,
           status: 'pending' 
@@ -498,6 +573,17 @@ export const Patients = () => {
         </div>
       </Card>
 
+      {/* Loading Overlay */}
+      {actionLoading && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4">
+            <Loader2 size={48} className="text-primary-600 animate-spin mb-4" />
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Processing Request</h3>
+            <p className="text-slate-500 text-center text-sm">Please wait while we securely process your medical action...</p>
+          </div>
+        </div>
+      )}
+
       {/* Register/Edit Modal - (Unchanged) */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient" : "Register Patient"}>
          <form onSubmit={handleRegisterSubmit} className="space-y-6">
@@ -600,15 +686,19 @@ export const Patients = () => {
       {/* Specific Action Modal */}
       <Modal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} title={getActionModalTitle()}>
         <form onSubmit={submitAction} className="space-y-4">
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 mb-4 text-sm"><span className="font-bold">Patient:</span> {selectedPatient?.fullName}</div>
+          <div className="flex items-center justify-between mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <div className="flex items-center gap-2">
+               <button type="button" onClick={handleBackToActionMenu} className="p-1 rounded-full hover:bg-slate-200 text-slate-500"><ArrowLeft size={18}/></button>
+               <span className="text-sm"><span className="font-bold">Patient:</span> {selectedPatient?.fullName}</span>
+            </div>
+          </div>
 
           {/* APPOINTMENT FORM */}
           {currentAction === 'appointment' && (
             <>
-               {/* 1. Date & Time */}
-               <div className="grid grid-cols-2 gap-4">
+               {/* 1. Date (Time Removed) */}
+               <div className="grid grid-cols-1 gap-4">
                   <Input label="Date" type="date" required value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
-                  <Input label="Time" type="time" required value={actionFormData.time} onChange={e => setActionFormData({...actionFormData, time: e.target.value})} />
                </div>
                
                {/* 2. Select Department/Specialty */}
@@ -630,9 +720,7 @@ export const Patients = () => {
                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Select Doctor</label>
                    <div className="flex overflow-x-auto gap-3 pb-2 custom-scrollbar">
                      {staff.filter(s => s.type === 'doctor' && s.specialization === selectedSpecialty).map(doc => {
-                       // Parse availability - simplified check for demo
-                       // In real app, check 'available_days' vs selected Date
-                       const isAvail = doc.isAvailable; 
+                       const isAvail = checkAvailability(doc); // Use the helper function here
                        const availableDays = doc.schedule ? JSON.parse(doc.schedule) : ['Mon','Tue','Wed','Thu','Fri'];
                        
                        return (
@@ -801,7 +889,7 @@ export const Patients = () => {
 
                {/* Operation Selection */}
                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Operation Name</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Operation Name <span className="text-red-500">*</span></label>
                   <input 
                     type="text" 
                     list="ops-list" 
@@ -815,14 +903,34 @@ export const Patients = () => {
 
                {/* Section: Surgical Team */}
                <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
-                 <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><UserIcon size={12}/> Surgical Team</h4>
-                 <div className="grid grid-cols-1 gap-3">
+                 <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><UserIcon size={12}/> Surgical Team (Required)</h4>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                    <div className="col-span-1">
                       <Select label="Lead Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                         <option value="">Select Surgeon...</option>
                         {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                       </Select>
-                      <Input className="mt-1" type="number" placeholder="Cost" value={opDetails.surgeonCost} onChange={e => setOpDetails({...opDetails, surgeonCost: parseFloat(e.target.value || '0')})} />
+                   </div>
+                   <div className="col-span-1">
+                      <Select label="Anesthesiologist" required value={opDetails.anesthesiologistId} onChange={e => setOpDetails({...opDetails, anesthesiologistId: e.target.value})}>
+                        <option value="">Select Anesthesiologist...</option>
+                        {staff.filter(s => s.type === 'anesthesiologist' || s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                      </Select>
+                      <Input className="mt-1" type="number" placeholder="Fee ($)" required value={opDetails.anesthesiologistCost} onChange={e => setOpDetails({...opDetails, anesthesiologistCost: parseFloat(e.target.value || '0')})} />
+                   </div>
+                   <div className="col-span-1">
+                      <Select label="Medical Assistant" required value={opDetails.assistantId} onChange={e => setOpDetails({...opDetails, assistantId: e.target.value})}>
+                        <option value="">Select Assistant...</option>
+                        {staff.filter(s => s.type === 'medical_assistant' || s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                      </Select>
+                      <Input className="mt-1" type="number" placeholder="Fee ($)" required value={opDetails.assistantCost} onChange={e => setOpDetails({...opDetails, assistantCost: parseFloat(e.target.value || '0')})} />
+                   </div>
+                   <div className="col-span-1">
+                      <Select label="Scrub Nurse" required value={opDetails.nurseId} onChange={e => setOpDetails({...opDetails, nurseId: e.target.value})}>
+                        <option value="">Select Nurse...</option>
+                        {staff.filter(s => s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                      </Select>
+                      <Input className="mt-1" type="number" placeholder="Fee ($)" required value={opDetails.nurseCost} onChange={e => setOpDetails({...opDetails, nurseCost: parseFloat(e.target.value || '0')})} />
                    </div>
                  </div>
                </div>
@@ -859,19 +967,16 @@ export const Patients = () => {
           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
              <Button type="button" variant="secondary" onClick={() => setIsActionModalOpen(false)}>Cancel</Button>
              
-             {/* Dynamic Submit Button with Loading & Validation */}
-             <Button 
-               type="submit" 
-               disabled={
-                 actionLoading || 
-                 (currentAction === 'lab' && selectedTests.length === 0) ||
-                 (currentAction === 'admission' && selectedPatient?.type === 'inpatient')
-               }
-             >
-               {actionLoading ? (
-                 <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Processing...</span>
-               ) : 'Submit Request'}
-             </Button>
+             {isFormValid() && (
+               <Button 
+                 type="submit" 
+                 disabled={actionLoading}
+               >
+                 {actionLoading ? (
+                   <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Processing...</span>
+                 ) : 'Submit Request'}
+               </Button>
+             )}
           </div>
         </form>
       </Modal>
