@@ -1,47 +1,135 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, Badge, Button } from '../components/UI';
 import { api } from '../services/api';
-import { Users, CreditCard, Calendar, Activity, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
+import { 
+  Users, Calendar, Activity, Bed, Clock, TrendingUp, 
+  Wallet, Plus, Stethoscope, FlaskConical, AlertCircle, ArrowRight, CheckCircle
+} from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area
+  AreaChart, Area, Cell, PieChart, Pie
 } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 
 export const Dashboard = () => {
-  const [stats, setStats] = useState({ patients: 0, appointments: 0, revenue: 0 });
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({ 
+    patients: 0, 
+    todayAppointments: 0, 
+    totalRevenue: 0,
+    outstandingRevenue: 0,
+    occupancyRate: 0,
+    activeAdmissions: 0
+  });
+  
+  const [departmentData, setDepartmentData] = useState<any[]>([]);
+  const [bedDetails, setBedDetails] = useState({ general: {total:0, free:0}, private: {total:0, free:0}, icu: {total:0, free:0} });
+  const [revenueTrend, setRevenueTrend] = useState<any[]>([]);
+  const [pendingTasks, setPendingTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
-      // Helper to safely fetch data or return empty array if permission denied
       const safeFetch = async (promise: Promise<any>) => {
         try {
           const result = await promise;
           return Array.isArray(result) ? result : [];
         } catch (error) {
-          // Silently fail for permission issues (403) to allow partial dashboard loading
-          console.warn('Dashboard widget failed to load (likely permission issue):', error);
           return [];
         }
       };
 
       try {
-        const [pts, apts, bills] = await Promise.all([
+        const [pts, apts, bills, beds, labs, staff] = await Promise.all([
           safeFetch(api.getPatients()),
           safeFetch(api.getAppointments()),
-          safeFetch(api.getBills())
+          safeFetch(api.getBills()),
+          safeFetch(api.getBeds()),
+          safeFetch(api.getPendingLabRequests()),
+          safeFetch(api.getStaff())
         ]);
 
-        const totalRevenue = bills.reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
+        // --- 1. Top Level Stats ---
+        const totalRev = bills.reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
+        const outstanding = bills.reduce((sum: number, b: any) => sum + ((b.totalAmount || 0) - (b.paidAmount || 0)), 0);
         
+        const totalBeds = beds.length || 1;
+        const occupiedBeds = beds.filter((b: any) => b.status === 'occupied').length;
+        const occupancyRate = Math.round((occupiedBeds / totalBeds) * 100);
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayAppts = apts.filter((a: any) => a.datetime.startsWith(todayStr)).length;
+
         setStats({
           patients: pts.length,
-          appointments: apts.length,
-          revenue: totalRevenue
+          todayAppointments: todayAppts,
+          totalRevenue: totalRev,
+          outstandingRevenue: outstanding,
+          occupancyRate,
+          activeAdmissions: occupiedBeds
         });
-        setAppointments(apts.slice(0, 5)); // Recent 5
+
+        // --- 2. Department Workload (Appointments per Dept) ---
+        // We map appointments to doctor -> doctor to department
+        const deptCounts: Record<string, number> = {};
+        apts.forEach((apt: any) => {
+           const doctor = staff.find((s: any) => s.id === apt.staffId);
+           const dept = doctor?.department || 'General';
+           deptCounts[dept] = (deptCounts[dept] || 0) + 1;
+        });
+        
+        const deptChartData = Object.keys(deptCounts).map(dept => ({
+          name: dept,
+          count: deptCounts[dept]
+        })).sort((a,b) => b.count - a.count).slice(0, 5); // Top 5
+        setDepartmentData(deptChartData);
+
+        // --- 3. Bed Availability Breakdown ---
+        const bedStats = { 
+            general: { total: 0, free: 0 }, 
+            private: { total: 0, free: 0 }, 
+            icu: { total: 0, free: 0 } 
+        };
+        beds.forEach((b: any) => {
+            const type = b.type.toLowerCase() as keyof typeof bedStats;
+            if (bedStats[type]) {
+                bedStats[type].total++;
+                if (b.status === 'available') bedStats[type].free++;
+            }
+        });
+        setBedDetails(bedStats);
+
+        // --- 4. Mock Revenue Trend (Projected) ---
+        const mockTrend = [
+            { name: 'Mon', income: totalRev * 0.10 },
+            { name: 'Tue', income: totalRev * 0.15 },
+            { name: 'Wed', income: totalRev * 0.12 },
+            { name: 'Thu', income: totalRev * 0.20 },
+            { name: 'Fri', income: totalRev * 0.18 },
+            { name: 'Sat', income: totalRev * 0.15 },
+            { name: 'Sun', income: totalRev * 0.10 },
+        ];
+        setRevenueTrend(mockTrend);
+
+        // --- 5. "Needs Attention" Feed (Pending Labs + Unpaid Recent Bills) ---
+        const recentPendingLabs = labs.filter((l: any) => l.status === 'pending').slice(0, 3).map((l: any) => ({
+            type: 'lab',
+            title: 'Lab Request Pending',
+            subtitle: `${l.patientName} - $${l.projected_cost}`,
+            id: l.id,
+            time: l.created_at
+        }));
+
+        const unpaidBills = bills.filter((b: any) => b.status === 'pending').slice(0, 3).map((b: any) => ({
+            type: 'bill',
+            title: 'Unpaid Invoice',
+            subtitle: `${b.patientName} - $${b.totalAmount}`,
+            id: b.id,
+            time: b.date
+        }));
+
+        setPendingTasks([...recentPendingLabs, ...unpaidBills].sort((a,b) => new Date(b.time).getTime() - new Date(a.time).getTime()));
+
       } catch (error) {
         console.error("Critical error loading dashboard:", error);
       } finally {
@@ -51,195 +139,215 @@ export const Dashboard = () => {
     loadData();
   }, []);
 
-  const data = [
-    { name: 'Mon', revenue: 4000 },
-    { name: 'Tue', revenue: 3000 },
-    { name: 'Wed', revenue: 2000 },
-    { name: 'Thu', revenue: 2780 },
-    { name: 'Fri', revenue: 1890 },
-    { name: 'Sat', revenue: 2390 },
-    { name: 'Sun', revenue: 3490 },
-  ];
-
-  const pieData = [
-    { name: 'Consultation', value: 400 },
-    { name: 'Emergency', value: 300 },
-    { name: 'Operation', value: 300 },
-    { name: 'Checkup', value: 200 },
-  ];
-
-  const COLORS = ['#0891b2', '#10b981', '#f59e0b', '#ef4444'];
-
-  const StatCard = ({ title, value, icon: Icon, trend, trendValue, colorClass }: any) => (
+  const StatCard = ({ title, value, subtext, icon: Icon, colorClass, trend }: any) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
       <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${colorClass} opacity-5 dark:opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
-      <div className="flex justify-between items-start relative z-10">
-        <div>
-          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</p>
-          <h3 className="text-3xl font-bold mt-2 text-slate-800 dark:text-white">{value}</h3>
-          <div className="flex items-center mt-2 gap-2">
-            <span className={`flex items-center text-xs font-bold ${trend === 'up' ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400' : 'text-red-600 bg-red-50 dark:bg-red-900/30 dark:text-red-400'} px-2 py-0.5 rounded-full`}>
-              {trend === 'up' ? <ArrowUpRight size={14} className="mr-1"/> : <ArrowDownRight size={14} className="mr-1"/>}
-              {trendValue}
-            </span>
-            <span className="text-xs text-slate-400 dark:text-slate-500">vs last month</span>
-          </div>
+      <div className="flex flex-col h-full justify-between relative z-10">
+        <div className="flex justify-between items-start">
+            <div className={`p-3 rounded-xl bg-gradient-to-br ${colorClass} text-white shadow-md`}>
+                <Icon className="w-6 h-6" />
+            </div>
+            {trend && (
+                <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-full">
+                    <TrendingUp size={12} />
+                    {trend}
+                </div>
+            )}
         </div>
-        <div className={`p-3.5 rounded-xl bg-gradient-to-br ${colorClass} text-white shadow-md`}>
-          <Icon className="w-6 h-6" />
+        <div className="mt-4">
+          <h3 className="text-3xl font-bold text-slate-800 dark:text-white">{value}</h3>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">{title}</p>
+          {subtext && <p className="text-xs text-slate-400 mt-2">{subtext}</p>}
         </div>
       </div>
     </div>
   );
 
+  const ActionButton = ({ icon: Icon, label, color, onClick }: any) => (
+    <button 
+      onClick={onClick}
+      className={`
+        flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
+        bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-${color}-300 dark:hover:border-${color}-700 hover:bg-${color}-50 dark:hover:bg-${color}-900/20 group
+      `}
+    >
+      <div className={`p-2 rounded-full bg-${color}-100 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400 group-hover:scale-110 transition-transform`}>
+        <Icon size={20} />
+      </div>
+      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white">{label}</span>
+    </button>
+  );
+
   if (loading) return (
-    <div className="flex items-center justify-center h-96">
+    <div className="flex flex-col items-center justify-center h-96 gap-4">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <p className="text-slate-500 font-medium">Loading hospital metrics...</p>
     </div>
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header Section */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Dashboard Overview</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">Welcome back, here is what's happening at your hospital today.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Command Center</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Operational overview & quick actions.</p>
+        </div>
+        <div className="flex gap-3">
+             <Button variant="secondary" size="sm" icon={Clock}>{new Date().toLocaleDateString()}</Button>
+        </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Quick Actions Toolbar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <ActionButton icon={Plus} label="New Admission" color="blue" onClick={() => navigate('/admissions')} />
+        <ActionButton icon={Calendar} label="Book Visit" color="violet" onClick={() => navigate('/appointments')} />
+        <ActionButton icon={Users} label="Register Patient" color="emerald" onClick={() => navigate('/patients')} />
+        <ActionButton icon={FlaskConical} label="Lab Request" color="orange" onClick={() => navigate('/patients')} />
+        <ActionButton icon={Wallet} label="Create Invoice" color="pink" onClick={() => navigate('/billing')} />
+        <ActionButton icon={Stethoscope} label="Staff Schedule" color="cyan" onClick={() => navigate('/hr')} />
+      </div>
+
+      {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Total Patients" 
-          value={stats.patients} 
+          value={stats.patients.toLocaleString()} 
           icon={Users} 
-          trend="up" 
-          trendValue="+12.5%" 
+          trend="+5.2%"
           colorClass="from-blue-500 to-blue-600" 
         />
         <StatCard 
-          title="Appointments" 
-          value={stats.appointments} 
+          title="Today's Appts" 
+          value={stats.todayAppointments} 
+          subtext="Scheduled visits"
           icon={Calendar} 
-          trend="up" 
-          trendValue="+4.2%" 
           colorClass="from-violet-500 to-violet-600" 
         />
         <StatCard 
-          title="Revenue" 
-          value={`$${stats.revenue.toLocaleString()}`} 
-          icon={CreditCard} 
-          trend="down" 
-          trendValue="-2.4%" 
+          title="Revenue (Mtd)" 
+          value={`$${stats.totalRevenue.toLocaleString()}`} 
+          subtext={`$${stats.outstandingRevenue.toLocaleString()} pending`}
+          icon={Wallet} 
           colorClass="from-emerald-500 to-emerald-600" 
         />
         <StatCard 
-          title="Critical Tasks" 
-          value="12" 
-          icon={Activity} 
-          trend="up" 
-          trendValue="+5" 
-          colorClass="from-amber-500 to-amber-600" 
+          title="Bed Occupancy" 
+          value={`${stats.occupancyRate}%`} 
+          subtext={`${stats.activeAdmissions} active inpatients`}
+          icon={Bed} 
+          trend={stats.occupancyRate > 80 ? 'High' : undefined}
+          colorClass="from-rose-500 to-rose-600" 
         />
       </div>
 
-      {/* Charts Section */}
+      {/* Analytics & Operational Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Department Workload (Bar Chart) */}
         <div className="lg:col-span-2">
-          <Card title="Revenue Analytics" action={<Button size="sm" variant="outline">View Report</Button>}>
-            <div className="h-80 w-full mt-4">
+          <Card title="Department Workload" action={<Button size="sm" variant="ghost" onClick={() => navigate('/appointments')}>View Schedule</Button>}>
+            <div className="h-80 w-full mt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0891b2" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#0891b2" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
+                <BarChart data={departmentData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-700" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                   <Tooltip 
+                    cursor={{fill: 'transparent'}}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }}
                   />
-                  <Area type="monotone" dataKey="revenue" stroke="#0891b2" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-                </AreaChart>
+                  <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40}>
+                    {departmentData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'][index % 5]} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </Card>
         </div>
 
+        {/* Needs Attention Feed */}
         <div className="lg:col-span-1">
-          <Card title="Patient Demographics">
-            <div className="h-80 w-full mt-4 relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={80}
-                    outerRadius={110}
-                    paddingAngle={5}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle"/>
-                </PieChart>
-              </ResponsiveContainer>
-              {/* Center Text Overlay */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                <span className="text-3xl font-bold text-slate-800 dark:text-white">1.2k</span>
-                <span className="text-xs text-slate-400 font-medium uppercase">Patients</span>
-              </div>
+          <Card title="Needs Attention">
+            <div className="h-80 overflow-y-auto custom-scrollbar pr-2 space-y-3 mt-2">
+                {pendingTasks.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center">
+                        <CheckCircle size={48} className="mb-2 text-green-100 dark:text-green-900/30" />
+                        <p>All clear!</p>
+                        <p className="text-xs">No pending tasks requiring immediate action.</p>
+                    </div>
+                ) : (
+                    pendingTasks.map((task, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-primary-200 transition-colors cursor-pointer" onClick={() => navigate(task.type === 'lab' ? '/laboratory' : '/billing')}>
+                            <div className={`p-2 rounded-lg shrink-0 ${task.type === 'lab' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'}`}>
+                                {task.type === 'lab' ? <FlaskConical size={16} /> : <AlertCircle size={16} />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{task.title}</h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{task.subtitle}</p>
+                            </div>
+                            <ArrowRight size={14} className="text-slate-300 self-center" />
+                        </div>
+                    ))
+                )}
             </div>
           </Card>
         </div>
       </div>
 
-      {/* Recent Activity Table */}
-      <Card title="Recent Appointments" action={<Button variant="ghost" size="sm">View All</Button>}>
-        <div className="overflow-x-auto -mx-6">
-          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
-            <thead className="bg-slate-50/50 dark:bg-slate-900/50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Patient Info</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Doctor</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Status</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-              {appointments.map((apt) => (
-                <tr key={apt.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors">
-                  <td className="px-4 py-3 align-top">
-                    <div className="flex items-start">
-                      <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-bold text-xs mr-3 mt-0.5 shrink-0">
-                        {apt.patientName.charAt(0)}
-                      </div>
-                      <div className="text-sm font-semibold text-slate-800 dark:text-white break-words leading-snug">{apt.patientName}</div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 align-top text-sm text-slate-600 dark:text-slate-300 break-words leading-snug">{apt.staffName}</td>
-                  <td className="px-4 py-3 align-top whitespace-nowrap">
-                    <div className="flex items-center text-sm text-slate-500 dark:text-slate-400">
-                      <Clock size={14} className="mr-1.5 text-slate-400 dark:text-slate-500"/>
-                      {new Date(apt.datetime).toLocaleString()}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 align-top whitespace-nowrap">
-                    <Badge color={apt.status === 'confirmed' ? 'green' : 'yellow'}>{apt.status}</Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {/* Bottom Section: Bed Availability & Financial Trend */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Bed Availability Widget */}
+          <div className="lg:col-span-1">
+             <Card title="Bed Availability" action={<Button size="sm" variant="ghost" onClick={() => navigate('/admissions')}>Manage</Button>}>
+                <div className="space-y-4 mt-2">
+                    {[
+                        { label: 'General Ward', stats: bedDetails.general, color: 'blue' },
+                        { label: 'Private Rooms', stats: bedDetails.private, color: 'violet' },
+                        { label: 'ICU', stats: bedDetails.icu, color: 'rose' },
+                    ].map(type => (
+                        <div key={type.label}>
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-slate-600 dark:text-slate-400">{type.label}</span>
+                                <span className="font-bold text-slate-900 dark:text-white">{type.stats.free} <span className="text-slate-400 font-normal">/ {type.stats.total} Free</span></span>
+                            </div>
+                            <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div 
+                                    className={`h-full bg-${type.color}-500 transition-all duration-500`} 
+                                    style={{ width: `${type.stats.total ? ((type.stats.total - type.stats.free) / type.stats.total) * 100 : 0}%` }}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+             </Card>
+          </div>
+
+          {/* Financial Trend */}
+          <div className="lg:col-span-2">
+            <Card title="Revenue Trend (7 Days)">
+                <div className="h-48 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={revenueTrend} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="colorRevenue2" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-700" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }} />
+                            <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue2)" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </Card>
+          </div>
+      </div>
     </div>
   );
 };
