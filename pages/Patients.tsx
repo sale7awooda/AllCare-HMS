@@ -3,8 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
 import { 
   Plus, Search, Filter, Shield, AlertTriangle, Edit, Calendar, Lock, 
-  FlaskConical, Bed, Activity, FileClock, Settings, Thermometer, Trash2, CheckCircle,
-  Phone, User as UserIcon, History, DollarSign, Loader2, ArrowRight,
+  FlaskConical, Bed, Activity, Settings, Thermometer, Trash2, CheckCircle,
+  Phone, User as UserIcon, History, Loader2,
   ChevronLeft, ChevronRight, MapPin, XCircle, FileText, Stethoscope
 } from 'lucide-react';
 import { api } from '../services/api';
@@ -168,6 +168,8 @@ export const Patients = () => {
   };
 
   const openEditModal = async (patient: Patient) => {
+    setProcessStatus('processing');
+    setProcessMessage('Loading patient details...');
     try {
       const fullDetails = await api.getPatient(patient.id);
       setFormData({
@@ -192,9 +194,13 @@ export const Patients = () => {
       });
       setSelectedPatient(fullDetails);
       setIsEditing(true);
+      setProcessStatus('idle');
       setIsFormModalOpen(true);
     } catch (err) {
       console.error("Failed to load patient details", err);
+      setProcessStatus('error');
+      setProcessMessage('Failed to load details. Please try again.');
+      setTimeout(() => setProcessStatus('idle'), 1500);
     }
   };
 
@@ -263,6 +269,11 @@ export const Patients = () => {
     setIsActionModalOpen(true);
   };
 
+  const handleBackToActionMenu = () => {
+    setIsActionModalOpen(false);
+    setIsActionMenuOpen(true);
+  };
+
   const handleOperationSelect = (opName: string) => {
     const op = operations.find(o => o.name === opName);
     setActionFormData({
@@ -317,10 +328,11 @@ export const Patients = () => {
     if (!doc.isAvailable) return false;
     if (!doc.schedule) return true; 
     try {
-      const scheduleDays = JSON.parse(doc.schedule); 
-      const today = new Date();
-      const dayName = today.toLocaleDateString('en-US', { weekday: 'short' }); 
-      return scheduleDays.includes(dayName);
+      // Normalize to lowercase for comparison
+      const scheduleDays = JSON.parse(doc.schedule).map((d: string) => d.toLowerCase()); 
+      // Get today's full name (e.g., 'monday')
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(); 
+      return scheduleDays.includes(today);
     } catch (e) {
       return true; 
     }
@@ -429,7 +441,7 @@ export const Patients = () => {
         setIsActionModalOpen(false);
         setProcessStatus('idle');
         setProcessMessage('');
-      }, 2000); 
+      }, 500); // Faster closing (0.5s)
 
     } catch (err: any) {
       console.error(err);
@@ -482,7 +494,7 @@ export const Patients = () => {
         setIsFormModalOpen(false);
         setProcessStatus('idle');
         setProcessMessage('');
-      }, 1500);
+      }, 500); // Faster closing (0.5s)
 
     } catch (err: any) {
       console.error(err);
@@ -537,6 +549,25 @@ export const Patients = () => {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  // Static Class Mapping for Action Grid (Fixes Tailwind purging dynamic classes)
+  const actionButtonStyles: Record<string, string> = {
+    blue: 'bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-800',
+    purple: 'bg-white dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-purple-200 dark:hover:border-purple-800',
+    emerald: 'bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-800',
+    orange: 'bg-white dark:bg-slate-800 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-orange-200 dark:hover:border-orange-800',
+    red: 'bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-red-200 dark:hover:border-red-800',
+    gray: 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-gray-900/20 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-gray-200 dark:hover:border-gray-800',
+  };
+
+  const actionIconStyles: Record<string, string> = {
+    blue: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    purple: 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    emerald: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
+    orange: 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
+    red: 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+    gray: 'bg-gray-50 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400',
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -551,11 +582,11 @@ export const Patients = () => {
         {/* Toolbar */}
         <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-t-2xl flex flex-col sm:flex-row gap-4 justify-between items-center">
            <div className="relative w-full sm:max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
               <input 
                 type="text" 
                 placeholder="Search by name, ID or phone..." 
-                className="pl-9 pr-4 w-full rounded-xl border-gray-200 dark:border-slate-700 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all dark:bg-slate-800 dark:text-white"
+                className="pl-9 pr-4 w-full rounded-xl border border-slate-300 dark:border-slate-600 py-2.5 text-sm font-medium focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 shadow-sm"
                 value={searchTerm} 
                 onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
               />
@@ -846,11 +877,11 @@ export const Patients = () => {
                   flex flex-col items-center justify-center p-6 rounded-2xl transition-all border shadow-sm hover:shadow-md
                   ${isAdmissionDisabled 
                     ? 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-300 dark:text-slate-600 cursor-not-allowed' 
-                    : `bg-white dark:bg-slate-800 hover:bg-${action.color}-50 dark:hover:bg-${action.color}-900/20 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-${action.color}-200 dark:hover:border-${action.color}-800`
+                    : actionButtonStyles[action.color]
                   }
                 `}
               >
-                <div className={`p-3 rounded-full bg-${action.color}-50 dark:bg-${action.color}-900/30 text-${action.color}-600 dark:text-${action.color}-400 mb-3`}>
+                <div className={`p-3 rounded-full mb-3 ${isAdmissionDisabled ? 'bg-gray-100 text-gray-400' : actionIconStyles[action.color]}`}>
                   <action.icon size={28} />
                 </div>
                 <span className="font-bold text-sm">
@@ -864,6 +895,17 @@ export const Patients = () => {
 
       {/* Specific Action Modal */}
       <Modal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} title={getActionModalTitle()}>
+        <div className="mb-6 flex justify-end">
+            <Button 
+                variant="ghost" 
+                onClick={handleBackToActionMenu}
+                className="text-lg font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                icon={ChevronLeft}
+            >
+                Back to Actions
+            </Button>
+        </div>
+
         <form onSubmit={submitAction} className="space-y-4">
            {currentAction === 'appointment' && (
             <>
