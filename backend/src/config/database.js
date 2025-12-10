@@ -49,7 +49,7 @@ const initDB = () => {
   if (shouldReset) {
     const tables = [
       'users', 'patients', 'medical_staff', 'appointments', 'billing', 'billing_items',
-      'lab_tests', 'lab_requests', 'nurse_services', 'operations_catalog', 'operations',
+      'lab_tests', 'lab_requests', 'nurse_services', 'nurse_requests', 'operations_catalog', 'operations',
       'beds', 'admissions', 'inpatient_notes', 'departments', 'system_settings',
       'tax_rates', 'payment_methods', 'hr_attendance', 'hr_leaves', 'hr_payroll', 'hr_adjustments'
     ];
@@ -225,6 +225,18 @@ const initDB = () => {
       name TEXT NOT NULL, 
       description TEXT, 
       cost REAL NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS nurse_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, 
+      patient_id INTEGER NOT NULL, 
+      staff_id INTEGER, 
+      service_name TEXT NOT NULL, 
+      cost REAL DEFAULT 0, 
+      notes TEXT, 
+      status TEXT DEFAULT 'pending', 
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(patient_id) REFERENCES patients(id)
     );
 
     CREATE TABLE IF NOT EXISTS operations_catalog (
