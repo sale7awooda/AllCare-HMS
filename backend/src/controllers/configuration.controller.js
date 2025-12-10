@@ -194,6 +194,10 @@ exports.deleteBed = (req, res) => {
 };
 
 // --- CATALOG MANAGEMENT ---
+exports.getLabTests = (req, res) => {
+  try { res.json(db.prepare('SELECT * FROM lab_tests ORDER BY name').all()); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
 exports.addLabTest = (req, res) => {
   const { name, category, cost, normalRange } = req.body;
   try {
@@ -213,6 +217,10 @@ exports.deleteLabTest = (req, res) => {
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
+exports.getNurseServices = (req, res) => {
+  try { res.json(db.prepare('SELECT * FROM nurse_services ORDER BY name').all()); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
 exports.addNurseService = (req, res) => {
   const { name, description, cost } = req.body;
   try {
@@ -232,6 +240,10 @@ exports.deleteNurseService = (req, res) => {
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
+exports.getOperations = (req, res) => {
+  try { res.json(db.prepare('SELECT * FROM operations_catalog ORDER BY name').all()); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
 exports.addOperation = (req, res) => {
   const { name, baseCost } = req.body;
   try {
