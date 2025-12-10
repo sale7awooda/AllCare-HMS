@@ -68,12 +68,12 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
       {/* Column Header */}
       <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-10">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 text-lg shadow-sm border border-slate-200 dark:border-slate-600">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 text-lg shadow-sm border border-slate-200 dark:border-slate-600 ${doctor.type === 'nurse' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100'}`}>
             {doctor.fullName.charAt(0)}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-slate-800 dark:text-white truncate" title={doctor.fullName}>{doctor.fullName}</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{doctor.specialization}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{doctor.type === 'nurse' ? 'Nurse' : doctor.specialization}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -106,6 +106,10 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
             </div>
             <h4 className="font-bold text-lg text-slate-800 dark:text-white mb-1 truncate">{activePatient.patientName}</h4>
             <p className="text-xs text-slate-500 mb-3">{activePatient.type} • {new Date(activePatient.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+            {/* Show nurse service reason if available */}
+            {doctor.type === 'nurse' && activePatient.reason && (
+                <p className="text-xs text-slate-500 italic bg-slate-50 p-1 rounded mb-3">{activePatient.reason}</p>
+            )}
             
             <Button 
               size="sm" 
@@ -161,6 +165,10 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                         <StatusBadge status={apt.status} />
                         <span className="text-[10px] text-slate-400">{new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                       </div>
+                      {/* Show nurse service reason if available */}
+                      {doctor.type === 'nurse' && apt.reason && (
+                        <p className="text-[10px] text-slate-500 italic mt-1 truncate">{apt.reason}</p>
+                      )}
                     </div>
                   </div>
 
@@ -320,11 +328,12 @@ export const Appointments = () => {
   };
 
   const doctors = useMemo(() => {
-    return staff.filter(s => s.type === 'doctor' && (selectedDept === 'all' || s.department === selectedDept));
+    // Include both doctors and nurses in the queue view
+    return staff.filter(s => (s.type === 'doctor' || s.type === 'nurse') && (selectedDept === 'all' || s.department === selectedDept));
   }, [staff, selectedDept]);
 
   const departments = useMemo(() => {
-    return Array.from(new Set(staff.filter(s => s.type === 'doctor').map(s => s.department))).filter(Boolean);
+    return Array.from(new Set(staff.filter(s => s.type === 'doctor' || s.type === 'nurse').map(s => s.department))).filter(Boolean);
   }, [staff]);
 
   const dailyAppointments = useMemo(() => {
@@ -432,7 +441,7 @@ export const Appointments = () => {
         {viewMode === 'queue' ? (
           <div className="h-full overflow-x-auto overflow-y-hidden p-4 bg-slate-50/50 dark:bg-slate-950/20">
             {doctors.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-slate-400">No doctors scheduled.</div>
+              <div className="flex h-full items-center justify-center text-slate-400">No staff scheduled.</div>
             ) : (
               <div className="flex gap-4 h-full min-w-max">
                 {doctors.map(doc => (
@@ -454,7 +463,7 @@ export const Appointments = () => {
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Token / Time</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Patient</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Doctor</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Staff</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Type</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Status</th>
                   <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase">Actions</th>
@@ -547,13 +556,13 @@ export const Appointments = () => {
           </Select>
 
           <Select 
-            label="Doctor" 
+            label="Staff" 
             required
             value={formData.staffId} 
             onChange={e => setFormData({...formData, staffId: e.target.value})}
           >
-             <option value="">Select Doctor...</option>
-             {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName} - {s.specialization}</option>)}
+             <option value="">Select Staff...</option>
+             {staff.filter(s => s.type === 'doctor' || s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName} - {s.type === 'doctor' ? s.specialization : 'Nurse'}</option>)}
           </Select>
 
           <div className="grid grid-cols-2 gap-4">
@@ -565,6 +574,7 @@ export const Appointments = () => {
               <option value="Consultation">Consultation</option>
               <option value="Follow-up">Follow-up</option>
               <option value="Emergency">Emergency</option>
+              <option value="Procedure">Procedure</option>
             </Select>
             
             <div className="opacity-70">

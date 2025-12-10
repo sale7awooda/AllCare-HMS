@@ -23,14 +23,17 @@ exports.getAll = (req, res) => {
 };
 
 exports.create = (req, res) => {
-  const { patientId, staffId, datetime, type, reason } = req.body;
+  const { patientId, staffId, datetime, type, reason, customFee } = req.body;
   const apptNumber = `APT-${Math.floor(Math.random() * 100000)}`;
 
   const tx = db.transaction(() => {
-    // 1. Fetch Staff Fee
+    // 1. Fetch Staff Fee or use Custom Fee
     const staff = db.prepare('SELECT * FROM medical_staff WHERE id = ?').get(staffId);
     let fee = 0;
-    if (staff) {
+
+    if (customFee !== undefined && customFee !== null) {
+      fee = parseFloat(customFee);
+    } else if (staff) {
       if (type === 'Follow-up') fee = staff.consultation_fee_followup || 0;
       else if (type === 'Emergency') fee = staff.consultation_fee_emergency || 0;
       else fee = staff.consultation_fee || 0; // Default/Consultation
@@ -39,7 +42,11 @@ exports.create = (req, res) => {
     // 2. Generate Bill
     const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
     const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, fee, 'pending');
-    db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Appointment: ${type} with ${staff?.full_name || 'Doctor'}`, fee);
+    
+    // Description logic
+    const desc = customFee ? `Service: ${reason || type}` : `Appointment: ${type} with ${staff?.full_name || 'Doctor'}`;
+    
+    db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, desc, fee);
 
     // 3. Create Appointment with Bill Link
     const info = db.prepare(`

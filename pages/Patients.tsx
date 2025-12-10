@@ -321,14 +321,22 @@ export const Patients = () => {
       } else if (currentAction === 'nurse') {
         if (!selectedService) throw new Error('Select a service.');
         if (!staffAssignedId) throw new Error('Select a nurse.');
-        await api.createNurseRequest({
+        
+        const nurse = staff.find(s => s.id === staffAssignedId);
+        
+        // Re-routing Nurse Requests to Appointments System for unified queuing
+        await api.createAppointment({
           patientId: selectedPatient.id,
-          serviceName: selectedService.name,
-          cost: selectedService.cost,
-          notes: actionFormData.notes,
-          staffId: staffAssignedId
+          patientName: selectedPatient.fullName,
+          staffId: staffAssignedId,
+          staffName: nurse?.fullName,
+          datetime: `${actionFormData.date}T${actionFormData.time}`,
+          type: 'Procedure',
+          reason: `${selectedService.name}: ${actionFormData.notes}`,
+          customFee: selectedService.cost, // Pass custom cost from catalog
+          status: 'pending' 
         });
-        successMessage = 'Nurse Service recorded.';
+        successMessage = 'Nurse Service scheduled (Queue).';
 
       } else if (currentAction === 'admission') {
         if (!selectedBed) throw new Error('Select a bed.');
