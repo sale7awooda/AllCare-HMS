@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { 
   Plus, Printer, Download, X, Lock, CreditCard, 
-  Wallet, TrendingUp, AlertCircle, FileText, CheckCircle, Trash2 
+  Wallet, TrendingUp, AlertCircle, FileText, CheckCircle, Trash2,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Bill, Patient, Appointment, PaymentMethod } from '../types';
@@ -15,6 +16,10 @@ export const Billing = () => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Stats
   const [stats, setStats] = useState({
@@ -144,6 +149,10 @@ export const Billing = () => {
       alert('Payment failed');
     }
   };
+
+  // --- Pagination Logic ---
+  const totalPages = Math.ceil(bills.length / itemsPerPage);
+  const paginatedBills = bills.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // --- Render Helpers ---
 
@@ -290,7 +299,7 @@ export const Billing = () => {
       </div>
 
       <Card className="!p-0 overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[400px]">
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
             <thead className="bg-slate-50 dark:bg-slate-900">
               <tr>
@@ -304,10 +313,10 @@ export const Billing = () => {
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
               {loading ? (
                   <tr><td colSpan={5} className="text-center py-8 text-slate-500">Loading billing data...</td></tr>
-              ) : bills.length === 0 ? (
+              ) : paginatedBills.length === 0 ? (
                   <tr><td colSpan={5} className="text-center py-8 text-slate-500">No invoices found.</td></tr>
               ) : (
-                  bills.map((bill) => (
+                  paginatedBills.map((bill) => (
                     <tr key={bill.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
@@ -358,6 +367,66 @@ export const Billing = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        {!loading && bills.length > 0 && (
+           <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-b-xl gap-4">
+             <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+                <span>
+                  Showing <span className="font-medium text-slate-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="font-medium text-slate-900 dark:text-white">{Math.min(currentPage * itemsPerPage, bills.length)}</span> of <span className="font-medium text-slate-900 dark:text-white">{bills.length}</span>
+                </span>
+                
+                <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-4">
+                  <span>Rows:</span>
+                  <select 
+                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-primary-500"
+                    value={itemsPerPage}
+                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+             </div>
+
+             <div className="flex gap-1.5">
+               <button 
+                 onClick={() => setCurrentPage(1)}
+                 disabled={currentPage === 1}
+                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+               >
+                 <ChevronsLeft size={16} />
+               </button>
+               <button 
+                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                 disabled={currentPage === 1}
+                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+               >
+                 <ChevronLeft size={16} />
+               </button>
+               
+               <span className="flex items-center px-4 font-medium text-sm text-slate-600 dark:text-slate-300">
+                 Page {currentPage} of {totalPages}
+               </span>
+
+               <button 
+                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                 disabled={currentPage === totalPages}
+                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+               >
+                 <ChevronRight size={16} />
+               </button>
+               <button 
+                 onClick={() => setCurrentPage(totalPages)}
+                 disabled={currentPage === totalPages}
+                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+               >
+                 <ChevronsRight size={16} />
+               </button>
+             </div>
+           </div>
+        )}
       </Card>
 
       {/* CREATE INVOICE MODAL */}

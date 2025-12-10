@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
+import { Card, Button, Modal, Badge } from '../components/UI';
 import { 
   Search, Calendar, Filter, Database, FileText, User, Users, 
-  DollarSign, Bed, Activity, Download, Eye, ArrowRight, ChevronDown
+  DollarSign, Bed, Activity, Download, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -28,7 +28,6 @@ export const Records = () => {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
-  const [filterStatus, setFilterStatus] = useState('All');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   // Modal
@@ -37,7 +36,7 @@ export const Records = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -47,7 +46,7 @@ export const Records = () => {
           api.getPatients(),
           api.getAppointments(),
           api.getBills(),
-          api.getActiveAdmissions() // Note: fetching active only for now, ideally backend has full history
+          api.getActiveAdmissions()
         ]);
 
         const allRecords: SystemRecord[] = [];
@@ -59,7 +58,7 @@ export const Records = () => {
             originalId: p.id,
             type: 'Patient',
             reference: p.patientId,
-            date: p.createdAt || new Date().toISOString(), // Fallback
+            date: p.createdAt || new Date().toISOString(),
             primaryEntity: p.fullName,
             status: p.type,
             details: p
@@ -126,23 +125,20 @@ export const Records = () => {
   // --- Filtering Logic ---
   const filteredRecords = useMemo(() => {
     return records.filter(r => {
-      // 1. Search (ID, Reference, Primary Entity)
       const matchesSearch = 
         r.reference.toLowerCase().includes(searchTerm.toLowerCase()) || 
         r.primaryEntity.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (r.associateEntity && r.associateEntity.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      // 2. Type Filter
       const matchesType = filterType === 'All' || r.type === filterType;
 
-      // 3. Date Range
       let matchesDate = true;
       if (dateRange.start) {
         matchesDate = matchesDate && new Date(r.date) >= new Date(dateRange.start);
       }
       if (dateRange.end) {
         const endDate = new Date(dateRange.end);
-        endDate.setHours(23, 59, 59, 999); // End of day
+        endDate.setHours(23, 59, 59, 999);
         matchesDate = matchesDate && new Date(r.date) <= endDate;
       }
 
@@ -150,9 +146,28 @@ export const Records = () => {
     });
   }, [records, searchTerm, filterType, dateRange]);
 
-  // --- Pagination ---
-  const paginatedRecords = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // --- Pagination Logic ---
   const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+  const paginatedRecords = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Generate page numbers with ellipsis
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
 
   const handleViewDetails = (record: SystemRecord) => {
     setSelectedRecord(record);
@@ -250,21 +265,21 @@ export const Records = () => {
                type="date" 
                className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 dark:text-slate-300"
                value={dateRange.start}
-               onChange={e => setDateRange({ ...dateRange, start: e.target.value })}
+               onChange={e => { setDateRange({ ...dateRange, start: e.target.value }); setCurrentPage(1); }}
                placeholder="Start Date"
              />
              <input 
                type="date" 
                className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 dark:text-slate-300"
                value={dateRange.end}
-               onChange={e => setDateRange({ ...dateRange, end: e.target.value })}
+               onChange={e => { setDateRange({ ...dateRange, end: e.target.value }); setCurrentPage(1); }}
                placeholder="End Date"
              />
           </div>
         </div>
 
         {/* Data Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[400px]">
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
             <thead className="bg-white dark:bg-slate-900">
               <tr>
@@ -278,14 +293,14 @@ export const Records = () => {
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
               {loading ? (
-                <tr><td colSpan={6} className="text-center py-10 text-slate-500">Loading master records...</td></tr>
+                <tr><td colSpan={6} className="text-center py-20 text-slate-500">Loading master records...</td></tr>
               ) : paginatedRecords.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-10 text-slate-500">No records found matching filters.</td></tr>
+                <tr><td colSpan={6} className="text-center py-20 text-slate-500">No records found matching filters.</td></tr>
               ) : (
                 paginatedRecords.map((r) => {
                   const Icon = getTypeIcon(r.type);
                   return (
-                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className={`p-2 rounded-lg mr-3 ${getTypeColor(r.type)}`}>
@@ -328,29 +343,76 @@ export const Records = () => {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Enhanced Pagination Footer */}
         {!loading && filteredRecords.length > 0 && (
-           <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-b-xl">
-             <span className="text-sm text-slate-500 dark:text-slate-400">
-                Page {currentPage} of {totalPages} ({filteredRecords.length} records)
-             </span>
-             <div className="flex gap-2">
-               <Button 
-                 size="sm" 
-                 variant="secondary" 
+           <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-b-xl gap-4">
+             <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+                <span>
+                  Showing <span className="font-medium text-slate-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="font-medium text-slate-900 dark:text-white">{Math.min(currentPage * itemsPerPage, filteredRecords.length)}</span> of <span className="font-medium text-slate-900 dark:text-white">{filteredRecords.length}</span>
+                </span>
+                
+                <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-4">
+                  <span>Rows:</span>
+                  <select 
+                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-primary-500"
+                    value={itemsPerPage}
+                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+             </div>
+
+             <div className="flex gap-1.5">
+               <button 
+                 onClick={() => setCurrentPage(1)}
                  disabled={currentPage === 1}
+                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+               >
+                 <ChevronsLeft size={16} />
+               </button>
+               <button 
                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                 disabled={currentPage === 1}
+                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                >
-                 Previous
-               </Button>
-               <Button 
-                 size="sm" 
-                 variant="secondary" 
-                 disabled={currentPage === totalPages}
+                 <ChevronLeft size={16} />
+               </button>
+               
+               {getPageNumbers().map((p, i) => (
+                 <button
+                   key={i}
+                   onClick={() => typeof p === 'number' && setCurrentPage(p)}
+                   disabled={typeof p !== 'number'}
+                   className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-all ${
+                     p === currentPage 
+                       ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30' 
+                       : typeof p === 'number' 
+                         ? 'border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300' 
+                         : 'text-slate-400 cursor-default'
+                   }`}
+                 >
+                   {p}
+                 </button>
+               ))}
+
+               <button 
                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                 disabled={currentPage === totalPages}
+                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                >
-                 Next
-               </Button>
+                 <ChevronRight size={16} />
+               </button>
+               <button 
+                 onClick={() => setCurrentPage(totalPages)}
+                 disabled={currentPage === totalPages}
+                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+               >
+                 <ChevronsRight size={16} />
+               </button>
              </div>
            </div>
         )}
