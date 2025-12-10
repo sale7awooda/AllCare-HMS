@@ -12,7 +12,6 @@ import {
   LayoutDashboard,
   CreditCard,
   Microscope,
-  Stethoscope,
   Check
 } from 'lucide-react';
 
@@ -73,22 +72,22 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <button
         type="button"
         onClick={() => handleProfileSelect(role)}
-        className={`group relative flex flex-col items-center gap-2 transition-all duration-300 ${isActive ? 'scale-110' : 'opacity-70 hover:opacity-100 hover:scale-105'}`}
+        className={`group relative flex flex-col items-center gap-2 transition-all duration-300 ${isActive ? 'scale-110' : 'opacity-80 hover:opacity-100 hover:scale-105'}`}
       >
         <div className={`
-          w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-300
+          w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-all duration-300 border
           ${isActive 
-            ? `bg-gradient-to-br ${color} text-white ring-4 ring-white/20 dark:ring-black/20` 
-            : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}
+            ? `bg-gradient-to-br ${color} text-white border-transparent ring-4 ring-primary-100` 
+            : 'bg-white border-slate-100 text-slate-400 hover:border-primary-200 hover:text-primary-500'}
         `}>
           <Icon size={20} className={isActive ? 'animate-pulse' : ''} />
           {isActive && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-white text-emerald-600 rounded-full flex items-center justify-center shadow-sm">
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-white text-emerald-600 rounded-full flex items-center justify-center shadow-sm border border-slate-100">
               <Check size={10} strokeWidth={4} />
             </div>
           )}
         </div>
-        <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-white' : 'text-slate-300'}`}>
+        <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-primary-700' : 'text-slate-400 group-hover:text-primary-600'}`}>
           {label}
         </span>
       </button>
@@ -96,30 +95,29 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-slate-900">
+    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-slate-50">
       
-      {/* Background Layer */}
+      {/* Background Layer - Bright & Clinical */}
       <div className="absolute inset-0 z-0">
-        <img 
-          src="https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&q=80&w=2800"
-          alt="Medical Background"
-          className="w-full h-full object-cover opacity-40 mix-blend-overlay"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-slate-800/80" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-cyan-100" />
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light" />
+        
+        {/* Abstract Soft Blobs */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 blur-3xl animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-400/10 blur-3xl animate-pulse delay-700" />
       </div>
 
       {/* Main Content Card */}
       <div className="relative z-10 w-full max-w-md px-4">
-        <div className="bg-white/10 dark:bg-slate-900/40 backdrop-blur-xl border border-white/10 dark:border-slate-700/30 rounded-3xl shadow-2xl overflow-hidden ring-1 ring-black/5">
+        <div className="bg-white/80 backdrop-blur-2xl border border-white/60 rounded-3xl shadow-2xl overflow-hidden ring-1 ring-slate-900/5">
           
           {/* Header */}
-          <div className="px-8 pt-8 pb-6 text-center border-b border-white/5">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/30 mb-4">
-              <Activity className="text-white" size={28} />
+          <div className="px-8 pt-8 pb-6 text-center border-b border-slate-100">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/20 mb-4 text-white">
+              <Activity size={28} />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">{hospitalName}</h1>
-            <p className="text-slate-400 text-sm mt-1">Secure Staff Portal</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{hospitalName}</h1>
+            <p className="text-slate-500 text-sm mt-1">Secure Staff Portal</p>
           </div>
 
           {/* Form Section */}
@@ -128,7 +126,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               
               {/* Error Message */}
               {error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-3 text-red-200 text-sm animate-in fade-in slide-in-from-top-2">
+                <div className="p-3 rounded-lg bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm animate-in fade-in slide-in-from-top-2">
                   <AlertCircle size={16} className="shrink-0" />
                   {error}
                 </div>
@@ -136,32 +134,32 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
               <div className="space-y-4">
                 <div className="group">
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 ml-1">Employee ID</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Employee ID</label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-400 transition-colors">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
                       <UserIcon size={18} />
                     </div>
                     <input
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="block w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 focus:bg-slate-800 transition-all"
+                      className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white transition-all shadow-sm"
                       placeholder="Enter ID"
                     />
                   </div>
                 </div>
 
                 <div className="group">
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 ml-1">Password</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-400 transition-colors">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
                       <Lock size={18} />
                     </div>
                     <input
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 focus:bg-slate-800 transition-all"
+                      className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white transition-all shadow-sm"
                       placeholder="••••••••"
                     />
                   </div>
@@ -174,17 +172,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-primary-500 focus:ring-offset-slate-900 focus:ring-primary-500"
+                    className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                   />
-                  <span className="text-sm text-slate-400">Keep me logged in</span>
+                  <span className="text-sm text-slate-500 font-medium">Keep me logged in</span>
                 </label>
-                <a href="#" className="text-sm text-primary-400 hover:text-primary-300 transition-colors">Help?</a>
+                <a href="#" className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors">Help?</a>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 px-4 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-bold rounded-xl shadow-lg shadow-primary-900/20 transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white font-bold rounded-xl shadow-lg shadow-primary-500/25 transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -202,8 +200,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
 
           {/* Quick Login Footer */}
-          <div className="bg-slate-900/60 p-6 border-t border-white/5">
-            <p className="text-center text-xs text-slate-500 mb-4 font-medium uppercase tracking-widest">Select User Profile (Demo)</p>
+          <div className="bg-slate-50/80 p-6 border-t border-slate-100">
+            <p className="text-center text-xs text-slate-400 mb-4 font-bold uppercase tracking-widest">Select User Profile (Demo)</p>
             <div className="flex justify-between items-center px-2">
               <QuickProfile role="admin" label="Admin" icon={ShieldCheck} color="from-rose-500 to-red-600" />
               <QuickProfile role="manager" label="Manager" icon={LayoutDashboard} color="from-orange-500 to-amber-500" />
@@ -214,7 +212,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
         </div>
         
-        <p className="text-center text-slate-500 text-xs mt-6">
+        <p className="text-center text-slate-400 text-xs mt-6 font-medium">
           System v1.2.0 • Secured by 256-bit Encryption
         </p>
       </div>
