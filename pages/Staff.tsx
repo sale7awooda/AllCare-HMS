@@ -1,298 +1,520 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
-import { Plus, Search, Filter, Mail, Phone, Briefcase, Lock } from 'lucide-react';
+import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
+import { 
+  Plus, Search, Filter, Mail, Phone, Briefcase, Lock, 
+  LayoutGrid, List as ListIcon, User, Stethoscope, 
+  CheckCircle, XCircle, Clock, Shield, Calendar, DollarSign, Wallet, FileText,
+  AlertTriangle, TrendingUp, TrendingDown, Menu
+} from 'lucide-react';
 import { api } from '../services/api';
-import { MedicalStaff, User } from '../types';
-import { hasPermission, Permissions } from '../utils/rbac'; // Import Permissions
+import { MedicalStaff, User as UserType, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment } from '../types';
+import { hasPermission, Permissions } from '../utils/rbac';
 
-export const Staff = () => { // This component is now HR Management
+export const Staff = () => {
+  const [activeTab, setActiveTab] = useState<'directory' | 'attendance' | 'leaves' | 'payroll' | 'financials'>('directory');
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Tab specific data
+  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [payroll, setPayroll] = useState<PayrollRecord[]>([]);
+  const [financials, setFinancials] = useState<FinancialAdjustment[]>([]);
+  
+  // UI States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false); // Staff Add/Edit
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false); // Fine/Bonus/Loan
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false); // Request Leave
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // For attendance
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // For payroll YYYY-MM
 
-  // Form State
-  const [formData, setFormData] = useState<Partial<MedicalStaff>>({
-    fullName: '',
-    type: 'doctor', // Default type
-    department: '',
-    specialization: '',
-    consultationFee: 0,
-    consultationFeeFollowup: 0,
-    consultationFeeEmergency: 0,
-    email: '',
-    phone: '',
-    isAvailable: true
-  });
+  // Forms
+  const [staffForm, setStaffForm] = useState<Partial<MedicalStaff>>({});
+  const [adjForm, setAdjForm] = useState({ staffId: '', type: 'bonus', amount: '', reason: '', date: new Date().toISOString().split('T')[0] });
+  const [leaveForm, setLeaveForm] = useState({ staffId: '', type: 'sick', startDate: '', endDate: '', reason: '' });
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [data, user] = await Promise.all([
-        api.getStaff(), // This now maps to /api/hr
+        api.getStaff(),
         api.me()
       ]);
       setStaff(Array.isArray(data) ? data : []);
       setCurrentUser(user);
     } catch (e) {
-      console.error("Failed to load staff/HR data:", e);
-      setStaff([]); // Ensure staff is an array on error
+      console.error("Failed to load staff data:", e);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => { loadData(); }, []);
+
+  // Effect to load tab data when tab changes
   useEffect(() => {
-    loadData();
-  }, []);
+    const fetchTabData = async () => {
+        if (activeTab === 'attendance') {
+            const data = await api.getAttendance(selectedDate);
+            setAttendance(Array.isArray(data) ? data : []);
+        } else if (activeTab === 'leaves') {
+            const data = await api.getLeaves();
+            setLeaves(Array.isArray(data) ? data : []);
+        } else if (activeTab === 'payroll') {
+            const data = await api.getPayroll(selectedMonth);
+            setPayroll(Array.isArray(data) ? data : []);
+        } else if (activeTab === 'financials') {
+            const data = await api.getFinancials('all');
+            setFinancials(Array.isArray(data) ? data : []);
+        }
+    };
+    fetchTabData();
+  }, [activeTab, selectedDate, selectedMonth]);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const canManageHR = hasPermission(currentUser, Permissions.MANAGE_HR);
+
+  // --- ACTIONS ---
+
+  const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.fullName && formData.type) {
-      try {
-        await api.addStaff(formData as any); // This now maps to /api/hr
-        setIsModalOpen(false);
-        loadData();
-        setFormData({ 
-          fullName: '', type: 'doctor', department: '', 
-          specialization: '', consultationFee: 0, consultationFeeFollowup: 0, consultationFeeEmergency: 0, email: '', phone: '', isAvailable: true 
-        });
-      } catch (err: any) {
-        console.error("Failed to add staff:", err);
-        alert(err.response?.data?.error || "Failed to add staff member.");
-      }
-    }
-  };
-
-  const toggleAvailability = async (id: number, currentStatus: boolean) => {
-    if (!canManageHR) return; // Use new permission
+    if (!staffForm.fullName) return;
     try {
-      await api.updateStaff(id, { isAvailable: !currentStatus }); // This now maps to /api/hr
+      if (staffForm.id) await api.updateStaff(staffForm.id, staffForm as any);
+      else await api.addStaff(staffForm as any);
+      setIsModalOpen(false);
       loadData();
-    } catch (err: any) {
-      console.error("Failed to update staff availability:", err);
-      alert(err.response?.data?.error || "Failed to update availability.");
-    }
+      setStaffForm({});
+    } catch (err: any) { alert(err.response?.data?.error); }
   };
 
-  const filteredStaff = staff.filter(s => {
-    const matchesSearch = s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (s.employeeId && s.employeeId.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesFilter = filterType === 'all' || s.type === filterType;
-    return matchesSearch && matchesFilter;
-  });
+  const openStaffModal = (s?: MedicalStaff) => {
+      setStaffForm(s || { fullName: '', type: 'doctor', isAvailable: true, baseSalary: 0 });
+      setIsModalOpen(true);
+  };
 
-  const canManageHR = hasPermission(currentUser, Permissions.MANAGE_HR); // New permission check
+  const handleMarkAttendance = async (staffId: number, status: string) => {
+      const now = new Date();
+      const timeString = now.toTimeString().slice(0, 5);
+      await api.markAttendance({
+          staffId, 
+          date: selectedDate, 
+          status,
+          checkIn: status === 'present' || status === 'late' ? timeString : null
+      });
+      // Refresh
+      const data = await api.getAttendance(selectedDate);
+      setAttendance(data);
+  };
+
+  const handleLeaveRequest = async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+          await api.requestLeave(leaveForm);
+          setIsLeaveModalOpen(false);
+          const data = await api.getLeaves();
+          setLeaves(data);
+      } catch (e) { alert('Failed'); }
+  };
+
+  const updateLeaveStatus = async (id: number, status: string) => {
+      await api.updateLeaveStatus(id, status);
+      const data = await api.getLeaves();
+      setLeaves(data);
+  };
+
+  const handleGeneratePayroll = async () => {
+      if(!confirm(`Generate payroll for ${selectedMonth}? This will overwrite existing drafts.`)) return;
+      try {
+          await api.generatePayroll({ month: selectedMonth });
+          const data = await api.getPayroll(selectedMonth);
+          setPayroll(data);
+      } catch (e) { alert('Failed'); }
+  };
+
+  const handleAdjustmentSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+          await api.addAdjustment({ ...adjForm, amount: parseFloat(adjForm.amount) });
+          setIsAdjustmentModalOpen(false);
+          const data = await api.getFinancials('all');
+          setFinancials(data);
+      } catch (e) { alert('Failed'); }
+  };
+
+  // --- RENDER HELPERS ---
+
+  const getRoleColor = (role: string) => {
+    switch(role) {
+      case 'doctor': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+      case 'nurse': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
+      case 'technician': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300';
+      default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">HR Management (Medical Staff)</h1> {/* Updated title */}
-        {canManageHR ? (
-          <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Add Staff Member</Button>
-        ) : (
-          <Button 
-            disabled 
-            className="opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200" 
-            variant="secondary"
-            icon={Lock}
-          >
-            Add Staff Member
-          </Button>
-        )}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Human Resources</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Staff directory, payroll, attendance, and leave management.</p>
+        </div>
       </div>
 
-      <Card className="!p-0 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input 
-              type="text" 
-              placeholder="Search staff by name or ID..." 
-              className="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 text-slate-900 bg-white"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
+      {/* Tabs */}
+      <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-x-auto">
+          {[
+              { id: 'directory', label: 'Directory', icon: Briefcase },
+              { id: 'attendance', label: 'Attendance', icon: Clock },
+              { id: 'leaves', label: 'Leaves', icon: Calendar },
+              { id: 'payroll', label: 'Payroll', icon: DollarSign },
+              { id: 'financials', label: 'Loans & Fines', icon: Wallet },
+          ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+              >
+                  <tab.icon size={16} /> {tab.label}
+              </button>
+          ))}
+      </div>
+
+      {/* --- DIRECTORY TAB --- */}
+      {activeTab === 'directory' && (
+          <div className="animate-in fade-in">
+              <div className="flex justify-between mb-4">
+                  <div className="relative w-72">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input 
+                        type="text" 
+                        placeholder="Search staff..." 
+                        className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                      />
+                  </div>
+                  {canManageHR && <Button onClick={() => openStaffModal()} icon={Plus}>Add Employee</Button>}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {staff.filter(s => s.fullName.toLowerCase().includes(searchTerm.toLowerCase())).map(person => (
+                      <div key={person.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:shadow-md transition-all">
+                          <div className="flex justify-between items-start mb-4">
+                              <div className={`h-12 w-12 rounded-full flex items-center justify-center text-lg font-bold shadow-sm ${getRoleColor(person.type)}`}>
+                                  {person.fullName.charAt(0)}
+                              </div>
+                              <Badge color={person.isAvailable ? 'green' : 'gray'}>{person.isAvailable ? 'Active' : 'Off Duty'}</Badge>
+                          </div>
+                          
+                          <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">{person.fullName}</h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{person.specialization}</p>
+                          <div className="text-xs font-mono bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300 w-fit mb-3">{person.employeeId}</div>
+
+                          <div className="space-y-2 text-sm border-t border-slate-100 dark:border-slate-700 pt-3">
+                              <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                                  <span>Department</span>
+                                  <span className="font-medium text-slate-800 dark:text-slate-200">{person.department}</span>
+                              </div>
+                              {canManageHR && (
+                                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                                      <span>Salary</span>
+                                      <span className="font-medium text-emerald-600">${person.baseSalary?.toLocaleString()}</span>
+                                  </div>
+                              )}
+                              <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                                  <span>Phone</span>
+                                  <span>{person.phone}</span>
+                              </div>
+                          </div>
+                          
+                          {canManageHR && (
+                              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-end">
+                                  <Button size="sm" variant="outline" onClick={() => openStaffModal(person)}>Edit Profile</Button>
+                              </div>
+                          )}
+                      </div>
+                  ))}
+              </div>
           </div>
-          <div className="w-full sm:w-48">
-            <Select value={filterType} onChange={e => setFilterType(e.target.value)}>
-              <option value="all">All Roles</option>
+      )}
+
+      {/* --- ATTENDANCE TAB --- */}
+      {activeTab === 'attendance' && (
+          <Card className="!p-0 animate-in fade-in">
+              <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+                  <div className="flex items-center gap-4">
+                      <h3 className="font-bold text-slate-700 dark:text-white">Daily Attendance</h3>
+                      <input 
+                        type="date" 
+                        className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm"
+                        value={selectedDate}
+                        onChange={e => setSelectedDate(e.target.value)}
+                      />
+                  </div>
+                  <div className="flex gap-4 text-sm">
+                      <span className="flex items-center gap-1 text-green-600 font-bold"><div className="w-2 h-2 rounded-full bg-green-500"></div> Present: {attendance.filter(a => a.status === 'present').length}</span>
+                      <span className="flex items-center gap-1 text-red-500 font-bold"><div className="w-2 h-2 rounded-full bg-red-500"></div> Absent: {attendance.filter(a => a.status === 'absent').length}</span>
+                  </div>
+              </div>
+              <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                      <thead className="bg-slate-50 dark:bg-slate-900">
+                          <tr>
+                              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Employee</th>
+                              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Role</th>
+                              <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase">Check In</th>
+                              <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase">Check Out</th>
+                              <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase">Status</th>
+                              {canManageHR && <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Action</th>}
+                          </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                          {staff.map(person => {
+                              const record = attendance.find(a => a.staffId === person.id);
+                              return (
+                                  <tr key={person.id}>
+                                      <td className="px-6 py-4 font-medium text-sm text-slate-900 dark:text-white">{person.fullName}</td>
+                                      <td className="px-6 py-4 text-sm text-slate-500 capitalize">{person.type}</td>
+                                      <td className="px-6 py-4 text-center text-sm font-mono text-slate-600 dark:text-slate-300">{record?.checkIn || '--:--'}</td>
+                                      <td className="px-6 py-4 text-center text-sm font-mono text-slate-600 dark:text-slate-300">{record?.checkOut || '--:--'}</td>
+                                      <td className="px-6 py-4 text-center">
+                                          {record ? (
+                                              <Badge color={record.status === 'present' ? 'green' : record.status === 'late' ? 'yellow' : 'red'}>
+                                                  {record.status}
+                                              </Badge>
+                                          ) : <span className="text-slate-400 text-xs">Not Marked</span>}
+                                      </td>
+                                      {canManageHR && (
+                                          <td className="px-6 py-4 text-right">
+                                              <div className="flex justify-end gap-2">
+                                                  <button onClick={() => handleMarkAttendance(person.id, 'present')} className="p-1.5 bg-green-50 text-green-600 rounded hover:bg-green-100" title="Present"><CheckCircle size={16}/></button>
+                                                  <button onClick={() => handleMarkAttendance(person.id, 'late')} className="p-1.5 bg-yellow-50 text-yellow-600 rounded hover:bg-yellow-100" title="Late"><Clock size={16}/></button>
+                                                  <button onClick={() => handleMarkAttendance(person.id, 'absent')} className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100" title="Absent"><XCircle size={16}/></button>
+                                              </div>
+                                          </td>
+                                      )}
+                                  </tr>
+                              );
+                          })}
+                      </tbody>
+                  </table>
+              </div>
+          </Card>
+      )}
+
+      {/* --- LEAVES TAB --- */}
+      {activeTab === 'leaves' && (
+          <div className="animate-in fade-in space-y-4">
+              <div className="flex justify-end">
+                  <Button onClick={() => setIsLeaveModalOpen(true)} icon={Plus}>Request Leave</Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {leaves.map(leave => (
+                      <Card key={leave.id} className="relative border-l-4 border-l-primary-500">
+                          <div className="flex justify-between items-start mb-2">
+                              <div>
+                                  <h4 className="font-bold text-slate-800 dark:text-white">{leave.staffName}</h4>
+                                  <span className="text-xs text-slate-500 capitalize">{leave.type} Leave</span>
+                              </div>
+                              <Badge color={leave.status === 'approved' ? 'green' : leave.status === 'rejected' ? 'red' : 'yellow'}>{leave.status}</Badge>
+                          </div>
+                          <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded text-xs font-mono text-slate-600 dark:text-slate-300 mb-2">
+                              {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}
+                          </div>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 italic">"{leave.reason}"</p>
+                          
+                          {leave.status === 'pending' && canManageHR && (
+                              <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                                  <Button size="sm" variant="primary" className="flex-1 bg-emerald-600" onClick={() => updateLeaveStatus(leave.id, 'approved')}>Approve</Button>
+                                  <Button size="sm" variant="danger" className="flex-1" onClick={() => updateLeaveStatus(leave.id, 'rejected')}>Reject</Button>
+                              </div>
+                          )}
+                      </Card>
+                  ))}
+              </div>
+          </div>
+      )}
+
+      {/* --- PAYROLL TAB --- */}
+      {activeTab === 'payroll' && canManageHR && (
+          <Card className="!p-0 animate-in fade-in">
+              <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+                  <div className="flex items-center gap-4">
+                      <h3 className="font-bold text-slate-700 dark:text-white">Monthly Payroll</h3>
+                      <input 
+                        type="month" 
+                        className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm"
+                        value={selectedMonth}
+                        onChange={e => setSelectedMonth(e.target.value)}
+                      />
+                  </div>
+                  <Button onClick={handleGeneratePayroll} icon={DollarSign}>Run Payroll</Button>
+              </div>
+              <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                      <thead className="bg-slate-50 dark:bg-slate-900">
+                          <tr>
+                              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Employee</th>
+                              <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Base Salary</th>
+                              <th className="px-6 py-3 text-right text-xs font-bold text-green-600 uppercase">Bonuses</th>
+                              <th className="px-6 py-3 text-right text-xs font-bold text-red-500 uppercase">Deductions</th>
+                              <th className="px-6 py-3 text-right text-xs font-bold text-slate-900 dark:text-white uppercase">Net Pay</th>
+                              <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase">Status</th>
+                          </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                          {payroll.length === 0 ? (
+                              <tr><td colSpan={6} className="text-center py-8 text-slate-500">No payroll generated for this month.</td></tr>
+                          ) : payroll.map(p => (
+                              <tr key={p.id}>
+                                  <td className="px-6 py-4 font-medium text-sm text-slate-900 dark:text-white">{p.staffName}</td>
+                                  <td className="px-6 py-4 text-right text-sm font-mono text-slate-600 dark:text-slate-300">${p.baseSalary.toLocaleString()}</td>
+                                  <td className="px-6 py-4 text-right text-sm font-mono text-green-600">+${p.totalBonuses.toLocaleString()}</td>
+                                  <td className="px-6 py-4 text-right text-sm font-mono text-red-500">-${p.totalFines.toLocaleString()}</td>
+                                  <td className="px-6 py-4 text-right text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900/50">${p.netSalary.toLocaleString()}</td>
+                                  <td className="px-6 py-4 text-center">
+                                      <Badge color={p.status === 'paid' ? 'green' : 'gray'}>{p.status}</Badge>
+                                  </td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              </div>
+          </Card>
+      )}
+
+      {/* --- FINANCIALS TAB --- */}
+      {activeTab === 'financials' && canManageHR && (
+          <div className="animate-in fade-in space-y-4">
+              <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div>
+                      <h3 className="font-bold text-slate-800 dark:text-white">Adjustments & Loans</h3>
+                      <p className="text-sm text-slate-500">Manage one-time bonuses, fines, or staff loans.</p>
+                  </div>
+                  <div className="flex gap-2">
+                      <Button variant="outline" className="text-green-600 border-green-200" onClick={() => { setAdjForm(prev => ({...prev, type: 'bonus'})); setIsAdjustmentModalOpen(true); }} icon={TrendingUp}>Add Bonus</Button>
+                      <Button variant="outline" className="text-red-600 border-red-200" onClick={() => { setAdjForm(prev => ({...prev, type: 'fine'})); setIsAdjustmentModalOpen(true); }} icon={TrendingDown}>Add Fine</Button>
+                      <Button variant="outline" className="text-blue-600 border-blue-200" onClick={() => { setAdjForm(prev => ({...prev, type: 'loan'})); setIsAdjustmentModalOpen(true); }} icon={Wallet}>Issue Loan</Button>
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                  {financials.length === 0 && <p className="text-center py-8 text-slate-500">No records found.</p>}
+                  {financials.map(item => (
+                      <div key={item.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                              <div className={`p-3 rounded-full ${item.type === 'bonus' ? 'bg-green-100 text-green-600' : item.type === 'fine' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                                  {item.type === 'bonus' ? <TrendingUp size={20}/> : item.type === 'fine' ? <AlertTriangle size={20}/> : <Wallet size={20}/>}
+                              </div>
+                              <div>
+                                  <h4 className="font-bold text-slate-800 dark:text-white">{item.staffName}</h4>
+                                  <p className="text-sm text-slate-500 capitalize">{item.type} • {item.reason}</p>
+                              </div>
+                          </div>
+                          <div className="text-right">
+                              <p className={`text-lg font-bold font-mono ${item.type === 'bonus' ? 'text-green-600' : item.type === 'fine' ? 'text-red-600' : 'text-blue-600'}`}>
+                                  {item.type === 'bonus' ? '+' : '-'}${item.amount.toLocaleString()}
+                              </p>
+                              <p className="text-xs text-slate-400">{new Date(item.date).toLocaleDateString()}</p>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+      )}
+
+      {/* --- MODALS --- */}
+
+      {/* 1. Staff Add/Edit Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Staff Details">
+        <form onSubmit={handleCreateStaff} className="space-y-4">
+          <Input label="Full Name" required value={staffForm.fullName || ''} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} />
+          
+          <div className="grid grid-cols-2 gap-4">
+             <Select label="Role" value={staffForm.type} onChange={e => setStaffForm({...staffForm, type: e.target.value as any})}>
               <option value="doctor">Doctor</option>
               <option value="nurse">Nurse</option>
               <option value="technician">Technician</option>
-              <option value="anesthesiologist">Anesthesiologist</option> 
-              <option value="medical_assistant">Medical Assistant</option>
+              <option value="admin_staff">Admin Staff</option>
+              <option value="pharmacist">Pharmacist</option>
+              <option value="hr_manager">HR Manager</option>
             </Select>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Employee</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Role/Dept</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Contact</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Base Fee</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Availability</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr><td colSpan={6} className="text-center py-8">Loading...</td></tr>
-              ) : filteredStaff.length === 0 ? (
-                 <tr><td colSpan={6} className="text-center py-8 text-gray-500">No staff members found.</td></tr>
-              ) : (
-                filteredStaff.map((person) => (
-                  <tr key={person.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex items-start">
-                        <div className="flex-shrink-0 h-9 w-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold mt-1 shadow-sm">
-                          {person.fullName.charAt(0)}
-                        </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-bold text-gray-900 break-words leading-tight">{person.fullName}</div>
-                          <div className="text-xs text-gray-500 whitespace-nowrap font-mono">{person.employeeId}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="text-sm text-gray-900 capitalize font-medium">{person.type}</div>
-                      <div className="text-xs text-gray-500 flex items-center gap-1 mt-1 break-words">
-                        <Briefcase size={12} className="shrink-0 text-gray-400"/> {person.department}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex flex-col gap-1">
-                        {person.email && (
-                          <div className="flex items-center text-xs text-gray-500 break-words">
-                            <Mail size={12} className="mr-1.5 shrink-0 text-gray-400"/> 
-                            <span className="truncate max-w-[150px]">{person.email}</span>
-                          </div>
-                        )}
-                        {person.phone && (
-                          <div className="flex items-center text-xs text-gray-500 whitespace-nowrap">
-                            <Phone size={12} className="mr-1.5 shrink-0 text-gray-400"/> {person.phone}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 align-top whitespace-nowrap font-medium">
-                      ${person.consultationFee}
-                    </td>
-                    <td className="px-4 py-3 align-top whitespace-nowrap">
-                      <button 
-                        onClick={() => toggleAvailability(person.id, person.isAvailable)}
-                        disabled={!canManageHR}
-                        className={`group relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${person.isAvailable ? 'bg-emerald-500' : 'bg-gray-300'} ${!canManageHR ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${person.isAvailable ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-right text-sm font-medium align-top whitespace-nowrap">
-                      {canManageHR && ( 
-                        <button className="text-primary-600 hover:text-primary-900 transition-colors">Edit</button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Staff Member">
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Input 
-            label="Full Name" 
-            placeholder="Dr. John Smith" 
-            required 
-            value={formData.fullName} 
-            onChange={e => setFormData({...formData, fullName: e.target.value})} 
-          />
-          
-          <div className="grid grid-cols-2 gap-4">
-             <Select 
-              label="Role" 
-              value={formData.type} 
-              onChange={e => setFormData({...formData, type: e.target.value as any})}
-            >
-              <option value="doctor">Doctor</option>
-              <option value="nurse">Nurse</option>
-              <option value="technician">Technician</option>
-              <option value="anesthesiologist">Anesthesiologist</option> 
-              <option value="medical_assistant">Medical Assistant</option>
-            </Select>
-            <Input 
-              label="Department" 
-              placeholder="Cardiology" 
-              required 
-              value={formData.department} 
-              onChange={e => setFormData({...formData, department: e.target.value})} 
-            />
+            <Input label="Department" required value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Specialization" 
-              placeholder="Surgeon" 
-              value={formData.specialization} 
-              onChange={e => setFormData({...formData, specialization: e.target.value})} 
-            />
-            {/* Base Fee */}
-            <Input 
-              label="Standard Fee ($)" 
-              type="number" 
-              value={formData.consultationFee} 
-              onChange={e => setFormData({...formData, consultationFee: parseFloat(e.target.value || '0')})} 
-            />
+            <Input label="Specialization" value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})} />
+            <Input label="Email" type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} />
           </div>
-          
-          {/* Conditional Fields for Doctors */}
-          {formData.type === 'doctor' && (
-            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-               <Input 
-                 label="Follow-up Fee ($)" 
-                 type="number" 
-                 value={formData.consultationFeeFollowup} 
-                 onChange={e => setFormData({...formData, consultationFeeFollowup: parseFloat(e.target.value || '0')})} 
-               />
-               <Input 
-                 label="Emergency Fee ($)" 
-                 type="number" 
-                 value={formData.consultationFeeEmergency} 
-                 onChange={e => setFormData({...formData, consultationFeeEmergency: parseFloat(e.target.value || '0')})} 
-               />
-            </div>
+
+          {canManageHR && (
+              <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-3">
+                  <h4 className="font-bold text-sm text-slate-700 dark:text-slate-300">Financial Details</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                      <Input label="Base Salary ($)" type="number" value={staffForm.baseSalary} onChange={e => setStaffForm({...staffForm, baseSalary: parseFloat(e.target.value)})} />
+                      <Input label="Consultation Fee ($)" type="number" value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: parseFloat(e.target.value)})} />
+                  </div>
+                  <Input label="Bank Details" placeholder="Bank Name - Account Number" value={staffForm.bankDetails || ''} onChange={e => setStaffForm({...staffForm, bankDetails: e.target.value})} />
+              </div>
           )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Email" 
-              type="email"
-              placeholder="email@allcare.com" 
-              value={formData.email} 
-              onChange={e => setFormData({...formData, email: e.target.value})} 
-            />
-            <Input 
-              label="Phone" 
-              placeholder="555-0000" 
-              value={formData.phone} 
-              onChange={e => setFormData({...formData, phone: e.target.value})} 
-            />
-          </div>
           
-          <div className="pt-4 flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="submit">Add Member</Button>
+            <Button type="submit">Save Staff</Button>
           </div>
         </form>
       </Modal>
+
+      {/* 2. Adjustment Modal (Fine/Bonus/Loan) */}
+      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={`Add ${adjForm.type.charAt(0).toUpperCase() + adjForm.type.slice(1)}`}>
+          <form onSubmit={handleAdjustmentSubmit} className="space-y-4">
+              <Select label="Employee" required value={adjForm.staffId} onChange={e => setAdjForm({...adjForm, staffId: e.target.value})}>
+                  <option value="">Select Employee...</option>
+                  {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+              </Select>
+              <div className="grid grid-cols-2 gap-4">
+                  <Input label="Amount ($)" type="number" required value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} />
+                  <Input label="Date" type="date" required value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
+              </div>
+              <Textarea label="Reason / Notes" required value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
+              <div className="flex justify-end gap-3 pt-2">
+                  <Button type="button" variant="secondary" onClick={() => setIsAdjustmentModalOpen(false)}>Cancel</Button>
+                  <Button type="submit" variant={adjForm.type === 'bonus' ? 'primary' : adjForm.type === 'loan' ? 'outline' : 'danger'}>
+                      Confirm {adjForm.type.charAt(0).toUpperCase() + adjForm.type.slice(1)}
+                  </Button>
+              </div>
+          </form>
+      </Modal>
+
+      {/* 3. Leave Request Modal */}
+      <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title="Request Leave">
+          <form onSubmit={handleLeaveRequest} className="space-y-4">
+              <Select label="Employee" required value={leaveForm.staffId} onChange={e => setLeaveForm({...leaveForm, staffId: e.target.value})}>
+                  <option value="">Select Employee...</option>
+                  {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+              </Select>
+              <Select label="Leave Type" value={leaveForm.type} onChange={e => setLeaveForm({...leaveForm, type: e.target.value})}>
+                  <option value="sick">Sick Leave</option>
+                  <option value="vacation">Vacation</option>
+                  <option value="casual">Casual Leave</option>
+                  <option value="unpaid">Unpaid Leave</option>
+              </Select>
+              <div className="grid grid-cols-2 gap-4">
+                  <Input label="Start Date" type="date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} />
+                  <Input label="End Date" type="date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} />
+              </div>
+              <Textarea label="Reason" required value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
+              <div className="flex justify-end gap-3 pt-2">
+                  <Button type="button" variant="secondary" onClick={() => setIsLeaveModalOpen(false)}>Cancel</Button>
+                  <Button type="submit">Submit Request</Button>
+              </div>
+          </form>
+      </Modal>
+
     </div>
   );
 };

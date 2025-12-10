@@ -69,6 +69,57 @@ export interface MedicalStaff {
   email?: string;
   phone?: string;
   schedule?: string; 
+  
+  // HR Specific
+  baseSalary?: number;
+  joinDate?: string;
+  bankDetails?: string;
+}
+
+// HR & Payroll Types
+export interface Attendance {
+  id: number;
+  staffId: number;
+  staffName: string;
+  date: string;
+  status: 'present' | 'absent' | 'late' | 'half_day';
+  checkIn?: string;
+  checkOut?: string;
+}
+
+export interface LeaveRequest {
+  id: number;
+  staffId: number;
+  staffName: string;
+  type: 'sick' | 'vacation' | 'casual' | 'unpaid';
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+export interface PayrollRecord {
+  id: number;
+  staffId: number;
+  staffName: string;
+  month: string; // YYYY-MM
+  baseSalary: number;
+  totalBonuses: number;
+  totalFines: number;
+  netSalary: number;
+  status: 'draft' | 'paid';
+  generatedAt: string;
+}
+
+export interface FinancialAdjustment {
+  id: number;
+  staffId: number;
+  staffName: string;
+  type: 'bonus' | 'fine' | 'loan';
+  amount: number;
+  reason: string;
+  date: string;
+  status?: 'active' | 'repaid' | 'deducted'; // For loans
 }
 
 export interface Appointment {

@@ -207,18 +207,160 @@ exports.completeOperation = (req, res) => {
     }
 };
 
-// --- Lab & Admission Helpers (Prevent Crashes) ---
+// --- Lab & Admission Helpers ---
+
+exports.getActiveAdmissions = (req, res) => {
+  try {
+    const admissions = db.prepare(`
+      SELECT 
+        a.id, a.patient_id, a.bed_id, a.doctor_id, a.entry_date, a.status, a.projected_cost,
+        p.full_name as patientName,
+        b.room_number as roomNumber,
+        m.full_name as doctorName
+      FROM admissions a
+      JOIN patients p ON a.patient_id = p.id
+      JOIN beds b ON a.bed_id = b.id
+      JOIN medical_staff m ON a.doctor_id = m.id
+      WHERE a.status IN ('active', 'reserved')
+    `).all();
+    
+    // Map status 'reserved' -> 'reserved' and 'active' -> 'occupied' for frontend bed logic if needed,
+    // but cleaner to keep database status and let frontend interpret.
+    res.json(admissions.map(a => ({
+        ...a,
+        bedId: a.bed_id,
+        // Calculate estimated stay days if needed
+        stayDuration: Math.ceil((Date.now() - new Date(a.entry_date).getTime()) / (1000 * 60 * 60 * 24))
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getInpatientDetails = (req, res) => {
+  const { id } = req.params;
+  try {
+    const admission = db.prepare(`
+        SELECT 
+            a.*, 
+            p.full_name as patientName, p.patient_id as patientCode, p.age, p.gender, p.blood_group as bloodGroup,
+            b.room_number as roomNumber, b.cost_per_day as costPerDay,
+            m.full_name as doctorName
+        FROM admissions a
+        JOIN patients p ON a.patient_id = p.id
+        JOIN beds b ON a.bed_id = b.id
+        JOIN medical_staff m ON a.doctor_id = m.id
+        WHERE a.id = ?
+    `).get(id);
+
+    if (!admission) return res.status(404).json({ error: 'Admission not found' });
+
+    // Fetch notes
+    const notes = db.prepare(`
+        SELECT n.*, m.full_name as doctorName
+        FROM inpatient_notes n
+        JOIN medical_staff m ON n.doctor_id = m.id
+        WHERE n.admission_id = ?
+        ORDER BY n.created_at DESC
+    `).all(id);
+
+    // Calculate billing stats
+    const daysStayed = Math.ceil((Date.now() - new Date(admission.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1;
+    const estimatedBill = daysStayed * admission.costPerDay;
+
+    res.json({
+        ...admission,
+        notes: notes.map(n => ({...n, vitals: JSON.parse(n.vitals || '{}')})),
+        daysStayed,
+        estimatedBill
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.createAdmission = (req, res) => {
+  const { patientId, bedId, doctorId, entryDate, deposit, notes } = req.body;
+  
+  const tx = db.transaction(() => {
+      // 1. Check if bed is available
+      const bed = db.prepare("SELECT status FROM beds WHERE id = ?").get(bedId);
+      if (bed.status !== 'available') throw new Error('Bed is no longer available');
+
+      // 2. Create Admission (Status: Reserved initially)
+      const info = db.prepare(`
+        INSERT INTO admissions (patient_id, bed_id, doctor_id, entry_date, status, projected_cost, notes)
+        VALUES (?, ?, ?, ?, 'reserved', ?, ?)
+      `).run(patientId, bedId, doctorId, entryDate, deposit, notes);
+
+      // 3. Mark Bed as Reserved
+      db.prepare("UPDATE beds SET status = 'reserved' WHERE id = ?").run(bedId);
+      
+      // 4. Create Deposit Bill (Pending)
+      // Logic for bill creation can be added here similar to ops/labs
+  });
+
+  try {
+    tx();
+    res.status(201).json({ success: true });
+  } catch(e) {
+    res.status(400).json({ error: e.message });
+  }
+};
 
 exports.confirmAdmission = (req, res) => {
     const { id } = req.params;
     try {
         // Activate admission
-        const info = db.prepare("UPDATE admissions SET status = 'active' WHERE id = ? RETURNING bed_id").get(id);
+        const info = db.prepare("UPDATE admissions SET status = 'active' WHERE id = ? RETURNING bed_id, patient_id").get(id);
         if(info) {
             db.prepare("UPDATE beds SET status = 'occupied' WHERE id = ?").run(info.bed_id);
+            db.prepare("UPDATE patients SET type = 'inpatient' WHERE id = ?").run(info.patient_id);
         }
         res.json({success: true});
     } catch(e) {
         res.status(500).json({error: e.message});
     }
+};
+
+exports.addInpatientNote = (req, res) => {
+    const { id } = req.params; // admission_id
+    const { doctorId, note, vitals } = req.body;
+    try {
+        db.prepare("INSERT INTO inpatient_notes (admission_id, doctor_id, note, vitals) VALUES (?, ?, ?, ?)").run(id, doctorId, note, JSON.stringify(vitals));
+        res.json({success: true});
+    } catch(e) {
+        res.status(500).json({error: e.message});
+    }
+};
+
+exports.dischargePatient = (req, res) => {
+  const { id } = req.params;
+  const { dischargeNotes, dischargeStatus } = req.body;
+  
+  const tx = db.transaction(() => {
+    // 1. Get Admission Info
+    const admission = db.prepare('SELECT * FROM admissions WHERE id = ?').get(id);
+    if (!admission) throw new Error('Admission not found');
+
+    // 2. Update Admission
+    db.prepare(`
+      UPDATE admissions 
+      SET status = 'discharged', actual_discharge_date = CURRENT_TIMESTAMP, discharge_notes = ?, discharge_status = ?
+      WHERE id = ?
+    `).run(dischargeNotes, dischargeStatus, id);
+
+    // 3. Free Bed
+    db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(admission.bed_id);
+
+    // 4. Update Patient Type
+    db.prepare("UPDATE patients SET type = 'outpatient' WHERE id = ?").run(admission.patient_id);
+  });
+
+  try {
+    tx();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };

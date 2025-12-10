@@ -45,6 +45,20 @@ export const api = {
   getStaff: () => client.get('/hr'),
   addStaff: (data) => client.post('/hr', data),
   updateStaff: (id, data) => client.put(`/hr/${id}`, data),
+  
+  // HR Extended
+  getAttendance: (date) => client.get(`/hr/attendance?date=${date}`),
+  markAttendance: (data) => client.post('/hr/attendance', data),
+  
+  getLeaves: () => client.get('/hr/leaves'),
+  requestLeave: (data) => client.post('/hr/leaves', data),
+  updateLeaveStatus: (id, status) => client.put(`/hr/leaves/${id}`, { status }),
+  
+  getPayroll: (month) => client.get(`/hr/payroll?month=${month}`),
+  generatePayroll: (data) => client.post('/hr/payroll/generate', data),
+  
+  getFinancials: (type) => client.get(`/hr/financials?type=${type}`), // bonus, fine, loan
+  addAdjustment: (data) => client.post('/hr/financials', data), // bonus, fine, loan
 
   // --- Appointments ---
   getAppointments: () => client.get('/appointments'),

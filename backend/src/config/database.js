@@ -19,71 +19,24 @@ const initDB = () => {
   // --- SMART RESET LOGIC ---
   let shouldReset = false;
   try {
-    // 1. Check for bill_id in lab_requests
-    const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='lab_requests'").get();
-    if (tableCheck) {
-      const columns = db.pragma('table_info(lab_requests)');
-      const hasBillId = columns.some(col => col.name === 'bill_id');
-      if (!hasBillId) {
-        console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing bill_id). Resetting database...');
-        shouldReset = true;
-      }
+    // 1. Check for hr_attendance table
+    const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='hr_attendance'").get();
+    if (!tableCheck) {
+      console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing HR tables). Resetting database...');
+      shouldReset = true;
     }
     
-    // 2. Check Medical Staff for new fee columns
+    // 2. Check Medical Staff for base_salary
     if (!shouldReset) {
          const staffTableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='medical_staff'").get();
          if (staffTableCheck) {
              const columns = db.pragma('table_info(medical_staff)');
-             const hasFollowUp = columns.some(col => col.name === 'consultation_fee_followup');
-             if (!hasFollowUp) {
-                console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing consultation_fee_followup). Resetting database...');
+             const hasSalary = columns.some(col => col.name === 'base_salary');
+             if (!hasSalary) {
+                console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing base_salary). Resetting database...');
                 shouldReset = true;
              }
          }
-    }
-
-    // 3. Check Appointments for bill_id
-    if (!shouldReset) {
-      const aptTableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='appointments'").get();
-      if (aptTableCheck) {
-        const columns = db.pragma('table_info(appointments)');
-        const hasBillId = columns.some(col => col.name === 'bill_id');
-        if (!hasBillId) {
-           console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing bill_id in appointments). Resetting database...');
-           shouldReset = true;
-        }
-      }
-    }
-
-    // 4. Check Users for full_name (prevent configuration crash)
-    if (!shouldReset) {
-      const userTableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").get();
-      if (userTableCheck) {
-        const columns = db.pragma('table_info(users)');
-        const hasFullName = columns.some(col => col.name === 'full_name');
-        if (!hasFullName) {
-           console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing full_name in users). Resetting database...');
-           shouldReset = true;
-        }
-      }
-    }
-
-    // 5. Check Operations for cost_details
-    if (!shouldReset) {
-        const opsTableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='operations'").get();
-        if (opsTableCheck) {
-            const columns = db.pragma('table_info(operations)');
-            const hasCostDetails = columns.some(col => col.name === 'cost_details');
-            if (!hasCostDetails) {
-                try {
-                    db.prepare("ALTER TABLE operations ADD COLUMN cost_details TEXT").run();
-                    console.log('✅ Added cost_details column to operations table.');
-                } catch (e) {
-                    console.error('Failed to alter operations table', e);
-                }
-            }
-        }
     }
 
   } catch (e) {
@@ -95,7 +48,7 @@ const initDB = () => {
       'users', 'patients', 'medical_staff', 'appointments', 'billing', 'billing_items',
       'lab_tests', 'lab_requests', 'nurse_services', 'operations_catalog', 'operations',
       'beds', 'admissions', 'inpatient_notes', 'departments', 'system_settings',
-      'tax_rates', 'payment_methods'
+      'tax_rates', 'payment_methods', 'hr_attendance', 'hr_leaves', 'hr_payroll', 'hr_adjustments'
     ];
     tables.forEach(t => db.exec(`DROP TABLE IF EXISTS ${t}`));
     console.log('✅ Database reset complete. Rebuilding tables...');
@@ -150,7 +103,59 @@ const initDB = () => {
       is_available BOOLEAN DEFAULT 1,
       email TEXT,
       phone TEXT,
+      base_salary REAL DEFAULT 0,
+      join_date DATE,
+      bank_details TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- HR TABLES
+    CREATE TABLE IF NOT EXISTS hr_attendance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      staff_id INTEGER NOT NULL,
+      date DATE NOT NULL,
+      status TEXT CHECK(status IN ('present', 'absent', 'late', 'half_day')) DEFAULT 'present',
+      check_in TIME,
+      check_out TIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS hr_leaves (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      staff_id INTEGER NOT NULL,
+      type TEXT CHECK(type IN ('sick', 'vacation', 'casual', 'unpaid')) NOT NULL,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      reason TEXT,
+      status TEXT CHECK(status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS hr_adjustments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      staff_id INTEGER NOT NULL,
+      type TEXT CHECK(type IN ('bonus', 'fine', 'loan')) NOT NULL,
+      amount REAL NOT NULL,
+      reason TEXT,
+      date DATE NOT NULL,
+      status TEXT DEFAULT 'active', -- For loans: active/repaid/deducted
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS hr_payroll (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      staff_id INTEGER NOT NULL,
+      month TEXT NOT NULL, -- Format: YYYY-MM
+      base_salary REAL NOT NULL,
+      total_bonuses REAL DEFAULT 0,
+      total_fines REAL DEFAULT 0,
+      net_salary REAL NOT NULL,
+      status TEXT DEFAULT 'draft',
+      generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
     );
 
     -- APPOINTMENTS
@@ -381,16 +386,16 @@ const initDB = () => {
   const existingStaff = db.prepare('SELECT COUNT(*) as count FROM medical_staff').get();
   if (existingStaff.count === 0) {
     const staff = [
-      { employee_id: 'DOC-001', full_name: 'Dr. Sarah Wilson', type: 'doctor', department: 'Cardiology', specialization: 'Cardiologist', consultation_fee: 100, consultation_fee_followup: 50, consultation_fee_emergency: 150, email: 'sarah@allcare.com', phone: '555-0101' },
-      { employee_id: 'NUR-001', full_name: 'Nurse Emily Clarke', type: 'nurse', department: 'General Ward', specialization: 'General Care', consultation_fee: 0, consultation_fee_followup: 0, consultation_fee_emergency: 0, email: 'emily@allcare.com', phone: '555-0102' },
-      { employee_id: 'TEC-001', full_name: 'Technician Alex', type: 'technician', department: 'Laboratory', specialization: 'Medical Imaging', consultation_fee: 0, consultation_fee_followup: 0, consultation_fee_emergency: 0, email: 'alex@allcare.com', phone: '555-0104' },
-      { employee_id: 'ANS-001', full_name: 'Dr. John Anest', type: 'anesthesiologist', department: 'Anesthesiology', specialization: 'General Anesthesia', consultation_fee: 200, consultation_fee_followup: 100, consultation_fee_emergency: 300, email: 'anest@allcare.com', phone: '555-0108' },
+      { employee_id: 'DOC-001', full_name: 'Dr. Sarah Wilson', type: 'doctor', department: 'Cardiology', specialization: 'Cardiologist', consultation_fee: 100, consultation_fee_followup: 50, consultation_fee_emergency: 150, email: 'sarah@allcare.com', phone: '555-0101', base_salary: 5000 },
+      { employee_id: 'NUR-001', full_name: 'Nurse Emily Clarke', type: 'nurse', department: 'General Ward', specialization: 'General Care', consultation_fee: 0, consultation_fee_followup: 0, consultation_fee_emergency: 0, email: 'emily@allcare.com', phone: '555-0102', base_salary: 2000 },
+      { employee_id: 'TEC-001', full_name: 'Technician Alex', type: 'technician', department: 'Laboratory', specialization: 'Medical Imaging', consultation_fee: 0, consultation_fee_followup: 0, consultation_fee_emergency: 0, email: 'alex@allcare.com', phone: '555-0104', base_salary: 2200 },
+      { employee_id: 'ANS-001', full_name: 'Dr. John Anest', type: 'anesthesiologist', department: 'Anesthesiology', specialization: 'General Anesthesia', consultation_fee: 200, consultation_fee_followup: 100, consultation_fee_emergency: 300, email: 'anest@allcare.com', phone: '555-0108', base_salary: 4800 },
     ];
     const insertStaff = db.prepare(`
-      INSERT INTO medical_staff (employee_id, full_name, type, department, specialization, consultation_fee, consultation_fee_followup, consultation_fee_emergency, email, phone)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO medical_staff (employee_id, full_name, type, department, specialization, consultation_fee, consultation_fee_followup, consultation_fee_emergency, email, phone, base_salary, join_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE('now'))
     `);
-    staff.forEach(s => insertStaff.run(s.employee_id, s.full_name, s.type, s.department, s.specialization, s.consultation_fee, s.consultation_fee_followup, s.consultation_fee_emergency, s.email, s.phone));
+    staff.forEach(s => insertStaff.run(s.employee_id, s.full_name, s.type, s.department, s.specialization, s.consultation_fee, s.consultation_fee_followup, s.consultation_fee_emergency, s.email, s.phone, s.base_salary));
     console.log('✅ Medical staff seeded.');
   }
 

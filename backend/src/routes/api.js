@@ -38,6 +38,20 @@ router.get('/hr', authorizeRoles(Permissions.VIEW_HR), staffController.getAll);
 router.post('/hr', authorizeRoles(Permissions.MANAGE_HR), staffController.create);
 router.put('/hr/:id', authorizeRoles(Permissions.MANAGE_HR), staffController.update);
 
+// HR Extended Features
+router.get('/hr/attendance', authorizeRoles(Permissions.VIEW_HR), staffController.getAttendance);
+router.post('/hr/attendance', authorizeRoles(Permissions.MANAGE_HR), staffController.markAttendance);
+
+router.get('/hr/leaves', authorizeRoles(Permissions.VIEW_HR), staffController.getLeaves);
+router.post('/hr/leaves', authorizeRoles(Permissions.VIEW_HR), staffController.requestLeave); // Allow viewing permission to request own leave
+router.put('/hr/leaves/:id', authorizeRoles(Permissions.MANAGE_HR), staffController.updateLeaveStatus);
+
+router.get('/hr/payroll', authorizeRoles(Permissions.MANAGE_HR), staffController.getPayroll);
+router.post('/hr/payroll/generate', authorizeRoles(Permissions.MANAGE_HR), staffController.generatePayroll);
+
+router.get('/hr/financials', authorizeRoles(Permissions.MANAGE_HR), staffController.getFinancials);
+router.post('/hr/financials', authorizeRoles(Permissions.MANAGE_HR), staffController.addAdjustment);
+
 // Appointments
 router.get('/appointments', authorizeRoles(Permissions.VIEW_APPOINTMENTS), appointmentController.getAll);
 router.post('/appointments', authorizeRoles(Permissions.MANAGE_APPOINTMENTS), appointmentController.create);
