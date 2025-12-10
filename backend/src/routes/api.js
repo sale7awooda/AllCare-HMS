@@ -32,6 +32,9 @@ router.get('/auth/me', authController.me);
 router.put('/auth/profile', authController.updateProfile);
 router.put('/auth/password', authController.changePassword);
 
+// System Health Check
+router.get('/config/health', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getSystemHealth);
+
 // Patients
 router.get('/patients', authorizeRoles(Permissions.VIEW_PATIENTS), patientController.getAll);
 router.get('/patients/:id', authorizeRoles(Permissions.VIEW_PATIENTS), patientController.getOne);
@@ -102,6 +105,12 @@ router.post('/config/departments', authorizeRoles(Permissions.MANAGE_CONFIGURATI
 router.put('/config/departments/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateDepartment);
 router.delete('/config/departments/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteDepartment);
 
+// Configuration: Specializations
+router.get('/config/specializations', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getSpecializations);
+router.post('/config/specializations', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addSpecialization);
+router.put('/config/specializations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateSpecialization);
+router.delete('/config/specializations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteSpecialization);
+
 // Configuration: Beds
 router.get('/config/beds', authorizeRoles(Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_CONFIGURATION), configurationController.getBeds);
 router.post('/config/beds', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addBed);
@@ -124,11 +133,15 @@ router.post('/config/operations', authorizeRoles(Permissions.MANAGE_CONFIGURATIO
 router.put('/config/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateOperation);
 router.delete('/config/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteOperation);
 
-// Configuration: Users
+// Configuration: Users & Roles
 router.get('/config/users', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getUsers);
 router.post('/config/users', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addUser);
 router.put('/config/users/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateUser);
 router.delete('/config/users/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteUser);
+
+// Configuration: Permissions
+router.get('/config/permissions', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getRolePermissions);
+router.put('/config/permissions/:role', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateRolePermissions);
 
 // Configuration: Financial
 router.get('/config/tax-rates', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getTaxRates);
@@ -144,5 +157,6 @@ router.delete('/config/payment-methods/:id', authorizeRoles(Permissions.MANAGE_C
 // Configuration: Data
 router.get('/config/backup', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.downloadBackup);
 router.post('/config/restore', authorizeRoles(Permissions.MANAGE_CONFIGURATION), upload.single('backup'), configurationController.restoreBackup);
+router.post('/config/reset', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.resetDatabase);
 
 module.exports = router;

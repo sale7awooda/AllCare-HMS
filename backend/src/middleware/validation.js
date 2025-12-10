@@ -55,6 +55,11 @@ const schemas = {
     baseSalary: z.number().min(0).optional(),
     email: z.string().email().optional().or(z.literal('')),
     phone: z.string().optional(),
+    joinDate: z.string().optional(),
+    bankDetails: z.string().optional(),
+    consultationFee: z.number().min(0).optional(),
+    consultationFeeFollowup: z.number().min(0).optional(),
+    consultationFeeEmergency: z.number().min(0).optional(),
     availableDays: z.array(z.string()).optional(),
     availableTimeStart: z.string().optional(),
     availableTimeEnd: z.string().optional()

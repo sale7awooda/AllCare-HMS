@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, Badge, Button } from '../components/UI';
 import { api } from '../services/api';
@@ -99,17 +100,36 @@ export const Dashboard = () => {
         });
         setBedDetails(bedStats);
 
-        // --- 4. Mock Revenue Trend (Projected) ---
-        const mockTrend = [
-            { name: 'Mon', income: totalRev * 0.10 },
-            { name: 'Tue', income: totalRev * 0.15 },
-            { name: 'Wed', income: totalRev * 0.12 },
-            { name: 'Thu', income: totalRev * 0.20 },
-            { name: 'Fri', income: totalRev * 0.18 },
-            { name: 'Sat', income: totalRev * 0.15 },
-            { name: 'Sun', income: totalRev * 0.10 },
-        ];
-        setRevenueTrend(mockTrend);
+        // --- 4. Real Revenue Trend (Last 7 Days) ---
+        const normalizeDate = (dateStr: string) => {
+            try {
+                return new Date(dateStr).toISOString().split('T')[0];
+            } catch (e) {
+                return '';
+            }
+        };
+
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - (6 - i));
+            return {
+                label: d.toLocaleDateString('en-US', { weekday: 'short' }),
+                key: d.toISOString().split('T')[0]
+            };
+        });
+
+        const trendData = last7Days.map(day => {
+            const dayIncome = bills
+                .filter((b: any) => normalizeDate(b.date) === day.key)
+                .reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
+            
+            return {
+                name: day.label,
+                income: dayIncome
+            };
+        });
+        
+        setRevenueTrend(trendData);
 
         // --- 5. "Needs Attention" Feed (Pending Labs + Unpaid Recent Bills) ---
         const recentPendingLabs = labs.filter((l: any) => l.status === 'pending').slice(0, 3).map((l: any) => ({

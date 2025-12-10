@@ -35,6 +35,9 @@ export const api = {
   updateProfile: (data) => client.put('/auth/profile', data),
   changePassword: (data) => client.put('/auth/password', data),
 
+  // --- System Health ---
+  checkSystemHealth: () => client.get('/config/health'),
+
   // --- Patients ---
   getPatients: () => client.get('/patients'),
   getPatient: (id) => client.get(`/patients/${id}`),
@@ -107,11 +110,21 @@ export const api = {
   updateSystemUser: (id, data) => client.put(`/config/users/${id}`, data),
   deleteSystemUser: (id) => client.delete(`/config/users/${id}`),
 
+  // --- Configuration: Permissions ---
+  getRolePermissions: () => client.get('/config/permissions'),
+  updateRolePermissions: (role, permissions) => client.put(`/config/permissions/${role}`, { permissions }),
+
   // --- Configuration: Departments ---
   getDepartments: () => client.get('/config/departments'),
   addDepartment: (name, description) => client.post('/config/departments', { name, description }),
   updateDepartment: (id, name, description) => client.put(`/config/departments/${id}`, { name, description }),
   deleteDepartment: (id) => client.delete(`/config/departments/${id}`),
+
+  // --- Configuration: Specializations ---
+  getSpecializations: () => client.get('/config/specializations'),
+  addSpecialization: (name, description) => client.post('/config/specializations', { name, description }),
+  updateSpecialization: (id, name, description) => client.put(`/config/specializations/${id}`, { name, description }),
+  deleteSpecialization: (id) => client.delete(`/config/specializations/${id}`),
 
   // --- Configuration: Beds ---
   getBeds: () => client.get('/config/beds'), // Public/Dashboard usage (mapped to config endpoint for simplicty if same data structure)
@@ -157,5 +170,6 @@ export const api = {
     return client.post('/config/restore', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-  }
+  },
+  resetDatabase: () => client.post('/config/reset'),
 };

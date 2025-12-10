@@ -83,6 +83,42 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: stri
   );
 };
 
+// --- Confirmation Dialog ---
+export const ConfirmationDialog: React.FC<{ 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onConfirm: () => void; 
+  title: string; 
+  message: React.ReactNode; 
+  confirmLabel?: string;
+  type?: 'danger' | 'warning' | 'info';
+}> = ({ isOpen, onClose, onConfirm, title, message, confirmLabel = 'Confirm', type = 'danger' }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+      <div className="space-y-6">
+        <div className={`flex gap-4 ${type === 'danger' ? 'bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-200' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200'} p-4 rounded-xl`}>
+          <AlertCircle size={24} className="shrink-0" />
+          <div className="text-sm font-medium leading-relaxed">
+            {message}
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button 
+            variant={type === 'danger' ? 'danger' : 'primary'} 
+            onClick={() => { onConfirm(); onClose(); }}
+          >
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 // --- Form Input ---
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string; prefix?: string }>(
   ({ label, error, className = '', prefix, ...props }, ref) => (
@@ -143,3 +179,70 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
   )
 );
 Select.displayName = 'Select';
+
+// --- Tooltip ---
+export const Tooltip: React.FC<{ children: React.ReactNode; content: React.ReactNode; side?: 'right' | 'top' | 'bottom' | 'left'; delay?: number }> = ({ children, content, side = 'right', delay = 0 }) => {
+  const [show, setShow] = React.useState(false);
+  const [pos, setPos] = React.useState({ top: 0, left: 0, height: 0, width: 0 });
+  let timeoutId: any;
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPos({ top: rect.top, left: rect.left, height: rect.height, width: rect.width });
+    
+    if (delay) {
+      timeoutId = setTimeout(() => setShow(true), delay);
+    } else {
+      setShow(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    clearTimeout(timeoutId);
+    setShow(false);
+  };
+
+  // Calculate fixed positions to avoid clipping in overflow containers
+  const getStyles = () => {
+    const base = { position: 'fixed' as 'fixed', zIndex: 9999, pointerEvents: 'none' as 'none' };
+    switch (side) {
+      case 'right':
+        return { ...base, top: pos.top + pos.height / 2, left: pos.left + pos.width + 10, transform: 'translateY(-50%)' };
+      case 'left':
+        return { ...base, top: pos.top + pos.height / 2, left: pos.left - 10, transform: 'translate(-100%, -50%)' };
+      case 'top':
+        return { ...base, top: pos.top - 10, left: pos.left + pos.width / 2, transform: 'translate(-50%, -100%)' };
+      case 'bottom':
+        return { ...base, top: pos.top + pos.height + 10, left: pos.left + pos.width / 2, transform: 'translate(-50%, 0)' };
+      default:
+        return base;
+    }
+  };
+
+  const arrowStyles = () => {
+      switch (side) {
+      case 'right': return "top-1/2 -left-1 -translate-y-1/2 border-r-slate-900 dark:border-r-white border-y-transparent border-l-transparent";
+      case 'left': return "top-1/2 -right-1 -translate-y-1/2 border-l-slate-900 dark:border-l-white border-y-transparent border-r-transparent";
+      case 'top': return "bottom-[-4px] left-1/2 -translate-x-1/2 border-t-slate-900 dark:border-t-white border-x-transparent border-b-transparent";
+      case 'bottom': return "top-[-4px] left-1/2 -translate-x-1/2 border-b-slate-900 dark:border-b-white border-x-transparent border-t-transparent";
+      default: return "";
+      }
+  };
+
+  return (
+    <>
+      <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="w-full">
+        {children}
+      </div>
+      {show && (
+        <div 
+          className="fixed px-3 py-1.5 text-xs font-bold text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-md shadow-xl animate-in fade-in zoom-in-95 duration-100 whitespace-nowrap z-[100]"
+          style={getStyles()}
+        >
+          {content}
+          <div className={`absolute w-0 h-0 border-4 ${arrowStyles()}`}></div>
+        </div>
+      )}
+    </>
+  );
+};

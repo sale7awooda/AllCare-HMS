@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
+import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Calendar as CalendarIcon, Clock, User, Lock, 
   ChevronLeft, ChevronRight, MoreVertical, 
@@ -49,9 +49,10 @@ interface DoctorQueueColumnProps {
   doctor: MedicalStaff;
   appointments: Appointment[];
   onStatusUpdate: (id: number, status: string) => void;
+  onCancel: (id: number) => void;
 }
 
-const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointments, onStatusUpdate }) => {
+const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointments, onStatusUpdate, onCancel }) => {
   // 1. Separate Active vs Waiting
   const activePatient = appointments.find(a => a.status === 'in_progress');
   
@@ -205,7 +206,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                       variant="ghost" 
                       className="h-7 w-7 p-0 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                       title="Cancel"
-                      onClick={() => onStatusUpdate(apt.id, 'cancelled')}
+                      onClick={() => onCancel(apt.id)}
                     >
                       <X size={14} />
                     </Button>
@@ -234,6 +235,14 @@ export const Appointments = () => {
   const [selectedDept, setSelectedDept] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing'>('idle');
+
+  // Confirmation Dialog State
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    action: () => void;
+  }>({ isOpen: false, title: '', message: '', action: () => {} });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -311,6 +320,15 @@ export const Appointments = () => {
       console.error(e);
       loadData(); // Revert on error
     }
+  };
+
+  const handleCancel = (id: number) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Cancel Appointment',
+      message: 'Are you sure you want to cancel this appointment?',
+      action: () => updateStatus(id, 'cancelled')
+    });
   };
 
   // --- Filtering & Sorting Logic ---
@@ -449,7 +467,8 @@ export const Appointments = () => {
                     key={doc.id} 
                     doctor={doc} 
                     appointments={dailyAppointments.filter(a => a.staffId === doc.id)}
-                    onStatusUpdate={updateStatus} 
+                    onStatusUpdate={updateStatus}
+                    onCancel={handleCancel}
                   />
                 ))}
               </div>
@@ -522,7 +541,7 @@ export const Appointments = () => {
                           <button 
                             className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors" 
                             title="Cancel"
-                            onClick={() => { if(confirm('Cancel appointment?')) updateStatus(apt.id, 'cancelled'); }}
+                            onClick={() => handleCancel(apt.id)}
                           >
                             <X size={16}/>
                           </button>
@@ -601,6 +620,15 @@ export const Appointments = () => {
         </form>
       </Modal>
 
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog 
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        type="warning"
+      />
     </div>
   );
 };

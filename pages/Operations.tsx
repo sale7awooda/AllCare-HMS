@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Badge, Modal, Input, Select, Textarea } from '../components/UI';
+import { Card, Button, Badge, Modal, Input, Select, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Activity, CheckCircle, Clock, User, Syringe, Plus, Trash2, 
   Calculator, Save, ChevronRight, AlertTriangle, Stethoscope, 
@@ -27,6 +27,14 @@ export const Operations = () => {
   const [isEstimateModalOpen, setIsEstimateModalOpen] = useState(false);
   const [selectedOp, setSelectedOp] = useState<any>(null);
   const [expandedSection, setExpandedSection] = useState<string>('team');
+
+  // Confirmation Dialog State
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    action: () => void;
+  }>({ isOpen: false, title: '', message: '', action: () => {} });
   
   // Revised Cost Form State
   interface Participant {
@@ -212,15 +220,21 @@ export const Operations = () => {
     }
   };
 
-  const handleCompleteOp = async (opId: number) => {
-      if(!confirm("Mark this operation as completed?")) return;
-      try {
+  const handleCompleteOp = (opId: number) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Complete Operation',
+      message: 'Are you sure you want to mark this operation as completed? This will finalize the status.',
+      action: async () => {
+        try {
           await api.completeOperation(opId);
           loadData();
-      } catch (e) { 
+        } catch (e) { 
           console.error(e);
           alert("Failed to update status");
+        }
       }
+    });
   };
 
   // Filter lists based on Search & Status
@@ -600,6 +614,16 @@ export const Operations = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog 
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        type="warning"
+      />
     </div>
   );
 };

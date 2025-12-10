@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
+import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Search, Briefcase, Clock, 
   Calendar, DollarSign, Wallet,
-  AlertTriangle, TrendingUp, TrendingDown, CheckCircle
+  AlertTriangle, TrendingUp, TrendingDown, CheckCircle, User, Phone, Mail
 } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, User as UserType, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment } from '../types';
@@ -31,6 +31,9 @@ export const Staff = () => {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false); // Request Leave
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // For attendance
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // For payroll YYYY-MM
+
+  // Confirm State
+  const [confirmState, setConfirmState] = useState<{isOpen: boolean, title: string, message: string, action: () => void}>({ isOpen: false, title: '', message: '', action: () => {} });
 
   // Forms
   const [staffForm, setStaffForm] = useState<Partial<MedicalStaff>>({});
@@ -88,7 +91,7 @@ export const Staff = () => {
       setIsModalOpen(false);
       loadData();
       setStaffForm({});
-    } catch (err: any) { alert(err.response?.data?.error); }
+    } catch (err: any) { alert(err.response?.data?.error || 'Failed to save staff'); }
   };
 
   const openStaffModal = (s?: MedicalStaff) => {
@@ -96,7 +99,11 @@ export const Staff = () => {
           fullName: '', type: 'doctor', isAvailable: true, baseSalary: 0, 
           availableDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], // Default to M-F
           availableTimeStart: '09:00',
-          availableTimeEnd: '17:00'
+          availableTimeEnd: '17:00',
+          consultationFee: 0,
+          consultationFeeFollowup: 0,
+          consultationFeeEmergency: 0,
+          joinDate: new Date().toISOString().split('T')[0]
       });
       setIsModalOpen(true);
   };
@@ -140,13 +147,19 @@ export const Staff = () => {
       setLeaves(data);
   };
 
-  const handleGeneratePayroll = async () => {
-      if(!confirm(`Generate payroll for ${selectedMonth}? This will overwrite existing drafts.`)) return;
-      try {
-          await api.generatePayroll({ month: selectedMonth });
-          const data = await api.getPayroll(selectedMonth);
-          setPayroll(data);
-      } catch (e) { alert('Failed'); }
+  const handleGeneratePayroll = () => {
+      setConfirmState({
+          isOpen: true,
+          title: 'Generate Payroll',
+          message: `Generate payroll for ${selectedMonth}? This will calculate salaries based on attendance and adjustments, overwriting any existing drafts for this month.`,
+          action: async () => {
+              try {
+                  await api.generatePayroll({ month: selectedMonth });
+                  const data = await api.getPayroll(selectedMonth);
+                  setPayroll(data);
+              } catch (e) { alert('Failed'); }
+          }
+      });
   };
 
   const handleAdjustmentSubmit = async (e: React.FormEvent) => {
@@ -258,12 +271,6 @@ export const Staff = () => {
                                       <span className="text-slate-500">Consultation</span>
                                       <span className="font-bold text-slate-700 dark:text-slate-300">${person.consultationFee}</span>
                                    </div>
-                                   {person.consultationFeeFollowup && (
-                                     <div className="flex justify-between items-center text-xs mt-1">
-                                        <span className="text-slate-500">Follow-up</span>
-                                        <span className="font-bold text-slate-700 dark:text-slate-300">${person.consultationFeeFollowup}</span>
-                                     </div>
-                                   )}
                                 </div>
                               )}
                           </div>
@@ -282,7 +289,6 @@ export const Staff = () => {
       {/* --- ATTENDANCE TAB --- */}
       {activeTab === 'attendance' && (
           <Card className="!p-0 animate-in fade-in">
-              {/* ... (Existing Attendance Content - Unchanged logic, kept for brevity in update) ... */}
               <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
                   <div className="flex items-center gap-4">
                       <h3 className="font-bold text-slate-700 dark:text-white">Daily Attendance</h3>
@@ -465,127 +471,153 @@ export const Staff = () => {
           </div>
       )}
 
+      {/* --- CONFIRMATION DIALOG --- */}
+      <ConfirmationDialog 
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        type="warning"
+      />
+
       {/* --- MODALS --- */}
 
       {/* 1. Staff Add/Edit Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Staff Details">
-        <form onSubmit={handleCreateStaff} className="space-y-4">
-          <Input label="Full Name" required value={staffForm.fullName || ''} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} />
-          
-          <div className="grid grid-cols-2 gap-4">
-             <Select label="Role" value={staffForm.type} onChange={e => setStaffForm({...staffForm, type: e.target.value as any})}>
-              <option value="doctor">Doctor</option>
-              <option value="nurse">Nurse</option>
-              <option value="technician">Technician</option>
-              <option value="admin_staff">Admin Staff</option>
-              <option value="pharmacist">Pharmacist</option>
-              <option value="hr_manager">HR Manager</option>
-            </Select>
-            <Input label="Department" required value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})} />
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={staffForm.id ? "Edit Staff" : "Add Staff Member"}>
+        <form onSubmit={handleCreateStaff} className="space-y-6">
+          {/* Section 1: Personal Information */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2">
+               <User size={16}/> Personal Information
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input label="Full Name" required value={staffForm.fullName || ''} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} />
+              <Input label="Phone" value={staffForm.phone || ''} onChange={e => setStaffForm({...staffForm, phone: e.target.value})} prefix={<Phone size={14}/>} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input label="Email" type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} prefix={<Mail size={14}/>} />
+              <Input label="Join Date" type="date" value={staffForm.joinDate || ''} onChange={e => setStaffForm({...staffForm, joinDate: e.target.value})} />
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Section 2: Professional Information */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2">
+               <Briefcase size={16}/> Role & Department
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <Select label="Role" value={staffForm.type} onChange={e => setStaffForm({...staffForm, type: e.target.value as any})}>
+                <option value="doctor">Doctor</option>
+                <option value="nurse">Nurse</option>
+                <option value="technician">Technician</option>
+                <option value="anesthesiologist">Anesthesiologist</option>
+                <option value="pharmacist">Pharmacist</option>
+                <option value="admin_staff">Admin Staff</option>
+                <option value="hr_manager">HR Manager</option>
+              </Select>
+              <Input label="Department" required value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})} />
+            </div>
             <Input label="Specialization" value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})} />
-            <Input label="Email" type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} />
           </div>
 
-          {/* Schedule Configuration */}
-          <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-3">
-              <h4 className="font-bold text-sm text-slate-700 dark:text-slate-300">Schedule & Availability</h4>
-              <div>
-                  <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">Working Days</label>
-                  <div className="flex gap-2 flex-wrap">
-                      {DAYS_OF_WEEK.map(day => (
-                          <button
-                              key={day}
-                              type="button"
-                              onClick={() => toggleDay(day)}
-                              className={`
-                                  px-2 py-1 text-xs rounded border transition-colors
-                                  ${(staffForm.availableDays || []).includes(day) 
-                                      ? 'bg-primary-600 text-white border-primary-600' 
-                                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600'}
-                              `}
-                          >
-                              {day}
-                          </button>
-                      ))}
-                  </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                  <Input label="Start Time" type="time" value={staffForm.availableTimeStart} onChange={e => setStaffForm({...staffForm, availableTimeStart: e.target.value})} />
-                  <Input label="End Time" type="time" value={staffForm.availableTimeEnd} onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})} />
-              </div>
+          {/* Section 3: Schedule & Availability */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2">
+               <Clock size={16}/> Schedule
+            </h4>
+            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                    {DAYS_OF_WEEK.map(day => (
+                        <button
+                            type="button"
+                            key={day}
+                            onClick={() => toggleDay(day)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                staffForm.availableDays?.includes(day)
+                                    ? 'bg-primary-600 text-white shadow-sm'
+                                    : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600'
+                            }`}
+                        >
+                            {day}
+                        </button>
+                    ))}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <Input label="Start Time" type="time" value={staffForm.availableTimeStart || ''} onChange={e => setStaffForm({...staffForm, availableTimeStart: e.target.value})} />
+                    <Input label="End Time" type="time" value={staffForm.availableTimeEnd || ''} onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})} />
+                </div>
+                <div className="flex items-center gap-2 pt-2">
+                    <input type="checkbox" checked={staffForm.isAvailable} onChange={e => setStaffForm({...staffForm, isAvailable: e.target.checked})} className="w-4 h-4 rounded text-primary-600 focus:ring-primary-500" />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Currently Available (On Duty)</span>
+                </div>
+            </div>
           </div>
 
+          {/* Section 4: Financials (Only for HR admins usually, or editing own) */}
           {canManageHR && (
-              <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-3">
-                  <h4 className="font-bold text-sm text-slate-700 dark:text-slate-300">Financial Details</h4>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                      <Input label="Base Salary ($)" type="number" value={staffForm.baseSalary} onChange={e => setStaffForm({...staffForm, baseSalary: parseFloat(e.target.value)})} />
-                      <Input label="Bank Details" placeholder="Bank Name - Account Number" value={staffForm.bankDetails || ''} onChange={e => setStaffForm({...staffForm, bankDetails: e.target.value})} />
-                  </div>
-
-                  {staffForm.type === 'doctor' && (
-                      <div className="grid grid-cols-3 gap-3">
-                          <Input label="Consultation Fee" type="number" value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: parseFloat(e.target.value)})} />
-                          <Input label="Follow-up Fee" type="number" value={staffForm.consultationFeeFollowup} onChange={e => setStaffForm({...staffForm, consultationFeeFollowup: parseFloat(e.target.value)})} />
-                          <Input label="Emergency Fee" type="number" value={staffForm.consultationFeeEmergency} onChange={e => setStaffForm({...staffForm, consultationFeeEmergency: parseFloat(e.target.value)})} />
-                      </div>
-                  )}
-              </div>
+            <div className="space-y-4">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2">
+                   <Wallet size={16}/> Financial Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input label="Base Monthly Salary ($)" type="number" value={staffForm.baseSalary} onChange={e => setStaffForm({...staffForm, baseSalary: parseFloat(e.target.value)})} />
+                    <Input label="Bank Details / IBAN" placeholder="Account Number..." value={staffForm.bankDetails || ''} onChange={e => setStaffForm({...staffForm, bankDetails: e.target.value})} />
+                </div>
+                
+                {staffForm.type === 'doctor' && (
+                    <div className="grid grid-cols-3 gap-3 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
+                        <Input label="Consultation Fee" type="number" value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: parseFloat(e.target.value)})} className="bg-white" />
+                        <Input label="Follow-up Fee" type="number" value={staffForm.consultationFeeFollowup} onChange={e => setStaffForm({...staffForm, consultationFeeFollowup: parseFloat(e.target.value)})} className="bg-white" />
+                        <Input label="Emergency Fee" type="number" value={staffForm.consultationFeeEmergency} onChange={e => setStaffForm({...staffForm, consultationFeeEmergency: parseFloat(e.target.value)})} className="bg-white" />
+                    </div>
+                )}
+            </div>
           )}
-          
-          <div className="flex justify-end gap-3 pt-2">
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="submit">Save Staff</Button>
+            <Button type="submit">{staffForm.id ? 'Update Staff' : 'Create Staff'}</Button>
           </div>
         </form>
       </Modal>
 
-      {/* 2. Adjustment Modal (Fine/Bonus/Loan) */}
-      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={`Add ${adjForm.type.charAt(0).toUpperCase() + adjForm.type.slice(1)}`}>
-          <form onSubmit={handleAdjustmentSubmit} className="space-y-4">
-              <Select label="Employee" required value={adjForm.staffId} onChange={e => setAdjForm({...adjForm, staffId: e.target.value})}>
-                  <option value="">Select Employee...</option>
-                  {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-              </Select>
-              <div className="grid grid-cols-2 gap-4">
-                  <Input label="Amount ($)" type="number" required value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} />
-                  <Input label="Date" type="date" required value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
-              </div>
-              <Textarea label="Reason / Notes" required value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
-              <div className="flex justify-end gap-3 pt-2">
-                  <Button type="button" variant="secondary" onClick={() => setIsAdjustmentModalOpen(false)}>Cancel</Button>
-                  <Button type="submit" variant={adjForm.type === 'bonus' ? 'primary' : adjForm.type === 'loan' ? 'outline' : 'danger'}>
-                      Confirm {adjForm.type.charAt(0).toUpperCase() + adjForm.type.slice(1)}
-                  </Button>
-              </div>
-          </form>
-      </Modal>
-
-      {/* 3. Leave Request Modal */}
+      {/* 2. Leave Request Modal */}
       <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title="Request Leave">
           <form onSubmit={handleLeaveRequest} className="space-y-4">
-              <Select label="Employee" required value={leaveForm.staffId} onChange={e => setLeaveForm({...leaveForm, staffId: e.target.value})}>
-                  <option value="">Select Employee...</option>
+              <Select label="Staff Member" required value={leaveForm.staffId} onChange={e => setLeaveForm({...leaveForm, staffId: e.target.value})}>
+                  <option value="">Select yourself...</option>
                   {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
               </Select>
-              <Select label="Leave Type" value={leaveForm.type} onChange={e => setLeaveForm({...leaveForm, type: e.target.value})}>
+              <Select label="Type" value={leaveForm.type} onChange={e => setLeaveForm({...leaveForm, type: e.target.value})}>
                   <option value="sick">Sick Leave</option>
-                  <option value="vacation">Vacation</option>
                   <option value="casual">Casual Leave</option>
+                  <option value="vacation">Vacation</option>
                   <option value="unpaid">Unpaid Leave</option>
               </Select>
               <div className="grid grid-cols-2 gap-4">
                   <Input label="Start Date" type="date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} />
                   <Input label="End Date" type="date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} />
               </div>
-              <Textarea label="Reason" required value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
-              <div className="flex justify-end gap-3 pt-2">
-                  <Button type="button" variant="secondary" onClick={() => setIsLeaveModalOpen(false)}>Cancel</Button>
+              <Textarea label="Reason" required rows={3} value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
+              <div className="flex justify-end pt-2">
                   <Button type="submit">Submit Request</Button>
+              </div>
+          </form>
+      </Modal>
+
+      {/* 3. Adjustment Modal */}
+      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={`Add ${adjForm.type === 'loan' ? 'Loan' : adjForm.type === 'bonus' ? 'Bonus' : 'Fine'}`}>
+          <form onSubmit={handleAdjustmentSubmit} className="space-y-4">
+              <Select label="Staff Member" required value={adjForm.staffId} onChange={e => setAdjForm({...adjForm, staffId: e.target.value})}>
+                  <option value="">Select staff...</option>
+                  {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+              </Select>
+              <Input label="Amount ($)" type="number" required value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} />
+              <Input label="Date" type="date" required value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
+              <Textarea label="Reason / Notes" required rows={2} value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
+              <div className="flex justify-end pt-2">
+                  <Button type="submit" variant={adjForm.type === 'fine' ? 'danger' : 'primary'}>Confirm</Button>
               </div>
           </form>
       </Modal>

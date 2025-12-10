@@ -1,8 +1,42 @@
 
-const { db } = require('../config/database');
+const { db, resetDatabase } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
+
+// --- SYSTEM HEALTH ---
+exports.getSystemHealth = (req, res) => {
+  try {
+    const start = process.hrtime();
+    const dbStatus = db.prepare('SELECT 1').get();
+    const diff = process.hrtime(start);
+    const dbLatency = (diff[0] * 1e9 + diff[1]) / 1e6; // ms
+
+    const memory = process.memoryUsage();
+    
+    res.json({
+      status: 'operational',
+      serverTime: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: {
+        connected: !!dbStatus,
+        latency: `${dbLatency.toFixed(2)}ms`,
+        engine: 'SQLite3'
+      },
+      memory: {
+        rss: Math.round(memory.rss / 1024 / 1024) + ' MB',
+        heapUsed: Math.round(memory.heapUsed / 1024 / 1024) + ' MB'
+      },
+      version: '1.0.0'
+    });
+  } catch (err) {
+    res.status(500).json({ 
+      status: 'error', 
+      database: { connected: false },
+      error: err.message 
+    });
+  }
+};
 
 // --- SYSTEM SETTINGS ---
 exports.getSettings = (req, res) => {
@@ -99,6 +133,31 @@ exports.deleteUser = (req, res) => {
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
+// --- ROLE PERMISSIONS ---
+exports.getRolePermissions = (req, res) => {
+  try {
+    const roles = db.prepare('SELECT * FROM role_permissions').all();
+    const permissionsMap = roles.reduce((acc, r) => {
+      try {
+        acc[r.role] = JSON.parse(r.permissions);
+      } catch (e) {
+        acc[r.role] = [];
+      }
+      return acc;
+    }, {});
+    res.json(permissionsMap);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.updateRolePermissions = (req, res) => {
+  const { role } = req.params;
+  const { permissions } = req.body; // Array of strings
+  try {
+    db.prepare('INSERT OR REPLACE INTO role_permissions (role, permissions) VALUES (?, ?)').run(role, JSON.stringify(permissions));
+    res.json({ message: 'Permissions updated' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
 // --- FINANCIAL CONFIG (TAXES & PAYMENT METHODS) ---
 exports.getTaxRates = (req, res) => {
   try { res.json(db.prepare('SELECT id, name, rate, is_active as isActive FROM tax_rates').all().map(t => ({...t, isActive: !!t.isActive}))); } 
@@ -167,6 +226,30 @@ exports.updateDepartment = (req, res) => {
 };
 exports.deleteDepartment = (req, res) => {
   try { db.prepare('DELETE FROM departments WHERE id = ?').run(req.params.id); res.sendStatus(200); } 
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+// --- SPECIALIZATIONS ---
+exports.getSpecializations = (req, res) => {
+  try { res.json(db.prepare('SELECT * FROM specializations ORDER BY name').all()); } 
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.addSpecialization = (req, res) => {
+  const { name, description } = req.body;
+  try {
+    const info = db.prepare('INSERT INTO specializations (name, description) VALUES (?, ?)').run(name, description || '');
+    res.status(201).json({ id: info.lastInsertRowid, name, description });
+  } catch (err) { res.status(400).json({ error: err.message }); }
+};
+exports.updateSpecialization = (req, res) => {
+  const { name, description } = req.body;
+  try {
+    db.prepare('UPDATE specializations SET name = ?, description = ? WHERE id = ?').run(name, description, req.params.id);
+    res.json({ message: 'Specialization updated' });
+  } catch (err) { res.status(400).json({ error: err.message }); }
+};
+exports.deleteSpecialization = (req, res) => {
+  try { db.prepare('DELETE FROM specializations WHERE id = ?').run(req.params.id); res.sendStatus(200); } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -291,5 +374,15 @@ exports.restoreBackup = (req, res) => {
     res.json({ message: 'Database restored successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to restore database: ' + err.message });
+  }
+};
+
+exports.resetDatabase = (req, res) => {
+  try {
+    resetDatabase();
+    res.json({ message: 'Database has been reset to factory state.' });
+  } catch (err) {
+    console.error('Reset failed:', err);
+    res.status(500).json({ error: 'Failed to reset database.' });
   }
 };

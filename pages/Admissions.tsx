@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Badge, Modal, Input, Textarea, Select } from '../components/UI';
+import { Card, Button, Badge, Modal, Input, Textarea, Select, ConfirmationDialog } from '../components/UI';
 import { Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, DollarSign, Loader2, XCircle } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
@@ -21,6 +21,14 @@ export const Admissions = () => {
   const [isCareModalOpen, setIsCareModalOpen] = useState(false); // For Active Patients
   const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false); // For New Reservation
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false); // For Reserved -> Active
+
+  // Confirmation Dialog State
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    action: () => void;
+  }>({ isOpen: false, title: '', message: '', action: () => {} });
 
   // Selection States
   const [selectedAdmission, setSelectedAdmission] = useState<any | null>(null);
@@ -181,29 +189,34 @@ export const Admissions = () => {
   };
 
   const handleDischarge = async () => {
-    if (!confirm('Are you sure you want to discharge this patient? This will generate the final bill.')) return;
-    
-    setProcessStatus('processing');
-    setProcessMessage('Processing discharge...');
+    setConfirmState({
+      isOpen: true,
+      title: 'Discharge Patient',
+      message: 'Are you sure you want to discharge this patient? This will generate the final bill and release the bed.',
+      action: async () => {
+        setProcessStatus('processing');
+        setProcessMessage('Processing discharge...');
 
-    try {
-      await api.dischargePatient(inpatientDetails.id, {
-        dischargeNotes: dischargeForm.notes,
-        dischargeStatus: dischargeForm.status
-      });
-      
-      setProcessStatus('success');
-      setProcessMessage('Patient discharged successfully.');
-      await loadData(true);
-      
-      setTimeout(() => {
-        setIsCareModalOpen(false);
-        setProcessStatus('idle');
-      }, 2000);
-    } catch (e: any) {
-      setProcessStatus('error');
-      setProcessMessage(e.response?.data?.error || 'Discharge failed');
-    }
+        try {
+          await api.dischargePatient(inpatientDetails.id, {
+            dischargeNotes: dischargeForm.notes,
+            dischargeStatus: dischargeForm.status
+          });
+          
+          setProcessStatus('success');
+          setProcessMessage('Patient discharged successfully.');
+          await loadData(true);
+          
+          setTimeout(() => {
+            setIsCareModalOpen(false);
+            setProcessStatus('idle');
+          }, 2000);
+        } catch (e: any) {
+          setProcessStatus('error');
+          setProcessMessage(e.response?.data?.error || 'Discharge failed');
+        }
+      }
+    });
   };
 
   return (
@@ -576,6 +589,16 @@ export const Admissions = () => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog 
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        type="warning"
+      />
     </div>
   );
 };
