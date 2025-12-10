@@ -20,7 +20,10 @@ exports.getAll = (req, res) => {
       phone: s.phone,
       baseSalary: s.base_salary,
       joinDate: s.join_date,
-      bankDetails: s.bank_details
+      bankDetails: s.bank_details,
+      availableDays: s.available_days ? JSON.parse(s.available_days) : [],
+      availableTimeStart: s.available_time_start,
+      availableTimeEnd: s.available_time_end
     }));
 
     res.json(mapped);
@@ -31,15 +34,33 @@ exports.getAll = (req, res) => {
 };
 
 exports.create = (req, res) => {
-  const { fullName, type, department, specialization, consultationFee, consultationFeeFollowup, consultationFeeEmergency, email, phone, baseSalary, joinDate } = req.body;
+  const { 
+    fullName, type, department, specialization, 
+    consultationFee, consultationFeeFollowup, consultationFeeEmergency, 
+    email, phone, baseSalary, joinDate,
+    availableDays, availableTimeStart, availableTimeEnd 
+  } = req.body;
+
   const prefix = type === 'doctor' ? 'DOC' : type === 'nurse' ? 'NUR' : 'STF';
   const employeeId = `${prefix}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
 
+  const daysJson = availableDays ? JSON.stringify(availableDays) : '[]';
+
   try {
     const info = db.prepare(`
-      INSERT INTO medical_staff (employee_id, full_name, type, department, specialization, consultation_fee, consultation_fee_followup, consultation_fee_emergency, email, phone, base_salary, join_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(employeeId, fullName, type, department, specialization, consultationFee || 0, consultationFeeFollowup || 0, consultationFeeEmergency || 0, email, phone, baseSalary || 0, joinDate || new Date().toISOString().split('T')[0]);
+      INSERT INTO medical_staff (
+        employee_id, full_name, type, department, specialization, 
+        consultation_fee, consultation_fee_followup, consultation_fee_emergency, 
+        email, phone, base_salary, join_date,
+        available_days, available_time_start, available_time_end
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      employeeId, fullName, type, department, specialization, 
+      consultationFee || 0, consultationFeeFollowup || 0, consultationFeeEmergency || 0, 
+      email, phone, baseSalary || 0, joinDate || new Date().toISOString().split('T')[0],
+      daysJson, availableTimeStart || null, availableTimeEnd || null
+    );
     res.status(201).json({ id: info.lastInsertRowid, employeeId, ...req.body });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -49,7 +70,12 @@ exports.create = (req, res) => {
 exports.update = (req, res) => {
   const { id } = req.params;
   const updates = Object.keys(req.body);
-  const allowed = ['isAvailable', 'fullName', 'phone', 'email', 'consultationFee', 'consultationFeeFollowup', 'consultationFeeEmergency', 'baseSalary', 'joinDate', 'bankDetails', 'department', 'specialization'];
+  const allowed = [
+    'isAvailable', 'fullName', 'phone', 'email', 
+    'consultationFee', 'consultationFeeFollowup', 'consultationFeeEmergency', 
+    'baseSalary', 'joinDate', 'bankDetails', 'department', 'specialization',
+    'availableDays', 'availableTimeStart', 'availableTimeEnd'
+  ];
   
   const isValid = updates.every(u => allowed.includes(u));
   if (!isValid) return res.status(400).json({ error: 'Invalid updates' });
@@ -63,12 +89,16 @@ exports.update = (req, res) => {
     fullName: 'full_name',
     baseSalary: 'base_salary',
     joinDate: 'join_date',
-    bankDetails: 'bank_details'
+    bankDetails: 'bank_details',
+    availableDays: 'available_days',
+    availableTimeStart: 'available_time_start',
+    availableTimeEnd: 'available_time_end'
   };
 
   const setClause = updates.map(u => `${dbFields[u] || u} = ?`).join(', ');
   const values = updates.map(u => {
     if (u === 'isAvailable') return req.body[u] ? 1 : 0;
+    if (u === 'availableDays') return JSON.stringify(req.body[u]);
     return req.body[u];
   });
 

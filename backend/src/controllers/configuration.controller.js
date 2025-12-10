@@ -48,7 +48,6 @@ exports.updateSettings = (req, res) => {
 exports.getUsers = (req, res) => {
   try {
     // Use SELECT * to handle missing columns gracefully in older schemas
-    // CHANGED: ORDER BY username instead of full_name to prevent 500 error if full_name missing
     const users = db.prepare('SELECT * FROM users ORDER BY username').all();
     // Map to camelCase for frontend consistency
     const mappedUsers = users.map(u => ({
@@ -64,12 +63,13 @@ exports.getUsers = (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.addUser = (req, res) => {
+exports.addUser = async (req, res) => {
   const { username, password, fullName, role, email, isActive } = req.body;
   if (!username || !password || !fullName || !role) return res.status(400).json({ error: 'Missing required fields' });
 
   try {
-    const hash = bcrypt.hashSync(password, 10);
+    // Async hash
+    const hash = await bcrypt.hash(password, 10);
     const stmt = db.prepare('INSERT INTO users (username, password, full_name, role, email, is_active) VALUES (?, ?, ?, ?, ?, ?)');
     const info = stmt.run(username, hash, fullName, role, email || null, isActive ? 1 : 0);
     res.status(201).json({ id: info.lastInsertRowid, username, fullName, role, email });
@@ -79,12 +79,13 @@ exports.addUser = (req, res) => {
   }
 };
 
-exports.updateUser = (req, res) => {
+exports.updateUser = async (req, res) => {
   const { id } = req.params;
   const { fullName, role, email, password, isActive } = req.body;
   try {
     if (password) {
-      const hash = bcrypt.hashSync(password, 10);
+      // Async hash
+      const hash = await bcrypt.hash(password, 10);
       db.prepare('UPDATE users SET full_name = ?, role = ?, email = ?, is_active = ?, password = ? WHERE id = ?').run(fullName, role, email || null, isActive ? 1 : 0, hash, id);
     } else {
       db.prepare('UPDATE users SET full_name = ?, role = ?, email = ?, is_active = ? WHERE id = ?').run(fullName, role, email || null, isActive ? 1 : 0, id);
@@ -272,6 +273,17 @@ exports.downloadBackup = (req, res) => {
 
 exports.restoreBackup = (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  
+  // Security Check: Validate Extension
+  const validExtensions = ['.db', '.sqlite', '.sqlite3'];
+  const ext = path.extname(req.file.originalname).toLowerCase();
+  
+  if (!validExtensions.includes(ext)) {
+      // Clean up uploaded file immediately
+      try { fs.unlinkSync(req.file.path); } catch(e) {}
+      return res.status(400).json({ error: 'Invalid file type. Only SQLite database files allowed.' });
+  }
+
   const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
   try {
     fs.copyFileSync(req.file.path, dbPath);

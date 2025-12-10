@@ -5,7 +5,7 @@ import {
   Plus, Search, Filter, Shield, AlertTriangle, Edit, Calendar, Lock, 
   FlaskConical, Bed, Activity, Settings, Thermometer, Trash2, CheckCircle,
   Phone, User as UserIcon, History, Loader2,
-  ChevronLeft, ChevronRight, MapPin, XCircle, FileText, Stethoscope
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MapPin, XCircle, FileText, Stethoscope
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill } from '../types';
@@ -33,7 +33,7 @@ export const Patients = () => {
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
   // Advanced Process State
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
@@ -279,12 +279,10 @@ export const Patients = () => {
 
   const checkAvailability = (doc: MedicalStaff) => {
     if (!doc.isAvailable) return false;
-    if (!doc.schedule) return true; 
+    if (!doc.availableDays || doc.availableDays.length === 0) return true; 
     try {
-      // Normalize to lowercase for comparison
-      const scheduleDays = JSON.parse(doc.schedule).map((d: string) => d.toLowerCase()); 
-      // Get today's full name (e.g., 'monday')
-      const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(); 
+      const scheduleDays = doc.availableDays.map((d: string) => d.toLowerCase()); 
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase(); 
       return scheduleDays.includes(today);
     } catch (e) {
       return true; 
@@ -351,7 +349,6 @@ export const Patients = () => {
         if (!actionFormData.subtype) throw new Error('Select an operation.');
         if (!staffAssignedId) throw new Error('Select a surgeon.');
         
-        // Simplified Request only
         await api.createOperation({
           patientId: selectedPatient.id,
           operationName: actionFormData.subtype,
@@ -387,7 +384,7 @@ export const Patients = () => {
         setIsActionModalOpen(false);
         setProcessStatus('idle');
         setProcessMessage('');
-      }, 500); // Faster closing (0.5s)
+      }, 500);
 
     } catch (err: any) {
       console.error(err);
@@ -440,7 +437,7 @@ export const Patients = () => {
         setIsFormModalOpen(false);
         setProcessStatus('idle');
         setProcessMessage('');
-      }, 500); // Faster closing (0.5s)
+      }, 500);
 
     } catch (err: any) {
       console.error(err);
@@ -466,6 +463,24 @@ export const Patients = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
 
   const canManagePatients = hasPermission(currentUser, Permissions.MANAGE_PATIENTS);
   
@@ -495,7 +510,6 @@ export const Patients = () => {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // Static Class Mapping for Action Grid (Fixes Tailwind purging dynamic classes)
   const actionButtonStyles: Record<string, string> = {
     blue: 'bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-800',
     purple: 'bg-white dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-purple-200 dark:hover:border-purple-800',
@@ -660,26 +674,75 @@ export const Patients = () => {
           </table>
         </div>
 
-        {/* Pagination Footer */}
+        {/* Enhanced Pagination Footer */}
         {!loading && filteredPatients.length > 0 && (
-           <div className="px-6 py-4 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 rounded-b-2xl">
-             <span className="text-sm text-gray-500 dark:text-gray-400">
-                Showing <span className="font-medium text-gray-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium text-gray-900 dark:text-white">{Math.min(currentPage * itemsPerPage, filteredPatients.length)}</span> of <span className="font-medium text-gray-900 dark:text-white">{filteredPatients.length}</span> results
-             </span>
-             <div className="flex gap-2">
+           <div className="px-6 py-4 border-t border-gray-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-slate-900 rounded-b-2xl gap-4">
+             <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                <span>
+                  Showing <span className="font-medium text-gray-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="font-medium text-gray-900 dark:text-white">{Math.min(currentPage * itemsPerPage, filteredPatients.length)}</span> of <span className="font-medium text-gray-900 dark:text-white">{filteredPatients.length}</span>
+                </span>
+                
+                <div className="flex items-center gap-2 border-l border-gray-200 dark:border-slate-700 pl-4">
+                  <span>Rows:</span>
+                  <select 
+                    className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-primary-500"
+                    value={itemsPerPage}
+                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+             </div>
+
+             <div className="flex gap-1.5">
+               <button 
+                 onClick={() => setCurrentPage(1)}
+                 disabled={currentPage === 1}
+                 className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+               >
+                 <ChevronsLeft size={16} />
+               </button>
                <button 
                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                  disabled={currentPage === 1}
-                 className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                 className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                >
                  <ChevronLeft size={16} />
                </button>
+               
+               {getPageNumbers().map((p, i) => (
+                 <button
+                   key={i}
+                   onClick={() => typeof p === 'number' && setCurrentPage(p)}
+                   disabled={typeof p !== 'number'}
+                   className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-all ${
+                     p === currentPage 
+                       ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30' 
+                       : typeof p === 'number' 
+                         ? 'border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300' 
+                         : 'text-gray-400 cursor-default'
+                   }`}
+                 >
+                   {p}
+                 </button>
+               ))}
+
                <button 
                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                  disabled={currentPage === totalPages}
-                 className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                 className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                >
                  <ChevronRight size={16} />
+               </button>
+               <button 
+                 onClick={() => setCurrentPage(totalPages)}
+                 disabled={currentPage === totalPages}
+                 className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+               >
+                 <ChevronsRight size={16} />
                </button>
              </div>
            </div>
@@ -726,8 +789,6 @@ export const Patients = () => {
       {/* Register/Edit Modal */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient" : "Register Patient"}>
          <form onSubmit={handleRegisterSubmit} className="space-y-6">
-           {/* ... existing registration form ... */}
-           {/* (Kept existing registration code block same as before to save space in output, assumes it's present) */}
            <div className="space-y-4">
              <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 mb-2 flex items-center gap-2">
                <UserIcon size={16} /> Personal Information

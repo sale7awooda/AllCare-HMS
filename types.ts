@@ -68,7 +68,11 @@ export interface MedicalStaff {
   isAvailable: boolean;
   email?: string;
   phone?: string;
-  schedule?: string; 
+  
+  // Schedule
+  availableDays?: string[]; // Array of days e.g. ["Mon", "Tue"]
+  availableTimeStart?: string; // HH:mm
+  availableTimeEnd?: string; // HH:mm
   
   // HR Specific
   baseSalary?: number;

@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Create axios instance with base URL
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: 'https://allcare.up.railway.app/api',
 });
 
 // Add token interceptor
@@ -149,7 +149,7 @@ export const api = {
   // --- Configuration: Data Management ---
   downloadBackup: () => {
     // Direct open to trigger download
-    window.open('/api/config/backup', '_blank');
+    window.open('https://allcare.up.railway.app/api/config/backup', '_blank');
   },
   restoreDatabase: (file) => {
     const formData = new FormData();

@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { 
   Plus, Printer, Download, X, Lock, CreditCard, 
   Wallet, TrendingUp, AlertCircle, FileText, CheckCircle, Trash2,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Bill, Patient, Appointment, PaymentMethod } from '../types';
@@ -17,9 +17,10 @@ export const Billing = () => {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Pagination State
+  // Pagination & Filtering State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Stats
   const [stats, setStats] = useState({
@@ -150,9 +151,33 @@ export const Billing = () => {
     }
   };
 
-  // --- Pagination Logic ---
-  const totalPages = Math.ceil(bills.length / itemsPerPage);
-  const paginatedBills = bills.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // --- Filtering & Pagination Logic ---
+  const filteredBills = useMemo(() => {
+    return bills.filter(bill => 
+      bill.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [bills, searchTerm]);
+
+  const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
+  const paginatedBills = filteredBills.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
 
   // --- Render Helpers ---
 
@@ -299,9 +324,23 @@ export const Billing = () => {
       </div>
 
       <Card className="!p-0 overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
+        {/* Search Toolbar */}
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex items-center gap-3">
+           <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <input 
+                type="text" 
+                placeholder="Search invoice # or patient name..." 
+                className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all shadow-sm"
+                value={searchTerm}
+                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              />
+           </div>
+        </div>
+
         <div className="overflow-x-auto min-h-[400px]">
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-900">
+            <thead className="bg-white dark:bg-slate-900">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Invoice Info</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Patient</th>
@@ -312,9 +351,9 @@ export const Billing = () => {
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
               {loading ? (
-                  <tr><td colSpan={5} className="text-center py-8 text-slate-500">Loading billing data...</td></tr>
+                  <tr><td colSpan={5} className="text-center py-20 text-slate-500">Loading billing data...</td></tr>
               ) : paginatedBills.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center py-8 text-slate-500">No invoices found.</td></tr>
+                  <tr><td colSpan={5} className="text-center py-20 text-slate-500">No invoices found matching criteria.</td></tr>
               ) : (
                   paginatedBills.map((bill) => (
                     <tr key={bill.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
@@ -343,7 +382,7 @@ export const Billing = () => {
                          <div className="flex justify-end gap-2">
                             <button 
                                 onClick={() => setSelectedBill(bill)}
-                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
                                 title="View Invoice"
                             >
                                 <FileText size={18} />
@@ -368,12 +407,12 @@ export const Billing = () => {
           </table>
         </div>
 
-        {/* Pagination Footer */}
-        {!loading && bills.length > 0 && (
+        {/* Enhanced Pagination Footer */}
+        {!loading && filteredBills.length > 0 && (
            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-b-xl gap-4">
              <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
                 <span>
-                  Showing <span className="font-medium text-slate-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="font-medium text-slate-900 dark:text-white">{Math.min(currentPage * itemsPerPage, bills.length)}</span> of <span className="font-medium text-slate-900 dark:text-white">{bills.length}</span>
+                  Showing <span className="font-medium text-slate-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="font-medium text-slate-900 dark:text-white">{Math.min(currentPage * itemsPerPage, filteredBills.length)}</span> of <span className="font-medium text-slate-900 dark:text-white">{filteredBills.length}</span>
                 </span>
                 
                 <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-4">
@@ -406,9 +445,22 @@ export const Billing = () => {
                  <ChevronLeft size={16} />
                </button>
                
-               <span className="flex items-center px-4 font-medium text-sm text-slate-600 dark:text-slate-300">
-                 Page {currentPage} of {totalPages}
-               </span>
+               {getPageNumbers().map((p, i) => (
+                 <button
+                   key={i}
+                   onClick={() => typeof p === 'number' && setCurrentPage(p)}
+                   disabled={typeof p !== 'number'}
+                   className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-all ${
+                     p === currentPage 
+                       ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30' 
+                       : typeof p === 'number' 
+                         ? 'border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300' 
+                         : 'text-slate-400 cursor-default'
+                   }`}
+                 >
+                   {p}
+                 </button>
+               ))}
 
                <button 
                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}

@@ -2,10 +2,15 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
+// Security: Limit upload size to 50MB to prevent disk exhaustion
+const upload = multer({ 
+  dest: 'uploads/',
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
 
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { Permissions } = require('../utils/rbac_backend_mirror');
+const { validate, schemas } = require('../middleware/validation');
 
 const authController = require('../controllers/auth.controller');
 const patientController = require('../controllers/patient.controller');
@@ -16,7 +21,7 @@ const medicalController = require('../controllers/medical.controller');
 const configurationController = require('../controllers/configuration.controller');
 
 // --- PUBLIC ROUTES ---
-router.post('/auth/login', authController.login);
+router.post('/auth/login', validate(schemas.login), authController.login);
 router.get('/config/settings/public', configurationController.getPublicSettings);
 
 // --- PROTECTED ROUTES (Global Middleware) ---
@@ -30,12 +35,12 @@ router.put('/auth/password', authController.changePassword);
 // Patients
 router.get('/patients', authorizeRoles(Permissions.VIEW_PATIENTS), patientController.getAll);
 router.get('/patients/:id', authorizeRoles(Permissions.VIEW_PATIENTS), patientController.getOne);
-router.post('/patients', authorizeRoles(Permissions.MANAGE_PATIENTS), patientController.create);
-router.put('/patients/:id', authorizeRoles(Permissions.MANAGE_PATIENTS), patientController.update);
+router.post('/patients', authorizeRoles(Permissions.MANAGE_PATIENTS), validate(schemas.createPatient), patientController.create);
+router.put('/patients/:id', authorizeRoles(Permissions.MANAGE_PATIENTS), validate(schemas.createPatient), patientController.update);
 
 // Staff (HR)
 router.get('/hr', authorizeRoles(Permissions.VIEW_HR), staffController.getAll);
-router.post('/hr', authorizeRoles(Permissions.MANAGE_HR), staffController.create);
+router.post('/hr', authorizeRoles(Permissions.MANAGE_HR), validate(schemas.createStaff), staffController.create);
 router.put('/hr/:id', authorizeRoles(Permissions.MANAGE_HR), staffController.update);
 
 // HR Extended Features

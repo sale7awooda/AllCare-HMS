@@ -26,14 +26,17 @@ const initDB = () => {
       shouldReset = true;
     }
     
-    // 2. Check Medical Staff for base_salary
+    // 2. Check Medical Staff for base_salary and available_days
     if (!shouldReset) {
          const staffTableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='medical_staff'").get();
          if (staffTableCheck) {
              const columns = db.pragma('table_info(medical_staff)');
              const hasSalary = columns.some(col => col.name === 'base_salary');
-             if (!hasSalary) {
-                console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing base_salary). Resetting database...');
+             const hasSchedule = columns.some(col => col.name === 'available_days');
+             const hasEmergencyFee = columns.some(col => col.name === 'consultation_fee_emergency');
+             
+             if (!hasSalary || !hasSchedule || !hasEmergencyFee) {
+                console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing staff fields). Resetting database...');
                 shouldReset = true;
              }
          }
@@ -101,6 +104,9 @@ const initDB = () => {
       consultation_fee_followup REAL DEFAULT 0,
       consultation_fee_emergency REAL DEFAULT 0,
       is_available BOOLEAN DEFAULT 1,
+      available_days TEXT, -- JSON array of strings e.g. ["Mon", "Tue"]
+      available_time_start TEXT, -- HH:mm
+      available_time_end TEXT, -- HH:mm
       email TEXT,
       phone TEXT,
       base_salary REAL DEFAULT 0,
@@ -260,8 +266,8 @@ const initDB = () => {
       actual_discharge_date DATETIME,
       status TEXT DEFAULT 'active', 
       notes TEXT, 
-      discharge_notes TEXT,
-      discharge_status TEXT,
+      discharge_notes TEXT, 
+      discharge_status TEXT, 
       projected_cost REAL DEFAULT 0, 
       bill_id INTEGER DEFAULT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -386,16 +392,16 @@ const initDB = () => {
   const existingStaff = db.prepare('SELECT COUNT(*) as count FROM medical_staff').get();
   if (existingStaff.count === 0) {
     const staff = [
-      { employee_id: 'DOC-001', full_name: 'Dr. Sarah Wilson', type: 'doctor', department: 'Cardiology', specialization: 'Cardiologist', consultation_fee: 100, consultation_fee_followup: 50, consultation_fee_emergency: 150, email: 'sarah@allcare.com', phone: '555-0101', base_salary: 5000 },
-      { employee_id: 'NUR-001', full_name: 'Nurse Emily Clarke', type: 'nurse', department: 'General Ward', specialization: 'General Care', consultation_fee: 0, consultation_fee_followup: 0, consultation_fee_emergency: 0, email: 'emily@allcare.com', phone: '555-0102', base_salary: 2000 },
-      { employee_id: 'TEC-001', full_name: 'Technician Alex', type: 'technician', department: 'Laboratory', specialization: 'Medical Imaging', consultation_fee: 0, consultation_fee_followup: 0, consultation_fee_emergency: 0, email: 'alex@allcare.com', phone: '555-0104', base_salary: 2200 },
-      { employee_id: 'ANS-001', full_name: 'Dr. John Anest', type: 'anesthesiologist', department: 'Anesthesiology', specialization: 'General Anesthesia', consultation_fee: 200, consultation_fee_followup: 100, consultation_fee_emergency: 300, email: 'anest@allcare.com', phone: '555-0108', base_salary: 4800 },
+      { employee_id: 'DOC-001', full_name: 'Dr. Sarah Wilson', type: 'doctor', department: 'Cardiology', specialization: 'Cardiologist', consultation_fee: 100, consultation_fee_followup: 50, consultation_fee_emergency: 150, email: 'sarah@allcare.com', phone: '555-0101', base_salary: 5000, available_days: '["Mon","Tue","Wed","Thu","Fri"]', available_time_start: '09:00', available_time_end: '17:00' },
+      { employee_id: 'NUR-001', full_name: 'Nurse Emily Clarke', type: 'nurse', department: 'General Ward', specialization: 'General Care', consultation_fee: 0, consultation_fee_followup: 0, consultation_fee_emergency: 0, email: 'emily@allcare.com', phone: '555-0102', base_salary: 2000, available_days: '["Mon","Tue","Wed","Thu","Fri"]', available_time_start: '07:00', available_time_end: '15:00' },
+      { employee_id: 'TEC-001', full_name: 'Technician Alex', type: 'technician', department: 'Laboratory', specialization: 'Medical Imaging', consultation_fee: 0, consultation_fee_followup: 0, consultation_fee_emergency: 0, email: 'alex@allcare.com', phone: '555-0104', base_salary: 2200, available_days: '["Mon","Tue","Wed","Thu","Fri","Sat"]', available_time_start: '08:00', available_time_end: '16:00' },
+      { employee_id: 'ANS-001', full_name: 'Dr. John Anest', type: 'anesthesiologist', department: 'Anesthesiology', specialization: 'General Anesthesia', consultation_fee: 200, consultation_fee_followup: 100, consultation_fee_emergency: 300, email: 'anest@allcare.com', phone: '555-0108', base_salary: 4800, available_days: '["Tue","Thu"]', available_time_start: '10:00', available_time_end: '14:00' },
     ];
     const insertStaff = db.prepare(`
-      INSERT INTO medical_staff (employee_id, full_name, type, department, specialization, consultation_fee, consultation_fee_followup, consultation_fee_emergency, email, phone, base_salary, join_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE('now'))
+      INSERT INTO medical_staff (employee_id, full_name, type, department, specialization, consultation_fee, consultation_fee_followup, consultation_fee_emergency, email, phone, base_salary, available_days, available_time_start, available_time_end, join_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE('now'))
     `);
-    staff.forEach(s => insertStaff.run(s.employee_id, s.full_name, s.type, s.department, s.specialization, s.consultation_fee, s.consultation_fee_followup, s.consultation_fee_emergency, s.email, s.phone, s.base_salary));
+    staff.forEach(s => insertStaff.run(s.employee_id, s.full_name, s.type, s.department, s.specialization, s.consultation_fee, s.consultation_fee_followup, s.consultation_fee_emergency, s.email, s.phone, s.base_salary, s.available_days, s.available_time_start, s.available_time_end));
     console.log('✅ Medical staff seeded.');
   }
 

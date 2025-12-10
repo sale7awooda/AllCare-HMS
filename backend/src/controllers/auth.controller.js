@@ -4,13 +4,14 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { SECRET } = require('../middleware/auth');
 
-exports.login = (req, res) => {
+exports.login = async (req, res) => {
   const { username, password } = req.body;
   
   try {
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
     
-    if (!user || !user.password || !bcrypt.compareSync(password, user.password)) {
+    // Async compare prevents blocking the event loop
+    if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -75,17 +76,19 @@ exports.updateProfile = (req, res) => {
   }
 };
 
-exports.changePassword = (req, res) => {
+exports.changePassword = async (req, res) => {
   const { id } = req.user;
   const { currentPassword, newPassword } = req.body;
   
   try {
     const user = db.prepare('SELECT password FROM users WHERE id = ?').get(id);
-    if (!bcrypt.compareSync(currentPassword, user.password)) {
+    // Async compare
+    if (!(await bcrypt.compare(currentPassword, user.password))) {
       return res.status(401).json({ error: 'Incorrect current password' });
     }
     
-    const hash = bcrypt.hashSync(newPassword, 10);
+    // Async hash
+    const hash = await bcrypt.hash(newPassword, 10);
     db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, id);
     res.json({ message: 'Password changed successfully' });
   } catch (err) {

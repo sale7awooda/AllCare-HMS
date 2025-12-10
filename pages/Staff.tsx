@@ -2,14 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
 import { 
-  Plus, Search, Filter, Mail, Phone, Briefcase, Lock, 
-  LayoutGrid, List as ListIcon, User, Stethoscope, 
-  CheckCircle, XCircle, Clock, Shield, Calendar, DollarSign, Wallet, FileText,
-  AlertTriangle, TrendingUp, TrendingDown, Menu
+  Plus, Search, Briefcase, Clock, 
+  Calendar, DollarSign, Wallet,
+  AlertTriangle, TrendingUp, TrendingDown, CheckCircle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, User as UserType, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
+
+const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export const Staff = () => {
   const [activeTab, setActiveTab] = useState<'directory' | 'attendance' | 'leaves' | 'payroll' | 'financials'>('directory');
@@ -91,8 +92,22 @@ export const Staff = () => {
   };
 
   const openStaffModal = (s?: MedicalStaff) => {
-      setStaffForm(s || { fullName: '', type: 'doctor', isAvailable: true, baseSalary: 0 });
+      setStaffForm(s || { 
+          fullName: '', type: 'doctor', isAvailable: true, baseSalary: 0, 
+          availableDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], // Default to M-F
+          availableTimeStart: '09:00',
+          availableTimeEnd: '17:00'
+      });
       setIsModalOpen(true);
+  };
+
+  const toggleDay = (day: string) => {
+      const currentDays = staffForm.availableDays || [];
+      if (currentDays.includes(day)) {
+          setStaffForm({ ...staffForm, availableDays: currentDays.filter(d => d !== day) });
+      } else {
+          setStaffForm({ ...staffForm, availableDays: [...currentDays, day] });
+      }
   };
 
   const handleMarkAttendance = async (staffId: number, status: string) => {
@@ -155,6 +170,14 @@ export const Staff = () => {
     }
   };
 
+  const formatDays = (days?: string[]) => {
+    if (!days || days.length === 0) return 'None';
+    if (days.length === 7) return 'Every Day';
+    if (days.length === 5 && !days.includes('Sat') && !days.includes('Sun')) return 'Mon-Fri';
+    // Compact format: Mon, Tue -> M, T
+    return days.map(d => d.substring(0, 3)).join(', ');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -202,7 +225,7 @@ export const Staff = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {staff.filter(s => s.fullName.toLowerCase().includes(searchTerm.toLowerCase())).map(person => (
-                      <div key={person.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:shadow-md transition-all">
+                      <div key={person.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:shadow-md transition-all flex flex-col h-full">
                           <div className="flex justify-between items-start mb-4">
                               <div className={`h-12 w-12 rounded-full flex items-center justify-center text-lg font-bold shadow-sm ${getRoleColor(person.type)}`}>
                                   {person.fullName.charAt(0)}
@@ -210,25 +233,39 @@ export const Staff = () => {
                               <Badge color={person.isAvailable ? 'green' : 'gray'}>{person.isAvailable ? 'Active' : 'Off Duty'}</Badge>
                           </div>
                           
-                          <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">{person.fullName}</h3>
+                          <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate" title={person.fullName}>{person.fullName}</h3>
                           <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{person.specialization}</p>
                           <div className="text-xs font-mono bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300 w-fit mb-3">{person.employeeId}</div>
 
-                          <div className="space-y-2 text-sm border-t border-slate-100 dark:border-slate-700 pt-3">
+                          <div className="flex-1 space-y-2 text-sm border-t border-slate-100 dark:border-slate-700 pt-3">
                               <div className="flex justify-between text-slate-600 dark:text-slate-400">
                                   <span>Department</span>
                                   <span className="font-medium text-slate-800 dark:text-slate-200">{person.department}</span>
                               </div>
-                              {canManageHR && (
-                                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                      <span>Salary</span>
-                                      <span className="font-medium text-emerald-600">${person.baseSalary?.toLocaleString()}</span>
-                                  </div>
-                              )}
                               <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                  <span>Phone</span>
-                                  <span>{person.phone}</span>
+                                  <span>Shift</span>
+                                  <span className="font-medium text-slate-800 dark:text-slate-200">{person.availableTimeStart} - {person.availableTimeEnd}</span>
                               </div>
+                              <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                                  <span>Working Days</span>
+                                  <span className="font-medium text-slate-800 dark:text-slate-200 text-xs truncate max-w-[120px]" title={person.availableDays?.join(', ')}>
+                                    {formatDays(person.availableDays)}
+                                  </span>
+                              </div>
+                              {person.type === 'doctor' && (
+                                <div className="mt-2 pt-2 border-t border-dashed border-slate-100 dark:border-slate-700">
+                                   <div className="flex justify-between items-center text-xs">
+                                      <span className="text-slate-500">Consultation</span>
+                                      <span className="font-bold text-slate-700 dark:text-slate-300">${person.consultationFee}</span>
+                                   </div>
+                                   {person.consultationFeeFollowup && (
+                                     <div className="flex justify-between items-center text-xs mt-1">
+                                        <span className="text-slate-500">Follow-up</span>
+                                        <span className="font-bold text-slate-700 dark:text-slate-300">${person.consultationFeeFollowup}</span>
+                                     </div>
+                                   )}
+                                </div>
+                              )}
                           </div>
                           
                           {canManageHR && (
@@ -245,6 +282,7 @@ export const Staff = () => {
       {/* --- ATTENDANCE TAB --- */}
       {activeTab === 'attendance' && (
           <Card className="!p-0 animate-in fade-in">
+              {/* ... (Existing Attendance Content - Unchanged logic, kept for brevity in update) ... */}
               <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
                   <div className="flex items-center gap-4">
                       <h3 className="font-bold text-slate-700 dark:text-white">Daily Attendance</h3>
@@ -293,7 +331,7 @@ export const Staff = () => {
                                               <div className="flex justify-end gap-2">
                                                   <button onClick={() => handleMarkAttendance(person.id, 'present')} className="p-1.5 bg-green-50 text-green-600 rounded hover:bg-green-100" title="Present"><CheckCircle size={16}/></button>
                                                   <button onClick={() => handleMarkAttendance(person.id, 'late')} className="p-1.5 bg-yellow-50 text-yellow-600 rounded hover:bg-yellow-100" title="Late"><Clock size={16}/></button>
-                                                  <button onClick={() => handleMarkAttendance(person.id, 'absent')} className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100" title="Absent"><XCircle size={16}/></button>
+                                                  <button onClick={() => handleMarkAttendance(person.id, 'absent')} className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100" title="Absent"><AlertTriangle size={16}/></button>
                                               </div>
                                           </td>
                                       )}
@@ -451,14 +489,51 @@ export const Staff = () => {
             <Input label="Email" type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} />
           </div>
 
+          {/* Schedule Configuration */}
+          <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-3">
+              <h4 className="font-bold text-sm text-slate-700 dark:text-slate-300">Schedule & Availability</h4>
+              <div>
+                  <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">Working Days</label>
+                  <div className="flex gap-2 flex-wrap">
+                      {DAYS_OF_WEEK.map(day => (
+                          <button
+                              key={day}
+                              type="button"
+                              onClick={() => toggleDay(day)}
+                              className={`
+                                  px-2 py-1 text-xs rounded border transition-colors
+                                  ${(staffForm.availableDays || []).includes(day) 
+                                      ? 'bg-primary-600 text-white border-primary-600' 
+                                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600'}
+                              `}
+                          >
+                              {day}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                  <Input label="Start Time" type="time" value={staffForm.availableTimeStart} onChange={e => setStaffForm({...staffForm, availableTimeStart: e.target.value})} />
+                  <Input label="End Time" type="time" value={staffForm.availableTimeEnd} onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})} />
+              </div>
+          </div>
+
           {canManageHR && (
               <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-3">
                   <h4 className="font-bold text-sm text-slate-700 dark:text-slate-300">Financial Details</h4>
+                  
                   <div className="grid grid-cols-2 gap-4">
                       <Input label="Base Salary ($)" type="number" value={staffForm.baseSalary} onChange={e => setStaffForm({...staffForm, baseSalary: parseFloat(e.target.value)})} />
-                      <Input label="Consultation Fee ($)" type="number" value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: parseFloat(e.target.value)})} />
+                      <Input label="Bank Details" placeholder="Bank Name - Account Number" value={staffForm.bankDetails || ''} onChange={e => setStaffForm({...staffForm, bankDetails: e.target.value})} />
                   </div>
-                  <Input label="Bank Details" placeholder="Bank Name - Account Number" value={staffForm.bankDetails || ''} onChange={e => setStaffForm({...staffForm, bankDetails: e.target.value})} />
+
+                  {staffForm.type === 'doctor' && (
+                      <div className="grid grid-cols-3 gap-3">
+                          <Input label="Consultation Fee" type="number" value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: parseFloat(e.target.value)})} />
+                          <Input label="Follow-up Fee" type="number" value={staffForm.consultationFeeFollowup} onChange={e => setStaffForm({...staffForm, consultationFeeFollowup: parseFloat(e.target.value)})} />
+                          <Input label="Emergency Fee" type="number" value={staffForm.consultationFeeEmergency} onChange={e => setStaffForm({...staffForm, consultationFeeEmergency: parseFloat(e.target.value)})} />
+                      </div>
+                  )}
               </div>
           )}
           
