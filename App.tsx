@@ -13,6 +13,7 @@ import { Operations } from './pages/Operations';
 import { Configuration } from './pages/Configuration';
 import { Settings } from './pages/Settings'; 
 import { Reports } from './pages/Reports'; 
+import { Records } from './pages/Records'; // New Import
 import { Login } from './pages/Login';
 import { User } from './types'; 
 import { api } from './services/api';
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/billing" element={<Billing />} />
           <Route path="/hr" element={<Staff />} /> 
           <Route path="/reports" element={<Reports />} /> 
+          <Route path="/records" element={<Records />} /> 
           <Route path="/settings" element={<Settings />} /> 
           <Route path="/configuration" element={<Configuration />} /> 
           <Route path="*" element={<Navigate to="/" />} />

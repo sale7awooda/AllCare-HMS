@@ -34,6 +34,8 @@ const Permissions = {
   
   VIEW_REPORTS: 'VIEW_REPORTS', 
   MANAGE_REPORTS: 'MANAGE_REPORTS', 
+
+  VIEW_RECORDS: 'VIEW_RECORDS',
   
   VIEW_SETTINGS: 'VIEW_SETTINGS', 
   MANAGE_SETTINGS: 'MANAGE_SETTINGS', 
@@ -52,6 +54,7 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, Permissions.DELETE_LABORATORY,
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, Permissions.DELETE_OPERATIONS,
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
+    Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
     Permissions.MANAGE_CONFIGURATION
   ],
@@ -65,6 +68,7 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, 
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
+    Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
   ],
   receptionist: [
@@ -75,7 +79,8 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
     Permissions.VIEW_HR,
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY,
-    Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS
+    Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS,
+    Permissions.VIEW_RECORDS
   ],
   technician: [ 
     Permissions.VIEW_DASHBOARD, 
@@ -90,38 +95,8 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_APPOINTMENTS, 
     Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, 
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
+    Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS
-  ],
-  doctor: [
-    Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS,
-    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS,
-    Permissions.VIEW_LABORATORY,
-    Permissions.VIEW_OPERATIONS,
-    Permissions.VIEW_ADMISSIONS,
-    Permissions.VIEW_SETTINGS,
-  ],
-  nurse: [
-    Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS,
-    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, 
-    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
-    Permissions.VIEW_LABORATORY,
-    Permissions.VIEW_OPERATIONS,
-    Permissions.VIEW_SETTINGS,
-  ],
-  pharmacist: [
-    Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS, 
-    Permissions.VIEW_BILLING, 
-    Permissions.VIEW_LABORATORY, 
-    Permissions.VIEW_SETTINGS,
-  ],
-  hr: [ 
-    Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_HR, Permissions.MANAGE_HR, 
-    Permissions.VIEW_REPORTS, 
-    Permissions.VIEW_SETTINGS,
   ],
 };
 

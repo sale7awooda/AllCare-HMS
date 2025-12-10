@@ -7,14 +7,15 @@ import {
 } from 'recharts';
 import { 
   TrendingUp, Users, Calendar, DollarSign, Download, 
-  Activity, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Filter, CheckCircle
+  Activity, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Filter, CheckCircle,
+  FilePlus, ClipboardList
 } from 'lucide-react';
 import { api } from '../services/api';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
 export const Reports = () => {
-  const [activeTab, setActiveTab] = useState<'financial' | 'operational' | 'demographics'>('financial');
+  const [activeTab, setActiveTab] = useState<'financial' | 'operational' | 'demographics' | 'records'>('financial');
   const [timeRange, setTimeRange] = useState('30');
   const [loading, setLoading] = useState(true);
   
@@ -119,6 +120,85 @@ export const Reports = () => {
     return { totalPatients, genderDist, ageDist };
   }, [patients]);
 
+  const recordsStats = useMemo(() => {
+    const now = new Date();
+    const days = parseInt(timeRange);
+    const startDate = new Date(now);
+    startDate.setDate(now.getDate() - days);
+
+    // Filter data by date range
+    const filteredPatients = patients.filter(p => new Date(p.createdAt || new Date()) >= startDate);
+    const filteredAppts = appointments.filter(a => new Date(a.datetime) >= startDate);
+    const filteredBills = bills.filter(b => new Date(b.date) >= startDate);
+
+    // Daily Trend Compilation
+    const dailyData: Record<string, any> = {};
+    
+    // Initialize days to ensure continuous chart
+    for(let i = days - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        dailyData[key] = { name: key, patients: 0, appointments: 0, bills: 0, dateObj: d };
+    }
+
+    filteredPatients.forEach(p => {
+        const key = new Date(p.createdAt || new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if(dailyData[key]) dailyData[key].patients++;
+    });
+    filteredAppts.forEach(a => {
+        const key = new Date(a.datetime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if(dailyData[key]) dailyData[key].appointments++;
+    });
+    filteredBills.forEach(b => {
+        const key = new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if(dailyData[key]) dailyData[key].bills++;
+    });
+
+    const chartData = Object.values(dailyData).sort((a: any, b: any) => a.dateObj.getTime() - b.dateObj.getTime());
+
+    // Recent Activity Feed
+    const activity = [
+        ...filteredPatients.map(p => ({ 
+            type: 'Patient', 
+            text: `New Patient: ${p.fullName}`, 
+            subtext: `ID: ${p.patientId}`,
+            date: p.createdAt || new Date(), 
+            id: `p-${p.id}`, 
+            icon: Users, 
+            color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400' 
+        })),
+        ...filteredAppts.map(a => ({ 
+            type: 'Appointment', 
+            text: `Appointment: ${a.patientName}`, 
+            subtext: `Dr. ${a.staffName} (${a.type})`,
+            date: a.datetime, 
+            id: `a-${a.id}`, 
+            icon: Calendar, 
+            color: 'text-violet-600 bg-violet-50 dark:bg-violet-900/20 dark:text-violet-400' 
+        })),
+        ...filteredBills.map(b => ({ 
+            type: 'Bill', 
+            text: `Invoice #${b.billNumber}`, 
+            subtext: `$${b.totalAmount.toLocaleString()} (${b.status})`,
+            date: b.date, 
+            id: `b-${b.id}`, 
+            icon: DollarSign, 
+            color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400' 
+        }))
+    ].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 20);
+
+    return {
+        counts: {
+            patients: filteredPatients.length,
+            appointments: filteredAppts.length,
+            bills: filteredBills.length
+        },
+        chartData,
+        activity
+    };
+  }, [patients, appointments, bills, timeRange]);
+
   const handleExport = () => {
     // Simple CSV Export Mock
     const headers = ['Report', 'Date', 'Total Revenue', 'Total Patients'];
@@ -160,7 +240,7 @@ export const Reports = () => {
           <div className="relative">
              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
              <select 
-               className="pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium focus:ring-2 focus:ring-primary-500 outline-none appearance-none"
+               className="pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium focus:ring-2 focus:ring-primary-500 outline-none appearance-none text-slate-700 dark:text-slate-200"
                value={timeRange}
                onChange={e => setTimeRange(e.target.value)}
              >
@@ -179,6 +259,7 @@ export const Reports = () => {
           { id: 'financial', label: 'Financial', icon: DollarSign },
           { id: 'operational', label: 'Operational', icon: Activity },
           { id: 'demographics', label: 'Demographics', icon: Users },
+          { id: 'records', label: 'New Records', icon: FilePlus },
         ].map(tab => (
           <button 
             key={tab.id}
@@ -233,10 +314,10 @@ export const Reports = () => {
                           <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
                       <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                      <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }} />
                       <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -294,10 +375,10 @@ export const Reports = () => {
                 <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={operationalStats.doctorPerformance} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
                       <XAxis type="number" hide />
                       <YAxis dataKey="name" type="category" width={100} tick={{fill: '#64748b', fontSize: 12}} />
-                      <Tooltip cursor={{fill: 'transparent'}} />
+                      <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                       <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -354,10 +435,10 @@ export const Reports = () => {
                   <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={demographicStats.ageDist}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
                         <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} />
                         <YAxis tick={{fill: '#64748b', fontSize: 12}} />
-                        <Tooltip cursor={{fill: '#f1f5f9'}} />
+                        <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                         <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -387,6 +468,79 @@ export const Reports = () => {
                   </div>
                </div>
              </div>
+          </div>
+        )}
+
+        {/* NEW RECORDS REPORT */}
+        {activeTab === 'records' && (
+          <div className="space-y-8 animate-in fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <StatCard 
+                title="New Patients" 
+                value={recordsStats.counts.patients} 
+                icon={Users} 
+                color="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                subtext={<span className="text-slate-400">Newly registered in period</span>}
+              />
+              <StatCard 
+                title="New Appointments" 
+                value={recordsStats.counts.appointments} 
+                icon={Calendar} 
+                color="bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"
+                subtext={<span className="text-slate-400">Total bookings created</span>}
+              />
+              <StatCard 
+                title="New Invoices" 
+                value={recordsStats.counts.bills} 
+                icon={DollarSign} 
+                color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                subtext={<span className="text-slate-400">Bills generated</span>}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-4">
+                <h3 className="font-bold text-slate-800 dark:text-white">Growth Trend</h3>
+                <div className="h-96 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={recordsStats.chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }} />
+                      <Legend verticalAlign="top" height={36}/>
+                      <Line type="monotone" dataKey="patients" name="Patients" stroke="#3b82f6" strokeWidth={3} dot={{r: 3}} />
+                      <Line type="monotone" dataKey="appointments" name="Appointments" stroke="#8b5cf6" strokeWidth={3} dot={{r: 3}} />
+                      <Line type="monotone" dataKey="bills" name="Bills" stroke="#10b981" strokeWidth={3} dot={{r: 3}} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="font-bold text-slate-800 dark:text-white">Recent Records Stream</h3>
+                <div className="h-96 overflow-y-auto bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700 custom-scrollbar">
+                  {recordsStats.activity.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-slate-400 text-sm">No recent activity found.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {recordsStats.activity.map((item: any) => (
+                        <div key={item.id} className="flex items-start gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700">
+                          <div className={`p-2 rounded-full shrink-0 ${item.color}`}>
+                            <item.icon size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-slate-800 dark:text-white truncate">{item.text}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{item.subtext}</p>
+                            <p className="text-[10px] text-slate-400 mt-1">{new Date(item.date).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

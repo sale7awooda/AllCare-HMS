@@ -19,7 +19,8 @@ import {
   Bed, // Admissions
   ClipboardList, // Reports
   Wrench, // Configuration (for admin)
-  Briefcase // HR specific icon
+  Briefcase, // HR specific icon
+  Database // Records
 } from 'lucide-react';
 import { User } from '../types';
 import { canAccessRoute, Permissions } from '../utils/rbac'; // Import Permissions
@@ -46,6 +47,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
     { label: 'Billing', path: '/billing', icon: Receipt },
     { label: 'HR', path: '/hr', icon: Briefcase }, 
     { label: 'Reports', path: '/reports', icon: ClipboardList },
+    { label: 'System Records', path: '/records', icon: Database },
     { label: 'Settings', path: '/settings', icon: Settings },
     { label: 'Configuration', path: '/configuration', icon: Wrench },
   ];
