@@ -96,6 +96,37 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
     Permissions.VIEW_SETTINGS
   ],
+  doctor: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS,
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS,
+    Permissions.VIEW_LABORATORY,
+    Permissions.VIEW_OPERATIONS,
+    Permissions.VIEW_ADMISSIONS,
+    Permissions.VIEW_SETTINGS,
+  ],
+  nurse: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS,
+    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, 
+    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
+    Permissions.VIEW_LABORATORY,
+    Permissions.VIEW_OPERATIONS,
+    Permissions.VIEW_SETTINGS,
+  ],
+  pharmacist: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_PATIENTS, 
+    Permissions.VIEW_BILLING, 
+    Permissions.VIEW_LABORATORY, 
+    Permissions.VIEW_SETTINGS,
+  ],
+  hr: [ 
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_HR, Permissions.MANAGE_HR, 
+    Permissions.VIEW_REPORTS, 
+    Permissions.VIEW_SETTINGS,
+  ],
 };
 
 export const hasPermission = (user: User | null, permission: Permission): boolean => {

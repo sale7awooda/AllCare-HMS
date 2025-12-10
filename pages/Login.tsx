@@ -25,7 +25,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [hospitalName, setHospitalName] = useState('AllCare HMS');
+  
+  // Initialize from cache to prevent flash of default content
+  const [hospitalName, setHospitalName] = useState(() => localStorage.getItem('hospital_name') || '');
+  // Only show loading state if we don't have a cached value
+  const [isSettingsLoading, setIsSettingsLoading] = useState(() => !localStorage.getItem('hospital_name'));
+  
   const [activeProfile, setActiveProfile] = useState<Role | null>(null);
 
   useEffect(() => {
@@ -34,9 +39,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         const settings = await api.getPublicSettings();
         if (settings?.hospitalName) {
           setHospitalName(settings.hospitalName);
+          localStorage.setItem('hospital_name', settings.hospitalName); // Update cache
         }
       } catch (e) {
         console.error("Failed to load public settings", e);
+      } finally {
+        setIsSettingsLoading(false);
       }
     };
     fetchSettings();
@@ -47,8 +55,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setLoading(true);
     setError('');
     try {
-      const user = await api.login(username, password);
-      onLogin(user);
+      // API returns { token: string, user: User }
+      const response = await api.login(username, password);
+      
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+      }
+      
+      onLogin(response.user);
     } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.error || 'Authentication failed.');
@@ -116,7 +130,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/20 mb-4 text-white">
               <Activity size={28} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{hospitalName}</h1>
+            {isSettingsLoading ? (
+              <div className="h-8 w-48 bg-slate-200 animate-pulse rounded-lg mx-auto mb-1"></div>
+            ) : (
+              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{hospitalName || 'AllCare HMS'}</h1>
+            )}
             <p className="text-slate-500 text-sm mt-1">Secure Staff Portal</p>
           </div>
 

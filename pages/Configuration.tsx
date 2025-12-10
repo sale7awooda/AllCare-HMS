@@ -119,6 +119,10 @@ export const Configuration = () => {
     e.preventDefault();
     handleAction(async () => {
       await api.updateSystemSettings(settings);
+      // Update local storage for immediate sync with Login screen
+      if (settings.hospitalName) {
+        localStorage.setItem('hospital_name', settings.hospitalName);
+      }
     }, 'Settings saved successfully');
   };
 
