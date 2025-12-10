@@ -132,7 +132,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_HR, Permissions.MANAGE_HR, 
     Permissions.VIEW_REPORTS, 
     Permissions.VIEW_SETTINGS,
-  ],
+  ]
 };
 
 export const hasPermission = (user: User | null, permission: Permission): boolean => {

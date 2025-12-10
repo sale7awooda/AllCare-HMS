@@ -494,4 +494,84 @@ export const Appointments = () => {
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800">
                 {dailyAppointments.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-10 text-slate-400">No appointments for this day.</td></tr>
-                
+                ) : (
+                  dailyAppointments.map(apt => (
+                    <tr key={apt.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-mono text-xs font-bold text-slate-500">#{apt.appointmentNumber.slice(-4)}</div>
+                        <div className="text-sm text-slate-700 dark:text-slate-300">{new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">{apt.patientName}</div>
+                        <div className="text-xs text-slate-500">ID: {apt.patientId}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
+                        {apt.staffName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
+                        {apt.type}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge status={apt.status} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="ghost" className="p-2 h-auto"><Edit size={16} /></Button>
+                          <Button size="sm" variant="ghost" className="p-2 h-auto text-red-500" onClick={() => handleCancel(apt.id)}><X size={16} /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL: CREATE APPOINTMENT */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Walk-In Appointment">
+        <form onSubmit={handleCreate} className="space-y-4">
+          <Select label="Patient" required value={formData.patientId} onChange={e => setFormData({...formData, patientId: e.target.value})}>
+            <option value="">Select a patient...</option>
+            {patients.map(p => <option key={p.id} value={p.id}>{p.fullName}</option>)}
+          </Select>
+          <Select label="Staff" required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})}>
+            <option value="">Select a staff member...</option>
+            {staff.filter(s => s.type === 'doctor' || s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName} ({s.specialization || s.type})</option>)}
+          </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Date" type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+            <Input label="Time" type="time" required value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
+          </div>
+          <Select label="Type" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
+            <option>Consultation</option>
+            <option>Follow-up</option>
+            <option>Emergency</option>
+            <option>Procedure</option>
+          </Select>
+          <Textarea label="Reason (Optional)" value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={processStatus === 'processing'}>
+              {processStatus === 'processing' ? 'Creating...' : 'Create Appointment'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* CONFIRMATION DIALOG */}
+      <ConfirmationDialog
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
+        onConfirm={() => {
+          confirmState.action();
+          setConfirmState({ ...confirmState, isOpen: false });
+        }}
+        title={confirmState.title}
+        message={confirmState.message}
+        type="danger"
+      />
+    </div>
+  );
+};

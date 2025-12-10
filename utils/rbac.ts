@@ -35,6 +35,8 @@ export const Permissions = {
   
   VIEW_REPORTS: 'VIEW_REPORTS', // Access various system reports
   MANAGE_REPORTS: 'MANAGE_REPORTS', // Generate/export reports
+
+  VIEW_RECORDS: 'VIEW_RECORDS', // Access the unified records screen
   
   VIEW_SETTINGS: 'VIEW_SETTINGS', // View general application settings
   MANAGE_SETTINGS: 'MANAGE_SETTINGS', // Update general settings
@@ -56,6 +58,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, Permissions.DELETE_LABORATORY,
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, Permissions.DELETE_OPERATIONS,
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
+    Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
     Permissions.MANAGE_CONFIGURATION // Full control
   ],
@@ -69,6 +72,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, 
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
+    Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
   ],
   receptionist: [
@@ -79,7 +83,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
     Permissions.VIEW_HR,
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY,
-    Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS
+    Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS,
+    Permissions.VIEW_RECORDS
   ],
   technician: [ 
     Permissions.VIEW_DASHBOARD, 
@@ -94,6 +99,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_APPOINTMENTS, 
     Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, 
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
+    Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS
   ],
   doctor: [
@@ -126,7 +132,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_HR, Permissions.MANAGE_HR, 
     Permissions.VIEW_REPORTS, 
     Permissions.VIEW_SETTINGS,
-  ],
+  ]
 };
 
 export const hasPermission = (user: User | null, permission: Permission): boolean => {
@@ -162,6 +168,7 @@ export const canAccessRoute = (user: User | null, path: string): boolean => {
     case '/laboratory': return hasPermission(user, Permissions.VIEW_LABORATORY);
     case '/operations': return hasPermission(user, Permissions.VIEW_OPERATIONS);
     case '/reports': return hasPermission(user, Permissions.VIEW_REPORTS);
+    case '/records': return hasPermission(user, Permissions.VIEW_RECORDS);
     case '/settings': return hasPermission(user, Permissions.VIEW_SETTINGS);
     case '/configuration': return hasPermission(user, Permissions.MANAGE_CONFIGURATION);
     default: return false; 
