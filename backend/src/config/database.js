@@ -69,6 +69,23 @@ const initDB = () => {
       }
     }
 
+    // 5. Check Operations for cost_details
+    if (!shouldReset) {
+        const opsTableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='operations'").get();
+        if (opsTableCheck) {
+            const columns = db.pragma('table_info(operations)');
+            const hasCostDetails = columns.some(col => col.name === 'cost_details');
+            if (!hasCostDetails) {
+                try {
+                    db.prepare("ALTER TABLE operations ADD COLUMN cost_details TEXT").run();
+                    console.log('✅ Added cost_details column to operations table.');
+                } catch (e) {
+                    console.error('Failed to alter operations table', e);
+                }
+            }
+        }
+    }
+
   } catch (e) {
     console.log('Database check failed, proceeding with initialization.', e);
   }
@@ -213,9 +230,10 @@ const initDB = () => {
       assistant_name TEXT, 
       anesthesiologist_name TEXT, 
       notes TEXT, 
-      status TEXT DEFAULT 'scheduled', 
+      status TEXT DEFAULT 'requested', 
       projected_cost REAL DEFAULT 0, 
       bill_id INTEGER DEFAULT NULL,
+      cost_details TEXT, -- JSON to store full breakdown
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 

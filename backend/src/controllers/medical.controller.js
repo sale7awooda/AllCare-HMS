@@ -71,7 +71,18 @@ exports.getScheduledOperations = (req, res) => {
       LEFT JOIN medical_staff m ON o.doctor_id = m.id
       ORDER BY o.created_at DESC
     `).all();
-    res.json(ops);
+    
+    // Parse cost details if stored as JSON (for SQLite text columns)
+    const formattedOps = ops.map(op => {
+      try {
+        if (op.cost_details && typeof op.cost_details === 'string') {
+          op.costDetails = JSON.parse(op.cost_details);
+        }
+      } catch (e) {}
+      return op;
+    });
+
+    res.json(formattedOps);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -242,37 +253,83 @@ exports.createAdmission = (req, res) => {
   }
 };
 
+// INITIAL REQUEST (Phase 1: Booking)
 exports.createOperation = (req, res) => {
-  const { patientId, operationName, doctorId, notes, optionalFields, totalCost } = req.body;
+  const { patientId, operationName, doctorId, notes } = req.body;
   try {
-    const fullNotes = `${notes || ''} \nDetails: ${JSON.stringify(optionalFields)}`;
-    const tx = db.transaction(() => {
-      // 1. Create Bill
-      const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
-      const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, totalCost, 'pending');
-      db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Operation: ${operationName}`, totalCost);
-
-      // 2. Create Operation linked to Bill
-      db.prepare(`
-        INSERT INTO operations (patient_id, operation_name, doctor_id, notes, projected_cost, status, bill_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(patientId, operationName, doctorId || null, fullNotes, totalCost, 'scheduled', bill.lastInsertRowid);
-    });
-
-    tx();
-    res.json({ success: true, message: 'Operation scheduled and billed.' });
+    const stmt = db.prepare(`
+      INSERT INTO operations (patient_id, operation_name, doctor_id, notes, status, created_at)
+      VALUES (?, ?, ?, ?, 'requested', ?)
+    `);
+    const info = stmt.run(patientId, operationName, doctorId || null, notes || '', new Date().toISOString());
+    res.json({ success: true, message: 'Operation requested successfully. Please proceed to Operations to finalize details and billing.', id: info.lastInsertRowid });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// --- DEPRECATED MANUAL CONFIRMATIONS (Kept for compatibility but mostly replaced by Payment Hook) ---
-exports.confirmLabRequest = (req, res) => {
-   // Legacy manual confirm if needed
-   res.json({success: true});
-};
+// PROCESS REQUEST (Phase 2: Detailed Billing)
+exports.processOperationRequest = (req, res) => {
+  const { id } = req.params;
+  const { details, totalCost } = req.body; 
+  // details object contains: surgeonFee, theaterFee, anesthesiologist, assistant, drugs, etc.
 
-exports.confirmAdmission = (req, res) => {
-    // Legacy manual confirm
-    res.json({success: true});
+  try {
+    const op = db.prepare('SELECT * FROM operations WHERE id = ?').get(id);
+    if (!op) return res.status(404).json({ error: 'Operation not found' });
+    if (op.status !== 'requested') return res.status(400).json({ error: 'Operation is already processed' });
+
+    const tx = db.transaction(() => {
+      // 1. Create Bill
+      const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
+      const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, op.patient_id, totalCost, 'pending');
+      
+      // Add Line Items for better invoice clarity
+      const insertItem = db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)');
+      insertItem.run(bill.lastInsertRowid, `Operation: ${op.operation_name} (Surgeon Fee)`, details.surgeonFee || 0);
+      insertItem.run(bill.lastInsertRowid, `Theater/Facility Fee`, details.theaterFee || 0);
+      if(details.anesthesiologist?.fee > 0) insertItem.run(bill.lastInsertRowid, `Anesthesiologist: ${details.anesthesiologist.name}`, details.anesthesiologist.fee);
+      if(details.drugs?.length > 0) insertItem.run(bill.lastInsertRowid, `Surgical Drugs/Consumables`, details.drugsTotal || 0);
+      // ... Add other breakdown items as needed
+
+      // 2. Update Operation: Link Bill, Update Status, Save Details (Using cost_details column we might need to add or check existence)
+      // Check if cost_details column exists, if not, we use notes or a generic field. 
+      // Ideally, the DB init script should handle this. Assuming we can store JSON in a text column (e.g. `notes` append or new column).
+      // For now, let's assume we can store it in a `cost_details` column if it exists, or append to notes.
+      
+      // Let's rely on a check or just assume schema supports a flexible text field.
+      // We will reuse the `assistant_name` and `anesthesiologist_name` columns for main staff, and store the full JSON in a new column if possible or append to notes.
+      // To be safe without modifying DB schema deeply in this step:
+      
+      // We will try to update specific columns and append full JSON to notes for record keeping if no dedicated JSON column
+      const fullDetailsJson = JSON.stringify(details);
+      
+      // Check if `cost_details` column exists (simple check via try/catch in update)
+      try {
+         db.prepare(`
+          UPDATE operations 
+          SET bill_id = ?, projected_cost = ?, status = 'pending_payment', 
+              anesthesiologist_name = ?, assistant_name = ?, 
+              cost_details = ? 
+          WHERE id = ?
+        `).run(bill.lastInsertRowid, totalCost, details.anesthesiologist?.name, details.assistant?.name, fullDetailsJson, id);
+      } catch (e) {
+         // Fallback if cost_details doesn't exist: append to notes
+         db.prepare(`
+          UPDATE operations 
+          SET bill_id = ?, projected_cost = ?, status = 'pending_payment', 
+              anesthesiologist_name = ?, assistant_name = ?, 
+              notes = notes || ?
+          WHERE id = ?
+        `).run(bill.lastInsertRowid, totalCost, details.anesthesiologist?.name, details.assistant?.name, `\n\n[Financial Details]: ${fullDetailsJson}`, id);
+      }
+
+    });
+
+    tx();
+    res.json({ success: true, message: 'Operation processed and bill generated.' });
+  } catch (err) { 
+    console.error(err);
+    res.status(500).json({ error: err.message }); 
+  }
 };
 
 exports.confirmOperation = (req, res) => {

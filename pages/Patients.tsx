@@ -72,24 +72,6 @@ export const Patients = () => {
   const [selectedService, setSelectedService] = useState<NurseServiceCatalog | null>(null);
   const [selectedBed, setSelectedBed] = useState<BedType | null>(null);
   
-  // Operation specific
-  const [opDetails, setOpDetails] = useState({
-    anesthesiologistId: '',
-    assistantId: '',
-    nurseId: '', 
-    drugs: '', 
-    equipment: '', 
-    others: '',
-    surgeonCost: 0,
-    anesthesiologistCost: 0,
-    assistantCost: 0,
-    nurseCost: 0,
-    drugsCost: 0,
-    equipmentCost: 0,
-    othersCost: 0,
-    theaterCost: 0, 
-  });
-
   const SUDAN_INSURANCE_PROVIDERS = [
     "Shiekan Insurance", "The United Insurance", "Blue Nile Insurance",
     "Al-Salama Insurance", "Juba Insurance", "Prime Health",
@@ -246,12 +228,7 @@ export const Patients = () => {
     setSelectedService(null);
     setSelectedBed(null);
     setSelectedSpecialty('');
-    setOpDetails({ 
-      anesthesiologistId: '', assistantId: '', nurseId: '',
-      drugs: '', equipment: '', others: '',
-      surgeonCost: 0, anesthesiologistCost: 0, assistantCost: 0, nurseCost: 0, 
-      drugsCost: 0, equipmentCost: 0, othersCost: 0, theaterCost: 0
-    });
+    
     setProcessStatus('idle');
     setProcessMessage('');
     
@@ -280,31 +257,7 @@ export const Patients = () => {
       ...actionFormData,
       subtype: opName,
     });
-    if (op) {
-      setOpDetails(prev => ({...prev, surgeonCost: op.baseCost}));
-    }
   };
-
-  useEffect(() => {
-    if (currentAction === 'operation') {
-      const total = 
-        (opDetails.surgeonCost || 0) +
-        (opDetails.anesthesiologistCost || 0) +
-        (opDetails.assistantCost || 0) +
-        (opDetails.nurseCost || 0) +
-        (opDetails.drugsCost || 0) +
-        (opDetails.equipmentCost || 0) +
-        (opDetails.othersCost || 0) +
-        (opDetails.theaterCost || 0);
-      setActionFormData(prev => ({...prev, totalCost: total}));
-    }
-  }, [opDetails, currentAction]);
-
-  useEffect(() => {
-    if (currentAction === 'operation' && opDetails.theaterCost === 0 && opDetails.surgeonCost > 0) {
-       setOpDetails(prev => ({...prev, theaterCost: (prev.surgeonCost || 0) * 1}));
-    }
-  }, [opDetails.surgeonCost, currentAction]);
 
   useEffect(() => {
     if (currentAction === 'admission' && selectedBed) {
@@ -398,21 +351,14 @@ export const Patients = () => {
         if (!actionFormData.subtype) throw new Error('Select an operation.');
         if (!staffAssignedId) throw new Error('Select a surgeon.');
         
-        // Basic Breakdown
-        const breakdown = {
-          ...opDetails,
-          breakdownString: `Surgeon: ${opDetails.surgeonCost}, Theater: ${opDetails.theaterCost}`
-        };
-
+        // Simplified Request only
         await api.createOperation({
           patientId: selectedPatient.id,
           operationName: actionFormData.subtype,
           doctorId: staffAssignedId, 
-          notes: actionFormData.notes,
-          optionalFields: breakdown,
-          totalCost: actionFormData.totalCost
+          notes: actionFormData.notes
         });
-        successMessage = 'Operation Scheduled. Confirm in Operations to bill.';
+        successMessage = 'Operation Requested. Please proceed to Operations to finalize costs.';
 
       } else if (currentAction === 'appointment') {
         if (!staffAssignedId) throw new Error('Select a doctor.');
@@ -529,7 +475,7 @@ export const Patients = () => {
       case 'lab': return 'Order Lab Test';
       case 'nurse': return 'Request Nurse Service';
       case 'admission': return 'Admit Patient';
-      case 'operation': return 'Schedule Operation';
+      case 'operation': return 'Request Operation';
       default: return 'Medical Action';
     }
   };
@@ -780,6 +726,8 @@ export const Patients = () => {
       {/* Register/Edit Modal */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? "Edit Patient" : "Register Patient"}>
          <form onSubmit={handleRegisterSubmit} className="space-y-6">
+           {/* ... existing registration form ... */}
+           {/* (Kept existing registration code block same as before to save space in output, assumes it's present) */}
            <div className="space-y-4">
              <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 mb-2 flex items-center gap-2">
                <UserIcon size={16} /> Personal Information
@@ -864,7 +812,7 @@ export const Patients = () => {
             { id: 'lab', icon: FlaskConical, label: 'Lab Test', color: 'purple' },
             { id: 'nurse', icon: Thermometer, label: 'Nurse Service', color: 'emerald' },
             { id: 'admission', icon: Bed, label: 'Admission', color: 'orange' }, 
-            { id: 'operation', icon: Activity, label: 'Operation', color: 'red' },
+            { id: 'operation', icon: Activity, label: 'Operation Request', color: 'red' },
             { id: 'history', icon: FileText, label: 'Patient File', color: 'gray' },
           ].map((action: any) => {
             const isAdmissionDisabled = action.id === 'admission' && selectedPatient?.type === 'inpatient';
@@ -1116,45 +1064,30 @@ export const Patients = () => {
 
           {currentAction === 'operation' && (
              <div className="space-y-4">
+               <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 p-4 rounded-xl">
+                 <p className="text-sm text-red-800 dark:text-red-300 font-medium">
+                   <AlertTriangle className="inline-block mr-2" size={16}/>
+                   Request will be sent to the Operations Management screen for detailed cost estimation and team assignment.
+                 </p>
+               </div>
+               
                <div className="grid grid-cols-2 gap-4">
                  <Select label="Operation Type" required value={actionFormData.subtype} onChange={e => handleOperationSelect(e.target.value)}>
                     <option value="">Select Procedure...</option>
                     {operations.map(op => <option key={op.id} value={op.name}>{op.name} (Base: ${op.baseCost})</option>)}
                  </Select>
-                 <Select label="Lead Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
+                 <Select label="Requested Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                     <option value="">Select Surgeon...</option>
                     {staff.filter(s => s.type === 'doctor').map(d => <option key={d.id} value={d.id}>{d.fullName}</option>)}
                  </Select>
                </div>
-
-               <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
-                 <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Surgical Team</h4>
-                 <div className="grid grid-cols-3 gap-3">
-                   <Select value={opDetails.anesthesiologistId} onChange={e => setOpDetails({...opDetails, anesthesiologistId: e.target.value, anesthesiologistCost: 200})}>
-                      <option value="">Anesthesiologist</option>
-                      {staff.filter(s => s.type === 'anesthesiologist').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                   </Select>
-                   <Select value={opDetails.assistantId} onChange={e => setOpDetails({...opDetails, assistantId: e.target.value, assistantCost: 100})}>
-                      <option value="">Assistant</option>
-                      {staff.filter(s => ['doctor', 'medical_assistant'].includes(s.type)).map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                   </Select>
-                   <Select value={opDetails.nurseId} onChange={e => setOpDetails({...opDetails, nurseId: e.target.value, nurseCost: 50})}>
-                      <option value="">Scrub Nurse</option>
-                      {staff.filter(s => s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                   </Select>
-                 </div>
-               </div>
-
-               <div className="flex justify-between items-center bg-slate-100 dark:bg-slate-800 p-3 rounded-xl">
-                 <span className="font-bold text-slate-700 dark:text-slate-300">Total Estimated Cost</span>
-                 <span className="text-xl font-bold text-primary-600">${actionFormData.totalCost}</span>
-               </div>
+               <Textarea label="Pre-Op Notes" placeholder="Clinical indications..." rows={3} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
              </div>
           )}
 
           <div className="flex justify-end pt-4 gap-3 border-t border-slate-100 dark:border-slate-700">
              <Button type="button" variant="secondary" onClick={() => setIsActionModalOpen(false)}>Cancel</Button>
-             <Button type="submit" disabled={processStatus === 'processing'}>Confirm Request</Button>
+             <Button type="submit" disabled={processStatus === 'processing'}>{currentAction === 'operation' ? 'Submit Request' : 'Confirm Request'}</Button>
           </div>
         </form>
       </Modal>

@@ -182,6 +182,10 @@ export const api = {
     const { data } = await client.get('/medical/requests/operations');
     return data;
   },
+  // Process Operation Request (Detailed Billing)
+  async processOperationRequest(id: number, payload: any): Promise<void> {
+    await client.post(`/medical/requests/operations/${id}/process`, payload);
+  },
   async confirmOperation(id: number): Promise<void> {
     await client.post(`/medical/requests/operations/${id}/confirm`);
   },

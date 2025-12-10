@@ -76,6 +76,7 @@ router.post('/medical/admissions/:id/note', authorizeRoles(Permissions.MANAGE_AD
 router.post('/medical/admissions/:id/discharge', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.dischargePatient);
 
 router.get('/medical/requests/operations', authorizeRoles(Permissions.VIEW_OPERATIONS), medicalController.getScheduledOperations);
+router.post('/medical/requests/operations/:id/process', authorizeRoles(Permissions.MANAGE_OPERATIONS), medicalController.processOperationRequest);
 router.post('/medical/requests/operations/:id/confirm', authorizeRoles(Permissions.MANAGE_OPERATIONS), medicalController.confirmOperation);
 
 
