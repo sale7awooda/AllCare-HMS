@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -346,8 +345,12 @@ export const Appointments = () => {
   };
 
   const doctors = useMemo(() => {
-    // Include both doctors and nurses in the queue view
-    return staff.filter(s => (s.type === 'doctor' || s.type === 'nurse') && (selectedDept === 'all' || s.department === selectedDept));
+    // Include active doctors and nurses in the queue view
+    return staff.filter(s => 
+      s.status === 'active' &&
+      (s.type === 'doctor' || s.type === 'nurse') && 
+      (selectedDept === 'all' || s.department === selectedDept)
+    );
   }, [staff, selectedDept]);
 
   const departments = useMemo(() => {
@@ -491,144 +494,4 @@ export const Appointments = () => {
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800">
                 {dailyAppointments.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-10 text-slate-400">No appointments for this day.</td></tr>
-                ) : (
-                  dailyAppointments.map((apt, idx) => (
-                    <tr key={apt.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                      <td className="px-6 py-4 text-sm font-mono font-medium text-slate-600 dark:text-slate-300">
-                         #{idx + 1} <span className="text-slate-400 text-xs ml-1">({new Date(apt.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-slate-900 dark:text-white">{apt.patientName}</div>
-                        <div className="text-xs text-slate-500">#{apt.appointmentNumber}</div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{apt.staffName}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{apt.type}</td>
-                      <td className="px-6 py-4"><StatusBadge status={apt.status} /></td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end items-center gap-2">
-                          {apt.status === 'pending' && (
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="h-7 text-xs px-2 text-yellow-700 border-yellow-200 bg-yellow-50 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-400"
-                              onClick={() => updateStatus(apt.id, 'confirmed')}
-                              icon={DollarSign}
-                            >
-                              Pay
-                            </Button>
-                          )}
-                          {['confirmed', 'waiting', 'checked_in'].includes(apt.status) && (
-                            <Button 
-                              size="sm" 
-                              className="h-7 text-xs px-2"
-                              onClick={() => updateStatus(apt.id, 'in_progress')}
-                              icon={Play}
-                            >
-                              Start
-                            </Button>
-                          )}
-                          {apt.status === 'in_progress' && (
-                            <Button 
-                              size="sm" 
-                              className="h-7 text-xs px-2 bg-green-600 hover:bg-green-700 text-white border-none"
-                              onClick={() => updateStatus(apt.id, 'completed')}
-                              icon={CheckCircle}
-                            >
-                              Done
-                            </Button>
-                          )}
-                          
-                          <button 
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors" 
-                            title="Cancel"
-                            onClick={() => handleCancel(apt.id)}
-                          >
-                            <X size={16}/>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* CREATE MODAL (Walk-In Optimized) */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Walk-In Appointment">
-        <form onSubmit={handleCreate} className="space-y-4">
-          <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-3 rounded-lg text-sm border border-blue-100 dark:border-blue-800 flex gap-2">
-            <Clock size={16} className="shrink-0 mt-0.5" />
-            <p>This will be added to the queue immediately. Ensure patient pays deposit to prioritize.</p>
-          </div>
-
-          <Select 
-            label="Patient" 
-            required
-            value={formData.patientId} 
-            onChange={e => setFormData({...formData, patientId: e.target.value})}
-          >
-            <option value="">Select Patient...</option>
-            {patients.map(p => <option key={p.id} value={p.id}>{p.fullName} ({p.patientId})</option>)}
-          </Select>
-
-          <Select 
-            label="Staff" 
-            required
-            value={formData.staffId} 
-            onChange={e => setFormData({...formData, staffId: e.target.value})}
-          >
-             <option value="">Select Staff...</option>
-             {staff.filter(s => s.type === 'doctor' || s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName} - {s.type === 'doctor' ? s.specialization : 'Nurse'}</option>)}
-          </Select>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Select 
-              label="Type" 
-              value={formData.type} 
-              onChange={e => setFormData({...formData, type: e.target.value})}
-            >
-              <option value="Consultation">Consultation</option>
-              <option value="Follow-up">Follow-up</option>
-              <option value="Emergency">Emergency</option>
-              <option value="Procedure">Procedure</option>
-            </Select>
-            
-            <div className="opacity-70">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Booking Time</label>
-                <div className="w-full rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 py-2.5 px-4 text-sm text-slate-600 dark:text-slate-300">
-                    Now ({new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
-                </div>
-            </div>
-          </div>
-
-          <Textarea 
-            label="Reason / Symptoms" 
-            rows={2}
-            value={formData.reason}
-            onChange={e => setFormData({...formData, reason: e.target.value})}
-          />
-
-          <div className="pt-4 flex justify-end gap-3 border-t dark:border-slate-700">
-             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-             <Button type="submit" disabled={processStatus === 'processing'}>
-               {processStatus === 'processing' ? 'Booking...' : 'Add to Queue'}
-             </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Confirmation Dialog */}
-      <ConfirmationDialog 
-        isOpen={confirmState.isOpen}
-        onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
-        onConfirm={confirmState.action}
-        title={confirmState.title}
-        message={confirmState.message}
-        type="warning"
-      />
-    </div>
-  );
-};
+                

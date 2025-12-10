@@ -1,9 +1,11 @@
-
 const { z } = require('zod');
 
 const validate = (schema) => (req, res, next) => {
   try {
-    schema.parse(req.body);
+    // This will strip out any fields not in the schema
+    const parsedBody = schema.parse(req.body);
+    // Replace the original body with the validated and cleaned one
+    req.body = parsedBody;
     next();
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -15,6 +17,28 @@ const validate = (schema) => (req, res, next) => {
     next(err);
   }
 };
+
+const staffSchemaBase = z.object({
+  fullName: z.string().min(2),
+  type: z.string(),
+  department: z.string().optional().nullable(),
+  specialization: z.string().optional().nullable(),
+  status: z.enum(['active', 'inactive', 'dismissed']).optional(),
+  baseSalary: z.number().min(0).optional().nullable(),
+  email: z.string().email().optional().or(z.literal('')).nullable(),
+  phone: z.string().optional().nullable(),
+  joinDate: z.string().optional().nullable(),
+  bankDetails: z.object({
+      bankName: z.string().optional().nullable(),
+      bankAccount: z.string().optional().nullable()
+  }).optional().nullable(),
+  consultationFee: z.number().min(0).optional().nullable(),
+  consultationFeeFollowup: z.number().min(0).optional().nullable(),
+  consultationFeeEmergency: z.number().min(0).optional().nullable(),
+  availableDays: z.array(z.string()).optional().nullable(),
+  availableTimeStart: z.string().optional().nullable(),
+  availableTimeEnd: z.string().optional().nullable()
+});
 
 const schemas = {
   login: z.object({
@@ -28,7 +52,6 @@ const schemas = {
     gender: z.enum(['male', 'female', 'other']),
     type: z.enum(['inpatient', 'outpatient', 'emergency']).optional(),
     address: z.string().optional(),
-    // Allow optional fields to pass through without strict validation if not critical
     symptoms: z.string().optional(),
     medicalHistory: z.string().optional(),
     allergies: z.string().optional(),
@@ -46,24 +69,8 @@ const schemas = {
         notes: z.string().optional()
     }).optional().nullable()
   }),
-  createStaff: z.object({
-    fullName: z.string().min(2),
-    type: z.string(),
-    department: z.string().optional(),
-    specialization: z.string().optional(),
-    isAvailable: z.boolean().optional(),
-    baseSalary: z.number().min(0).optional(),
-    email: z.string().email().optional().or(z.literal('')),
-    phone: z.string().optional(),
-    joinDate: z.string().optional(),
-    bankDetails: z.string().optional(),
-    consultationFee: z.number().min(0).optional(),
-    consultationFeeFollowup: z.number().min(0).optional(),
-    consultationFeeEmergency: z.number().min(0).optional(),
-    availableDays: z.array(z.string()).optional(),
-    availableTimeStart: z.string().optional(),
-    availableTimeEnd: z.string().optional()
-  })
+  createStaff: staffSchemaBase,
+  updateStaff: staffSchemaBase.partial() // All fields are optional for updates
 };
 
 module.exports = { validate, schemas };

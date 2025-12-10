@@ -17,22 +17,7 @@ const db = new Database(dbPath, { verbose: console.log });
 const initDB = (forceReset = false) => {
   db.pragma('journal_mode = WAL');
 
-  let shouldReset = forceReset;
-
-  // Schema Check
-  if (!shouldReset) {
-    try {
-      const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='role_permissions'").get();
-      if (!tableCheck) {
-        console.log('⚠️  OUTDATED SCHEMA DETECTED (Missing role_permissions). Resetting database...');
-        shouldReset = true;
-      }
-    } catch (e) {
-      console.log('Database check failed, proceeding with initialization.', e);
-    }
-  }
-
-  if (shouldReset) {
+  if (forceReset) {
     const tables = [
       'users', 'patients', 'medical_staff', 'appointments', 'billing', 'billing_items',
       'lab_tests', 'lab_requests', 'nurse_services', 'nurse_requests', 'operations_catalog', 'operations',
@@ -95,7 +80,8 @@ const initDB = (forceReset = false) => {
       consultation_fee REAL DEFAULT 0,
       consultation_fee_followup REAL DEFAULT 0,
       consultation_fee_emergency REAL DEFAULT 0,
-      is_available BOOLEAN DEFAULT 1,
+      status TEXT CHECK(status IN ('active', 'inactive', 'dismissed')) DEFAULT 'active',
+      is_available BOOLEAN DEFAULT 1, -- Maintained for some legacy checks, but status is primary
       available_days TEXT, -- JSON array of strings e.g. ["Mon", "Tue"]
       available_time_start TEXT, -- HH:mm
       available_time_end TEXT, -- HH:mm

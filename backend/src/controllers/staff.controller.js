@@ -1,30 +1,41 @@
-
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
   try {
     const staff = db.prepare('SELECT * FROM medical_staff ORDER BY full_name').all();
     
-    const mapped = staff.map(s => ({
-      id: s.id,
-      employeeId: s.employee_id,
-      fullName: s.full_name,
-      type: s.type,
-      department: s.department,
-      specialization: s.specialization,
-      consultationFee: s.consultation_fee,
-      consultationFeeFollowup: s.consultation_fee_followup || 0,
-      consultationFeeEmergency: s.consultation_fee_emergency || 0,
-      isAvailable: !!s.is_available,
-      email: s.email,
-      phone: s.phone,
-      baseSalary: s.base_salary,
-      joinDate: s.join_date,
-      bankDetails: s.bank_details,
-      availableDays: s.available_days ? JSON.parse(s.available_days) : [],
-      availableTimeStart: s.available_time_start,
-      availableTimeEnd: s.available_time_end
-    }));
+    const mapped = staff.map(s => {
+      let bankDetails = null;
+      if (s.bank_details) {
+        try {
+          bankDetails = JSON.parse(s.bank_details);
+        } catch (e) {
+          // Backward compatibility for old string format
+          bankDetails = s.bank_details;
+        }
+      }
+
+      return {
+        id: s.id,
+        employeeId: s.employee_id,
+        fullName: s.full_name,
+        type: s.type,
+        department: s.department,
+        specialization: s.specialization,
+        consultationFee: s.consultation_fee,
+        consultationFeeFollowup: s.consultation_fee_followup || 0,
+        consultationFeeEmergency: s.consultation_fee_emergency || 0,
+        status: s.status,
+        email: s.email,
+        phone: s.phone,
+        baseSalary: s.base_salary,
+        joinDate: s.join_date,
+        bankDetails: bankDetails,
+        availableDays: s.available_days ? JSON.parse(s.available_days) : [],
+        availableTimeStart: s.available_time_start,
+        availableTimeEnd: s.available_time_end
+      }
+    });
 
     res.json(mapped);
   } catch (err) {
@@ -37,29 +48,31 @@ exports.create = (req, res) => {
   const { 
     fullName, type, department, specialization, 
     consultationFee, consultationFeeFollowup, consultationFeeEmergency, 
-    email, phone, baseSalary, joinDate,
-    availableDays, availableTimeStart, availableTimeEnd 
+    email, phone, baseSalary, joinDate, bankDetails,
+    availableDays, availableTimeStart, availableTimeEnd, status
   } = req.body;
 
   const prefix = type === 'doctor' ? 'DOC' : type === 'nurse' ? 'NUR' : 'STF';
   const employeeId = `${prefix}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
 
   const daysJson = availableDays ? JSON.stringify(availableDays) : '[]';
+  const bankDetailsJson = bankDetails ? JSON.stringify(bankDetails) : null;
 
   try {
     const info = db.prepare(`
       INSERT INTO medical_staff (
         employee_id, full_name, type, department, specialization, 
         consultation_fee, consultation_fee_followup, consultation_fee_emergency, 
-        email, phone, base_salary, join_date,
-        available_days, available_time_start, available_time_end
+        email, phone, base_salary, join_date, bank_details,
+        available_days, available_time_start, available_time_end, status
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       employeeId, fullName, type, department, specialization, 
       consultationFee || 0, consultationFeeFollowup || 0, consultationFeeEmergency || 0, 
       email, phone, baseSalary || 0, joinDate || new Date().toISOString().split('T')[0],
-      daysJson, availableTimeStart || null, availableTimeEnd || null
+      bankDetailsJson,
+      daysJson, availableTimeStart || null, availableTimeEnd || null, status || 'active'
     );
     res.status(201).json({ id: info.lastInsertRowid, employeeId, ...req.body });
   } catch (err) {
@@ -69,46 +82,41 @@ exports.create = (req, res) => {
 
 exports.update = (req, res) => {
   const { id } = req.params;
-  const updates = Object.keys(req.body);
-  const allowed = [
-    'isAvailable', 'fullName', 'phone', 'email', 
-    'consultationFee', 'consultationFeeFollowup', 'consultationFeeEmergency', 
-    'baseSalary', 'joinDate', 'bankDetails', 'department', 'specialization',
-    'availableDays', 'availableTimeStart', 'availableTimeEnd'
-  ];
+  const updates = req.body; // Validated by middleware
+
+  const snakeCaseUpdates = {};
   
-  const isValid = updates.every(u => allowed.includes(u));
-  if (!isValid) return res.status(400).json({ error: 'Invalid updates' });
+  for (const key in updates) {
+    if (Object.prototype.hasOwnProperty.call(updates, key)) {
+      let value = updates[key];
+      // Simple camel to snake case conversion
+      let dbKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+      
+      // Handle special JSON or boolean cases
+      if (key === 'availableDays' || key === 'bankDetails') {
+        value = JSON.stringify(value);
+      }
 
-  // Map camelCase to snake_case for specific fields
-  const dbFields = {
-    isAvailable: 'is_available',
-    consultationFee: 'consultation_fee',
-    consultationFeeFollowup: 'consultation_fee_followup',
-    consultationFeeEmergency: 'consultation_fee_emergency',
-    fullName: 'full_name',
-    baseSalary: 'base_salary',
-    joinDate: 'join_date',
-    bankDetails: 'bank_details',
-    availableDays: 'available_days',
-    availableTimeStart: 'available_time_start',
-    availableTimeEnd: 'available_time_end'
-  };
+      snakeCaseUpdates[dbKey] = value;
+    }
+  }
 
-  const setClause = updates.map(u => `${dbFields[u] || u} = ?`).join(', ');
-  const values = updates.map(u => {
-    if (u === 'isAvailable') return req.body[u] ? 1 : 0;
-    if (u === 'availableDays') return JSON.stringify(req.body[u]);
-    return req.body[u];
-  });
+  const setClause = Object.keys(snakeCaseUpdates).map(key => `${key} = ?`).join(', ');
+  const values = Object.values(snakeCaseUpdates);
+
+  if (values.length === 0) {
+      return res.status(400).json({ error: 'No update data provided.' });
+  }
 
   try {
-    db.prepare(`UPDATE medical_staff SET ${setClause} WHERE id = ?`).run(...values, id);
-    res.sendStatus(200);
+    const stmt = `UPDATE medical_staff SET ${setClause} WHERE id = ?`;
+    db.prepare(stmt).run(...values, id);
+    res.json({ message: 'Staff updated successfully' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 };
+
 
 // --- HR: ATTENDANCE ---
 exports.getAttendance = (req, res) => {
@@ -215,16 +223,12 @@ exports.generatePayroll = (req, res) => {
   const { month } = req.body;
   
   const tx = db.transaction(() => {
-    // 1. Delete existing draft payroll for this month
     db.prepare("DELETE FROM hr_payroll WHERE month = ? AND status = 'draft'").run(month);
     
-    // 2. Get all staff
-    const allStaff = db.prepare("SELECT id, base_salary FROM medical_staff WHERE is_active = 1 OR is_available = 1").all();
+    const allStaff = db.prepare("SELECT id, base_salary FROM medical_staff WHERE status = 'active'").all();
     
-    // 3. For each staff, calculate adjustments for the month
-    // Simplified: Adjustments within the month date range
     const startOfMonth = `${month}-01`;
-    const endOfMonth = `${month}-31`; // Loose date check for sqlite string comparison works roughly
+    const endOfMonth = `${month}-31`;
 
     for (const staff of allStaff) {
        const adjustments = db.prepare(`
@@ -237,7 +241,7 @@ exports.generatePayroll = (req, res) => {
        
        adjustments.forEach(adj => {
            if (adj.type === 'bonus') bonus += adj.amount;
-           if (adj.type === 'fine' || adj.type === 'loan') fine += adj.amount; // Loans are deductions here
+           if (adj.type === 'fine' || adj.type === 'loan') fine += adj.amount;
        });
        
        const net = (staff.base_salary || 0) + bonus - fine;
@@ -257,7 +261,7 @@ exports.generatePayroll = (req, res) => {
 
 // --- HR: FINANCIALS (Loans, Fines, Bonuses) ---
 exports.getFinancials = (req, res) => {
-    const { type } = req.query; // 'loan', 'bonus', 'fine'
+    const { type } = req.query;
     try {
         let query = "SELECT a.*, m.full_name as staffName FROM hr_adjustments a JOIN medical_staff m ON a.staff_id = m.id";
         const params = [];

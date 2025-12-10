@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
 import { 
@@ -278,7 +277,7 @@ export const Patients = () => {
 
 
   const checkAvailability = (doc: MedicalStaff) => {
-    if (!doc.isAvailable) return false;
+    if (doc.status !== 'active') return false;
     if (!doc.availableDays || doc.availableDays.length === 0) return true; 
     try {
       const scheduleDays = doc.availableDays.map((d: string) => d.toLowerCase()); 
@@ -945,7 +944,7 @@ export const Patients = () => {
                 onChange={e => { setSelectedSpecialty(e.target.value); setActionFormData({...actionFormData, staffId: '', subtype: ''}); }}
                >
                  <option value="">Select Specialty...</option>
-                 {Array.from(new Set(staff.filter(s => s.type === 'doctor').map(s => s.specialization))).map(spec => (
+                 {Array.from(new Set(staff.filter(s => s.type === 'doctor' && s.status === 'active').map(s => s.specialization))).map(spec => (
                    <option key={spec} value={spec}>{spec}</option>
                  ))}
                </select>
@@ -954,7 +953,7 @@ export const Patients = () => {
                  <div>
                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Select Doctor</label>
                    <div className="flex overflow-x-auto gap-3 pb-2 custom-scrollbar">
-                     {staff.filter(s => s.type === 'doctor' && s.specialization === selectedSpecialty).map(doc => {
+                     {staff.filter(s => s.type === 'doctor' && s.specialization === selectedSpecialty && s.status === 'active').map(doc => {
                        const isAvail = checkAvailability(doc); 
                        return (
                          <div 
@@ -1076,7 +1075,7 @@ export const Patients = () => {
               
               <Select label="Assign Nurse" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                  <option value="">Select Nurse...</option>
-                 {staff.filter(s => s.type === 'nurse').map(n => <option key={n.id} value={n.id}>{n.fullName}</option>)}
+                 {staff.filter(s => s.type === 'nurse' && s.status === 'active').map(n => <option key={n.id} value={n.id}>{n.fullName}</option>)}
               </Select>
               <Textarea label="Notes" rows={2} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
             </div>
@@ -1103,7 +1102,7 @@ export const Patients = () => {
                 </div>
                 <Select label="Treating Doctor" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                    <option value="">Select Doctor...</option>
-                   {staff.filter(s => s.type === 'doctor').map(d => <option key={d.id} value={d.id}>{d.fullName} - {d.specialization}</option>)}
+                   {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(d => <option key={d.id} value={d.id}>{d.fullName} - {d.specialization}</option>)}
                 </Select>
               </div>
 
@@ -1147,7 +1146,7 @@ export const Patients = () => {
                  </Select>
                  <Select label="Requested Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                     <option value="">Select Surgeon...</option>
-                    {staff.filter(s => s.type === 'doctor').map(d => <option key={d.id} value={d.id}>{d.fullName}</option>)}
+                    {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(d => <option key={d.id} value={d.id}>{d.fullName}</option>)}
                  </Select>
                </div>
                <Textarea label="Pre-Op Notes" placeholder="Clinical indications..." rows={3} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />

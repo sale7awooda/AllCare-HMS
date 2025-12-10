@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // Define a comprehensive set of roles as per requirements
@@ -65,7 +64,7 @@ export interface MedicalStaff {
   consultationFee: number;
   consultationFeeFollowup?: number; // Added
   consultationFeeEmergency?: number; // Added
-  isAvailable: boolean;
+  status: 'active' | 'inactive' | 'dismissed';
   email?: string;
   phone?: string;
   
@@ -77,7 +76,7 @@ export interface MedicalStaff {
   // HR Specific
   baseSalary?: number;
   joinDate?: string;
-  bankDetails?: string;
+  bankDetails?: any; // Can be string or { bankName, bankAccount }
 }
 
 // HR & Payroll Types

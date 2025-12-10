@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -44,7 +43,7 @@ router.put('/patients/:id', authorizeRoles(Permissions.MANAGE_PATIENTS), validat
 // Staff (HR)
 router.get('/hr', authorizeRoles(Permissions.VIEW_HR), staffController.getAll);
 router.post('/hr', authorizeRoles(Permissions.MANAGE_HR), validate(schemas.createStaff), staffController.create);
-router.put('/hr/:id', authorizeRoles(Permissions.MANAGE_HR), staffController.update);
+router.put('/hr/:id', authorizeRoles(Permissions.MANAGE_HR), validate(schemas.updateStaff), staffController.update);
 
 // HR Extended Features
 router.get('/hr/attendance', authorizeRoles(Permissions.VIEW_HR), staffController.getAttendance);
