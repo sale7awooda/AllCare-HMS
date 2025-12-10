@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { User, Role } from '../types';
@@ -14,6 +13,7 @@ import {
   Microscope,
   Check
 } from 'lucide-react';
+import { useTranslation } from '../context/TranslationContext';
 
 interface LoginProps {
   onLogin: (u: User) => void;
@@ -25,6 +25,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const { t } = useTranslation();
   
   // Initialize from cache to prevent flash of default content
   const [hospitalName, setHospitalName] = useState(() => localStorage.getItem('hospital_name') || '');
@@ -65,7 +66,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       onLogin(response.user);
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.error || 'Authentication failed.');
+      setError(err.response?.data?.error || t('login_error_auth_failed'));
     } finally {
       setLoading(false);
     }
@@ -133,9 +134,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {isSettingsLoading ? (
               <div className="h-8 w-48 bg-slate-200 animate-pulse rounded-lg mx-auto mb-1"></div>
             ) : (
-              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{hospitalName || 'AllCare HMS'}</h1>
+              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{hospitalName || t('login_title')}</h1>
             )}
-            <p className="text-slate-500 text-sm mt-1">Secure Staff Portal</p>
+            <p className="text-slate-500 text-sm mt-1">{t('login_subtitle')}</p>
           </div>
 
           {/* Form Section */}
@@ -152,7 +153,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
               <div className="space-y-4">
                 <div className="group">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Employee ID</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{t('login_id_label')}</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
                       <UserIcon size={18} />
@@ -162,13 +163,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white transition-all shadow-sm"
-                      placeholder="Enter ID"
+                      placeholder={t('login_id_placeholder')}
                     />
                   </div>
                 </div>
 
                 <div className="group">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{t('login_password_label')}</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
                       <Lock size={18} />
@@ -178,7 +179,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white transition-all shadow-sm"
-                      placeholder="••••••••"
+                      placeholder={t('login_password_placeholder')}
                     />
                   </div>
                 </div>
@@ -192,9 +193,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                   />
-                  <span className="text-sm text-slate-500 font-medium">Keep me logged in</span>
+                  <span className="text-sm text-slate-500 font-medium">{t('login_remember_me')}</span>
                 </label>
-                <a href="#" className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors">Help?</a>
+                <a href="#" className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors">{t('login_help')}</a>
               </div>
 
               <button
@@ -205,11 +206,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 {loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>Verifying...</span>
+                    <span>{t('login_verifying')}</span>
                   </>
                 ) : (
                   <>
-                    <span>Access Terminal</span>
+                    <span>{t('login_button')}</span>
                     <ArrowRight size={18} />
                   </>
                 )}
@@ -219,19 +220,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           {/* Quick Login Footer */}
           <div className="bg-slate-50/80 p-6 border-t border-slate-100">
-            <p className="text-center text-xs text-slate-400 mb-4 font-bold uppercase tracking-widest">Select User Profile (Demo)</p>
+            <p className="text-center text-xs text-slate-400 mb-4 font-bold uppercase tracking-widest">{t('login_quick_select_title')}</p>
             <div className="flex justify-between items-center px-2">
-              <QuickProfile role="admin" label="Admin" icon={ShieldCheck} color="from-rose-500 to-red-600" />
-              <QuickProfile role="manager" label="Manager" icon={LayoutDashboard} color="from-orange-500 to-amber-500" />
-              <QuickProfile role="receptionist" label="Desk" icon={UserIcon} color="from-blue-500 to-cyan-500" />
-              <QuickProfile role="technician" label="Lab" icon={Microscope} color="from-emerald-500 to-teal-500" />
-              <QuickProfile role="accountant" label="Finance" icon={CreditCard} color="from-violet-500 to-purple-500" />
+              <QuickProfile role="admin" label={t('login_profile_admin')} icon={ShieldCheck} color="from-rose-500 to-red-600" />
+              <QuickProfile role="manager" label={t('login_profile_manager')} icon={LayoutDashboard} color="from-orange-500 to-amber-500" />
+              <QuickProfile role="receptionist" label={t('login_profile_desk')} icon={UserIcon} color="from-blue-500 to-cyan-500" />
+              <QuickProfile role="technician" label={t('login_profile_lab')} icon={Microscope} color="from-emerald-500 to-teal-500" />
+              <QuickProfile role="accountant" label={t('login_profile_finance')} icon={CreditCard} color="from-violet-500 to-purple-500" />
             </div>
           </div>
         </div>
         
         <p className="text-center text-slate-400 text-xs mt-6 font-medium">
-          System v1.2.0 • Secured by 256-bit Encryption
+          {t('login_footer_text')}
         </p>
       </div>
     </div>

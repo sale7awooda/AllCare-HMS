@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, Badge, Button } from '../components/UI';
 import { api } from '../services/api';
@@ -11,9 +10,11 @@ import {
   AreaChart, Area, Cell, PieChart, Pie
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../context/TranslationContext';
 
 export const Dashboard = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [stats, setStats] = useState({ 
     patients: 0, 
     todayAppointments: 0, 
@@ -201,7 +202,7 @@ export const Dashboard = () => {
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-96 gap-4">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      <p className="text-slate-500 font-medium">Loading hospital metrics...</p>
+      <p className="text-slate-500 font-medium">{t('dashboard_loading_text')}</p>
     </div>
   );
 
@@ -210,8 +211,8 @@ export const Dashboard = () => {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Command Center</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">Operational overview & quick actions.</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('dashboard_title')}</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">{t('dashboard_subtitle')}</p>
         </div>
         <div className="flex gap-3">
              <Button variant="secondary" size="sm" icon={Clock}>{new Date().toLocaleDateString()}</Button>
@@ -220,41 +221,41 @@ export const Dashboard = () => {
 
       {/* Quick Actions Toolbar */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <ActionButton icon={Plus} label="New Admission" color="blue" onClick={() => navigate('/admissions')} />
-        <ActionButton icon={Calendar} label="Book Visit" color="violet" onClick={() => navigate('/appointments')} />
-        <ActionButton icon={Users} label="Register Patient" color="emerald" onClick={() => navigate('/patients')} />
-        <ActionButton icon={FlaskConical} label="Lab Request" color="orange" onClick={() => navigate('/patients')} />
-        <ActionButton icon={Wallet} label="Create Invoice" color="pink" onClick={() => navigate('/billing')} />
-        <ActionButton icon={Stethoscope} label="Staff Schedule" color="cyan" onClick={() => navigate('/hr')} />
+        <ActionButton icon={Plus} label={t('dashboard_action_admission')} color="blue" onClick={() => navigate('/admissions')} />
+        <ActionButton icon={Calendar} label={t('dashboard_action_visit')} color="violet" onClick={() => navigate('/appointments')} />
+        <ActionButton icon={Users} label={t('dashboard_action_register')} color="emerald" onClick={() => navigate('/patients')} />
+        <ActionButton icon={FlaskConical} label={t('dashboard_action_lab')} color="orange" onClick={() => navigate('/patients')} />
+        <ActionButton icon={Wallet} label={t('dashboard_action_invoice')} color="pink" onClick={() => navigate('/billing')} />
+        <ActionButton icon={Stethoscope} label={t('dashboard_action_schedule')} color="cyan" onClick={() => navigate('/hr')} />
       </div>
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
-          title="Total Patients" 
+          title={t('dashboard_stat_total_patients')} 
           value={stats.patients.toLocaleString()} 
           icon={Users} 
           trend="+5.2%"
           colorClass="from-blue-500 to-blue-600" 
         />
         <StatCard 
-          title="Today's Appts" 
+          title={t('dashboard_stat_today_appts')}
           value={stats.todayAppointments} 
-          subtext="Scheduled visits"
+          subtext={t('dashboard_stat_appts_subtext')}
           icon={Calendar} 
           colorClass="from-violet-500 to-violet-600" 
         />
         <StatCard 
-          title="Revenue (Mtd)" 
+          title={t('dashboard_stat_revenue')}
           value={`$${stats.totalRevenue.toLocaleString()}`} 
-          subtext={`$${stats.outstandingRevenue.toLocaleString()} pending`}
+          subtext={`$${stats.outstandingRevenue.toLocaleString()} ${t('dashboard_stat_revenue_subtext', { amount: '' })}`}
           icon={Wallet} 
           colorClass="from-emerald-500 to-emerald-600" 
         />
         <StatCard 
-          title="Bed Occupancy" 
+          title={t('dashboard_stat_occupancy')}
           value={`${stats.occupancyRate}%`} 
-          subtext={`${stats.activeAdmissions} active inpatients`}
+          subtext={t('dashboard_stat_occupancy_subtext', { count: stats.activeAdmissions })}
           icon={Bed} 
           trend={stats.occupancyRate > 80 ? 'High' : undefined}
           colorClass="from-rose-500 to-rose-600" 
@@ -266,7 +267,7 @@ export const Dashboard = () => {
         
         {/* Department Workload (Bar Chart) */}
         <div className="lg:col-span-2">
-          <Card title="Department Workload" action={<Button size="sm" variant="ghost" onClick={() => navigate('/appointments')}>View Schedule</Button>}>
+          <Card title={t('dashboard_chart_workload')} action={<Button size="sm" variant="ghost" onClick={() => navigate('/appointments')}>{t('dashboard_chart_workload_action')}</Button>}>
             <div className="h-80 w-full mt-2">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={departmentData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -290,13 +291,13 @@ export const Dashboard = () => {
 
         {/* Needs Attention Feed */}
         <div className="lg:col-span-1">
-          <Card title="Needs Attention">
+          <Card title={t('dashboard_feed_title')}>
             <div className="h-80 overflow-y-auto custom-scrollbar pr-2 space-y-3 mt-2">
                 {pendingTasks.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center">
                         <CheckCircle size={48} className="mb-2 text-green-100 dark:text-green-900/30" />
-                        <p>All clear!</p>
-                        <p className="text-xs">No pending tasks requiring immediate action.</p>
+                        <p>{t('dashboard_feed_empty')}</p>
+                        <p className="text-xs">{t('dashboard_feed_empty_subtext')}</p>
                     </div>
                 ) : (
                     pendingTasks.map((task, i) => (
@@ -321,17 +322,17 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Bed Availability Widget */}
           <div className="lg:col-span-1">
-             <Card title="Bed Availability" action={<Button size="sm" variant="ghost" onClick={() => navigate('/admissions')}>Manage</Button>}>
+             <Card title={t('dashboard_widget_beds')} action={<Button size="sm" variant="ghost" onClick={() => navigate('/admissions')}>{t('dashboard_widget_beds_action')}</Button>}>
                 <div className="space-y-4 mt-2">
                     {[
-                        { label: 'General Ward', stats: bedDetails.general, color: 'blue' },
-                        { label: 'Private Rooms', stats: bedDetails.private, color: 'violet' },
-                        { label: 'ICU', stats: bedDetails.icu, color: 'rose' },
+                        { label: t('dashboard_widget_beds_general'), stats: bedDetails.general, color: 'blue' },
+                        { label: t('dashboard_widget_beds_private'), stats: bedDetails.private, color: 'violet' },
+                        { label: t('dashboard_widget_beds_icu'), stats: bedDetails.icu, color: 'rose' },
                     ].map(type => (
                         <div key={type.label}>
                             <div className="flex justify-between text-sm mb-1">
                                 <span className="text-slate-600 dark:text-slate-400">{type.label}</span>
-                                <span className="font-bold text-slate-900 dark:text-white">{type.stats.free} <span className="text-slate-400 font-normal">/ {type.stats.total} Free</span></span>
+                                <span className="font-bold text-slate-900 dark:text-white">{type.stats.free} <span className="text-slate-400 font-normal">/ {type.stats.total} {t('dashboard_widget_beds_free')}</span></span>
                             </div>
                             <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                                 <div 
@@ -347,7 +348,7 @@ export const Dashboard = () => {
 
           {/* Financial Trend */}
           <div className="lg:col-span-2">
-            <Card title="Revenue Trend (7 Days)">
+            <Card title={t('dashboard_chart_revenue')}>
                 <div className="h-48 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={revenueTrend} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>

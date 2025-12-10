@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -17,10 +16,12 @@ import { Records } from './pages/Records'; // New Import
 import { Login } from './pages/Login';
 import { User } from './types'; 
 import { api } from './services/api';
+import { useTranslation } from './context/TranslationContext';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -40,7 +41,7 @@ export default function App() {
   }, []);
 
   if (isAuthChecking) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-500 bg-slate-50 dark:bg-slate-950">Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center text-gray-500 bg-slate-50 dark:bg-slate-950">{t('app_loading')}</div>;
   }
 
   if (!user) {

@@ -1,8 +1,8 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ThemeProvider } from './context/ThemeContext';
+import { TranslationProvider } from './context/TranslationContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,8 +12,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ThemeProvider>
-      <App />
-    </ThemeProvider>
+    <TranslationProvider>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    </TranslationProvider>
   </React.StrictMode>
 );

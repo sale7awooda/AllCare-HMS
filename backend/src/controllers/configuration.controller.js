@@ -1,5 +1,5 @@
 
-const { db, resetDatabase } = require('../config/database');
+const { db, initDB } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
@@ -52,7 +52,6 @@ exports.getSettings = (req, res) => {
 
 exports.getPublicSettings = (req, res) => {
   try {
-    // Only return safe public settings
     const rows = db.prepare("SELECT * FROM system_settings WHERE key IN ('hospitalName', 'hospitalAddress', 'hospitalPhone')").all();
     const settings = rows.reduce((acc, row) => {
       acc[row.key] = row.value;
@@ -81,17 +80,14 @@ exports.updateSettings = (req, res) => {
 // --- USER MANAGEMENT ---
 exports.getUsers = (req, res) => {
   try {
-    // Use SELECT * to handle missing columns gracefully in older schemas
-    const users = db.prepare('SELECT * FROM users ORDER BY username').all();
-    // Map to camelCase for frontend consistency
+    const users = db.prepare('SELECT id, username, full_name, role, email, is_active FROM users ORDER BY username').all();
     const mappedUsers = users.map(u => ({
       id: u.id,
       username: u.username,
-      fullName: u.full_name, // This maps snake_case DB to camelCase API
+      fullName: u.full_name,
       role: u.role,
       email: u.email || '',
       isActive: !!u.is_active, 
-      createdAt: u.created_at
     }));
     res.json(mappedUsers);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -102,7 +98,6 @@ exports.addUser = async (req, res) => {
   if (!username || !password || !fullName || !role) return res.status(400).json({ error: 'Missing required fields' });
 
   try {
-    // Async hash
     const hash = await bcrypt.hash(password, 10);
     const stmt = db.prepare('INSERT INTO users (username, password, full_name, role, email, is_active) VALUES (?, ?, ?, ?, ?, ?)');
     const info = stmt.run(username, hash, fullName, role, email || null, isActive ? 1 : 0);
@@ -118,7 +113,6 @@ exports.updateUser = async (req, res) => {
   const { fullName, role, email, password, isActive } = req.body;
   try {
     if (password) {
-      // Async hash
       const hash = await bcrypt.hash(password, 10);
       db.prepare('UPDATE users SET full_name = ?, role = ?, email = ?, is_active = ?, password = ? WHERE id = ?').run(fullName, role, email || null, isActive ? 1 : 0, hash, id);
     } else {
@@ -138,11 +132,7 @@ exports.getRolePermissions = (req, res) => {
   try {
     const roles = db.prepare('SELECT * FROM role_permissions').all();
     const permissionsMap = roles.reduce((acc, r) => {
-      try {
-        acc[r.role] = JSON.parse(r.permissions);
-      } catch (e) {
-        acc[r.role] = [];
-      }
+      try { acc[r.role] = JSON.parse(r.permissions); } catch (e) { acc[r.role] = []; }
       return acc;
     }, {});
     res.json(permissionsMap);
@@ -151,76 +141,29 @@ exports.getRolePermissions = (req, res) => {
 
 exports.updateRolePermissions = (req, res) => {
   const { role } = req.params;
-  const { permissions } = req.body; // Array of strings
+  const { permissions } = req.body;
   try {
     db.prepare('INSERT OR REPLACE INTO role_permissions (role, permissions) VALUES (?, ?)').run(role, JSON.stringify(permissions));
     res.json({ message: 'Permissions updated' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// --- FINANCIAL CONFIG (TAXES & PAYMENT METHODS) ---
-exports.getTaxRates = (req, res) => {
-  try { res.json(db.prepare('SELECT id, name, rate, is_active as isActive FROM tax_rates').all().map(t => ({...t, isActive: !!t.isActive}))); } 
-  catch (err) { res.status(500).json({ error: err.message }); }
-};
-exports.addTaxRate = (req, res) => {
-  const { name, rate, isActive } = req.body;
-  try {
-    const info = db.prepare('INSERT INTO tax_rates (name, rate, is_active) VALUES (?, ?, ?)').run(name, rate, isActive ? 1 : 0);
-    res.json({ id: info.lastInsertRowid });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-};
-exports.updateTaxRate = (req, res) => {
-  const { name, rate, isActive } = req.body;
-  try {
-    db.prepare('UPDATE tax_rates SET name = ?, rate = ?, is_active = ? WHERE id = ?').run(name, rate, isActive ? 1 : 0, req.params.id);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-};
-exports.deleteTaxRate = (req, res) => {
-  try { db.prepare('DELETE FROM tax_rates WHERE id = ?').run(req.params.id); res.sendStatus(200); }
-  catch (err) { res.status(500).json({ error: err.message }); }
-};
-
-exports.getPaymentMethods = (req, res) => {
-  try { res.json(db.prepare('SELECT id, name, is_active as isActive FROM payment_methods').all().map(p => ({...p, isActive: !!p.isActive}))); } 
-  catch (err) { res.status(500).json({ error: err.message }); }
-};
-exports.addPaymentMethod = (req, res) => {
-  const { name, isActive } = req.body;
-  try {
-    const info = db.prepare('INSERT INTO payment_methods (name, is_active) VALUES (?, ?)').run(name, isActive ? 1 : 0);
-    res.json({ id: info.lastInsertRowid });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-};
-exports.updatePaymentMethod = (req, res) => {
-  const { name, isActive } = req.body;
-  try {
-    db.prepare('UPDATE payment_methods SET name = ?, is_active = ? WHERE id = ?').run(name, isActive ? 1 : 0, req.params.id);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-};
-exports.deletePaymentMethod = (req, res) => {
-  try { db.prepare('DELETE FROM payment_methods WHERE id = ?').run(req.params.id); res.sendStatus(200); }
-  catch (err) { res.status(500).json({ error: err.message }); }
-};
-
 // --- DEPARTMENTS ---
 exports.getDepartments = (req, res) => {
-  try { res.json(db.prepare('SELECT * FROM departments ORDER BY name').all()); } 
+  try { res.json(db.prepare('SELECT * FROM departments ORDER BY name_en').all()); } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 exports.addDepartment = (req, res) => {
-  const { name, description } = req.body;
+  const { name_en, name_ar, description_en, description_ar } = req.body;
   try {
-    const info = db.prepare('INSERT INTO departments (name, description) VALUES (?, ?)').run(name, description || '');
-    res.status(201).json({ id: info.lastInsertRowid, name, description });
+    const info = db.prepare('INSERT INTO departments (name_en, name_ar, description_en, description_ar) VALUES (?, ?, ?, ?)').run(name_en, name_ar, description_en || '', description_ar || '');
+    res.status(201).json({ id: info.lastInsertRowid, ...req.body });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
 exports.updateDepartment = (req, res) => {
-  const { name, description } = req.body;
+  const { name_en, name_ar, description_en, description_ar } = req.body;
   try {
-    db.prepare('UPDATE departments SET name = ?, description = ? WHERE id = ?').run(name, description, req.params.id);
+    db.prepare('UPDATE departments SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ? WHERE id = ?').run(name_en, name_ar, description_en, description_ar, req.params.id);
     res.json({ message: 'Department updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
@@ -231,20 +174,20 @@ exports.deleteDepartment = (req, res) => {
 
 // --- SPECIALIZATIONS ---
 exports.getSpecializations = (req, res) => {
-  try { res.json(db.prepare('SELECT * FROM specializations ORDER BY name').all()); } 
+  try { res.json(db.prepare('SELECT * FROM specializations ORDER BY name_en').all()); } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 exports.addSpecialization = (req, res) => {
-  const { name, description } = req.body;
+  const { name_en, name_ar, description_en, description_ar } = req.body;
   try {
-    const info = db.prepare('INSERT INTO specializations (name, description) VALUES (?, ?)').run(name, description || '');
-    res.status(201).json({ id: info.lastInsertRowid, name, description });
+    const info = db.prepare('INSERT INTO specializations (name_en, name_ar, description_en, description_ar) VALUES (?, ?, ?, ?)').run(name_en, name_ar, description_en || '', description_ar || '');
+    res.status(201).json({ id: info.lastInsertRowid, ...req.body });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
 exports.updateSpecialization = (req, res) => {
-  const { name, description } = req.body;
+  const { name_en, name_ar, description_en, description_ar } = req.body;
   try {
-    db.prepare('UPDATE specializations SET name = ?, description = ? WHERE id = ?').run(name, description, req.params.id);
+    db.prepare('UPDATE specializations SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ? WHERE id = ?').run(name_en, name_ar, description_en, description_ar, req.params.id);
     res.json({ message: 'Specialization updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
@@ -277,22 +220,22 @@ exports.deleteBed = (req, res) => {
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// --- CATALOG MANAGEMENT ---
+// --- CATALOGS ---
 exports.getLabTests = (req, res) => {
-  try { res.json(db.prepare('SELECT * FROM lab_tests ORDER BY name').all()); }
+  try { res.json(db.prepare('SELECT * FROM lab_tests ORDER BY name_en').all()); }
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 exports.addLabTest = (req, res) => {
-  const { name, category, cost, normalRange } = req.body;
+  const { name_en, name_ar, category_en, category_ar, cost, normal_range } = req.body;
   try {
-    const info = db.prepare('INSERT INTO lab_tests (name, category, cost, normal_range) VALUES (?, ?, ?, ?)').run(name, category, cost, normalRange || null);
+    const info = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost, normal_range) VALUES (?, ?, ?, ?, ?, ?)').run(name_en, name_ar, category_en, category_ar, cost, normal_range || null);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
 exports.updateLabTest = (req, res) => {
-  const { name, category, cost, normalRange } = req.body;
+  const { name_en, name_ar, category_en, category_ar, cost, normal_range } = req.body;
   try {
-    db.prepare('UPDATE lab_tests SET name = ?, category = ?, cost = ?, normal_range = ? WHERE id = ?').run(name, category, cost, normalRange || null, req.params.id);
+    db.prepare('UPDATE lab_tests SET name_en = ?, name_ar = ?, category_en = ?, category_ar = ?, cost = ?, normal_range = ? WHERE id = ?').run(name_en, name_ar, category_en, category_ar, cost, normal_range || null, req.params.id);
     res.json({ message: 'Lab test updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
@@ -302,20 +245,20 @@ exports.deleteLabTest = (req, res) => {
 };
 
 exports.getNurseServices = (req, res) => {
-  try { res.json(db.prepare('SELECT * FROM nurse_services ORDER BY name').all()); }
+  try { res.json(db.prepare('SELECT * FROM nurse_services ORDER BY name_en').all()); }
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 exports.addNurseService = (req, res) => {
-  const { name, description, cost } = req.body;
+  const { name_en, name_ar, description_en, description_ar, cost } = req.body;
   try {
-    const info = db.prepare('INSERT INTO nurse_services (name, description, cost) VALUES (?, ?, ?)').run(name, description, cost);
+    const info = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?, ?)').run(name_en, name_ar, description_en, description_ar, cost);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
 exports.updateNurseService = (req, res) => {
-  const { name, description, cost } = req.body;
+  const { name_en, name_ar, description_en, description_ar, cost } = req.body;
   try {
-    db.prepare('UPDATE nurse_services SET name = ?, description = ?, cost = ? WHERE id = ?').run(name, description, cost, req.params.id);
+    db.prepare('UPDATE nurse_services SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ?, cost = ? WHERE id = ?').run(name_en, name_ar, description_en, description_ar, cost, req.params.id);
     res.json({ message: 'Nurse service updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
@@ -325,20 +268,20 @@ exports.deleteNurseService = (req, res) => {
 };
 
 exports.getOperations = (req, res) => {
-  try { res.json(db.prepare('SELECT * FROM operations_catalog ORDER BY name').all()); }
+  try { res.json(db.prepare('SELECT * FROM operations_catalog ORDER BY name_en').all()); }
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 exports.addOperation = (req, res) => {
-  const { name, baseCost } = req.body;
+  const { name_en, name_ar, base_cost } = req.body;
   try {
-    const info = db.prepare('INSERT INTO operations_catalog (name, base_cost) VALUES (?, ?)').run(name, baseCost);
+    const info = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)').run(name_en, name_ar, base_cost);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
 exports.updateOperation = (req, res) => {
-  const { name, baseCost } = req.body;
+  const { name_en, name_ar, base_cost } = req.body;
   try {
-    db.prepare('UPDATE operations_catalog SET name = ?, base_cost = ? WHERE id = ?').run(name, baseCost, req.params.id);
+    db.prepare('UPDATE operations_catalog SET name_en = ?, name_ar = ?, base_cost = ? WHERE id = ?').run(name_en, name_ar, base_cost, req.params.id);
     res.json({ message: 'Operation updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
@@ -346,6 +289,77 @@ exports.deleteOperation = (req, res) => {
   try { db.prepare('DELETE FROM operations_catalog WHERE id = ?').run(req.params.id); res.sendStatus(200); } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
+
+exports.getInsuranceProviders = (req, res) => {
+  try { res.json(db.prepare('SELECT id, name_en, name_ar, is_active as isActive FROM insurance_providers').all().map(p => ({...p, isActive: !!p.isActive}))); } 
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.addInsuranceProvider = (req, res) => {
+  const { name_en, name_ar, is_active } = req.body;
+  try {
+    const info = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, ?)').run(name_en, name_ar, is_active ? 1 : 0);
+    res.json({ id: info.lastInsertRowid });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.updateInsuranceProvider = (req, res) => {
+  const { name_en, name_ar, is_active } = req.body;
+  try {
+    db.prepare('UPDATE insurance_providers SET name_en = ?, name_ar = ?, is_active = ? WHERE id = ?').run(name_en, name_ar, is_active ? 1 : 0, req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.deleteInsuranceProvider = (req, res) => {
+  try { db.prepare('DELETE FROM insurance_providers WHERE id = ?').run(req.params.id); res.sendStatus(200); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+// --- FINANCIAL CONFIG (TAXES & PAYMENT METHODS) ---
+exports.getTaxRates = (req, res) => {
+  try { res.json(db.prepare('SELECT id, name_en, name_ar, rate, is_active as isActive FROM tax_rates').all().map(t => ({...t, isActive: !!t.isActive}))); } 
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.addTaxRate = (req, res) => {
+  const { name_en, name_ar, rate, is_active } = req.body;
+  try {
+    const info = db.prepare('INSERT INTO tax_rates (name_en, name_ar, rate, is_active) VALUES (?, ?, ?, ?)').run(name_en, name_ar, rate, is_active ? 1 : 0);
+    res.json({ id: info.lastInsertRowid });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.updateTaxRate = (req, res) => {
+  const { name_en, name_ar, rate, is_active } = req.body;
+  try {
+    db.prepare('UPDATE tax_rates SET name_en = ?, name_ar = ?, rate = ?, is_active = ? WHERE id = ?').run(name_en, name_ar, rate, is_active ? 1 : 0, req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.deleteTaxRate = (req, res) => {
+  try { db.prepare('DELETE FROM tax_rates WHERE id = ?').run(req.params.id); res.sendStatus(200); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.getPaymentMethods = (req, res) => {
+  try { res.json(db.prepare('SELECT id, name_en, name_ar, is_active as isActive FROM payment_methods').all().map(p => ({...p, isActive: !!p.isActive}))); } 
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.addPaymentMethod = (req, res) => {
+  const { name_en, name_ar, is_active } = req.body;
+  try {
+    const info = db.prepare('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, ?)').run(name_en, name_ar, is_active ? 1 : 0);
+    res.json({ id: info.lastInsertRowid });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.updatePaymentMethod = (req, res) => {
+  const { name_en, name_ar, is_active } = req.body;
+  try {
+    db.prepare('UPDATE payment_methods SET name_en = ?, name_ar = ?, is_active = ? WHERE id = ?').run(name_en, name_ar, is_active ? 1 : 0, req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.deletePaymentMethod = (req, res) => {
+  try { db.prepare('DELETE FROM payment_methods WHERE id = ?').run(req.params.id); res.sendStatus(200); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+
 
 // --- DATA MANAGEMENT ---
 exports.downloadBackup = (req, res) => {
@@ -357,12 +371,10 @@ exports.downloadBackup = (req, res) => {
 exports.restoreBackup = (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   
-  // Security Check: Validate Extension
   const validExtensions = ['.db', '.sqlite', '.sqlite3'];
   const ext = path.extname(req.file.originalname).toLowerCase();
   
   if (!validExtensions.includes(ext)) {
-      // Clean up uploaded file immediately
       try { fs.unlinkSync(req.file.path); } catch(e) {}
       return res.status(400).json({ error: 'Invalid file type. Only SQLite database files allowed.' });
   }
@@ -379,7 +391,7 @@ exports.restoreBackup = (req, res) => {
 
 exports.resetDatabase = (req, res) => {
   try {
-    resetDatabase();
+    initDB(true); // Call with forceReset = true
     res.json({ message: 'Database has been reset to factory state.' });
   } catch (err) {
     console.error('Reset failed:', err);

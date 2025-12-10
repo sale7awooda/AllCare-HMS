@@ -7,8 +7,9 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MapPin, XCircle, FileText, Stethoscope
 } from 'lucide-react';
 import { api } from '../services/api';
-import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill } from '../types';
+import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill, InsuranceProvider } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
+import { useTranslation } from '../context/TranslationContext';
 
 export const Patients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -17,12 +18,14 @@ export const Patients = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [activeAdmissions, setActiveAdmissions] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { language } = useTranslation();
   
   // Catalogs
   const [labTests, setLabTests] = useState<LabTestCatalog[]>([]);
   const [nurseServices, setNurseServices] = useState<NurseServiceCatalog[]>([]);
   const [beds, setBeds] = useState<BedType[]>([]);
   const [operations, setOperations] = useState<OperationCatalog[]>([]);
+  const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
 
   // UI States
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,12 +74,6 @@ export const Patients = () => {
   const [selectedService, setSelectedService] = useState<NurseServiceCatalog | null>(null);
   const [selectedBed, setSelectedBed] = useState<BedType | null>(null);
   
-  const SUDAN_INSURANCE_PROVIDERS = [
-    "Shiekan Insurance", "The United Insurance", "Blue Nile Insurance",
-    "Al-Salama Insurance", "Juba Insurance", "Prime Health",
-    "Wataniya Insurance", "General Insurance"
-  ];
-
   const initialFormState = {
     fullName: '', age: 0, phone: '',
     gender: 'male' as Patient['gender'],
@@ -124,16 +121,21 @@ export const Patients = () => {
 
   const loadCatalogs = async () => {
     try {
-      const [l, n, b, o] = await Promise.all([
-        api.getLabTests(), api.getNurseServices(), api.getBeds(), api.getOperations()
+      const [l, n, b, o, ip] = await Promise.all([
+        api.getLabTests(), 
+        api.getNurseServices(), 
+        api.getBeds(), 
+        api.getOperations(),
+        api.getInsuranceProviders()
       ]);
       setLabTests(Array.isArray(l) ? l : []);
       setNurseServices(Array.isArray(n) ? n : []);
       setBeds(Array.isArray(b) ? b : []);
       setOperations(Array.isArray(o) ? o : []);
+      setInsuranceProviders(Array.isArray(ip) ? ip : []);
     } catch (e) {
       console.error("Failed to load catalogs:", e);
-      setLabTests([]); setNurseServices([]); setBeds([]); setOperations([]);
+      setLabTests([]); setNurseServices([]); setBeds([]); setOperations([]); setInsuranceProviders([]);
     }
   };
 
@@ -251,7 +253,7 @@ export const Patients = () => {
   };
 
   const handleOperationSelect = (opName: string) => {
-    const op = operations.find(o => o.name === opName);
+    const op = operations.find(o => o.name_en === opName);
     setActionFormData({
       ...actionFormData,
       subtype: opName,
@@ -331,7 +333,7 @@ export const Patients = () => {
           staffName: nurse?.fullName,
           datetime: `${actionFormData.date}T${actionFormData.time}`,
           type: 'Procedure',
-          reason: `${selectedService.name}: ${actionFormData.notes}`,
+          reason: `${selectedService.name_en}: ${actionFormData.notes}`,
           customFee: selectedService.cost, // Pass custom cost from catalog
           status: 'pending' 
         });
@@ -856,7 +858,7 @@ export const Patients = () => {
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                  <Select label="Insurance Provider" value={formData.insProvider} onChange={e => setFormData({...formData, insProvider: e.target.value})}>
                     <option value="">Select Provider...</option>
-                    {SUDAN_INSURANCE_PROVIDERS.map(p => <option key={p} value={p}>{p}</option>)}
+                    {insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}
                  </Select>
                  <Input label="Policy Number" value={formData.insPolicy} onChange={e => setFormData({...formData, insPolicy: e.target.value})} />
                  <Input label="Expiry Date" type="date" value={formData.insExpiry} onChange={e => setFormData({...formData, insExpiry: e.target.value})} />
@@ -1032,9 +1034,9 @@ export const Patients = () => {
                   <input type="text" className="w-full rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white py-2 px-3 text-sm" placeholder="Type test name..." value={testSearch} onChange={e => setTestSearch(e.target.value)} />
                   {testSearch && (
                     <div className="absolute top-full left-0 right-0 mt-1 border border-slate-200 dark:border-slate-700 rounded-lg max-h-48 overflow-y-auto bg-white dark:bg-slate-800 shadow-xl z-50">
-                      {labTests.filter(t => t.name.toLowerCase().includes(testSearch.toLowerCase())).map(t => (
+                      {labTests.filter(t => t.name_en.toLowerCase().includes(testSearch.toLowerCase())).map(t => (
                         <button key={t.id} type="button" className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex justify-between border-b border-gray-50 dark:border-slate-700 last:border-0 dark:text-white" onClick={() => { if(!selectedTests.find(x => x.id===t.id)) setSelectedTests([...selectedTests, t]); setTestSearch(''); }}>
-                          <span>{t.name}</span><span className="font-mono text-xs font-bold text-gray-600 dark:text-gray-400">${t.cost}</span>
+                          <span>{language === 'ar' ? t.name_ar : t.name_en}</span><span className="font-mono text-xs font-bold text-gray-600 dark:text-gray-400">${t.cost}</span>
                         </button>
                       ))}
                     </div>
@@ -1050,7 +1052,7 @@ export const Patients = () => {
                      <tr><td colSpan={3} className="text-center py-4 text-gray-400 italic">No tests selected</td></tr>
                    ) : (
                     selectedTests.map((t, i) => (
-                      <tr key={i} className="dark:text-white"><td className="px-3 py-2">{t.name}</td><td className="px-3 py-2 text-right">${t.cost}</td><td className="text-center"><button type="button" onClick={() => setSelectedTests(selectedTests.filter(x => x.id !== t.id))} className="text-red-500"><Trash2 size={14}/></button></td></tr>
+                      <tr key={i} className="dark:text-white"><td className="px-3 py-2">{language === 'ar' ? t.name_ar : t.name_en}</td><td className="px-3 py-2 text-right">${t.cost}</td><td className="text-center"><button type="button" onClick={() => setSelectedTests(selectedTests.filter(x => x.id !== t.id))} className="text-red-500"><Trash2 size={14}/></button></td></tr>
                     ))
                    )}
                    <tr className="bg-slate-50 dark:bg-slate-800 font-bold border-t dark:border-slate-700 dark:text-white"><td className="px-3 py-2">Total</td><td className="px-3 py-2 text-right">${selectedTests.reduce((a,b)=>a+b.cost,0)}</td><td></td></tr>
@@ -1066,8 +1068,8 @@ export const Patients = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-48 overflow-y-auto p-1 custom-scrollbar">
                   {nurseServices.map(svc => (
                     <div key={svc.id} onClick={() => setSelectedService(svc)} className={`p-3 rounded-xl border cursor-pointer ${selectedService?.id === svc.id ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 ring-2 ring-primary-200 dark:ring-primary-800' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-white'}`}>
-                      <div className="flex justify-between"><h4 className="font-bold text-sm">{svc.name}</h4><span className="text-xs font-bold bg-white dark:bg-slate-700 border dark:border-slate-600 px-1 rounded">${svc.cost}</span></div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{svc.description}</p>
+                      <div className="flex justify-between"><h4 className="font-bold text-sm">{language === 'ar' ? svc.name_ar : svc.name_en}</h4><span className="text-xs font-bold bg-white dark:bg-slate-700 border dark:border-slate-600 px-1 rounded">${svc.cost}</span></div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{language === 'ar' ? svc.description_ar : svc.description_en}</p>
                     </div>
                   ))}
                 </div>
@@ -1142,7 +1144,7 @@ export const Patients = () => {
                <div className="grid grid-cols-2 gap-4">
                  <Select label="Operation Type" required value={actionFormData.subtype} onChange={e => handleOperationSelect(e.target.value)}>
                     <option value="">Select Procedure...</option>
-                    {operations.map(op => <option key={op.id} value={op.name}>{op.name} (Base: ${op.baseCost})</option>)}
+                    {operations.map(op => <option key={op.id} value={op.name_en}>{language === 'ar' ? op.name_ar : op.name_en} (Base: ${op.baseCost})</option>)}
                  </Select>
                  <Select label="Requested Surgeon" required value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                     <option value="">Select Surgeon...</option>

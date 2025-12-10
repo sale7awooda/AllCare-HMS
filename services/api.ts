@@ -116,14 +116,14 @@ export const api = {
 
   // --- Configuration: Departments ---
   getDepartments: () => client.get('/config/departments'),
-  addDepartment: (name, description) => client.post('/config/departments', { name, description }),
-  updateDepartment: (id, name, description) => client.put(`/config/departments/${id}`, { name, description }),
+  addDepartment: (data) => client.post('/config/departments', data),
+  updateDepartment: (id, data) => client.put(`/config/departments/${id}`, data),
   deleteDepartment: (id) => client.delete(`/config/departments/${id}`),
 
   // --- Configuration: Specializations ---
   getSpecializations: () => client.get('/config/specializations'),
-  addSpecialization: (name, description) => client.post('/config/specializations', { name, description }),
-  updateSpecialization: (id, name, description) => client.put(`/config/specializations/${id}`, { name, description }),
+  addSpecialization: (data) => client.post('/config/specializations', data),
+  updateSpecialization: (id, data) => client.put(`/config/specializations/${id}`, data),
   deleteSpecialization: (id) => client.delete(`/config/specializations/${id}`),
 
   // --- Configuration: Beds ---
@@ -147,6 +147,12 @@ export const api = {
   addOperationCatalog: (data) => client.post('/config/operations', data),
   updateOperationCatalog: (id, data) => client.put(`/config/operations/${id}`, data),
   deleteOperationCatalog: (id) => client.delete(`/config/operations/${id}`),
+  
+  // --- Configuration: Catalogs (Insurance) ---
+  getInsuranceProviders: () => client.get('/config/insurance-providers'),
+  addInsuranceProvider: (data) => client.post('/config/insurance-providers', data),
+  updateInsuranceProvider: (id, data) => client.put(`/config/insurance-providers/${id}`, data),
+  deleteInsuranceProvider: (id) => client.delete(`/config/insurance-providers/${id}`),
 
   // --- Configuration: Financial ---
   getTaxRates: () => client.get('/config/tax-rates'),

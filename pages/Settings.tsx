@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Badge, Select } from '../components/UI';
 import { 
@@ -8,6 +7,7 @@ import {
 import { api } from '../services/api';
 import { User as UserType } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { useTranslation } from '../context/TranslationContext';
 
 export const Settings = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'security' | 'appearance'>('profile');
@@ -17,13 +17,14 @@ export const Settings = () => {
 
   // Consume Theme Context
   const { theme, setTheme, accent, setAccent, density, setDensity, fontSize, setFontSize } = useTheme();
+  // Consume Translation Context
+  const { t, language, setLanguage } = useTranslation();
 
   // Profile Form
   const [profileForm, setProfileForm] = useState({
     fullName: '',
     email: '',
     phone: '',
-    language: 'English',
     timezone: 'UTC+3'
   });
 
@@ -52,7 +53,6 @@ export const Settings = () => {
           fullName: userData.fullName || '',
           email: userData.email || '',
           phone: userData.phone || '',
-          language: 'English', // Default
           timezone: 'UTC+3'    // Default
         });
       } catch (e) {
@@ -102,13 +102,13 @@ export const Settings = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading settings...</div>;
+  if (loading) return <div className="p-8 text-center text-gray-500">{t('loading')}</div>;
 
   const tabs = [
-    { id: 'profile', label: 'My Profile', icon: User },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'security', label: 'Security', icon: Shield },
-    { id: 'appearance', label: 'Appearance', icon: Palette },
+    { id: 'profile', label: t('settings_tab_profile'), icon: User },
+    { id: 'notifications', label: t('settings_tab_notifications'), icon: Bell },
+    { id: 'security', label: t('settings_tab_security'), icon: Shield },
+    { id: 'appearance', label: t('settings_tab_appearance'), icon: Palette },
   ];
 
   const ToggleSwitch = ({ label, checked, onChange, description }: { label: string, checked: boolean, onChange: (val: boolean) => void, description?: string }) => (
@@ -122,7 +122,7 @@ export const Settings = () => {
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${checked ? 'bg-primary-600' : 'bg-slate-200 dark:bg-slate-700'}`}
       >
-        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-5 rtl:-translate-x-5' : 'translate-x-0'}`} />
       </button>
     </div>
   );
@@ -130,7 +130,7 @@ export const Settings = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Account Settings</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('settings_title')}</h1>
       </div>
 
       {message && (
@@ -184,13 +184,13 @@ export const Settings = () => {
               <form onSubmit={handleProfileUpdate} className="flex-1 w-full space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <Input 
-                    label="Full Name" 
+                    label={t('settings_profile_fullName')} 
                     value={profileForm.fullName} 
                     onChange={e => setProfileForm({...profileForm, fullName: e.target.value})} 
                   />
                   <div className="relative opacity-70">
                     <Input 
-                      label="Username" 
+                      label={t('settings_profile_username')} 
                       value={user?.username || ''} 
                       disabled
                       className="pl-10 bg-slate-50 dark:bg-slate-900/50 cursor-not-allowed"
@@ -202,7 +202,7 @@ export const Settings = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="relative">
                     <Input 
-                      label="Email Address" 
+                      label={t('settings_profile_email')} 
                       type="email"
                       value={profileForm.email} 
                       onChange={e => setProfileForm({...profileForm, email: e.target.value})}
@@ -212,7 +212,7 @@ export const Settings = () => {
                   </div>
                   <div className="relative">
                     <Input 
-                      label="Phone Number" 
+                      label={t('settings_profile_phone')} 
                       value={profileForm.phone} 
                       onChange={e => setProfileForm({...profileForm, phone: e.target.value})}
                       className="pl-10"
@@ -225,16 +225,15 @@ export const Settings = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                    <Select 
-                      label="Language" 
-                      value={profileForm.language} 
-                      onChange={e => setProfileForm({...profileForm, language: e.target.value})}
+                      label={t('settings_profile_language')} 
+                      value={language} 
+                      onChange={e => setLanguage(e.target.value as 'en' | 'ar')}
                    >
-                      <option value="English">English (US)</option>
-                      <option value="Arabic">Arabic (العربية)</option>
-                      <option value="French">French (Français)</option>
+                      <option value="en">English (US)</option>
+                      <option value="ar">العربية (Arabic)</option>
                    </Select>
                    <Select 
-                      label="Timezone" 
+                      label={t('settings_profile_timezone')} 
                       value={profileForm.timezone} 
                       onChange={e => setProfileForm({...profileForm, timezone: e.target.value})}
                    >
@@ -246,7 +245,7 @@ export const Settings = () => {
                 </div>
 
                 <div className="pt-4 flex justify-end mt-6">
-                  <Button type="submit" icon={Save}>Save Changes</Button>
+                  <Button type="submit" icon={Save}>{t('settings_profile_save_button')}</Button>
                 </div>
               </form>
             </div>
@@ -257,49 +256,49 @@ export const Settings = () => {
         {activeTab === 'notifications' && (
           <div className="max-w-2xl animate-in fade-in slide-in-from-left-4 space-y-6">
              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
-               <h3 className="font-bold text-blue-900 dark:text-blue-300">Email & Push Preferences</h3>
-               <p className="text-sm text-blue-700 dark:text-blue-400">Control how and when the system contacts you.</p>
+               <h3 className="font-bold text-blue-900 dark:text-blue-300">{t('settings_notifications_title')}</h3>
+               <p className="text-sm text-blue-700 dark:text-blue-400">{t('settings_notifications_subtitle')}</p>
              </div>
 
              <div className="space-y-2">
-                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Email Alerts</h4>
+                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">{t('settings_notifications_email_alerts_title')}</h4>
                 <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                    <ToggleSwitch 
-                      label="New Appointment Requests" 
+                      label={t('settings_notifications_email_appointments')}
                       checked={notifPrefs.email_appointments} 
                       onChange={v => setNotifPrefs({...notifPrefs, email_appointments: v})} 
-                      description="Receive an email when a patient books an appointment."
+                      description={t('settings_notifications_email_appointments_desc')}
                    />
                    <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
                    <ToggleSwitch 
-                      label="Lab Results Ready" 
+                      label={t('settings_notifications_email_labs')}
                       checked={notifPrefs.email_labs} 
                       onChange={v => setNotifPrefs({...notifPrefs, email_labs: v})} 
-                      description="Get notified when critical lab results are finalized."
+                      description={t('settings_notifications_email_labs_desc')}
                    />
                 </div>
              </div>
 
              <div className="space-y-2">
-                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Push Notifications</h4>
+                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">{t('settings_notifications_push_title')}</h4>
                 <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                    <ToggleSwitch 
-                      label="Direct Messages" 
+                      label={t('settings_notifications_push_messages')}
                       checked={notifPrefs.push_messages} 
                       onChange={v => setNotifPrefs({...notifPrefs, push_messages: v})} 
                    />
                    <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
                    <ToggleSwitch 
-                      label="Shift Reminders" 
+                      label={t('settings_notifications_push_shifts')}
                       checked={notifPrefs.push_shifts} 
                       onChange={v => setNotifPrefs({...notifPrefs, push_shifts: v})} 
-                      description="Remind me 1 hour before my shift starts."
+                      description={t('settings_notifications_push_shifts_desc')}
                    />
                 </div>
              </div>
              
              <div className="flex justify-end pt-4">
-                <Button onClick={() => showMessage('success', 'Notification preferences saved.')}>Save Preferences</Button>
+                <Button onClick={() => showMessage('success', 'Notification preferences saved.')}>{t('settings_notifications_save_button')}</Button>
              </div>
           </div>
         )}
@@ -312,57 +311,57 @@ export const Settings = () => {
               {/* Password Change */}
               <div className="space-y-6">
                 <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-                  <Lock size={20} className="text-primary-600"/> Change Password
+                  <Lock size={20} className="text-primary-600"/> {t('settings_security_password_title')}
                 </h3>
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   <Input 
-                    label="Current Password" 
+                    label={t('settings_security_current_password')}
                     type="password"
                     required
                     value={passwordForm.currentPassword}
                     onChange={e => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
                   />
                   <Input 
-                    label="New Password" 
+                    label={t('settings_security_new_password')}
                     type="password"
                     required
                     value={passwordForm.newPassword}
                     onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})}
                   />
                   <Input 
-                    label="Confirm New Password" 
+                    label={t('settings_security_confirm_password')}
                     type="password"
                     required
                     value={passwordForm.confirmPassword}
                     onChange={e => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
                   />
-                  <Button type="submit" variant="primary" className="w-full">Update Password</Button>
+                  <Button type="submit" variant="primary" className="w-full">{t('settings_security_update_password_button')}</Button>
                 </form>
               </div>
 
               {/* Active Sessions */}
               <div className="space-y-6">
                  <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-                    <Shield size={20} className="text-emerald-600"/> Active Sessions
+                    <Shield size={20} className="text-emerald-600"/> {t('settings_security_sessions_title')}
                  </h3>
                  <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
                     <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
                        <div className="p-2 bg-white dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-300 shadow-sm"><Laptop size={20} /></div>
                        <div className="flex-1">
                           <p className="text-sm font-bold text-slate-800 dark:text-white">Windows PC - Chrome</p>
-                          <p className="text-xs text-green-600 font-medium">Active Now • 192.168.1.4</p>
+                          <p className="text-xs text-green-600 font-medium">{t('settings_security_active_now')} • 192.168.1.4</p>
                        </div>
                     </div>
                     <div className="p-4 flex items-center gap-3 opacity-60">
                        <div className="p-2 bg-white dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-300 shadow-sm"><Smartphone size={20} /></div>
                        <div className="flex-1">
                           <p className="text-sm font-bold text-slate-800 dark:text-white">iPhone 13 - Safari</p>
-                          <p className="text-xs text-slate-500">Last seen 2 hours ago • Khartoum, SD</p>
+                          <p className="text-xs text-slate-500">{t('settings_security_last_seen')} 2 hours ago • Khartoum, SD</p>
                        </div>
                     </div>
                  </div>
                  <Button variant="outline" className="w-full justify-center text-red-600 border-red-200 hover:bg-red-50" icon={LogOut}>
-                    Sign out all other devices
+                    {t('settings_security_logout_all_button')}
                  </Button>
               </div>
             </div>
@@ -377,13 +376,13 @@ export const Settings = () => {
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-slate-800 dark:text-white">
                 <Monitor size={20} className="text-primary-600" />
-                <h3 className="font-bold text-lg">Interface Theme</h3>
+                <h3 className="font-bold text-lg">{t('settings_appearance_title')}</h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { id: 'light', label: 'Light Mode', icon: Sun },
-                  { id: 'dark', label: 'Dark Mode', icon: Moon },
-                  { id: 'system', label: 'System Auto', icon: Monitor }
+                  { id: 'light', label: t('settings_appearance_light'), icon: Sun },
+                  { id: 'dark', label: t('settings_appearance_dark'), icon: Moon },
+                  { id: 'system', label: t('settings_appearance_system'), icon: Monitor }
                 ].map((option) => (
                   <button
                     key={option.id}
@@ -413,7 +412,7 @@ export const Settings = () => {
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-slate-800 dark:text-white">
                 <Palette size={20} className="text-primary-600" />
-                <h3 className="font-bold text-lg">Accent Color</h3>
+                <h3 className="font-bold text-lg">{t('settings_appearance_accent')}</h3>
               </div>
               <div className="flex flex-wrap gap-4">
                 {[
@@ -450,7 +449,7 @@ export const Settings = () => {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-slate-800 dark:text-white">
                   <Layout size={20} className="text-primary-600" />
-                  <h3 className="font-bold text-lg">Density</h3>
+                  <h3 className="font-bold text-lg">{t('settings_appearance_density')}</h3>
                 </div>
                 <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg w-fit">
                   {['comfortable', 'compact'].map((option) => (
@@ -462,7 +461,7 @@ export const Settings = () => {
                         ${density === option ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}
                       `}
                     >
-                      {option}
+                      {option === 'comfortable' ? t('settings_appearance_density_comfortable') : t('settings_appearance_density_compact')}
                     </button>
                   ))}
                 </div>
@@ -471,7 +470,7 @@ export const Settings = () => {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-slate-800 dark:text-white">
                   <Type size={20} className="text-primary-600" />
-                  <h3 className="font-bold text-lg">Font Size</h3>
+                  <h3 className="font-bold text-lg">{t('settings_appearance_fontSize')}</h3>
                 </div>
                 <div className="flex items-center gap-4">
                   <button 

@@ -132,6 +132,12 @@ router.post('/config/operations', authorizeRoles(Permissions.MANAGE_CONFIGURATIO
 router.put('/config/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateOperation);
 router.delete('/config/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteOperation);
 
+// Configuration: Catalogs (Insurance)
+router.get('/config/insurance-providers', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.MANAGE_PATIENTS), configurationController.getInsuranceProviders);
+router.post('/config/insurance-providers', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addInsuranceProvider);
+router.put('/config/insurance-providers/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateInsuranceProvider);
+router.delete('/config/insurance-providers/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteInsuranceProvider);
+
 // Configuration: Users & Roles
 router.get('/config/users', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getUsers);
 router.post('/config/users', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addUser);

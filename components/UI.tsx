@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { X, Check, AlertCircle } from 'lucide-react';
 
@@ -48,7 +47,7 @@ export const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', s
 };
 
 // --- Badge ---
-export const Badge: React.FC<{ children: React.ReactNode; color?: 'green' | 'red' | 'yellow' | 'blue' | 'gray' | 'orange' | 'purple' }> = ({ children, color = 'gray' }) => {
+export const Badge: React.FC<{ children: React.ReactNode; color?: 'green' | 'red' | 'yellow' | 'blue' | 'gray' | 'orange' | 'purple'; className?: string }> = ({ children, color = 'gray', className = '' }) => {
   const colors: Record<string, string> = {
     green: 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800',
     red: 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800',
@@ -59,7 +58,7 @@ export const Badge: React.FC<{ children: React.ReactNode; color?: 'green' | 'red
     purple: 'bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800',
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${colors[color] || colors.gray}`}>
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${colors[color] || colors.gray} ${className}`}>
       {children}
     </span>
   );
@@ -91,8 +90,9 @@ export const ConfirmationDialog: React.FC<{
   title: string; 
   message: React.ReactNode; 
   confirmLabel?: string;
+  cancelLabel?: string;
   type?: 'danger' | 'warning' | 'info';
-}> = ({ isOpen, onClose, onConfirm, title, message, confirmLabel = 'Confirm', type = 'danger' }) => {
+}> = ({ isOpen, onClose, onConfirm, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', type = 'danger' }) => {
   if (!isOpen) return null;
   
   return (
@@ -106,7 +106,7 @@ export const ConfirmationDialog: React.FC<{
         </div>
         
         <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="secondary" onClick={onClose}>{cancelLabel}</Button>
           <Button 
             variant={type === 'danger' ? 'danger' : 'primary'} 
             onClick={() => { onConfirm(); onClose(); }}
@@ -120,19 +120,19 @@ export const ConfirmationDialog: React.FC<{
 };
 
 // --- Form Input ---
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string; prefix?: string }>(
+export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string; prefix?: React.ReactNode }>(
   ({ label, error, className = '', prefix, ...props }, ref) => (
     <div className="w-full">
       {label && <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">{label}</label>}
       <div className="relative">
         {prefix && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 left-0 ps-3 flex items-center pointer-events-none">
             <span className="text-gray-500 dark:text-slate-400 sm:text-sm font-medium">{prefix}</span>
           </div>
         )}
         <input
           ref={ref}
-          className={`block w-full rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 border-slate-300 dark:border-slate-700 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5 ${prefix ? 'pl-7 pr-4' : 'px-4'} border transition-all duration-200 ${error ? 'border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800' : ''} ${className}`}
+          className={`block w-full rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 border-slate-300 dark:border-slate-700 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5 ${prefix ? 'ps-10 pe-4' : 'px-4'} border transition-all duration-200 ${error ? 'border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800' : ''} ${className}`}
           {...props}
         />
       </div>
@@ -202,10 +202,16 @@ export const Tooltip: React.FC<{ children: React.ReactNode; content: React.React
     setShow(false);
   };
 
-  // Calculate fixed positions to avoid clipping in overflow containers
+  const isRtl = document.documentElement.dir === 'rtl';
+  let effectiveSide = side;
+  if (isRtl) {
+    if (side === 'right') effectiveSide = 'left';
+    else if (side === 'left') effectiveSide = 'right';
+  }
+
   const getStyles = () => {
     const base = { position: 'fixed' as 'fixed', zIndex: 9999, pointerEvents: 'none' as 'none' };
-    switch (side) {
+    switch (effectiveSide) {
       case 'right':
         return { ...base, top: pos.top + pos.height / 2, left: pos.left + pos.width + 10, transform: 'translateY(-50%)' };
       case 'left':
@@ -220,7 +226,7 @@ export const Tooltip: React.FC<{ children: React.ReactNode; content: React.React
   };
 
   const arrowStyles = () => {
-      switch (side) {
+      switch (effectiveSide) {
       case 'right': return "top-1/2 -left-1 -translate-y-1/2 border-r-slate-900 dark:border-r-white border-y-transparent border-l-transparent";
       case 'left': return "top-1/2 -right-1 -translate-y-1/2 border-l-slate-900 dark:border-l-white border-y-transparent border-r-transparent";
       case 'top': return "bottom-[-4px] left-1/2 -translate-x-1/2 border-t-slate-900 dark:border-t-white border-x-transparent border-b-transparent";

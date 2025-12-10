@@ -160,16 +160,20 @@ export interface BillItem {
 // Keep these types as the patient action menu still creates data for them
 export interface LabTestCatalog {
   id: number;
-  name: string;
-  category: string;
+  name_en: string;
+  name_ar: string;
+  category_en: string;
+  category_ar: string;
   cost: number;
-  normalRange?: string; // Added normal range
+  normal_range?: string;
 }
 
 export interface NurseServiceCatalog {
   id: number;
-  name: string;
-  description: string;
+  name_en: string;
+  name_ar: string;
+  description_en: string;
+  description_ar: string;
   cost: number;
 }
 
@@ -183,8 +187,16 @@ export interface Bed {
 
 export interface OperationCatalog {
   id: number;
-  name: string;
+  name_en: string;
+  name_ar: string;
   baseCost: number;
+}
+
+export interface InsuranceProvider {
+    id: number;
+    name_en: string;
+    name_ar: string;
+    isActive: boolean;
 }
 
 export interface StatCardProps {
@@ -198,13 +210,15 @@ export interface StatCardProps {
 // Financial Config Types
 export interface TaxRate {
   id: number;
-  name: string;
+  name_en: string;
+  name_ar: string;
   rate: number; // percentage
   isActive: boolean;
 }
 
 export interface PaymentMethod {
   id: number;
-  name: string;
+  name_en: string;
+  name_ar: string;
   isActive: boolean;
 }
