@@ -1,8 +1,129 @@
 
-// ... existing code ...
-router.get('/lab/requests', authorizeRoles(Permissions.VIEW_LABORATORY), medicalController.getLabRequests); // Updated handler name
-router.post('/lab/requests', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.createLabRequest);
-router.post('/lab/requests/:id/complete', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.completeLabRequest); // Added
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { Permissions } = require('../utils/rbac_backend_mirror');
+
+const authController = require('../controllers/auth.controller');
+const patientController = require('../controllers/patient.controller');
+const staffController = require('../controllers/staff.controller');
+const appointmentController = require('../controllers/appointment.controller');
+const billingController = require('../controllers/billing.controller');
+const medicalController = require('../controllers/medical.controller');
+const configurationController = require('../controllers/configuration.controller');
+
+// --- PUBLIC ROUTES ---
+router.post('/auth/login', authController.login);
+router.get('/config/settings/public', configurationController.getPublicSettings);
+
+// --- PROTECTED ROUTES (Global Middleware) ---
+router.use(authenticateToken);
+
+// Auth & Profile
+router.get('/auth/me', authController.me);
+router.put('/auth/profile', authController.updateProfile);
+router.put('/auth/password', authController.changePassword);
+
+// Patients
+router.get('/patients', authorizeRoles(Permissions.VIEW_PATIENTS), patientController.getAll);
+router.get('/patients/:id', authorizeRoles(Permissions.VIEW_PATIENTS), patientController.getOne);
+router.post('/patients', authorizeRoles(Permissions.MANAGE_PATIENTS), patientController.create);
+router.put('/patients/:id', authorizeRoles(Permissions.MANAGE_PATIENTS), patientController.update);
+
+// Staff (HR)
+router.get('/hr', authorizeRoles(Permissions.VIEW_HR), staffController.getAll);
+router.post('/hr', authorizeRoles(Permissions.MANAGE_HR), staffController.create);
+router.put('/hr/:id', authorizeRoles(Permissions.MANAGE_HR), staffController.update);
+
+// Appointments
+router.get('/appointments', authorizeRoles(Permissions.VIEW_APPOINTMENTS), appointmentController.getAll);
+router.post('/appointments', authorizeRoles(Permissions.MANAGE_APPOINTMENTS), appointmentController.create);
+router.put('/appointments/:id/status', authorizeRoles(Permissions.MANAGE_APPOINTMENTS), appointmentController.updateStatus);
+
+// Billing
+router.get('/billing', authorizeRoles(Permissions.VIEW_BILLING), billingController.getAll);
+router.post('/billing', authorizeRoles(Permissions.MANAGE_BILLING), billingController.create);
+router.post('/billing/:id/pay', authorizeRoles(Permissions.MANAGE_BILLING), billingController.recordPayment);
+
+// Medical: Laboratory
+router.get('/lab/requests', authorizeRoles(Permissions.VIEW_LABORATORY), medicalController.getLabRequests);
+router.post('/lab/requests', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.createLabRequest);
+router.post('/lab/requests/:id/complete', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.completeLabRequest);
+router.post('/lab/requests/:id/confirm', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.confirmLabRequest);
+
+// Medical: Nurse
 router.get('/nurse/requests', authorizeRoles(Permissions.VIEW_DASHBOARD), medicalController.getNurseRequests);
-// ... existing code ...
+router.post('/nurse/requests', authorizeRoles(Permissions.VIEW_DASHBOARD), medicalController.createNurseRequest);
+
+// Medical: Operations
+router.get('/operations', authorizeRoles(Permissions.VIEW_OPERATIONS), medicalController.getScheduledOperations);
+router.post('/operations', authorizeRoles(Permissions.MANAGE_OPERATIONS), medicalController.createOperation);
+router.post('/operations/:id/process', authorizeRoles(Permissions.MANAGE_OPERATIONS), medicalController.processOperationRequest);
+router.post('/operations/:id/complete', authorizeRoles(Permissions.MANAGE_OPERATIONS), medicalController.completeOperation);
+router.post('/operations/:id/confirm', authorizeRoles(Permissions.MANAGE_OPERATIONS), medicalController.confirmOperation);
+
+// Medical: Admissions
+router.get('/admissions', authorizeRoles(Permissions.VIEW_ADMISSIONS), medicalController.getActiveAdmissions);
+router.get('/admissions/:id', authorizeRoles(Permissions.VIEW_ADMISSIONS), medicalController.getInpatientDetails);
+router.post('/admissions', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.createAdmission);
+router.post('/admissions/:id/confirm', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.confirmAdmission);
+router.post('/admissions/:id/notes', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.addInpatientNote);
+router.post('/admissions/:id/discharge', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.dischargePatient);
+
+// Configuration: General
+router.get('/config/settings', authorizeRoles(Permissions.VIEW_SETTINGS), configurationController.getSettings);
+router.put('/config/settings', authorizeRoles(Permissions.MANAGE_SETTINGS), configurationController.updateSettings);
+
+// Configuration: Departments
+router.get('/config/departments', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getDepartments);
+router.post('/config/departments', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addDepartment);
+router.put('/config/departments/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateDepartment);
+router.delete('/config/departments/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteDepartment);
+
+// Configuration: Beds
+router.get('/config/beds', authorizeRoles(Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_CONFIGURATION), configurationController.getBeds);
+router.post('/config/beds', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addBed);
+router.put('/config/beds/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateBed);
+router.delete('/config/beds/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteBed);
+
+// Configuration: Catalogs (Lab, Nurse, Ops)
+router.get('/config/lab-tests', authorizeRoles(Permissions.VIEW_LABORATORY, Permissions.MANAGE_CONFIGURATION), configurationController.getLabTests);
+router.post('/config/lab-tests', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addLabTest);
+router.put('/config/lab-tests/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateLabTest);
+router.delete('/config/lab-tests/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteLabTest);
+
+router.get('/config/nurse-services', authorizeRoles(Permissions.VIEW_DASHBOARD, Permissions.MANAGE_CONFIGURATION), configurationController.getNurseServices);
+router.post('/config/nurse-services', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addNurseService);
+router.put('/config/nurse-services/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateNurseService);
+router.delete('/config/nurse-services/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteNurseService);
+
+router.get('/config/operations', authorizeRoles(Permissions.VIEW_OPERATIONS, Permissions.MANAGE_CONFIGURATION), configurationController.getOperations);
+router.post('/config/operations', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addOperation);
+router.put('/config/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateOperation);
+router.delete('/config/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteOperation);
+
+// Configuration: Users
+router.get('/config/users', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getUsers);
+router.post('/config/users', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addUser);
+router.put('/config/users/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateUser);
+router.delete('/config/users/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteUser);
+
+// Configuration: Financial
+router.get('/config/tax-rates', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getTaxRates);
+router.post('/config/tax-rates', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addTaxRate);
+router.put('/config/tax-rates/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateTaxRate);
+router.delete('/config/tax-rates/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteTaxRate);
+
+router.get('/config/payment-methods', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getPaymentMethods);
+router.post('/config/payment-methods', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addPaymentMethod);
+router.put('/config/payment-methods/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updatePaymentMethod);
+router.delete('/config/payment-methods/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deletePaymentMethod);
+
+// Configuration: Data
+router.get('/config/backup', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.downloadBackup);
+router.post('/config/restore', authorizeRoles(Permissions.MANAGE_CONFIGURATION), upload.single('backup'), configurationController.restoreBackup);
+
+module.exports = router;
