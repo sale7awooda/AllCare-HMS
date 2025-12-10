@@ -290,19 +290,9 @@ exports.processOperationRequest = (req, res) => {
       if(details.drugs?.length > 0) insertItem.run(bill.lastInsertRowid, `Surgical Drugs/Consumables`, details.drugsTotal || 0);
       // ... Add other breakdown items as needed
 
-      // 2. Update Operation: Link Bill, Update Status, Save Details (Using cost_details column we might need to add or check existence)
-      // Check if cost_details column exists, if not, we use notes or a generic field. 
-      // Ideally, the DB init script should handle this. Assuming we can store JSON in a text column (e.g. `notes` append or new column).
-      // For now, let's assume we can store it in a `cost_details` column if it exists, or append to notes.
-      
-      // Let's rely on a check or just assume schema supports a flexible text field.
-      // We will reuse the `assistant_name` and `anesthesiologist_name` columns for main staff, and store the full JSON in a new column if possible or append to notes.
-      // To be safe without modifying DB schema deeply in this step:
-      
-      // We will try to update specific columns and append full JSON to notes for record keeping if no dedicated JSON column
+      // 2. Update Operation: Link Bill, Update Status, Save Details
       const fullDetailsJson = JSON.stringify(details);
       
-      // Check if `cost_details` column exists (simple check via try/catch in update)
       try {
          db.prepare(`
           UPDATE operations 
@@ -312,7 +302,7 @@ exports.processOperationRequest = (req, res) => {
           WHERE id = ?
         `).run(bill.lastInsertRowid, totalCost, details.anesthesiologist?.name, details.assistant?.name, fullDetailsJson, id);
       } catch (e) {
-         // Fallback if cost_details doesn't exist: append to notes
+         // Fallback if cost_details doesn't exist
          db.prepare(`
           UPDATE operations 
           SET bill_id = ?, projected_cost = ?, status = 'pending_payment', 
@@ -332,7 +322,36 @@ exports.processOperationRequest = (req, res) => {
   }
 };
 
+exports.confirmLabRequest = (req, res) => {
+  const { id } = req.params;
+  try {
+    db.prepare("UPDATE lab_requests SET status = 'confirmed' WHERE id = ?").run(id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.confirmAdmission = (req, res) => {
+  const { id } = req.params;
+  try {
+    const admission = db.prepare('SELECT * FROM admissions WHERE id = ?').get(id);
+    if (!admission) return res.status(404).json({ error: 'Admission not found' });
+
+    const tx = db.transaction(() => {
+        db.prepare("UPDATE admissions SET status = 'active' WHERE id = ?").run(id);
+        db.prepare("UPDATE beds SET status = 'occupied' WHERE id = ?").run(admission.bed_id);
+        db.prepare("UPDATE patients SET type = 'inpatient' WHERE id = ?").run(admission.patient_id);
+    });
+    tx();
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
 exports.confirmOperation = (req, res) => {
-    // Legacy manual confirm
-    res.json({success: true});
+    const { id } = req.params;
+    try {
+        db.prepare("UPDATE operations SET status = 'confirmed' WHERE id = ?").run(id);
+        res.json({success: true});
+    } catch(e) {
+        res.status(500).json({error: e.message});
+    }
 };
