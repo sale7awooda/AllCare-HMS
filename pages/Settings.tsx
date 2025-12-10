@@ -1,13 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, Badge } from '../components/UI';
-import { User, Lock, Moon, Sun, Monitor, Save, Camera, Mail, Phone, Hash, Palette, Type, Layout, Check } from 'lucide-react';
+import { Card, Button, Input, Badge, Select } from '../components/UI';
+import { 
+  User, Lock, Moon, Sun, Monitor, Save, Camera, Mail, Phone, Hash, 
+  Palette, Type, Layout, Check, Bell, Globe, Shield, Laptop, Smartphone, LogOut 
+} from 'lucide-react';
 import { api } from '../services/api';
 import { User as UserType } from '../types';
 import { useTheme } from '../context/ThemeContext';
 
 export const Settings = () => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'appearance'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'security' | 'appearance'>('profile');
   const [user, setUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -20,6 +23,8 @@ export const Settings = () => {
     fullName: '',
     email: '',
     phone: '',
+    language: 'English',
+    timezone: 'UTC+3'
   });
 
   // Password Form
@@ -27,6 +32,15 @@ export const Settings = () => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
+  });
+
+  // Notification Preferences (Mock)
+  const [notifPrefs, setNotifPrefs] = useState({
+    email_appointments: true,
+    email_labs: true,
+    push_messages: true,
+    push_shifts: false,
+    system_downtime: true
   });
 
   useEffect(() => {
@@ -38,6 +52,8 @@ export const Settings = () => {
           fullName: userData.fullName || '',
           email: userData.email || '',
           phone: userData.phone || '',
+          language: 'English', // Default
+          timezone: 'UTC+3'    // Default
         });
       } catch (e) {
         console.error(e);
@@ -57,7 +73,7 @@ export const Settings = () => {
     e.preventDefault();
     try {
       await api.updateProfile(profileForm);
-      showMessage('success', 'Profile updated successfully.');
+      showMessage('success', 'Profile and preferences updated successfully.');
     } catch (e: any) {
       showMessage('error', e.response?.data?.error || 'Failed to update profile.');
     }
@@ -90,9 +106,26 @@ export const Settings = () => {
 
   const tabs = [
     { id: 'profile', label: 'My Profile', icon: User },
-    { id: 'security', label: 'Security', icon: Lock },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'security', label: 'Security', icon: Shield },
     { id: 'appearance', label: 'Appearance', icon: Palette },
   ];
+
+  const ToggleSwitch = ({ label, checked, onChange, description }: { label: string, checked: boolean, onChange: (val: boolean) => void, description?: string }) => (
+    <div className="flex items-center justify-between py-3">
+      <div>
+        <p className="font-medium text-slate-800 dark:text-white">{label}</p>
+        {description && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{description}</p>}
+      </div>
+      <button 
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${checked ? 'bg-primary-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+      >
+        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+      </button>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -107,7 +140,7 @@ export const Settings = () => {
       )}
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-t-xl px-4 pt-2 overflow-x-auto transition-colors">
+      <div className="flex border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-t-xl px-4 pt-2 overflow-x-auto transition-colors scrollbar-hide">
         {tabs.map(tab => (
           <button 
             key={tab.id}
@@ -129,9 +162,9 @@ export const Settings = () => {
         {/* PROFILE TAB */}
         {activeTab === 'profile' && (
           <div className="max-w-4xl animate-in fade-in slide-in-from-left-4">
-            <div className="flex flex-col md:flex-row gap-8 items-start">
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
               {/* Avatar Section */}
-              <div className="flex flex-col items-center gap-4 w-full md:w-auto">
+              <div className="flex flex-col items-center gap-4 w-full lg:w-auto">
                 <div className="relative group">
                   <div className="w-32 h-32 rounded-full bg-slate-100 dark:bg-slate-700 border-4 border-white dark:border-slate-600 shadow-lg flex items-center justify-center text-4xl font-bold text-slate-400 dark:text-slate-500 overflow-hidden">
                     {user?.fullName?.charAt(0)}
@@ -188,7 +221,31 @@ export const Settings = () => {
                   </div>
                 </div>
 
-                <div className="pt-4 flex justify-end border-t border-gray-100 dark:border-slate-700 mt-6">
+                <hr className="border-slate-100 dark:border-slate-700" />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                   <Select 
+                      label="Language" 
+                      value={profileForm.language} 
+                      onChange={e => setProfileForm({...profileForm, language: e.target.value})}
+                   >
+                      <option value="English">English (US)</option>
+                      <option value="Arabic">Arabic (العربية)</option>
+                      <option value="French">French (Français)</option>
+                   </Select>
+                   <Select 
+                      label="Timezone" 
+                      value={profileForm.timezone} 
+                      onChange={e => setProfileForm({...profileForm, timezone: e.target.value})}
+                   >
+                      <option value="UTC">UTC (GMT+0)</option>
+                      <option value="UTC+2">Cairo (GMT+2)</option>
+                      <option value="UTC+3">Riyadh/Nairobi (GMT+3)</option>
+                      <option value="UTC+4">Dubai (GMT+4)</option>
+                   </Select>
+                </div>
+
+                <div className="pt-4 flex justify-end mt-6">
                   <Button type="submit" icon={Save}>Save Changes</Button>
                 </div>
               </form>
@@ -196,46 +253,119 @@ export const Settings = () => {
           </div>
         )}
 
+        {/* NOTIFICATIONS TAB */}
+        {activeTab === 'notifications' && (
+          <div className="max-w-2xl animate-in fade-in slide-in-from-left-4 space-y-6">
+             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+               <h3 className="font-bold text-blue-900 dark:text-blue-300">Email & Push Preferences</h3>
+               <p className="text-sm text-blue-700 dark:text-blue-400">Control how and when the system contacts you.</p>
+             </div>
+
+             <div className="space-y-2">
+                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Email Alerts</h4>
+                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
+                   <ToggleSwitch 
+                      label="New Appointment Requests" 
+                      checked={notifPrefs.email_appointments} 
+                      onChange={v => setNotifPrefs({...notifPrefs, email_appointments: v})} 
+                      description="Receive an email when a patient books an appointment."
+                   />
+                   <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                   <ToggleSwitch 
+                      label="Lab Results Ready" 
+                      checked={notifPrefs.email_labs} 
+                      onChange={v => setNotifPrefs({...notifPrefs, email_labs: v})} 
+                      description="Get notified when critical lab results are finalized."
+                   />
+                </div>
+             </div>
+
+             <div className="space-y-2">
+                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Push Notifications</h4>
+                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
+                   <ToggleSwitch 
+                      label="Direct Messages" 
+                      checked={notifPrefs.push_messages} 
+                      onChange={v => setNotifPrefs({...notifPrefs, push_messages: v})} 
+                   />
+                   <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                   <ToggleSwitch 
+                      label="Shift Reminders" 
+                      checked={notifPrefs.push_shifts} 
+                      onChange={v => setNotifPrefs({...notifPrefs, push_shifts: v})} 
+                      description="Remind me 1 hour before my shift starts."
+                   />
+                </div>
+             </div>
+             
+             <div className="flex justify-end pt-4">
+                <Button onClick={() => showMessage('success', 'Notification preferences saved.')}>Save Preferences</Button>
+             </div>
+          </div>
+        )}
+
         {/* SECURITY TAB */}
         {activeTab === 'security' && (
-          <div className="max-w-2xl animate-in fade-in slide-in-from-left-4">
-            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/50 rounded-xl p-4 mb-6 flex items-start gap-3">
-              <div className="p-2 bg-white dark:bg-orange-900/40 rounded-lg text-orange-600 dark:text-orange-400 shadow-sm"><Lock size={20}/></div>
-              <div>
-                <h4 className="font-bold text-orange-800 dark:text-orange-300">Password Security</h4>
-                <p className="text-sm text-orange-700 dark:text-orange-400/80">Ensure your account is secure by using a strong password. We recommend updating it every 90 days.</p>
+          <div className="max-w-3xl animate-in fade-in slide-in-from-left-4">
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Password Change */}
+              <div className="space-y-6">
+                <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                  <Lock size={20} className="text-primary-600"/> Change Password
+                </h3>
+                <form onSubmit={handlePasswordChange} className="space-y-4">
+                  <Input 
+                    label="Current Password" 
+                    type="password"
+                    required
+                    value={passwordForm.currentPassword}
+                    onChange={e => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+                  />
+                  <Input 
+                    label="New Password" 
+                    type="password"
+                    required
+                    value={passwordForm.newPassword}
+                    onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                  />
+                  <Input 
+                    label="Confirm New Password" 
+                    type="password"
+                    required
+                    value={passwordForm.confirmPassword}
+                    onChange={e => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                  />
+                  <Button type="submit" variant="primary" className="w-full">Update Password</Button>
+                </form>
+              </div>
+
+              {/* Active Sessions */}
+              <div className="space-y-6">
+                 <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                    <Shield size={20} className="text-emerald-600"/> Active Sessions
+                 </h3>
+                 <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
+                       <div className="p-2 bg-white dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-300 shadow-sm"><Laptop size={20} /></div>
+                       <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-800 dark:text-white">Windows PC - Chrome</p>
+                          <p className="text-xs text-green-600 font-medium">Active Now • 192.168.1.4</p>
+                       </div>
+                    </div>
+                    <div className="p-4 flex items-center gap-3 opacity-60">
+                       <div className="p-2 bg-white dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-300 shadow-sm"><Smartphone size={20} /></div>
+                       <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-800 dark:text-white">iPhone 13 - Safari</p>
+                          <p className="text-xs text-slate-500">Last seen 2 hours ago • Khartoum, SD</p>
+                       </div>
+                    </div>
+                 </div>
+                 <Button variant="outline" className="w-full justify-center text-red-600 border-red-200 hover:bg-red-50" icon={LogOut}>
+                    Sign out all other devices
+                 </Button>
               </div>
             </div>
-
-            <form onSubmit={handlePasswordChange} className="space-y-5">
-              <Input 
-                label="Current Password" 
-                type="password"
-                required
-                value={passwordForm.currentPassword}
-                onChange={e => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
-              />
-              <hr className="border-slate-100 dark:border-slate-700 my-2" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <Input 
-                  label="New Password" 
-                  type="password"
-                  required
-                  value={passwordForm.newPassword}
-                  onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                />
-                <Input 
-                  label="Confirm New Password" 
-                  type="password"
-                  required
-                  value={passwordForm.confirmPassword}
-                  onChange={e => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                />
-              </div>
-              <div className="pt-4 flex justify-end">
-                <Button type="submit" variant="primary">Update Password</Button>
-              </div>
-            </form>
           </div>
         )}
 

@@ -1,8 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge, Modal, Input, Select, Textarea } from '../components/UI';
-import { Activity, CheckCircle, Clock, User, Syringe, Plus, Trash2, Calculator, Save, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Activity, CheckCircle, Clock, User, Syringe, Plus, Trash2, Calculator, Save, ChevronRight, AlertTriangle, Stethoscope, Package, Zap } from 'lucide-react';
 import { api } from '../services/api';
+
+// Configuration Constants (In a real app, these would come from the API)
+const FEE_RATIOS: Record<string, number> = {
+  'anesthesiologist': 0.5, // 50% of surgeon fee
+  'assistant': 0.5,        // 50% of surgeon fee
+  'nurse': 0.33,           // 33% of surgeon fee
+  'technician': 0.25       // 25% of surgeon fee
+};
 
 export const Operations = () => {
   const [ops, setOps] = useState<any[]>([]);
@@ -13,16 +21,28 @@ export const Operations = () => {
   const [isEstimateModalOpen, setIsEstimateModalOpen] = useState(false);
   const [selectedOp, setSelectedOp] = useState<any>(null);
   
-  // Cost Form State
+  // Revised Cost Form State
+  interface Participant {
+    id: number; // timestamp
+    role: string;
+    staffId: string;
+    name: string;
+    fee: number;
+  }
+
+  interface ResourceItem {
+    id: number;
+    name: string;
+    cost: number;
+  }
+
   const [costForm, setCostForm] = useState({
     surgeonFee: 0,
     theaterFee: 0,
-    anesthesiologist: { id: '', name: '', fee: 0 },
-    assistant: { id: '', name: '', fee: 0 },
-    nurses: [] as { name: string, fee: number }[],
-    drugs: [] as { name: string, fee: number }[],
-    equipment: [] as { name: string, fee: number }[],
-    others: [] as { name: string, fee: number }[],
+    participants: [] as Participant[],
+    consumables: [] as ResourceItem[], // Drugs/Consumables
+    equipment: [] as ResourceItem[],
+    others: [] as ResourceItem[],
   });
 
   const [processStatus, setProcessStatus] = useState('idle');
@@ -43,22 +63,12 @@ export const Operations = () => {
   useEffect(() => { loadData(); }, []);
 
   const openEstimateModal = (op: any) => {
-    const surgeon = staff.find(s => s.id === op.doctor_id);
-    
-    // Initialize defaults
-    // Find matching catalog op to get base cost if possible (not loaded here currently, assuming op has projected_cost or 0)
-    // If op was created via new flow, projected_cost is 0 initially.
-    
-    // We can try to look up the surgeon's consultation fee or a standard op fee if we had the catalog here. 
-    // For now, default to 0 or existing if re-opening.
-    
+    // Reset Form
     setCostForm({
       surgeonFee: 0,
-      theaterFee: 0, 
-      anesthesiologist: { id: '', name: '', fee: 0 },
-      assistant: { id: '', name: '', fee: 0 },
-      nurses: [{ name: '', fee: 0 }], // Start with 1 empty slot
-      drugs: [],
+      theaterFee: 0,
+      participants: [],
+      consumables: [],
       equipment: [],
       others: [],
     });
@@ -67,41 +77,108 @@ export const Operations = () => {
     setIsEstimateModalOpen(true);
   };
 
-  // Helper to add item to dynamic list
-  const addItem = (field: 'nurses' | 'drugs' | 'equipment' | 'others') => {
+  // --- LOGIC HANDLERS ---
+
+  const calculateParticipantFee = (role: string, baseSurgeonFee: number) => {
+    const ratio = FEE_RATIOS[role] || 0;
+    return Math.round(baseSurgeonFee * ratio);
+  };
+
+  const handleSurgeonFeeChange = (val: string) => {
+    const newFee = parseFloat(val) || 0;
+    
     setCostForm(prev => ({
       ...prev,
-      [field]: [...prev[field], { name: '', fee: 0 }]
+      surgeonFee: newFee,
+      theaterFee: newFee, // Default: Theater fee matches Surgeon fee
+      // Update all existing participants based on new base fee
+      participants: prev.participants.map(p => ({
+        ...p,
+        fee: calculateParticipantFee(p.role, newFee)
+      }))
     }));
   };
 
-  // Helper to update dynamic list item
-  const updateItem = (field: 'nurses' | 'drugs' | 'equipment' | 'others', index: number, key: 'name' | 'fee', value: any) => {
-    const newList = [...costForm[field]];
-    newList[index] = { ...newList[index], [key]: key === 'fee' ? parseFloat(value) || 0 : value };
-    setCostForm(prev => ({ ...prev, [field]: newList }));
+  // Participants Logic
+  const addParticipant = () => {
+    setCostForm(prev => ({
+      ...prev,
+      participants: [...prev.participants, { 
+        id: Date.now(), 
+        role: 'nurse', // Default
+        staffId: '', 
+        name: '', 
+        fee: calculateParticipantFee('nurse', prev.surgeonFee) 
+      }]
+    }));
   };
 
-  // Helper to remove item
-  const removeItem = (field: 'nurses' | 'drugs' | 'equipment' | 'others', index: number) => {
-    const newList = [...costForm[field]];
-    newList.splice(index, 1);
-    setCostForm(prev => ({ ...prev, [field]: newList }));
+  const updateParticipant = (index: number, field: keyof Participant, value: any) => {
+    setCostForm(prev => {
+      const updatedList = [...prev.participants];
+      const item = { ...updatedList[index] };
+
+      if (field === 'role') {
+        item.role = value;
+        // Recalculate fee when role changes
+        item.fee = calculateParticipantFee(value, prev.surgeonFee);
+        // Clear staff selection if role changes (optional, but safer)
+        item.staffId = '';
+        item.name = '';
+      } else if (field === 'staffId') {
+        item.staffId = value;
+        const staffMember = staff.find(s => s.id.toString() === value);
+        item.name = staffMember?.fullName || '';
+      } else if (field === 'fee') {
+        item.fee = parseFloat(value) || 0;
+      }
+
+      updatedList[index] = item;
+      return { ...prev, participants: updatedList };
+    });
   };
 
-  // Auto-update Theater Fee when Surgeon Fee changes (if not manually overridden logic - simplified here)
-  useEffect(() => {
-    // If theater fee is 0, maybe default it to surgeon fee? 
-    // Let's just keep them independent but initialize similarly if needed.
-  }, [costForm.surgeonFee]);
+  const removeParticipant = (index: number) => {
+    setCostForm(prev => ({
+      ...prev,
+      participants: prev.participants.filter((_, i) => i !== index)
+    }));
+  };
 
+  // Resources Logic (Consumables, Equipment, Others)
+  const addResource = (type: 'consumables' | 'equipment' | 'others') => {
+    setCostForm(prev => ({
+      ...prev,
+      [type]: [...prev[type], { id: Date.now(), name: '', cost: 0 }]
+    }));
+  };
+
+  const updateResource = (type: 'consumables' | 'equipment' | 'others', index: number, field: 'name' | 'cost', value: any) => {
+    setCostForm(prev => {
+      const updatedList = [...prev[type]];
+      updatedList[index] = { 
+        ...updatedList[index], 
+        [field]: field === 'cost' ? (parseFloat(value) || 0) : value 
+      };
+      return { ...prev, [type]: updatedList };
+    });
+  };
+
+  const removeResource = (type: 'consumables' | 'equipment' | 'others', index: number) => {
+    setCostForm(prev => ({
+      ...prev,
+      [type]: prev[type].filter((_, i) => i !== index)
+    }));
+  };
+
+  // Totals
   const calculateTotal = () => {
-    const nursesTotal = costForm.nurses.reduce((sum, item) => sum + item.fee, 0);
-    const drugsTotal = costForm.drugs.reduce((sum, item) => sum + item.fee, 0);
-    const equipTotal = costForm.equipment.reduce((sum, item) => sum + item.fee, 0);
-    const othersTotal = costForm.others.reduce((sum, item) => sum + item.fee, 0);
+    const participantsTotal = costForm.participants.reduce((sum, p) => sum + p.fee, 0);
+    const consumablesTotal = costForm.consumables.reduce((sum, i) => sum + i.cost, 0);
+    const equipmentTotal = costForm.equipment.reduce((sum, i) => sum + i.cost, 0);
+    const othersTotal = costForm.others.reduce((sum, i) => sum + i.cost, 0);
     
-    return costForm.surgeonFee + costForm.theaterFee + costForm.anesthesiologist.fee + costForm.assistant.fee + nursesTotal + drugsTotal + equipTotal + othersTotal;
+    return costForm.surgeonFee + costForm.theaterFee + participantsTotal + consumablesTotal + equipmentTotal + othersTotal;
   };
 
   const handleProcessSubmit = async () => {
@@ -109,11 +186,14 @@ export const Operations = () => {
     setProcessStatus('processing');
     try {
       const total = calculateTotal();
+      
+      // Map frontend structure to backend expectation (simplified for storage)
       const payload = {
         details: {
           ...costForm,
-          nursesTotal: costForm.nurses.reduce((sum, item) => sum + item.fee, 0),
-          drugsTotal: costForm.drugs.reduce((sum, item) => sum + item.fee, 0)
+          // Extract specific roles for the main columns if needed, but store full list in JSON
+          anesthesiologist: costForm.participants.find(p => p.role === 'anesthesiologist'),
+          assistant: costForm.participants.find(p => p.role === 'assistant'),
         },
         totalCost: total
       };
@@ -204,133 +284,184 @@ export const Operations = () => {
       </Card>
 
       {/* Cost Estimation Modal */}
-      <Modal isOpen={isEstimateModalOpen} onClose={() => setIsEstimateModalOpen(false)} title="Operation Cost Estimation & Billing">
-        <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+      <Modal isOpen={isEstimateModalOpen} onClose={() => setIsEstimateModalOpen(false)} title="Operation Cost Estimation">
+        <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
           
           {/* Info Banner */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800 flex justify-between items-center">
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800 flex justify-between items-center sticky top-0 z-10 shadow-sm backdrop-blur-md bg-blue-50/90">
             <div>
               <h4 className="font-bold text-blue-900 dark:text-blue-300">{selectedOp?.operation_name}</h4>
               <p className="text-sm text-blue-700 dark:text-blue-400">Patient: {selectedOp?.patientName} • Surgeon: Dr. {selectedOp?.doctorName}</p>
             </div>
             <div className="text-right">
-              <span className="block text-xs uppercase text-blue-600 font-bold">Total Estimated Cost</span>
+              <span className="block text-xs uppercase text-blue-600 font-bold">Estimated Cost</span>
               <span className="text-2xl font-bold text-blue-800 dark:text-white">${calculateTotal().toLocaleString()}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
-            {/* Column 1: Core Fees */}
-            <div className="space-y-4">
-              <h4 className="font-bold text-gray-800 dark:text-white border-b pb-2">Professional Fees</h4>
+            {/* LEFT COLUMN: PROFESSIONAL FEES */}
+            <div className="space-y-6">
               
-              <div className="bg-gray-50 dark:bg-slate-800 p-3 rounded-lg space-y-3">
-                <Input label="Surgeon Fee ($)" type="number" value={costForm.surgeonFee} onChange={e => {
-                   const val = parseFloat(e.target.value) || 0;
-                   setCostForm({...costForm, surgeonFee: val, theaterFee: costForm.theaterFee === 0 ? val : costForm.theaterFee }); // Auto-set theater fee if 0
-                }} />
-                
-                <div className="grid grid-cols-2 gap-2">
-                   <div className="col-span-2">
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Anesthesiologist</label>
-                     <select 
-                       className="w-full rounded-lg border-gray-300 text-sm mb-2 p-2"
-                       value={costForm.anesthesiologist.id}
-                       onChange={e => {
-                         const s = staff.find(st => st.id.toString() === e.target.value);
-                         setCostForm({...costForm, anesthesiologist: { id: s?.id.toString() || '', name: s?.fullName || '', fee: costForm.anesthesiologist.fee }})
-                       }}
-                     >
-                        <option value="">Select Staff...</option>
-                        {staff.filter(s => s.type === 'anesthesiologist').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                     </select>
-                     <Input placeholder="Fee ($)" type="number" value={costForm.anesthesiologist.fee} onChange={e => setCostForm({...costForm, anesthesiologist: {...costForm.anesthesiologist, fee: parseFloat(e.target.value) || 0}})} />
-                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                   <div className="col-span-2">
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assistant Surgeon</label>
-                     <select 
-                       className="w-full rounded-lg border-gray-300 text-sm mb-2 p-2"
-                       value={costForm.assistant.id}
-                       onChange={e => {
-                         const s = staff.find(st => st.id.toString() === e.target.value);
-                         setCostForm({...costForm, assistant: { id: s?.id.toString() || '', name: s?.fullName || '', fee: costForm.assistant.fee }})
-                       }}
-                     >
-                        <option value="">Select Staff...</option>
-                        {staff.filter(s => ['doctor', 'medical_assistant'].includes(s.type)).map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
-                     </select>
-                     <Input placeholder="Fee ($)" type="number" value={costForm.assistant.fee} onChange={e => setCostForm({...costForm, assistant: {...costForm.assistant, fee: parseFloat(e.target.value) || 0}})} />
-                   </div>
+              {/* Base Fees */}
+              <div className="bg-gray-50 dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 space-y-4">
+                <h4 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 text-sm border-b pb-2 dark:border-slate-700">
+                  <User size={16} className="text-primary-600"/> Base Professional Fees
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input 
+                    label="Surgeon Fee ($)" 
+                    type="number" 
+                    value={costForm.surgeonFee} 
+                    onChange={e => handleSurgeonFeeChange(e.target.value)} 
+                    className="font-bold text-lg"
+                  />
+                  <Input 
+                    label="Theater Fee ($)" 
+                    type="number" 
+                    value={costForm.theaterFee} 
+                    onChange={e => setCostForm({...costForm, theaterFee: parseFloat(e.target.value) || 0})}
+                  />
                 </div>
               </div>
 
-              <h4 className="font-bold text-gray-800 dark:text-white border-b pb-2 pt-2">Facility Fees</h4>
-              <Input label="Theater Fee ($)" type="number" value={costForm.theaterFee} onChange={e => setCostForm({...costForm, theaterFee: parseFloat(e.target.value) || 0})} />
-            </div>
-
-            {/* Column 2: Breakdown Lists */}
-            <div className="space-y-4">
-              {/* Nurses */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-bold text-gray-800 dark:text-white text-sm">Nurses</h4>
-                  <button type="button" onClick={() => addItem('nurses')} className="text-primary-600 hover:text-primary-700 text-xs font-bold flex items-center gap-1"><Plus size={12}/> Add</button>
+              {/* Team Participants */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold text-gray-800 dark:text-white text-sm">Medical Team</h4>
+                  <Button size="sm" variant="secondary" onClick={addParticipant} icon={Plus} className="h-7 text-xs">Add Participant</Button>
                 </div>
+                
+                {costForm.participants.length === 0 && (
+                  <div className="text-center py-4 border-2 border-dashed border-gray-100 dark:border-slate-700 rounded-xl text-gray-400 text-sm">
+                    No additional team members added.
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  {costForm.nurses.map((item, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <input placeholder="Nurse Name" className="flex-1 rounded-lg border-gray-300 text-sm px-2 py-1" value={item.name} onChange={e => updateItem('nurses', idx, 'name', e.target.value)} />
-                      <input placeholder="$" type="number" className="w-20 rounded-lg border-gray-300 text-sm px-2 py-1" value={item.fee} onChange={e => updateItem('nurses', idx, 'fee', e.target.value)} />
-                      <button onClick={() => removeItem('nurses', idx)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                  {costForm.participants.map((p, idx) => (
+                    <div key={p.id} className="flex gap-2 items-start bg-white dark:bg-slate-900 p-2 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm animate-in fade-in slide-in-from-left-2">
+                      <div className="w-1/3">
+                        <label className="text-[10px] text-gray-400 font-bold uppercase ml-1">Role</label>
+                        <select 
+                          className="w-full rounded-lg border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 text-sm py-1.5 px-2"
+                          value={p.role}
+                          onChange={e => updateParticipant(idx, 'role', e.target.value)}
+                        >
+                          <option value="anesthesiologist">Anesthesiologist</option>
+                          <option value="assistant">Assistant</option>
+                          <option value="nurse">Nurse</option>
+                          <option value="technician">Technician</option>
+                        </select>
+                      </div>
+                      
+                      <div className="flex-1">
+                        <label className="text-[10px] text-gray-400 font-bold uppercase ml-1">Staff Member</label>
+                        <select 
+                          className="w-full rounded-lg border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm py-1.5 px-2"
+                          value={p.staffId}
+                          onChange={e => updateParticipant(idx, 'staffId', e.target.value)}
+                        >
+                          <option value="">Select Staff...</option>
+                          {staff.filter(s => p.role === 'nurse' ? s.type === 'nurse' : p.role === 'anesthesiologist' ? s.type === 'anesthesiologist' : ['doctor', 'technician', 'medical_assistant'].includes(s.type))
+                               .map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="w-24">
+                        <label className="text-[10px] text-gray-400 font-bold uppercase ml-1">Fee ($)</label>
+                        <input 
+                          type="number"
+                          className="w-full rounded-lg border-gray-300 dark:border-slate-600 text-sm py-1.5 px-2 font-mono"
+                          value={p.fee}
+                          onChange={e => updateParticipant(idx, 'fee', e.target.value)}
+                        />
+                      </div>
+
+                      <button onClick={() => removeParticipant(idx)} className="mt-6 text-slate-400 hover:text-red-500 transition-colors">
+                        <Trash2 size={16}/>
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
+            </div>
 
-              {/* Drugs */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-bold text-gray-800 dark:text-white text-sm">Drugs & Consumables</h4>
-                  <button type="button" onClick={() => addItem('drugs')} className="text-primary-600 hover:text-primary-700 text-xs font-bold flex items-center gap-1"><Plus size={12}/> Add</button>
+            {/* RIGHT COLUMN: RESOURCES */}
+            <div className="space-y-6">
+              
+              {/* Drugs & Consumables */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2">
+                    <Syringe size={16} className="text-pink-500"/> Drugs & Consumables
+                  </h4>
+                  <button type="button" onClick={() => addResource('consumables')} className="text-primary-600 hover:text-primary-700 text-xs font-bold flex items-center gap-1"><Plus size={12}/> Add</button>
                 </div>
+                
+                {costForm.consumables.length === 0 && <p className="text-xs text-gray-400 italic">No items added.</p>}
+                
                 <div className="space-y-2">
-                  {costForm.drugs.map((item, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <input placeholder="Drug Name/Item" className="flex-1 rounded-lg border-gray-300 text-sm px-2 py-1" value={item.name} onChange={e => updateItem('drugs', idx, 'name', e.target.value)} />
-                      <input placeholder="$" type="number" className="w-20 rounded-lg border-gray-300 text-sm px-2 py-1" value={item.fee} onChange={e => updateItem('drugs', idx, 'fee', e.target.value)} />
-                      <button onClick={() => removeItem('drugs', idx)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                  {costForm.consumables.map((item, idx) => (
+                    <div key={item.id} className="flex gap-2">
+                      <input placeholder="Drug/Item Name" className="flex-1 rounded-lg border-gray-300 dark:border-slate-700 dark:bg-slate-900 text-sm px-2 py-1.5" value={item.name} onChange={e => updateResource('consumables', idx, 'name', e.target.value)} />
+                      <input placeholder="Cost" type="number" className="w-24 rounded-lg border-gray-300 dark:border-slate-700 dark:bg-slate-900 text-sm px-2 py-1.5 font-mono" value={item.cost} onChange={e => updateResource('consumables', idx, 'cost', e.target.value)} />
+                      <button onClick={() => removeResource('consumables', idx)} className="text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Equipment */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-bold text-gray-800 dark:text-white text-sm">Equipment Usage</h4>
-                  <button type="button" onClick={() => addItem('equipment')} className="text-primary-600 hover:text-primary-700 text-xs font-bold flex items-center gap-1"><Plus size={12}/> Add</button>
+              <div className="space-y-3 pt-4 border-t border-dashed dark:border-slate-700">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2">
+                    <Zap size={16} className="text-orange-500"/> Equipment Usage
+                  </h4>
+                  <button type="button" onClick={() => addResource('equipment')} className="text-primary-600 hover:text-primary-700 text-xs font-bold flex items-center gap-1"><Plus size={12}/> Add</button>
                 </div>
+                
+                {costForm.equipment.length === 0 && <p className="text-xs text-gray-400 italic">No equipment charges.</p>}
+
                 <div className="space-y-2">
                   {costForm.equipment.map((item, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <input placeholder="Equipment" className="flex-1 rounded-lg border-gray-300 text-sm px-2 py-1" value={item.name} onChange={e => updateItem('equipment', idx, 'name', e.target.value)} />
-                      <input placeholder="$" type="number" className="w-20 rounded-lg border-gray-300 text-sm px-2 py-1" value={item.fee} onChange={e => updateItem('equipment', idx, 'fee', e.target.value)} />
-                      <button onClick={() => removeItem('equipment', idx)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                    <div key={item.id} className="flex gap-2">
+                      <input placeholder="Equipment Name" className="flex-1 rounded-lg border-gray-300 dark:border-slate-700 dark:bg-slate-900 text-sm px-2 py-1.5" value={item.name} onChange={e => updateResource('equipment', idx, 'name', e.target.value)} />
+                      <input placeholder="Cost" type="number" className="w-24 rounded-lg border-gray-300 dark:border-slate-700 dark:bg-slate-900 text-sm px-2 py-1.5 font-mono" value={item.cost} onChange={e => updateResource('equipment', idx, 'cost', e.target.value)} />
+                      <button onClick={() => removeResource('equipment', idx)} className="text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
                     </div>
                   ))}
                 </div>
               </div>
+
+              {/* Other Fees */}
+              <div className="space-y-3 pt-4 border-t border-dashed dark:border-slate-700">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2">
+                    <Package size={16} className="text-slate-500"/> Other Fees
+                  </h4>
+                  <button type="button" onClick={() => addResource('others')} className="text-primary-600 hover:text-primary-700 text-xs font-bold flex items-center gap-1"><Plus size={12}/> Add</button>
+                </div>
+                
+                <div className="space-y-2">
+                  {costForm.others.map((item, idx) => (
+                    <div key={item.id} className="flex gap-2">
+                      <input placeholder="Description" className="flex-1 rounded-lg border-gray-300 dark:border-slate-700 dark:bg-slate-900 text-sm px-2 py-1.5" value={item.name} onChange={e => updateResource('others', idx, 'name', e.target.value)} />
+                      <input placeholder="Cost" type="number" className="w-24 rounded-lg border-gray-300 dark:border-slate-700 dark:bg-slate-900 text-sm px-2 py-1.5 font-mono" value={item.cost} onChange={e => updateResource('others', idx, 'cost', e.target.value)} />
+                      <button onClick={() => removeResource('others', idx)} className="text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </div>
           </div>
 
-          <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+          <div className="pt-4 border-t border-gray-100 dark:border-slate-700 flex justify-end gap-3 bg-white dark:bg-slate-800 sticky bottom-0 z-10 py-2">
             <Button variant="secondary" onClick={() => setIsEstimateModalOpen(false)}>Cancel</Button>
             <Button onClick={handleProcessSubmit} disabled={processStatus === 'processing'} icon={Save}>
-              {processStatus === 'processing' ? 'Processing...' : 'Generate Bill'}
+              {processStatus === 'processing' ? 'Processing...' : 'Generate Invoice'}
             </Button>
           </div>
         </div>
