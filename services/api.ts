@@ -1,14 +1,12 @@
+
 import axios from 'axios';
 
-const API_BASE_URL = '/api';
-
+// Create axios instance with base URL
 const client = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: '/api',
 });
 
+// Add token interceptor
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -17,123 +15,133 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+// Response interceptor for auth errors
 client.interceptors.response.use(
   (response) => response.data,
-  (error) => Promise.reject(error)
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      // Optional: Redirect to login or handle session expiry
+      // window.location.href = '/login'; 
+    }
+    return Promise.reject(error);
+  }
 );
 
 export const api = {
-  // Auth
-  login: (username: string, password: string) => client.post('/auth/login', { username, password }),
+  // --- Auth ---
+  login: (username, password) => client.post('/auth/login', { username, password }),
   me: () => client.get('/auth/me'),
-  updateProfile: (data: any) => client.put('/auth/profile', data),
-  changePassword: (data: any) => client.put('/auth/change-password', data),
+  updateProfile: (data) => client.put('/auth/profile', data),
+  changePassword: (data) => client.put('/auth/password', data),
 
-  // Patients
+  // --- Patients ---
   getPatients: () => client.get('/patients'),
-  getPatient: (id: number | string) => client.get(`/patients/${id}`),
-  addPatient: (data: any) => client.post('/patients', data),
-  updatePatient: (id: number | string, data: any) => client.put(`/patients/${id}`, data),
+  getPatient: (id) => client.get(`/patients/${id}`),
+  addPatient: (data) => client.post('/patients', data),
+  updatePatient: (id, data) => client.put(`/patients/${id}`, data),
 
-  // Staff (HR)
+  // --- Staff (HR) ---
   getStaff: () => client.get('/hr'),
-  addStaff: (data: any) => client.post('/hr', data),
-  updateStaff: (id: number | string, data: any) => client.put(`/hr/${id}`, data),
+  addStaff: (data) => client.post('/hr', data),
+  updateStaff: (id, data) => client.put(`/hr/${id}`, data),
 
-  // Appointments
+  // --- Appointments ---
   getAppointments: () => client.get('/appointments'),
-  createAppointment: (data: any) => client.post('/appointments', data),
-  updateAppointmentStatus: (id: number, status: string) => client.patch(`/appointments/${id}/status`, { status }),
+  createAppointment: (data) => client.post('/appointments', data),
+  updateAppointmentStatus: (id, status) => client.put(`/appointments/${id}/status`, { status }),
 
-  // Billing
+  // --- Billing ---
   getBills: () => client.get('/billing'),
-  createBill: (data: any) => client.post('/billing', data),
-  recordPayment: (id: number, amount: number) => client.post(`/billing/${id}/pay`, { amount }),
+  createBill: (data) => client.post('/billing', data),
+  recordPayment: (id, amount) => client.post(`/billing/${id}/pay`, { amount }),
 
-  // Beds & Admissions
-  getBeds: () => client.get('/config/beds'),
-  getActiveAdmissions: () => client.get('/admissions/active'),
-  createAdmission: (data: any) => client.post('/admissions', data),
-  getInpatientDetails: (id: number) => client.get(`/admissions/${id}`),
-  confirmAdmissionDeposit: (id: number) => client.post(`/admissions/${id}/confirm`),
-  addInpatientNote: (id: number, data: any) => client.post(`/admissions/${id}/notes`, data),
-  dischargePatient: (id: number, data: any) => client.post(`/admissions/${id}/discharge`, data),
+  // --- Admissions ---
+  getActiveAdmissions: () => client.get('/admissions'),
+  getInpatientDetails: (id) => client.get(`/admissions/${id}`),
+  createAdmission: (data) => client.post('/admissions', data),
+  confirmAdmissionDeposit: (id) => client.post(`/admissions/${id}/confirm`),
+  addInpatientNote: (id, data) => client.post(`/admissions/${id}/notes`, data),
+  dischargePatient: (id, data) => client.post(`/admissions/${id}/discharge`, data),
 
-  // Laboratory
+  // --- Laboratory ---
   getLabTests: () => client.get('/config/lab-tests'),
   getPendingLabRequests: () => client.get('/lab/requests'),
-  createLabRequest: (data: any) => client.post('/lab/requests', data),
+  createLabRequest: (data) => client.post('/lab/requests', data),
+  completeLabRequest: (id, data) => client.post(`/lab/requests/${id}/complete`, data),
 
-  // Nurse
+  // --- Nurse ---
   getNurseServices: () => client.get('/config/nurse-services'),
-  createNurseRequest: (data: any) => client.post('/nurse/requests', data),
+  createNurseRequest: (data) => client.post('/nurse/requests', data),
+  getNurseRequests: () => client.get('/nurse/requests'),
 
-  // Operations
-  getOperations: () => client.get('/config/operations'),
-  getScheduledOperations: () => client.get('/medical/requests/operations'),
-  createOperation: (data: any) => client.post('/medical/requests/operations', data),
-  processOperationRequest: (id: number, payload: any) => client.post(`/medical/requests/operations/${id}/process`, payload),
-  confirmOperation: (id: number) => client.post(`/medical/requests/operations/${id}/confirm`),
-  completeOperation: (id: number) => client.post(`/medical/requests/operations/${id}/complete`),
+  // --- Operations ---
+  getScheduledOperations: () => client.get('/operations'),
+  getOperations: () => client.get('/config/operations'), // Catalog
+  createOperation: (data) => client.post('/operations', data),
+  processOperationRequest: (id, data) => client.post(`/operations/${id}/process`, data),
+  completeOperation: (id) => client.post(`/operations/${id}/complete`),
 
-  // Configuration - General
+  // --- Configuration: General ---
   getSystemSettings: () => client.get('/config/settings'),
   getPublicSettings: () => client.get('/config/settings/public'),
-  updateSystemSettings: (data: any) => client.put('/config/settings', data),
-  
-  // Configuration - Departments
-  getDepartments: () => client.get('/config/departments'),
-  addDepartment: (name: string, description: string) => client.post('/config/departments', { name, description }),
-  updateDepartment: (id: number, name: string, description: string) => client.put(`/config/departments/${id}`, { name, description }),
-  deleteDepartment: (id: number) => client.delete(`/config/departments/${id}`),
+  updateSystemSettings: (data) => client.put('/config/settings', data),
 
-  // Configuration - Users
+  // --- Configuration: Users ---
   getSystemUsers: () => client.get('/config/users'),
-  addSystemUser: (data: any) => client.post('/config/users', data),
-  updateSystemUser: (id: number, data: any) => client.put(`/config/users/${id}`, data),
-  deleteSystemUser: (id: number) => client.delete(`/config/users/${id}`),
+  addSystemUser: (data) => client.post('/config/users', data),
+  updateSystemUser: (id, data) => client.put(`/config/users/${id}`, data),
+  deleteSystemUser: (id) => client.delete(`/config/users/${id}`),
 
-  // Configuration - Financial
+  // --- Configuration: Departments ---
+  getDepartments: () => client.get('/config/departments'),
+  addDepartment: (name, description) => client.post('/config/departments', { name, description }),
+  updateDepartment: (id, name, description) => client.put(`/config/departments/${id}`, { name, description }),
+  deleteDepartment: (id) => client.delete(`/config/departments/${id}`),
+
+  // --- Configuration: Beds ---
+  getBeds: () => client.get('/config/beds'), // Public/Dashboard usage (mapped to config endpoint for simplicty if same data structure)
+  getConfigBeds: () => client.get('/config/beds'), // Admin usage
+  addBed: (data) => client.post('/config/beds', data),
+  updateBed: (id, data) => client.put(`/config/beds/${id}`, data),
+  deleteBed: (id) => client.delete(`/config/beds/${id}`),
+
+  // --- Configuration: Catalogs (Lab) ---
+  addLabTest: (data) => client.post('/config/lab-tests', data),
+  updateLabTest: (id, data) => client.put(`/config/lab-tests/${id}`, data),
+  deleteLabTest: (id) => client.delete(`/config/lab-tests/${id}`),
+
+  // --- Configuration: Catalogs (Nurse) ---
+  addNurseService: (data) => client.post('/config/nurse-services', data),
+  updateNurseService: (id, data) => client.put(`/config/nurse-services/${id}`, data),
+  deleteNurseService: (id) => client.delete(`/config/nurse-services/${id}`),
+
+  // --- Configuration: Catalogs (Operations) ---
+  addOperationCatalog: (data) => client.post('/config/operations', data),
+  updateOperationCatalog: (id, data) => client.put(`/config/operations/${id}`, data),
+  deleteOperationCatalog: (id) => client.delete(`/config/operations/${id}`),
+
+  // --- Configuration: Financial ---
   getTaxRates: () => client.get('/config/tax-rates'),
-  addTaxRate: (data: any) => client.post('/config/tax-rates', data),
-  updateTaxRate: (id: number, data: any) => client.put(`/config/tax-rates/${id}`, data),
-  deleteTaxRate: (id: number) => client.delete(`/config/tax-rates/${id}`),
-  
+  addTaxRate: (data) => client.post('/config/tax-rates', data),
+  updateTaxRate: (id, data) => client.put(`/config/tax-rates/${id}`, data),
+  deleteTaxRate: (id) => client.delete(`/config/tax-rates/${id}`),
+
   getPaymentMethods: () => client.get('/config/payment-methods'),
-  addPaymentMethod: (data: any) => client.post('/config/payment-methods', data),
-  updatePaymentMethod: (id: number, data: any) => client.put(`/config/payment-methods/${id}`, data),
-  deletePaymentMethod: (id: number) => client.delete(`/config/payment-methods/${id}`),
+  addPaymentMethod: (data) => client.post('/config/payment-methods', data),
+  updatePaymentMethod: (id, data) => client.put(`/config/payment-methods/${id}`, data),
+  deletePaymentMethod: (id) => client.delete(`/config/payment-methods/${id}`),
 
-  // Configuration - Beds
-  getConfigBeds: () => client.get('/config/beds'),
-  addBed: (data: any) => client.post('/config/beds', data),
-  updateBed: (id: number, data: any) => client.put(`/config/beds/${id}`, data),
-  deleteBed: (id: number) => client.delete(`/config/beds/${id}`),
-
-  // Configuration - Catalogs
-  addLabTest: (data: any) => client.post('/config/lab-tests', data),
-  updateLabTest: (id: number, data: any) => client.put(`/config/lab-tests/${id}`, data),
-  deleteLabTest: (id: number) => client.delete(`/config/lab-tests/${id}`),
-
-  addNurseService: (data: any) => client.post('/config/nurse-services', data),
-  updateNurseService: (id: number, data: any) => client.put(`/config/nurse-services/${id}`, data),
-  deleteNurseService: (id: number) => client.delete(`/config/nurse-services/${id}`),
-
-  addOperationCatalog: (data: any) => client.post('/config/operations', data),
-  updateOperationCatalog: (id: number, data: any) => client.put(`/config/operations/${id}`, data),
-  deleteOperationCatalog: (id: number) => client.delete(`/config/operations/${id}`),
-
-  // Data Management
+  // --- Configuration: Data Management ---
   downloadBackup: () => {
-    window.location.href = `${API_BASE_URL}/config/backup/download?token=${localStorage.getItem('token')}`;
+    // Direct open to trigger download
+    window.open('/api/config/backup', '_blank');
   },
-  restoreDatabase: (file: File) => {
+  restoreDatabase: (file) => {
     const formData = new FormData();
-    formData.append('file', file);
-    return client.post('/config/backup/restore', formData, {
+    formData.append('backup', file);
+    return client.post('/config/restore', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-  },
-
-  defaults: { baseURL: API_BASE_URL }
+  }
 };
