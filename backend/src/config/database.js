@@ -6,6 +6,11 @@ const fs = require('fs');
 const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
 const db = new Database(dbPath); // verbose: console.log for debugging
 
+// PERFORMANCE OPTIMIZATION: Enable Write-Ahead Logging (WAL)
+// This allows simultaneous readers and writers, preventing "database is locked" errors in production.
+db.pragma('journal_mode = WAL');
+db.pragma('synchronous = NORMAL'); // Faster writes with reasonable safety
+
 const initDB = (forceReset = false) => {
   if (forceReset) {
     console.log('Resetting database...');
