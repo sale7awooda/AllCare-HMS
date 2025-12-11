@@ -94,6 +94,38 @@ exports.recordPayment = (req, res) => {
   }
 };
 
+exports.processRefund = (req, res) => {
+  const { id } = req.params;
+  const { amount, reason, date } = req.body;
+
+  const tx = db.transaction(() => {
+    const bill = db.prepare('SELECT * FROM billing WHERE id = ?').get(id);
+    if (!bill) throw new Error('Bill not found');
+    
+    if (amount > bill.paid_amount) throw new Error('Refund amount cannot exceed paid amount');
+
+    const newPaid = bill.paid_amount - amount;
+    // Determine status: if paid becomes < total, it's partial. If 0, it's pending.
+    let newStatus = 'partial';
+    if (newPaid <= 0) newStatus = 'pending';
+    else if (newPaid >= bill.total_amount) newStatus = 'paid';
+
+    db.prepare('UPDATE billing SET paid_amount = ?, status = ? WHERE id = ?').run(newPaid, newStatus, id);
+
+    db.prepare(`
+      INSERT INTO transactions (type, category, amount, method, reference_id, details, date, description)
+      VALUES ('expense', 'Refund', ?, 'Cash', ?, ?, ?, ?)
+    `).run(amount, id, JSON.stringify({ reason }), date || new Date().toISOString(), `Refund for Bill #${bill.bill_number}: ${reason}`);
+  });
+
+  try {
+    tx();
+    res.json({ success: true, message: 'Refund processed successfully' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
 // --- TREASURY ---
 
 exports.getTransactions = (req, res) => {

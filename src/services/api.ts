@@ -72,7 +72,8 @@ export const api = {
   // --- Billing ---
   getBills: () => client.get('/billing'),
   createBill: (data) => client.post('/billing', data),
-  recordPayment: (id, data) => client.post(`/billing/${id}/pay`, data), // Updated signature to accept object
+  recordPayment: (id, data) => client.post(`/billing/${id}/pay`, data), 
+  processRefund: (id, data) => client.post(`/billing/${id}/refund`, data), // New Method
 
   // --- Treasury ---
   getTransactions: () => client.get('/treasury/transactions'),

@@ -34,6 +34,12 @@ export const Billing = () => {
   const [filterType, setFilterType] = useState('all');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
+  // Separate Treasury Filters
+  const [treasurySearch, setTreasurySearch] = useState('');
+  const [treasuryFilter, setTreasuryFilter] = useState('all');
+  const [treasuryDate, setTreasuryDate] = useState({ start: '', end: '' });
+  const [treasuryPage, setTreasuryPage] = useState(1);
+
   // Stats
   const [stats, setStats] = useState({
     totalRevenue: 0,
@@ -52,8 +58,11 @@ export const Billing = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null); // For Invoice View
   const [payingBill, setPayingBill] = useState<Bill | null>(null); // For Payment Action
+  const [refundingBill, setRefundingBill] = useState<Bill | null>(null); // For Refund Action
 
   // Create Invoice Form
   const [createForm, setCreateForm] = useState({
@@ -74,6 +83,13 @@ export const Billing = () => {
     expiryDate: '',
     // Transaction specific
     transactionId: ''
+  });
+
+  // Refund Form State
+  const [refundForm, setRefundForm] = useState({
+    amount: '',
+    reason: '',
+    date: new Date().toISOString().split('T')[0]
   });
 
   // Expense Form State
@@ -263,6 +279,35 @@ export const Billing = () => {
     }
   };
 
+  const openRefundModal = (bill: Bill) => {
+    setRefundingBill(bill);
+    // Default to fully paid amount
+    setRefundForm({
+        amount: bill.paidAmount.toString(),
+        reason: '',
+        date: new Date().toISOString().split('T')[0]
+    });
+    setIsRefundModalOpen(true);
+  };
+
+  const handleRefundSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!refundingBill) return;
+
+    try {
+        await api.processRefund(refundingBill.id, {
+            amount: parseFloat(refundForm.amount),
+            reason: refundForm.reason,
+            date: refundForm.date
+        });
+        setIsRefundModalOpen(false);
+        setRefundingBill(null);
+        loadData();
+    } catch (e) {
+        alert('Refund failed');
+    }
+  };
+
   const handleExpenseSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       try {
@@ -314,7 +359,7 @@ export const Billing = () => {
       }
   };
 
-  // --- Filtering & Pagination Logic ---
+  // --- Filtering & Pagination Logic (Bills) ---
   const filteredBills = useMemo(() => {
     return bills.filter(bill => {
       const matchesSearch = 
@@ -340,6 +385,33 @@ export const Billing = () => {
 
   const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
   const paginatedBills = filteredBills.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // --- Filtering & Pagination Logic (Treasury) ---
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+        const matchesSearch = 
+            (t.description && t.description.toLowerCase().includes(treasurySearch.toLowerCase())) ||
+            (t.category && t.category.toLowerCase().includes(treasurySearch.toLowerCase()));
+        
+        const matchesType = treasuryFilter === 'all' || t.type === treasuryFilter;
+
+        let matchesDate = true;
+        if (treasuryDate.start) {
+            matchesDate = matchesDate && new Date(t.date) >= new Date(treasuryDate.start);
+        }
+        if (treasuryDate.end) {
+            const endDate = new Date(treasuryDate.end);
+            endDate.setHours(23, 59, 59, 999);
+            matchesDate = matchesDate && new Date(t.date) <= endDate;
+        }
+
+        return matchesSearch && matchesType && matchesDate;
+    });
+  }, [transactions, treasurySearch, treasuryFilter, treasuryDate]);
+
+  const totalTreasuryPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = filteredTransactions.slice((treasuryPage - 1) * itemsPerPage, treasuryPage * itemsPerPage);
+
 
   // --- Render Helpers ---
 
@@ -578,7 +650,6 @@ export const Billing = () => {
                             <div className="text-xs text-green-600">{t('billing_table_paid_amount')}: ${bill.paidAmount.toLocaleString()}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
-                            {/* Action Logic Updated */}
                             <Button size="sm" variant="secondary" icon={FileText} onClick={() => setSelectedBill(bill)}>{t('billing_action_view_invoice')}</Button>
                             
                             {canManageBilling && (
@@ -593,6 +664,7 @@ export const Billing = () => {
                                             disabled={!isAccountant} 
                                             icon={RefreshCcw}
                                             title={!isAccountant ? "Refunds require Accountant role" : ""}
+                                            onClick={() => isAccountant && openRefundModal(bill)}
                                         >
                                             Refund
                                         </Button>
@@ -632,8 +704,35 @@ export const Billing = () => {
               </div>
 
               <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                  <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
-                      <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><Landmark size={18}/> Recent Transactions</h3>
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
+                      <div className="flex items-center gap-2 flex-1">
+                          <Landmark size={18} className="text-slate-500"/> 
+                          <h3 className="font-bold text-slate-800 dark:text-white">Recent Transactions</h3>
+                      </div>
+                      <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            placeholder="Search..." 
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
+                            value={treasurySearch}
+                            onChange={(e) => setTreasurySearch(e.target.value)}
+                          />
+                          <select 
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
+                            value={treasuryFilter}
+                            onChange={(e) => setTreasuryFilter(e.target.value)}
+                          >
+                              <option value="all">All</option>
+                              <option value="income">Income</option>
+                              <option value="expense">Expense</option>
+                          </select>
+                          <input 
+                            type="date" 
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
+                            value={treasuryDate.start}
+                            onChange={(e) => setTreasuryDate({...treasuryDate, start: e.target.value})}
+                          />
+                      </div>
                   </div>
                   <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
@@ -648,7 +747,7 @@ export const Billing = () => {
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800">
-                              {transactions.map((t) => (
+                              {paginatedTransactions.map((t) => (
                                   <tr key={t.id}>
                                       <td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300">{new Date(t.date).toLocaleDateString()}</td>
                                       <td className="px-6 py-3">
@@ -664,6 +763,14 @@ export const Billing = () => {
                               ))}
                           </tbody>
                       </table>
+                  </div>
+                  {/* Pagination Footer */}
+                  <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                      <span className="text-sm text-slate-500">Page {treasuryPage} of {totalTreasuryPages || 1}</span>
+                      <div className="flex gap-2">
+                          <button onClick={() => setTreasuryPage(p => Math.max(1, p - 1))} disabled={treasuryPage === 1} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50"><ChevronLeft size={16}/></button>
+                          <button onClick={() => setTreasuryPage(p => Math.min(totalTreasuryPages, p + 1))} disabled={treasuryPage === totalTreasuryPages} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50"><ChevronRight size={16}/></button>
+                      </div>
                   </div>
               </Card>
           </div>
@@ -855,6 +962,36 @@ export const Billing = () => {
               <Button type="submit" icon={CheckCircle}>{t('billing_modal_payment_confirm_button')}</Button>
             </div>
           </form>
+        )}
+      </Modal>
+
+      {/* Refund Modal */}
+      <Modal isOpen={isRefundModalOpen} onClose={() => setIsRefundModalOpen(false)} title="Process Refund">
+        {refundingBill && (
+            <form onSubmit={handleRefundSubmit} className="space-y-4">
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-100 dark:border-red-900/50">
+                    <p className="text-sm text-red-800 dark:text-red-300 font-bold">Refund for Bill #{refundingBill.billNumber}</p>
+                    <p className="text-xs text-red-600 dark:text-red-400">Total Paid: ${refundingBill.paidAmount}</p>
+                </div>
+                <Input 
+                    label="Refund Amount" 
+                    type="number" 
+                    max={refundingBill.paidAmount}
+                    value={refundForm.amount}
+                    onChange={e => setRefundForm({...refundForm, amount: e.target.value})}
+                    required
+                />
+                <Textarea 
+                    label="Reason for Refund" 
+                    value={refundForm.reason}
+                    onChange={e => setRefundForm({...refundForm, reason: e.target.value})}
+                    required
+                />
+                <div className="flex justify-end pt-4 gap-2">
+                    <Button type="button" variant="secondary" onClick={() => setIsRefundModalOpen(false)}>{t('cancel')}</Button>
+                    <Button type="submit" variant="danger">Confirm Refund</Button>
+                </div>
+            </form>
         )}
       </Modal>
 

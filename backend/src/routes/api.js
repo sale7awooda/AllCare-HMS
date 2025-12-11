@@ -70,6 +70,7 @@ router.put('/appointments/:id/cancel', authorizeRoles(Permissions.MANAGE_APPOINT
 router.get('/billing', authorizeRoles(Permissions.VIEW_BILLING), billingController.getAll);
 router.post('/billing', authorizeRoles(Permissions.MANAGE_BILLING), billingController.create);
 router.post('/billing/:id/pay', authorizeRoles(Permissions.MANAGE_BILLING), billingController.recordPayment);
+router.post('/billing/:id/refund', authorizeRoles(Permissions.MANAGE_BILLING), billingController.processRefund);
 
 // Treasury
 router.get('/treasury/transactions', authorizeRoles(Permissions.VIEW_BILLING), billingController.getTransactions);
