@@ -34,6 +34,7 @@ export const Admissions = () => {
     title: string;
     message: string;
     action: () => void;
+    type?: 'danger' | 'warning' | 'info';
   }>({ isOpen: false, title: '', message: '', action: () => {} });
 
   // Selection States
@@ -177,29 +178,6 @@ export const Admissions = () => {
     } catch (err: any) {
        setProcessStatus('error');
        setProcessMessage(err.response?.data?.error || 'Failed to admit patient.');
-    }
-  };
-
-  const handleConfirmAdmission = async () => {
-    if (!selectedAdmission) return;
-    
-    setProcessStatus('processing');
-    setProcessMessage(t('processing'));
-    
-    try {
-      await api.confirmAdmissionDeposit(selectedAdmission.id);
-      
-      setProcessStatus('success');
-      setProcessMessage('Admission Confirmed. Patient is now an Inpatient.');
-      await loadData(true);
-      
-      setTimeout(() => {
-        setIsConfirmModalOpen(false);
-        setProcessStatus('idle');
-      }, 2000);
-    } catch (e: any) {
-      setProcessStatus('error');
-      setProcessMessage(e.response?.data?.error || 'Confirmation failed.');
     }
   };
 
@@ -492,7 +470,7 @@ export const Admissions = () => {
         </form>
       </Modal>
 
-      {/* MODAL 2: CONFIRM ADMISSION (PAYMENT) */}
+      {/* MODAL 2: CONFIRM ADMISSION (PAYMENT INSTRUCTION) */}
       <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title={t('admissions_modal_confirm_title')}>
         <div className="space-y-6">
           <div className="text-center p-4">
@@ -503,6 +481,17 @@ export const Admissions = () => {
             <p className="text-gray-500 mt-2">
               {t('admissions_modal_confirm_message', { name: selectedAdmission?.patientName, amount: selectedAdmission?.projected_cost })}
             </p>
+            
+            {/* Added Instruction */}
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-100 dark:border-yellow-900/50 flex items-start gap-3 mt-4 text-left">
+              <AlertCircle className="text-yellow-600 shrink-0 mt-0.5" size={18} />
+              <div className="text-sm">
+                <p className="font-bold text-yellow-800 dark:text-yellow-500">Payment Required</p>
+                <p className="text-yellow-700 dark:text-yellow-600/80 mt-1">
+                  To activate this admission, the deposit must be paid. Please process the payment in the Billing section.
+                </p>
+              </div>
+            </div>
           </div>
           
           <div className="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl text-sm space-y-2">
@@ -513,10 +502,7 @@ export const Admissions = () => {
 
           <div className="flex justify-between items-center pt-4 border-t dark:border-slate-700">
             <Button variant="danger" onClick={handleCancelReservation}>Cancel Reservation</Button>
-            <div className="flex gap-3">
-                <Button variant="secondary" onClick={() => setIsConfirmModalOpen(false)}>{t('close')}</Button>
-                <Button onClick={handleConfirmAdmission} icon={CheckCircle}>{t('admissions_modal_confirm_button')}</Button>
-            </div>
+            <Button variant="secondary" onClick={() => setIsConfirmModalOpen(false)}>{t('close')}</Button>
           </div>
         </div>
       </Modal>
