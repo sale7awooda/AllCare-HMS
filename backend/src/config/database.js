@@ -185,6 +185,21 @@ const initDB = (forceReset = false) => {
     )
   `).run();
 
+  // --- TREASURY (New) ---
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT CHECK(type IN ('income', 'expense')) NOT NULL,
+      category TEXT,
+      amount REAL NOT NULL,
+      method TEXT,
+      reference_id INTEGER, -- bill_id for income
+      details TEXT, -- JSON for insurance/trans details
+      date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      description TEXT
+    )
+  `).run();
+
   // --- 5. Medical Services & Wards ---
   db.prepare(`CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, category_en TEXT, category_ar TEXT, cost REAL, normal_range TEXT)`).run();
   
@@ -220,8 +235,6 @@ const initDB = (forceReset = false) => {
   db.prepare(`CREATE TABLE IF NOT EXISTS tax_rates (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, rate REAL, is_active BOOLEAN)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS insurance_providers (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`).run();
-  
-  // New Banks Table
   db.prepare(`CREATE TABLE IF NOT EXISTS banks (id INTEGER PRIMARY KEY AUTOINCREMENT, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`).run();
 
   // --- Seeding ---
@@ -253,10 +266,8 @@ const seedData = () => {
 
   // Seed Specializations with Role mappings
   const specCount = db.prepare('SELECT count(*) as count FROM specializations').get().count;
-  if (specCount < 5) { // Simple check, re-seed if low
-    // Clear existing to avoid duplicates during dev updates if needed, or just insert missing. 
-    // For simplicity in this context, we'll INSERT OR IGNORE logic or just insert new ones.
-    db.prepare('DELETE FROM specializations').run(); // Reset for clean seeding of new schema
+  if (specCount < 5) { 
+    db.prepare('DELETE FROM specializations').run(); 
 
     const specs = [
       // Doctors
@@ -267,7 +278,7 @@ const seedData = () => {
       { en: 'General Surgery', ar: 'الجراحة العامة', role: 'doctor' },
       { en: 'Internal Medicine', ar: 'الباطنية', role: 'doctor' },
       { en: 'Dermatology', ar: 'الجلدية', role: 'doctor' },
-      { en: 'Anesthesiology', ar: 'التخدير', role: 'doctor' }, // Also specific role
+      { en: 'Anesthesiology', ar: 'التخدير', role: 'doctor' },
       // Nurses
       { en: 'Critical Care Nursing', ar: 'تمريض العناية المركزة', role: 'nurse' },
       { en: 'Pediatric Nursing', ar: 'تمريض الأطفال', role: 'nurse' },
@@ -281,7 +292,7 @@ const seedData = () => {
       // Pharmacists
       { en: 'Clinical Pharmacy', ar: 'صيدلة سريرية', role: 'pharmacist' },
       { en: 'Hospital Pharmacy', ar: 'صيدلة المستشفيات', role: 'pharmacist' },
-      // Anesthesiologist (Specific Role)
+      // Anesthesiologist
       { en: 'General Anesthesiology', ar: 'تخدير عام', role: 'anesthesiologist' },
       { en: 'Pediatric Anesthesiology', ar: 'تخدير أطفال', role: 'anesthesiologist' },
       // HR/Staff

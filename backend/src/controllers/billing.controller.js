@@ -48,29 +48,34 @@ exports.create = (req, res) => {
 };
 
 exports.recordPayment = (req, res) => {
-  const { amount } = req.body;
+  const { amount, method, details, date } = req.body; // details is JSON object (insurance info, trans ID, etc)
   const { id } = req.params;
 
-  const bill = db.prepare('SELECT total_amount, paid_amount FROM billing WHERE id = ?').get(id);
+  const bill = db.prepare('SELECT total_amount, paid_amount, bill_number FROM billing WHERE id = ?').get(id);
   if (!bill) return res.status(404).json({ error: 'Bill not found' });
 
   const newPaid = bill.paid_amount + amount;
   const newStatus = newPaid >= bill.total_amount ? 'paid' : 'partial';
 
   const tx = db.transaction(() => {
+    // 1. Update Bill
     db.prepare('UPDATE billing SET paid_amount = ?, status = ? WHERE id = ?').run(newPaid, newStatus, id);
 
+    // 2. Insert into Treasury (Transactions)
+    db.prepare(`
+      INSERT INTO transactions (type, category, amount, method, reference_id, details, date, description)
+      VALUES ('income', 'Bill Payment', ?, ?, ?, ?, ?, ?)
+    `).run(amount, method, id, JSON.stringify(details || {}), date || new Date().toISOString(), `Payment for Bill #${bill.bill_number}`);
+
+    // 3. Status Propagation
     if (newStatus === 'paid') {
-      // 1. Confirm Appointments
+      // Confirm Appointments
       db.prepare("UPDATE appointments SET status = 'confirmed', billing_status = 'paid' WHERE bill_id = ?").run(id);
-
-      // 2. Confirm Lab Requests
+      // Confirm Lab Requests
       db.prepare("UPDATE lab_requests SET status = 'confirmed' WHERE bill_id = ?").run(id);
-
-      // 3. Confirm Operations
+      // Confirm Operations
       db.prepare("UPDATE operations SET status = 'confirmed' WHERE bill_id = ?").run(id);
-
-      // 4. Confirm Admissions (Activate)
+      // Confirm Admissions (Activate)
       const adm = db.prepare("SELECT * FROM admissions WHERE bill_id = ?").get(id);
       if (adm) {
         db.prepare("UPDATE admissions SET status = 'active' WHERE id = ?").run(adm.id);
@@ -85,6 +90,36 @@ exports.recordPayment = (req, res) => {
     res.json({ status: newStatus, paidAmount: newPaid });
   } catch(e) {
     console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+};
+
+// --- TREASURY ---
+
+exports.getTransactions = (req, res) => {
+  try {
+    const transactions = db.prepare('SELECT * FROM transactions ORDER BY date DESC').all();
+    const mapped = transactions.map(t => {
+      let details = {};
+      try { details = JSON.parse(t.details); } catch(e) {}
+      return { ...t, details };
+    });
+    res.json(mapped);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.addExpense = (req, res) => {
+  const { category, amount, method, description, date } = req.body;
+  
+  try {
+    const info = db.prepare(`
+      INSERT INTO transactions (type, category, amount, method, date, description)
+      VALUES ('expense', ?, ?, ?, ?, ?)
+    `).run(category, amount, method, date || new Date().toISOString(), description);
+    res.json({ id: info.lastInsertRowid, success: true });
+  } catch(e) {
     res.status(500).json({ error: e.message });
   }
 };

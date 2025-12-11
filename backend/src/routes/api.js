@@ -71,6 +71,10 @@ router.get('/billing', authorizeRoles(Permissions.VIEW_BILLING), billingControll
 router.post('/billing', authorizeRoles(Permissions.MANAGE_BILLING), billingController.create);
 router.post('/billing/:id/pay', authorizeRoles(Permissions.MANAGE_BILLING), billingController.recordPayment);
 
+// Treasury
+router.get('/treasury/transactions', authorizeRoles(Permissions.VIEW_BILLING), billingController.getTransactions);
+router.post('/treasury/expenses', authorizeRoles(Permissions.MANAGE_BILLING), billingController.addExpense);
+
 // Medical: Laboratory
 router.get('/lab/requests', authorizeRoles(Permissions.VIEW_LABORATORY), medicalController.getLabRequests);
 router.post('/lab/requests', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.createLabRequest);

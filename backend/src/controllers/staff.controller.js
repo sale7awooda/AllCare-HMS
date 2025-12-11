@@ -295,27 +295,52 @@ exports.generatePayroll = (req, res) => {
     const staff = db.prepare("SELECT id, base_salary FROM medical_staff WHERE status = 'active'").all();
     
     for (const s of staff) {
-      // Calculate Financials for this month
+      const baseSalary = s.base_salary || 0;
+      const dailyRate = baseSalary / 30; // Standard 30-day calculation
+
+      // A. Calculate Manual Financial Adjustments (Loans, Manual Fines, Bonuses)
       const adjustments = db.prepare(`
         SELECT type, amount FROM hr_financials 
         WHERE staff_id = ? AND strftime('%Y-%m', date) = ?
       `).all(s.id, month);
       
-      const bonuses = adjustments.filter(a => a.type === 'bonus').reduce((acc, a) => acc + a.amount, 0);
-      const fines = adjustments.filter(a => a.type === 'fine' || a.type === 'loan').reduce((acc, a) => acc + a.amount, 0);
+      const manualBonuses = adjustments.filter(a => a.type === 'bonus').reduce((acc, a) => acc + a.amount, 0);
+      const manualFines = adjustments.filter(a => a.type === 'fine' || a.type === 'loan').reduce((acc, a) => acc + a.amount, 0);
       
-      const netSalary = (s.base_salary || 0) + bonuses - fines;
+      // B. Calculate Attendance-based Fines
+      // Rules: 
+      // 1. Absent = 1 day salary deduction
+      // 2. Late = 2 lates equal 0.5 day salary deduction
+      const attendance = db.prepare(`
+        SELECT status FROM hr_attendance 
+        WHERE staff_id = ? AND strftime('%Y-%m', date) = ?
+      `).all(s.id, month);
+
+      const absentCount = attendance.filter(a => a.status === 'absent').length;
+      const lateCount = attendance.filter(a => a.status === 'late').length;
+
+      const absentDeduction = absentCount * dailyRate; 
+      // 2 Lates = 0.5 day deduction
+      const latePairs = Math.floor(lateCount / 2);
+      const lateDeduction = latePairs * (dailyRate * 0.5); 
+      
+      const attendanceFines = absentDeduction + lateDeduction;
+
+      // C. Totals
+      const totalFines = manualFines + attendanceFines;
+      const totalBonuses = manualBonuses;
+      const netSalary = baseSalary + totalBonuses - totalFines;
       
       db.prepare(`
         INSERT INTO hr_payroll (staff_id, month, base_salary, total_bonuses, total_fines, net_salary, status)
         VALUES (?, ?, ?, ?, ?, ?, 'draft')
-      `).run(s.id, month, s.base_salary || 0, bonuses, fines, netSalary);
+      `).run(s.id, month, baseSalary, totalBonuses, totalFines, netSalary);
     }
   });
 
   try {
     tx();
-    res.json({ success: true, message: 'Payroll generated successfully' });
+    res.json({ success: true, message: 'Payroll generated successfully with attendance fines calculated.' });
   } catch(e) {
     console.error(e);
     res.status(500).json({ error: e.message });
