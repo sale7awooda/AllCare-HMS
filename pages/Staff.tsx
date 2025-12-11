@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Search, Briefcase, Clock, 
   Calendar, DollarSign, Wallet,
   AlertTriangle, CheckCircle, User, Phone, Mail,
-  Loader2, XCircle, Edit, Trash2, X, Check
+  Loader2, XCircle, Edit, Trash2, X, Check, MapPin
 } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment } from '../types';
@@ -44,6 +45,7 @@ export const Staff = () => {
   // Catalogs for dropdowns
   const [departments, setDepartments] = useState<any[]>([]);
   const [specializations, setSpecializations] = useState<any[]>([]);
+  const [banks, setBanks] = useState<any[]>([]);
 
   // UI States
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,21 +63,23 @@ export const Staff = () => {
   const [confirmState, setConfirmState] = useState<{isOpen: boolean, title: string, message: string, action: () => void}>({ isOpen: false, title: '', message: '', action: () => {} });
 
   // Forms
-  const [staffForm, setStaffForm] = useState<Partial<MedicalStaff & { bankName?: string, bankAccount?: string }>>({});
+  const [staffForm, setStaffForm] = useState<Partial<MedicalStaff & { bankName?: string, bankAccount?: string, address?: string } | any>>({});
   const [adjForm, setAdjForm] = useState({ staffId: '', type: 'bonus', amount: '', reason: '', date: new Date().toISOString().split('T')[0] });
   const [leaveForm, setLeaveForm] = useState({ staffId: '', type: 'sick', startDate: '', endDate: '', reason: '' });
 
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [data, depts, specs] = await Promise.all([
+      const [data, depts, specs, bankData] = await Promise.all([
         api.getStaff(),
         api.getDepartments(),
-        api.getSpecializations()
+        api.getSpecializations(),
+        api.getBanks()
       ]);
       setStaff(Array.isArray(data) ? data : []);
       setDepartments(Array.isArray(depts) ? depts : []);
       setSpecializations(Array.isArray(specs) ? specs : []);
+      setBanks(Array.isArray(bankData) ? bankData : []);
     } catch (e) {
       console.error("Failed to load staff data:", e);
     } finally {
@@ -105,8 +109,14 @@ export const Staff = () => {
     setProcessMessage(staffForm.id ? t('staff_updating') : t('staff_creating'));
 
     const { bankName, bankAccount, ...restOfForm } = staffForm;
+    
+    // Ensure numbers are converted, empty string becomes 0
     const payload = {
         ...restOfForm,
+        baseSalary: parseFloat(restOfForm.baseSalary) || 0,
+        consultationFee: parseFloat(restOfForm.consultationFee) || 0,
+        consultationFeeFollowup: parseFloat(restOfForm.consultationFeeFollowup) || 0,
+        consultationFeeEmergency: parseFloat(restOfForm.consultationFeeEmergency) || 0,
         bankDetails: { bankName, bankAccount }
     };
     
@@ -140,14 +150,22 @@ export const Staff = () => {
           }
       }
 
-      const formState = s ? { ...s, ...bankDetailsParsed } : { 
-          fullName: '', type: 'doctor', status: 'active', baseSalary: 0, 
+      // Initialize number fields as strings (or empty strings if 0 for new)
+      const formState = s ? { 
+          ...s, 
+          ...bankDetailsParsed,
+          // If editing, keep existing values. If it was 0, it shows 0.
+      } : { 
+          fullName: '', type: 'doctor', status: 'active', 
+          baseSalary: '', 
           availableDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
           availableTimeStart: '09:00', availableTimeEnd: '17:00',
-          consultationFee: 0, consultationFeeFollowup: 0, consultationFeeEmergency: 0,
+          consultationFee: '', consultationFeeFollowup: '', consultationFeeEmergency: '',
           joinDate: new Date().toISOString().split('T')[0],
+          address: '',
           ...bankDetailsParsed
       };
+
       setStaffForm(formState);
       setIsModalOpen(true);
   };
@@ -156,7 +174,7 @@ export const Staff = () => {
       const currentDays = staffForm.availableDays || [];
       const dayEN = DAYS_OF_WEEK_EN[DAYS_OF_WEEK.indexOf(day)];
       if (currentDays.includes(dayEN)) {
-          setStaffForm({ ...staffForm, availableDays: currentDays.filter(d => d !== dayEN) });
+          setStaffForm({ ...staffForm, availableDays: currentDays.filter((d: string) => d !== dayEN) });
       } else {
           setStaffForm({ ...staffForm, availableDays: [...currentDays, dayEN] });
       }
@@ -178,6 +196,12 @@ export const Staff = () => {
     if (!allowedDepts || allowedDepts.length === 0) return departments;
     return departments.filter(d => allowedDepts.includes(d.name_en));
   }, [staffForm.type, departments]);
+
+  const filteredSpecializations = useMemo(() => {
+    if (!staffForm.type) return specializations;
+    // Filter by related_role. If related_role is null or matches current type.
+    return specializations.filter(s => !s.related_role || s.related_role === staffForm.type);
+  }, [staffForm.type, specializations]);
 
   const handleMarkAttendance = async (staffId: number, status: string) => {
       const now = new Date();
@@ -517,11 +541,12 @@ export const Staff = () => {
           <form onSubmit={handleCreateStaff} className="space-y-4">
               <div className="space-y-4">
                   <h4 className="text-xs font-bold text-slate-400 uppercase">{t('staff_form_personal_title')}</h4>
-                  <Input label="Full Name" required value={staffForm.fullName || ''} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} />
+                  <Input label={t('patients_modal_form_fullName')} required value={staffForm.fullName || ''} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} />
                   <div className="grid grid-cols-2 gap-4">
-                      <Input label="Email" type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} />
-                      <Input label="Phone" value={staffForm.phone || ''} onChange={e => setStaffForm({...staffForm, phone: e.target.value})} />
+                      <Input label={t('settings_profile_email')} type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} />
+                      <Input label={t('settings_profile_phone')} value={staffForm.phone || ''} onChange={e => setStaffForm({...staffForm, phone: e.target.value})} />
                   </div>
+                  <Input label={t('patients_modal_form_address')} value={staffForm.address || ''} onChange={e => setStaffForm({...staffForm, address: e.target.value})} />
               </div>
 
               <div className="space-y-4">
@@ -530,20 +555,23 @@ export const Staff = () => {
                       <Select label="Role" value={staffForm.type} onChange={handleTypeChange}>
                           {Object.keys(roleDepartmentMap).map(role => <option key={role} value={role} className="capitalize">{role.replace('_', ' ')}</option>)}
                       </Select>
-                      <Select label="Status" value={staffForm.status} onChange={e => setStaffForm({...staffForm, status: e.target.value as any})}>
+                      <Select label={t('status')} value={staffForm.status} onChange={e => setStaffForm({...staffForm, status: e.target.value as any})}>
                           <option value="active">Active</option>
                           <option value="inactive">Inactive</option>
                           <option value="dismissed">Dismissed</option>
                       </Select>
                   </div>
-                  <Select label="Department" value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})}>
+                  <Select label={t('staff_select_department')} value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})}>
                       <option value="">{t('staff_select_department')}</option>
                       {filteredDepartments.map(d => <option key={d.id} value={d.name_en}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
                   </Select>
-                  <Select label="Specialization" value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}>
-                      <option value="">{t('staff_select_specialization')}</option>
-                      {specializations.map(s => <option key={s.id} value={s.name_en}>{language === 'ar' ? s.name_ar : s.name_en}</option>)}
-                  </Select>
+                  
+                  {filteredSpecializations.length > 0 && (
+                    <Select label={t('staff_select_specialization')} value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}>
+                        <option value="">{t('staff_select_specialization')}</option>
+                        {filteredSpecializations.map(s => <option key={s.id} value={s.name_en}>{language === 'ar' ? s.name_ar : s.name_en}</option>)}
+                    </Select>
+                  )}
               </div>
 
               <div className="space-y-4">
@@ -568,13 +596,17 @@ export const Staff = () => {
 
               <div className="space-y-4">
                   <h4 className="text-xs font-bold text-slate-400 uppercase">{t('staff_form_financial_title')}</h4>
-                  <Input type="number" label={t('staff_form_salary')} value={staffForm.baseSalary || 0} onChange={e => setStaffForm({...staffForm, baseSalary: parseFloat(e.target.value)})} />
-                  <div className="grid grid-cols-2 gap-4">
-                      <Input type="number" label={t('staff_form_consultation_fee')} value={staffForm.consultationFee || 0} onChange={e => setStaffForm({...staffForm, consultationFee: parseFloat(e.target.value)})} />
-                      <Input type="number" label="Follow-up Fee" value={staffForm.consultationFeeFollowup || 0} onChange={e => setStaffForm({...staffForm, consultationFeeFollowup: parseFloat(e.target.value)})} />
+                  <Input type="number" label={t('staff_form_salary')} value={staffForm.baseSalary} onChange={e => setStaffForm({...staffForm, baseSalary: e.target.value})} />
+                  <div className="grid grid-cols-3 gap-3">
+                      <Input type="number" label={t('staff_form_consultation_fee')} value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: e.target.value})} />
+                      <Input type="number" label={t('staff_form_followup_fee')} value={staffForm.consultationFeeFollowup} onChange={e => setStaffForm({...staffForm, consultationFeeFollowup: e.target.value})} />
+                      <Input type="number" label={t('staff_form_emergency_fee')} value={staffForm.consultationFeeEmergency} onChange={e => setStaffForm({...staffForm, consultationFeeEmergency: e.target.value})} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                      <Input label={t('staff_form_bank_name')} value={staffForm.bankName || ''} onChange={e => setStaffForm({...staffForm, bankName: e.target.value})} />
+                      <Select label={t('staff_form_bank_name')} value={staffForm.bankName || ''} onChange={e => setStaffForm({...staffForm, bankName: e.target.value})}>
+                          <option value="">Select Bank...</option>
+                          {banks.map(bank => <option key={bank.id} value={bank.name_en}>{language === 'ar' ? bank.name_ar : bank.name_en}</option>)}
+                      </Select>
                       <Input label={t('staff_form_bank_account')} value={staffForm.bankAccount || ''} onChange={e => setStaffForm({...staffForm, bankAccount: e.target.value})} />
                   </div>
                   <Input type="date" label={t('staff_join_date')} value={staffForm.joinDate || ''} onChange={e => setStaffForm({...staffForm, joinDate: e.target.value})} />

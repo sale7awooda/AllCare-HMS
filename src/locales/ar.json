@@ -566,7 +566,6 @@
   "staff_status_active": "نشط",
   "staff_status_inactive": "غير نشط",
   "staff_status_dismissed": "مفصول",
-  "staff_generate_payroll_confirm": "Are you sure you want to generate payroll for {month}?",
   "reports_title": "التحليلات والتقارير",
   "reports_subtitle": "رؤى شاملة لأداء المستشفى.",
   "reports_time_7": "آخر 7 أيام",

@@ -11,7 +11,7 @@ import { LabTestCatalog, NurseServiceCatalog, OperationCatalog, Bed as BedType, 
 import { Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 
-type CatalogType = 'dept' | 'spec' | 'lab' | 'nurse' | 'ops' | 'insurance';
+type CatalogType = 'dept' | 'spec' | 'lab' | 'nurse' | 'ops' | 'insurance' | 'banks';
 
 const permissionGroups: Record<string, string[]> = {
   'General': ['VIEW_DASHBOARD'],
@@ -68,6 +68,7 @@ export const Configuration = () => {
   const [nurseServices, setNurseServices] = useState<NurseServiceCatalog[]>([]);
   const [operations, setOperations] = useState<OperationCatalog[]>([]);
   const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
+  const [banks, setBanks] = useState<any[]>([]);
   const [taxes, setTaxes] = useState<TaxRate[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
@@ -94,7 +95,7 @@ export const Configuration = () => {
   const loadAllData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [s, d, sp, b, l, n, o, ip, u, t, p, rPerms] = await Promise.all([
+      const [s, d, sp, b, l, n, o, ip, bn, u, t, p, rPerms] = await Promise.all([
         api.getSystemSettings(),
         api.getDepartments(),
         api.getSpecializations(),
@@ -103,6 +104,7 @@ export const Configuration = () => {
         api.getNurseServices(),
         api.getOperations(),
         api.getInsuranceProviders(),
+        api.getBanks(),
         api.getSystemUsers(),
         api.getTaxRates(),
         api.getPaymentMethods(),
@@ -116,6 +118,7 @@ export const Configuration = () => {
       setNurseServices(Array.isArray(n) ? n : []);
       setOperations(Array.isArray(o) ? o : []);
       setInsuranceProviders(Array.isArray(ip) ? ip : []);
+      setBanks(Array.isArray(bn) ? bn : []);
       setUsers(Array.isArray(u) ? u : []);
       setTaxes(Array.isArray(t) ? t : []);
       setPaymentMethods(Array.isArray(p) ? p : []);
@@ -327,6 +330,7 @@ export const Configuration = () => {
       fields: [
         { name: 'name_en', label: 'Name (EN)', type: 'text', required: true },
         { name: 'name_ar', label: 'Name (AR)', type: 'text', required: true },
+        { name: 'related_role', label: 'Related Role', type: 'select', options: availableRoles },
         { name: 'description_en', label: 'Description (EN)', type: 'textarea' },
         { name: 'description_ar', label: 'Description (AR)', type: 'textarea' },
       ],
@@ -376,6 +380,16 @@ export const Configuration = () => {
         { name: 'is_active', label: 'Status', type: 'toggle' },
       ],
       apiAdd: api.addInsuranceProvider, apiUpdate: api.updateInsuranceProvider, apiDelete: api.deleteInsuranceProvider
+    },
+    banks: {
+      label: 'Banks',
+      data: banks,
+      fields: [
+        { name: 'name_en', label: 'Name (EN)', type: 'text', required: true },
+        { name: 'name_ar', label: 'Name (AR)', type: 'text', required: true },
+        { name: 'is_active', label: 'Status', type: 'toggle' },
+      ],
+      apiAdd: api.addBank, apiUpdate: api.updateBank, apiDelete: api.deleteBank
     }
   };
 
@@ -608,6 +622,7 @@ export const Configuration = () => {
                             {item.cost !== undefined && `$${item.cost}`}
                             {item.base_cost !== undefined && `$${item.base_cost}`}
                             {item.rate !== undefined && `${item.rate}%`}
+                            {item.related_role && <span className="mr-2 text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">{item.related_role}</span>}
                             {item.isActive !== undefined && <Badge color={item.isActive ? 'green' : 'gray'}>{item.isActive ? 'Active' : 'Inactive'}</Badge>}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -680,6 +695,14 @@ export const Configuration = () => {
           {catalogMetadata[catalogTab].fields.map((field: any) => {
             if (field.type === 'textarea') {
               return <Textarea key={field.name} label={field.label} value={itemFormData[field.name] || ''} onChange={e => setItemFormData({...itemFormData, [field.name]: e.target.value})} required={field.required} />
+            }
+            if (field.type === 'select') {
+                return (
+                    <Select key={field.name} label={field.label} value={itemFormData[field.name] || ''} onChange={e => setItemFormData({...itemFormData, [field.name]: e.target.value})}>
+                        <option value="">Select Role...</option>
+                        {field.options.map((opt: string) => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
+                    </Select>
+                )
             }
             if (field.type === 'toggle') {
               return (

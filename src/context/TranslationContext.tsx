@@ -1,6 +1,5 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-// Import directly from the relative path to avoid alias issues in some environments
 import enTranslations from '../locales/en.json';
 import arTranslations from '../locales/ar.json';
 

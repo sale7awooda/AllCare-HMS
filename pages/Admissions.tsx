@@ -78,6 +78,7 @@ export const Admissions = () => {
   }, []);
 
   const calculateDays = (dateString: string) => {
+    if (!dateString) return 0;
     const start = new Date(dateString);
     const now = new Date();
     const diff = Math.abs(now.getTime() - start.getTime());
@@ -515,10 +516,10 @@ export const Admissions = () => {
             {/* Header */}
             <div className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
               <div className="h-14 w-14 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-primary-600 font-bold text-xl shadow-sm border dark:border-slate-700">
-                {inpatientDetails.patientName.charAt(0)}
+                {inpatientDetails.patientName ? inpatientDetails.patientName.charAt(0) : '?'}
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">{inpatientDetails.patientName}</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">{inpatientDetails.patientName || 'Unknown Patient'}</h2>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400 mt-1">
                   <span className="flex items-center gap-1"><User size={14}/> {inpatientDetails.age} yrs / {inpatientDetails.gender}</span>
                   <span className="flex items-center gap-1"><Bed size={14}/> Room {inpatientDetails.roomNumber}</span>
@@ -559,7 +560,7 @@ export const Admissions = () => {
                     <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 space-y-3 text-sm">
                       <div className="flex justify-between border-b dark:border-slate-700 pb-2">
                         <span className="text-gray-500">{t('admissions_care_admission_date')}</span>
-                        <span className="font-medium">{new Date(inpatientDetails.entry_date).toLocaleString()}</span>
+                        <span className="font-medium">{inpatientDetails.entry_date ? new Date(inpatientDetails.entry_date).toLocaleString() : 'N/A'}</span>
                       </div>
                       <div className="flex justify-between border-b dark:border-slate-700 pb-2">
                         <span className="text-gray-500">{t('admissions_care_duration')}</span>
@@ -581,7 +582,7 @@ export const Admissions = () => {
                       </div>
                       <div>
                         <span className="text-gray-500 block mb-1">{t('admissions_care_admission_note')}</span>
-                        <p className="text-gray-700 dark:text-slate-300 bg-gray-50 dark:bg-slate-900 p-2 rounded">{inpatientDetails.notes || t('admissions_care_no_initial_notes')}</p>
+                        <p className="text-gray-700 dark:text-slate-300 bg-gray-50 dark:bg-slate-900 p-2 rounded">{inpatientDetails.notes && inpatientDetails.notes.length > 0 && inpatientDetails.notes[0].note ? inpatientDetails.notes[0].note : (inpatientDetails.notes || t('admissions_care_no_initial_notes'))}</p>
                       </div>
                     </div>
                   </div>
@@ -613,12 +614,12 @@ export const Admissions = () => {
                        <div key={note.id} className="relative pl-6 pb-4 border-l-2 border-gray-200 dark:border-slate-700 last:pb-0">
                          <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary-100 border-2 border-primary-500"></div>
                          <div className="flex justify-between items-start mb-1">
-                           <span className="font-bold text-sm text-gray-800 dark:text-slate-200">{note.doctorName}</span>
+                           <span className="font-bold text-sm text-gray-800 dark:text-slate-200">{note.doctorName || 'Unknown Doctor'}</span>
                            <span className="text-xs text-gray-400 flex items-center gap-1"><Clock size={12}/> {new Date(note.created_at).toLocaleString()}</span>
                          </div>
                          <p className="text-sm text-gray-600 dark:text-slate-400 mb-2">{note.note}</p>
                          {/* Vitals Tags */}
-                         {(note.vitals.bp || note.vitals.temp) && (
+                         {(note.vitals && (note.vitals.bp || note.vitals.temp || note.vitals.pulse)) && (
                            <div className="flex flex-wrap gap-2">
                              {note.vitals.bp && <span className="px-2 py-0.5 bg-red-50 text-red-600 text-xs rounded border border-red-100 font-mono">BP: {note.vitals.bp}</span>}
                              {note.vitals.temp && <span className="px-2 py-0.5 bg-orange-50 text-orange-600 text-xs rounded border border-orange-100 font-mono">T: {note.vitals.temp}°C</span>}

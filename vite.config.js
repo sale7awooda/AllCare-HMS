@@ -12,6 +12,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      // Point '@' to the root directory since the project structure is flat
       '@': path.resolve(__dirname, './'),
     },
   },

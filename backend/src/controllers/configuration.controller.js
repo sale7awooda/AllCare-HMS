@@ -178,16 +178,16 @@ exports.getSpecializations = (req, res) => {
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 exports.addSpecialization = (req, res) => {
-  const { name_en, name_ar, description_en, description_ar } = req.body;
+  const { name_en, name_ar, description_en, description_ar, related_role } = req.body;
   try {
-    const info = db.prepare('INSERT INTO specializations (name_en, name_ar, description_en, description_ar) VALUES (?, ?, ?, ?)').run(name_en, name_ar, description_en || '', description_ar || '');
+    const info = db.prepare('INSERT INTO specializations (name_en, name_ar, description_en, description_ar, related_role) VALUES (?, ?, ?, ?, ?)').run(name_en, name_ar, description_en || '', description_ar || '', related_role || null);
     res.status(201).json({ id: info.lastInsertRowid, ...req.body });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
 exports.updateSpecialization = (req, res) => {
-  const { name_en, name_ar, description_en, description_ar } = req.body;
+  const { name_en, name_ar, description_en, description_ar, related_role } = req.body;
   try {
-    db.prepare('UPDATE specializations SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ? WHERE id = ?').run(name_en, name_ar, description_en, description_ar, req.params.id);
+    db.prepare('UPDATE specializations SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ?, related_role = ? WHERE id = ?').run(name_en, name_ar, description_en, description_ar, related_role || null, req.params.id);
     res.json({ message: 'Specialization updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
@@ -310,6 +310,30 @@ exports.updateInsuranceProvider = (req, res) => {
 };
 exports.deleteInsuranceProvider = (req, res) => {
   try { db.prepare('DELETE FROM insurance_providers WHERE id = ?').run(req.params.id); res.sendStatus(200); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+// --- BANKS ---
+exports.getBanks = (req, res) => {
+  try { res.json(db.prepare('SELECT id, name_en, name_ar, is_active as isActive FROM banks').all().map(b => ({...b, isActive: !!b.isActive}))); } 
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.addBank = (req, res) => {
+  const { name_en, name_ar, is_active } = req.body;
+  try {
+    const info = db.prepare('INSERT INTO banks (name_en, name_ar, is_active) VALUES (?, ?, ?)').run(name_en, name_ar, is_active ? 1 : 0);
+    res.json({ id: info.lastInsertRowid });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.updateBank = (req, res) => {
+  const { name_en, name_ar, is_active } = req.body;
+  try {
+    db.prepare('UPDATE banks SET name_en = ?, name_ar = ?, is_active = ? WHERE id = ?').run(name_en, name_ar, is_active ? 1 : 0, req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+exports.deleteBank = (req, res) => {
+  try { db.prepare('DELETE FROM banks WHERE id = ?').run(req.params.id); res.sendStatus(200); }
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 

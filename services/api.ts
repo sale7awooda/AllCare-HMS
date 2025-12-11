@@ -157,6 +157,12 @@ export const api = {
   updateInsuranceProvider: (id, data) => client.put(`/config/insurance-providers/${id}`, data),
   deleteInsuranceProvider: (id) => client.delete(`/config/insurance-providers/${id}`),
 
+  // --- Configuration: Catalogs (Banks) ---
+  getBanks: () => client.get('/config/banks'),
+  addBank: (data) => client.post('/config/banks', data),
+  updateBank: (id, data) => client.put(`/config/banks/${id}`, data),
+  deleteBank: (id) => client.delete(`/config/banks/${id}`),
+
   // --- Configuration: Financial ---
   getTaxRates: () => client.get('/config/tax-rates'),
   addTaxRate: (data) => client.post('/config/tax-rates', data),
