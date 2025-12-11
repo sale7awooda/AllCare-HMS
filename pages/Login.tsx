@@ -11,7 +11,9 @@ import {
   LayoutDashboard,
   CreditCard,
   Microscope,
-  Check
+  Check,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useTranslation } from '../context/TranslationContext';
 
@@ -32,6 +34,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [hospitalName] = useState(() => localStorage.getItem('hospital_name') || t('login_title'));
   
   const [activeProfile, setActiveProfile] = useState<Role | null>(null);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,12 +156,20 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                       <Lock size={18} />
                     </div>
                     <input
-                      type="password"
+                      type={passwordVisible ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white transition-all shadow-sm"
+                      className="block w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white transition-all shadow-sm"
                       placeholder={t('login_password_placeholder')}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setPasswordVisible(!passwordVisible)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                      aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+                    >
+                      {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                   </div>
                 </div>
               </div>

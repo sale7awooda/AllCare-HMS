@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -329,6 +330,7 @@ export const Appointments = () => {
   useEffect(() => {
     loadData();
   }, []);
+
 
   const dailyAppointments = useMemo(() => {
     // 1. Filter appointments for the day
