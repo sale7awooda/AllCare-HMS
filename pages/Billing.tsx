@@ -13,7 +13,7 @@ import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
 
 export const Billing = () => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [bills, setBills] = useState<Bill[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -178,6 +178,17 @@ export const Billing = () => {
     }
   };
 
+  const translateBillType = (type: string) => {
+      switch(type) {
+          case 'Admission': return t('billing_type_admission');
+          case 'Operation': return t('billing_type_operation');
+          case 'Lab Test': return t('billing_type_lab');
+          case 'Appointment': return t('billing_type_appointment');
+          case 'Procedure': return t('billing_type_procedure');
+          default: return t('billing_type_general');
+      }
+  };
+
   // --- Filtering & Pagination Logic ---
   const filteredBills = useMemo(() => {
     return bills.filter(bill => {
@@ -221,7 +232,7 @@ export const Billing = () => {
         <div>
           <div className="flex items-center gap-2 mb-2">
              <div className="bg-primary-600 text-white p-2 rounded-lg"><Wallet size={24}/></div>
-             <h1 className="text-2xl font-bold text-slate-900">INVOICE</h1>
+             <h1 className="text-2xl font-bold text-slate-900">{t('billing_invoice_title')}</h1>
           </div>
           <p className="text-slate-500 font-mono">#{bill.billNumber}</p>
           <div className="mt-4 flex gap-2">
@@ -229,7 +240,7 @@ export const Billing = () => {
                 {bill.status}
              </span>
              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
-                {getBillType(bill)}
+                {translateBillType(getBillType(bill))}
              </span>
           </div>
         </div>
@@ -244,13 +255,13 @@ export const Billing = () => {
       {/* Client Info */}
       <div className="flex justify-between mb-10">
         <div>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Billed To</p>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('billing_invoice_billed_to')}</p>
           <p className="font-bold text-lg text-slate-900">{bill.patientName}</p>
           {/* Mock address since it's not on bill object directly */}
           <p className="text-slate-500 text-sm">Patient ID: #{bill.patientId}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Invoice Date</p>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('billing_invoice_date')}</p>
           <p className="font-medium text-slate-900">{new Date(bill.date).toLocaleDateString()}</p>
         </div>
       </div>
@@ -259,8 +270,8 @@ export const Billing = () => {
       <table className="w-full mb-8">
         <thead>
           <tr className="bg-slate-50 border-y border-slate-200">
-            <th className="text-left py-3 px-4 font-semibold text-sm text-slate-600">Description</th>
-            <th className="text-right py-3 px-4 font-semibold text-sm text-slate-600">Amount</th>
+            <th className="text-left py-3 px-4 font-semibold text-sm text-slate-600">{t('billing_modal_create_item_placeholder')}</th>
+            <th className="text-right py-3 px-4 font-semibold text-sm text-slate-600">{t('billing_table_header_amount')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -277,23 +288,23 @@ export const Billing = () => {
       <div className="flex justify-end">
         <div className="w-full max-w-xs space-y-3">
           <div className="flex justify-between text-slate-600">
-            <span>Subtotal</span>
+            <span>{t('billing_invoice_subtotal')}</span>
             <span className="font-medium">${bill.totalAmount.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-slate-600">
-            <span>Tax (0%)</span>
+            <span>{t('billing_invoice_tax')} (0%)</span>
             <span className="font-medium">$0.00</span>
           </div>
           <div className="flex justify-between text-slate-900 font-bold text-lg border-t-2 border-slate-200 pt-3 mt-2">
-            <span>Total</span>
+            <span>{t('billing_invoice_total')}</span>
             <span>${bill.totalAmount.toFixed(2)}</span>
           </div>
            <div className="flex justify-between text-green-600 font-bold text-sm pt-1">
-            <span>Amount Paid</span>
+            <span>{t('billing_invoice_paid')}</span>
             <span>-${(bill.paidAmount || 0).toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-slate-900 font-bold text-xl bg-slate-100 p-3 rounded-lg">
-            <span>Balance Due</span>
+            <span>{t('billing_invoice_balance')}</span>
             <span>${(bill.totalAmount - (bill.paidAmount || 0)).toFixed(2)}</span>
           </div>
         </div>
@@ -354,13 +365,13 @@ export const Billing = () => {
                 value={filterType}
                 onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}
               >
-                <option value="all">All Types</option>
-                <option value="Appointment">Appointment</option>
-                <option value="Lab Test">Lab Test</option>
-                <option value="Admission">Admission</option>
-                <option value="Operation">Operation</option>
-                <option value="Procedure">Nurse Service</option>
-                <option value="General">General</option>
+                <option value="all">{t('patients_filter_type_all')}</option>
+                <option value="Appointment">{t('billing_type_appointment')}</option>
+                <option value="Lab Test">{t('billing_type_lab')}</option>
+                <option value="Admission">{t('billing_type_admission')}</option>
+                <option value="Operation">{t('billing_type_operation')}</option>
+                <option value="Procedure">{t('billing_type_procedure')}</option>
+                <option value="General">{t('billing_type_general')}</option>
               </select>
            </div>
         </div>
@@ -371,7 +382,7 @@ export const Billing = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_info')}</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_patient')}</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_form_type')}</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_status')}</th>
                 <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_amount')}</th>
                 <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_actions')}</th>
@@ -388,7 +399,7 @@ export const Billing = () => {
                    </td>
                    <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200">{bill.patientName}</td>
                    <td className="px-6 py-4 whitespace-nowrap">
-                     <Badge color={getTypeColor(getBillType(bill)) as any}>{getBillType(bill)}</Badge>
+                     <Badge color={getTypeColor(getBillType(bill)) as any}>{translateBillType(getBillType(bill))}</Badge>
                    </td>
                    <td className="px-6 py-4 whitespace-nowrap">
                      <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{bill.status}</Badge>
@@ -485,7 +496,7 @@ export const Billing = () => {
               required
             >
               <option value="">{t('billing_modal_payment_method_select')}</option>
-              {paymentMethods.filter(p => p.isActive).map(p => <option key={p.id} value={p.name_en}>{p.name_en}</option>)}
+              {paymentMethods.filter(p => p.isActive).map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}
             </Select>
             <div className="flex justify-end pt-4">
               <Button type="submit" icon={CheckCircle}>{t('billing_modal_payment_confirm_button')}</Button>

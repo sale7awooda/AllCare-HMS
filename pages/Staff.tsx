@@ -395,16 +395,16 @@ export const Staff = () => {
                                   </div>
                                   <div>
                                       <h3 className="font-bold text-slate-800 dark:text-white line-clamp-1">{person.fullName}</h3>
-                                      <Badge color="blue">{person.type}</Badge>
+                                      <Badge color="blue">{t(`staff_role_${person.type}`)}</Badge>
                                   </div>
                               </div>
                               <div className={`w-2 h-2 rounded-full ${person.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
                           </div>
                           
                           <div className="space-y-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
-                              <div className="flex items-center gap-2"><Briefcase size={14}/> {person.department || 'N/A'}</div>
-                              <div className="flex items-center gap-2"><Phone size={14}/> {person.phone || 'N/A'}</div>
-                              <div className="flex items-center gap-2 truncate"><Mail size={14}/> {person.email || 'N/A'}</div>
+                              <div className="flex items-center gap-2"><Briefcase size={14}/> {person.department || t('patients_modal_view_na')}</div>
+                              <div className="flex items-center gap-2"><Phone size={14}/> {person.phone || t('patients_modal_view_na')}</div>
+                              <div className="flex items-center gap-2 truncate"><Mail size={14}/> {person.email || t('patients_modal_view_na')}</div>
                           </div>
 
                           {canManageHR && (
@@ -429,8 +429,8 @@ export const Staff = () => {
                       <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium">
                           <tr>
                               <th className="px-4 py-3">{t('staff_form_role_title')}</th>
-                              <th className="px-4 py-3">Status</th>
-                              <th className="px-4 py-3">Check In</th>
+                              <th className="px-4 py-3">{t('status')}</th>
+                              <th className="px-4 py-3">{t('staff_attendance_time')}</th>
                               <th className="px-4 py-3">Check Out</th>
                               {canManageHR && <th className="px-4 py-3 text-right">{t('actions')}</th>}
                           </tr>
@@ -440,7 +440,7 @@ export const Staff = () => {
                               const record = attendance.find(a => a.staffId === s.id);
                               return (
                                   <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{s.fullName} <span className="text-xs text-slate-400 block">{s.type}</span></td>
+                                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{s.fullName} <span className="text-xs text-slate-400 block">{t(`staff_role_${s.type}`)}</span></td>
                                       <td className="px-4 py-3">
                                           <Badge color={record?.status === 'present' ? 'green' : record?.status === 'absent' ? 'red' : record?.status === 'late' ? 'orange' : 'gray'}>
                                               {record?.status || 'Pending'}
@@ -476,26 +476,26 @@ export const Staff = () => {
                   <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium">
                           <tr>
-                              <th className="px-4 py-3">Staff</th>
-                              <th className="px-4 py-3">Type</th>
-                              <th className="px-4 py-3">Dates</th>
-                              <th className="px-4 py-3">Reason</th>
-                              <th className="px-4 py-3">Status</th>
-                              {canManageHR && <th className="px-4 py-3 text-right">Actions</th>}
+                              <th className="px-4 py-3">{t('staff_form_role_title')}</th>
+                              <th className="px-4 py-3">{t('appointments_form_type')}</th>
+                              <th className="px-4 py-3">{t('date')}</th>
+                              <th className="px-4 py-3">{t('patients_modal_action_reason')}</th>
+                              <th className="px-4 py-3">{t('status')}</th>
+                              {canManageHR && <th className="px-4 py-3 text-right">{t('actions')}</th>}
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {leaves.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-slate-400">{t('no_data')}</td></tr> : leaves.map(leave => (
                               <tr key={leave.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                                   <td className="px-4 py-3 font-medium">{leave.staffName}</td>
-                                  <td className="px-4 py-3 capitalize">{leave.type}</td>
+                                  <td className="px-4 py-3 capitalize">{t(`hr_leave_${leave.type}`)}</td>
                                   <td className="px-4 py-3 text-slate-500">{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</td>
                                   <td className="px-4 py-3 text-slate-500 truncate max-w-xs">{leave.reason}</td>
                                   <td className="px-4 py-3"><Badge color={leave.status === 'approved' ? 'green' : leave.status === 'rejected' ? 'red' : 'yellow'}>{leave.status}</Badge></td>
                                   {canManageHR && leave.status === 'pending' && (
                                       <td className="px-4 py-3 text-right space-x-2">
-                                          <button onClick={() => updateLeaveStatus(leave.id, 'approved')} className="text-green-600 hover:underline">Approve</button>
-                                          <button onClick={() => updateLeaveStatus(leave.id, 'rejected')} className="text-red-600 hover:underline">Reject</button>
+                                          <button onClick={() => updateLeaveStatus(leave.id, 'approved')} className="text-green-600 hover:underline">{t('hr_approve')}</button>
+                                          <button onClick={() => updateLeaveStatus(leave.id, 'rejected')} className="text-red-600 hover:underline">{t('hr_reject')}</button>
                                       </td>
                                   )}
                               </tr>
@@ -517,12 +517,12 @@ export const Staff = () => {
                   <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium">
                           <tr>
-                              <th className="px-4 py-3">Staff</th>
-                              <th className="px-4 py-3 text-right">Base Salary</th>
-                              <th className="px-4 py-3 text-right">Bonuses</th>
-                              <th className="px-4 py-3 text-right">Fines/Loans</th>
+                              <th className="px-4 py-3">{t('staff_form_role_title')}</th>
+                              <th className="px-4 py-3 text-right">{t('staff_form_salary')}</th>
+                              <th className="px-4 py-3 text-right">{t('hr_adj_bonus')}</th>
+                              <th className="px-4 py-3 text-right">{t('staff_tab_financials')}</th>
                               <th className="px-4 py-3 text-right font-bold">Net Salary</th>
-                              <th className="px-4 py-3 text-center">Status</th>
+                              <th className="px-4 py-3 text-center">{t('status')}</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -546,17 +546,17 @@ export const Staff = () => {
       {activeTab === 'financials' && (
           <div className="animate-in fade-in">
               <div className="flex justify-end mb-4">
-                  <Button icon={Plus} onClick={() => setIsAdjustmentModalOpen(true)}>Add Entry</Button>
+                  <Button icon={Plus} onClick={() => setIsAdjustmentModalOpen(true)}>{t('hr_add_entry')}</Button>
               </div>
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                   <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium">
                           <tr>
-                              <th className="px-4 py-3">Date</th>
-                              <th className="px-4 py-3">Staff</th>
-                              <th className="px-4 py-3">Type</th>
-                              <th className="px-4 py-3">Amount</th>
-                              <th className="px-4 py-3">Reason</th>
+                              <th className="px-4 py-3">{t('date')}</th>
+                              <th className="px-4 py-3">{t('staff_form_role_title')}</th>
+                              <th className="px-4 py-3">{t('appointments_form_type')}</th>
+                              <th className="px-4 py-3">{t('billing_table_header_amount')}</th>
+                              <th className="px-4 py-3">{t('patients_modal_action_reason')}</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -564,7 +564,7 @@ export const Staff = () => {
                               <tr key={f.id}>
                                   <td className="px-4 py-3 text-slate-500">{new Date(f.date).toLocaleDateString()}</td>
                                   <td className="px-4 py-3 font-medium">{f.staffName}</td>
-                                  <td className="px-4 py-3 capitalize"><Badge color={f.type === 'bonus' ? 'green' : f.type === 'fine' ? 'red' : 'orange'}>{f.type}</Badge></td>
+                                  <td className="px-4 py-3 capitalize"><Badge color={f.type === 'bonus' ? 'green' : f.type === 'fine' ? 'red' : 'orange'}>{t(`hr_adj_${f.type}`)}</Badge></td>
                                   <td className="px-4 py-3 font-mono">${f.amount}</td>
                                   <td className="px-4 py-3 text-slate-500">{f.reason}</td>
                               </tr>
@@ -629,7 +629,7 @@ export const Staff = () => {
 
                   {attendanceModal.status === 'absent' && (
                       <p className="text-sm text-slate-500 italic">
-                          Staff member will be marked as absent for the selected date.
+                          {t('hr_absent_warning')}
                       </p>
                   )}
 
@@ -658,12 +658,12 @@ export const Staff = () => {
                   <h4 className="text-xs font-bold text-slate-400 uppercase">{t('staff_form_role_title')}</h4>
                   <div className="grid grid-cols-2 gap-4">
                       <Select label="Role" value={staffForm.type} onChange={handleTypeChange}>
-                          {Object.keys(roleDepartmentMap).map(role => <option key={role} value={role} className="capitalize">{role.replace('_', ' ')}</option>)}
+                          {Object.keys(roleDepartmentMap).map(role => <option key={role} value={role} className="capitalize">{t(`staff_role_${role}`)}</option>)}
                       </Select>
                       <Select label={t('status')} value={staffForm.status} onChange={e => setStaffForm({...staffForm, status: e.target.value as any})}>
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                          <option value="dismissed">Dismissed</option>
+                          <option value="active">{t('staff_status_active')}</option>
+                          <option value="inactive">{t('staff_status_inactive')}</option>
+                          <option value="dismissed">{t('staff_status_dismissed')}</option>
                       </Select>
                   </div>
                   <Select label={t('staff_select_department')} value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})}>
@@ -727,21 +727,21 @@ export const Staff = () => {
       {/* Leave Request Modal */}
       <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title={t('staff_modal_leave_title')}>
           <form onSubmit={handleLeaveRequest} className="space-y-4">
-              <Select label="Staff Member" required value={leaveForm.staffId} onChange={e => setLeaveForm({...leaveForm, staffId: e.target.value})}>
+              <Select label={t('staff_form_role_title')} required value={leaveForm.staffId} onChange={e => setLeaveForm({...leaveForm, staffId: e.target.value})}>
                   <option value="">Select Staff...</option>
                   {staff.filter(s => s.status === 'active').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
               </Select>
-              <Select label="Leave Type" value={leaveForm.type} onChange={e => setLeaveForm({...leaveForm, type: e.target.value})}>
-                  <option value="sick">Sick Leave</option>
-                  <option value="vacation">Vacation</option>
-                  <option value="casual">Casual</option>
-                  <option value="unpaid">Unpaid</option>
+              <Select label={t('appointments_form_type')} value={leaveForm.type} onChange={e => setLeaveForm({...leaveForm, type: e.target.value})}>
+                  <option value="sick">{t('hr_leave_sick')}</option>
+                  <option value="vacation">{t('hr_leave_vacation')}</option>
+                  <option value="casual">{t('hr_leave_casual')}</option>
+                  <option value="unpaid">{t('hr_leave_unpaid')}</option>
               </Select>
               <div className="grid grid-cols-2 gap-4">
                   <Input type="date" label="Start Date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} />
                   <Input type="date" label="End Date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} />
               </div>
-              <Textarea label="Reason" rows={2} value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
+              <Textarea label={t('patients_modal_action_reason')} rows={2} value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
               <div className="flex justify-end pt-4 gap-3">
                   <Button type="button" variant="secondary" onClick={() => setIsLeaveModalOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit">{t('submit')}</Button>
@@ -750,20 +750,20 @@ export const Staff = () => {
       </Modal>
 
       {/* Financial Adjustment Modal */}
-      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title="Financial Adjustment">
+      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={t('hr_financial_adjustment')}>
           <form onSubmit={handleAdjustmentSubmit} className="space-y-4">
-              <Select label="Staff Member" required value={adjForm.staffId} onChange={e => setAdjForm({...adjForm, staffId: e.target.value})}>
+              <Select label={t('staff_form_role_title')} required value={adjForm.staffId} onChange={e => setAdjForm({...adjForm, staffId: e.target.value})}>
                   <option value="">Select Staff...</option>
                   {staff.filter(s => s.status === 'active').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
               </Select>
-              <Select label="Type" value={adjForm.type} onChange={e => setAdjForm({...adjForm, type: e.target.value})}>
-                  <option value="bonus">Bonus</option>
-                  <option value="fine">Fine</option>
-                  <option value="loan">Loan</option>
+              <Select label={t('appointments_form_type')} value={adjForm.type} onChange={e => setAdjForm({...adjForm, type: e.target.value})}>
+                  <option value="bonus">{t('hr_adj_bonus')}</option>
+                  <option value="fine">{t('hr_adj_fine')}</option>
+                  <option value="loan">{t('hr_adj_loan')}</option>
               </Select>
-              <Input type="number" label="Amount ($)" required value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} />
-              <Input type="date" label="Date" required value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
-              <Textarea label="Reason" rows={2} value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
+              <Input type="number" label={`${t('billing_table_header_amount')} ($)`} required value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} />
+              <Input type="date" label={t('date')} required value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
+              <Textarea label={t('patients_modal_action_reason')} rows={2} value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
               <div className="flex justify-end pt-4 gap-3">
                   <Button type="button" variant="secondary" onClick={() => setIsAdjustmentModalOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit">{t('submit')}</Button>
