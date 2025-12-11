@@ -82,6 +82,7 @@ export const api = {
   cancelAdmission: (id) => client.put(`/admissions/${id}/cancel`),
   addInpatientNote: (id, data) => client.post(`/admissions/${id}/notes`, data),
   dischargePatient: (id, data) => client.post(`/admissions/${id}/discharge`, data),
+  markBedClean: (id) => client.put(`/admissions/beds/${id}/clean`),
 
   // --- Laboratory ---
   getLabTests: () => client.get('/config/lab-tests'),

@@ -12,6 +12,10 @@ const apiRoutes = require('./src/routes/api');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust the first proxy. This is needed for rate limiting to work correctly
+// behind a reverse proxy (like on Railway, Heroku, etc.).
+app.set('trust proxy', 1);
+
 // Security Warning
 if (!process.env.JWT_SECRET) {
   console.warn('⚠️  SECURITY WARNING: Using default JWT secret. Set JWT_SECRET in environment variables for production.');

@@ -10,6 +10,7 @@ import { api } from '../services/api';
 import { Patient, Appointment, User, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill, InsuranceProvider } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
+import { useAuth } from '../context/AuthContext';
 
 export const Patients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -17,7 +18,7 @@ export const Patients = () => {
   const [bills, setBills] = useState<Bill[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [activeAdmissions, setActiveAdmissions] = useState<any[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user: currentUser } = useAuth();
   const { t, language } = useTranslation();
   
   // Catalogs
@@ -98,13 +99,6 @@ export const Patients = () => {
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     
-    try {
-        const user = await api.me();
-        setCurrentUser(user);
-    } catch (e) {
-        console.error("Failed to fetch current user:", e);
-    }
-
     try {
       const [pts, apts, b, stf, adms] = await Promise.all([
         api.getPatients(), 

@@ -16,12 +16,10 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useTranslation } from '../context/TranslationContext';
+import { useAuth } from '../context/AuthContext';
 
-interface LoginProps {
-  onLogin: (u: User) => void;
-}
-
-export const Login: React.FC<LoginProps> = ({ onLogin }) => {
+export const Login: React.FC = () => {
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,12 +41,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     try {
       // API returns { token: string, user: User }
       const response = await api.login(username, password);
-      
-      if (response.token) {
-        localStorage.setItem('token', response.token);
-      }
-      
-      onLogin(response.user);
+      login(response.user, response.token);
     } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.error || t('login_error_auth_failed'));

@@ -25,12 +25,7 @@ import { User } from '../types';
 import { canAccessRoute } from '../utils/rbac';
 import { Tooltip } from './UI';
 import { useTranslation } from '../context/TranslationContext';
-
-interface LayoutProps {
-  children: React.ReactNode;
-  user: User | null;
-  onLogout: () => void;
-}
+import { useAuth } from '../context/AuthContext';
 
 // Define structure for grouped navigation
 type NavGroup = {
@@ -42,7 +37,8 @@ type NavGroup = {
   }[];
 };
 
-export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
+export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, logout: onLogout } = useAuth();
   const [isMobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { t, language } = useTranslation();

@@ -1,14 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge, Modal, Input, Textarea, Select, ConfirmationDialog } from '../components/UI';
-import { Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, DollarSign, Loader2, XCircle } from 'lucide-react';
+import { Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, DollarSign, Loader2, XCircle, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from '../context/TranslationContext';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export const Admissions = () => {
   const { accent } = useTheme();
   const { t } = useTranslation();
+  const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [beds, setBeds] = useState<any[]>([]);
   const [activeAdmissions, setActiveAdmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +41,11 @@ export const Admissions = () => {
   const [selectedBedForAdmission, setSelectedBedForAdmission] = useState<any>(null);
   const [inpatientDetails, setInpatientDetails] = useState<any>(null);
   const [careTab, setCareTab] = useState<'overview' | 'notes' | 'discharge'>('overview');
+
+  // Search State for Admission
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [showPatientResults, setShowPatientResults] = useState(false);
+  const [selectedPatientForAdmission, setSelectedPatientForAdmission] = useState<any>(null);
 
   // Forms
   const [admitForm, setAdmitForm] = useState({ patientId: '', doctorId: '', entryDate: new Date().toISOString().split('T')[0], deposit: '', notes: '' });
@@ -91,14 +100,17 @@ export const Admissions = () => {
       if (admission) {
         setSelectedAdmission(admission);
         try {
-          // Loading indication could be added here
+          setProcessStatus('processing');
+          setProcessMessage('Loading patient file...');
           const details = await api.getInpatientDetails(admission.id);
           setInpatientDetails(details);
           setCareTab('overview');
+          setProcessStatus('idle');
           setIsCareModalOpen(true);
         } catch (e) {
           console.error("Failed to load details", e);
-          alert("Failed to load patient details. The admission record might be incomplete.");
+          setProcessStatus('error');
+          setProcessMessage("Failed to load patient details. The admission record might be incomplete.");
         }
       }
       return;
@@ -114,20 +126,39 @@ export const Admissions = () => {
         deposit: bed.costPerDay.toString(), 
         notes: '' 
       });
+      setPatientSearchTerm('');
+      setSelectedPatientForAdmission(null);
       setIsAdmitModalOpen(true);
+      return;
+    }
+
+    // 4. CLEANING BED -> MARK AVAILABLE
+    if (bed.status === 'cleaning') {
+      setConfirmState({
+        isOpen: true,
+        title: 'Mark as Cleaned',
+        message: 'Has this room been cleaned and prepared for the next patient?',
+        type: 'info',
+        action: async () => {
+          try {
+            await api.markBedClean(bed.id);
+            loadData(true);
+          } catch (e) { console.error(e); }
+        }
+      });
     }
   };
 
   const handleAdmitSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedBedForAdmission) return;
+    if (!selectedBedForAdmission || !selectedPatientForAdmission) return;
     
     setProcessStatus('processing');
     setProcessMessage(t('processing'));
 
     try {
       await api.createAdmission({
-        patientId: parseInt(admitForm.patientId),
+        patientId: selectedPatientForAdmission.id,
         bedId: selectedBedForAdmission.id,
         doctorId: parseInt(admitForm.doctorId),
         entryDate: admitForm.entryDate,
@@ -172,13 +203,36 @@ export const Admissions = () => {
     }
   };
 
+  const handleCancelReservation = async () => {
+    if (!selectedAdmission) return;
+    setConfirmState({
+      isOpen: true,
+      title: t('admissions_dialog_cancel_title'),
+      message: t('admissions_dialog_cancel_message'),
+      action: async () => {
+        setIsConfirmModalOpen(false);
+        setProcessStatus('processing');
+        setProcessMessage('Cancelling reservation...');
+        try {
+          await api.cancelAdmission(selectedAdmission.id);
+          setProcessStatus('success');
+          setProcessMessage(t('admissions_toast_cancel_success'));
+          await loadData(true);
+          setTimeout(() => setProcessStatus('idle'), 1500);
+        } catch (e: any) {
+          setProcessStatus('error');
+          setProcessMessage(e.response?.data?.error || 'Failed to cancel reservation.');
+        }
+      }
+    });
+  };
+
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inpatientDetails) return;
+    if (!inpatientDetails || !currentUser) return;
     try {
-      const user = await api.me(); 
       await api.addInpatientNote(inpatientDetails.id, {
-        doctorId: user.id, 
+        doctorId: currentUser.id, 
         note: noteForm.note,
         vitals: { bp: noteForm.bp, temp: noteForm.temp, pulse: noteForm.pulse, resp: noteForm.resp }
       });
@@ -186,7 +240,8 @@ export const Admissions = () => {
       setInpatientDetails(details);
       setNoteForm({ note: '', bp: '', temp: '', pulse: '', resp: '' });
     } catch (e: any) {
-      alert(e.response?.data?.error || 'Failed to add note');
+      setProcessStatus('error');
+      setProcessMessage(e.response?.data?.error || 'Failed to add note');
     }
   };
 
@@ -206,7 +261,7 @@ export const Admissions = () => {
           });
           
           setProcessStatus('success');
-          setProcessMessage('Patient discharged successfully.');
+          setProcessMessage('Patient discharged successfully. Bed marked for cleaning.');
           await loadData(true);
           
           setTimeout(() => {
@@ -221,6 +276,21 @@ export const Admissions = () => {
     });
   };
 
+  // --- Helper for Patient Search ---
+  const filteredPatientsForAdmission = patients.filter(p => {
+    // Basic search text filter
+    const matchesSearch = 
+      p.fullName.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
+      p.patientId.toLowerCase().includes(patientSearchTerm.toLowerCase()) || 
+      p.phone.includes(patientSearchTerm);
+    
+    // Check if patient is NOT currently admitted or reserved
+    // 'activeAdmissions' contains entries with 'patient_id'
+    const isAlreadyAdmitted = activeAdmissions.some(a => a.patient_id === p.id);
+    
+    return matchesSearch && !isAlreadyAdmitted && p.type !== 'inpatient';
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -228,7 +298,7 @@ export const Admissions = () => {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('admissions_title')}</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm">{t('admissions_subtitle')}</p>
         </div>
-        <div className="flex gap-3 text-xs font-medium">
+        <div className="flex gap-3 text-xs font-medium flex-wrap">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg border border-green-100 dark:border-green-800">
             <div className="w-2 h-2 rounded-full bg-green-500"></div> {t('admissions_legend_available')}
           </div>
@@ -237,6 +307,9 @@ export const Admissions = () => {
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg border border-red-100 dark:border-red-800">
             <div className="w-2 h-2 rounded-full bg-red-500"></div> {t('admissions_legend_occupied')}
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg border border-purple-100 dark:border-purple-800">
+            <div className="w-2 h-2 rounded-full bg-purple-500"></div> Cleaning
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded-lg border border-yellow-100 dark:border-yellow-800">
             <div className="w-2 h-2 rounded-full bg-yellow-500"></div> {t('admissions_legend_maintenance')}
@@ -253,6 +326,7 @@ export const Admissions = () => {
            const isOccupied = bed.status === 'occupied';
            const isReserved = bed.status === 'reserved';
            const isMaintenance = bed.status === 'maintenance';
+           const isCleaning = bed.status === 'cleaning';
            
            const doctorName = admission?.doctorName || 'Unassigned';
 
@@ -266,18 +340,20 @@ export const Admissions = () => {
                    ? 'bg-white dark:bg-slate-800 border-red-100 dark:border-red-900/50 hover:border-red-300' 
                    : isReserved
                      ? 'bg-white dark:bg-slate-800 border-blue-100 dark:border-blue-900/50 hover:border-blue-300'
-                     : isMaintenance 
-                       ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 cursor-not-allowed' 
-                       : 'bg-white dark:bg-slate-800 border-green-100 dark:border-green-900/50 hover:border-green-400'
+                     : isCleaning
+                       ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 hover:border-purple-400'
+                       : isMaintenance 
+                         ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 cursor-not-allowed' 
+                         : 'bg-white dark:bg-slate-800 border-green-100 dark:border-green-900/50 hover:border-green-400'
                  }
                `}
              >
                {/* Header: Room Number */}
                <div className="flex justify-between items-start">
-                 <span className={`text-xl font-bold ${isOccupied ? 'text-red-600' : isReserved ? 'text-blue-600' : isMaintenance ? 'text-yellow-600' : 'text-green-600'}`}>
+                 <span className={`text-xl font-bold ${isOccupied ? 'text-red-600' : isReserved ? 'text-blue-600' : isCleaning ? 'text-purple-600' : isMaintenance ? 'text-yellow-600' : 'text-green-600'}`}>
                    {bed.roomNumber}
                  </span>
-                 <Bed size={20} className={`${isOccupied ? 'text-red-400' : isReserved ? 'text-blue-400' : isMaintenance ? 'text-yellow-400' : 'text-green-400'}`} />
+                 {isCleaning ? <Sparkles size={20} className="text-purple-400" /> : <Bed size={20} className={`${isOccupied ? 'text-red-400' : isReserved ? 'text-blue-400' : isMaintenance ? 'text-yellow-400' : 'text-green-400'}`} />}
                </div>
                
                {/* Body: Status/Details */}
@@ -300,6 +376,11 @@ export const Admissions = () => {
                    </div>
                  ) : isMaintenance ? (
                    <p className="text-sm text-yellow-700 dark:text-yellow-500 font-medium text-center">{t('admissions_bed_maintenance')}</p>
+                 ) : isCleaning ? (
+                   <div className="text-center">
+                     <p className="text-sm text-purple-600 dark:text-purple-400 font-bold mb-1">Cleaning</p>
+                     <p className="text-xs text-purple-500/70 font-semibold group-hover:text-purple-600">Tap to Mark Ready</p>
+                   </div>
                  ) : (
                    <div className="text-center group-hover:scale-105 transition-transform">
                      <p className="text-sm text-green-600 dark:text-green-400 font-bold mb-1">{t('admissions_bed_available')}</p>
@@ -327,17 +408,56 @@ export const Admissions = () => {
             <span>{t('admissions_modal_reserve_note', { room: selectedBedForAdmission?.roomNumber })}</span>
           </div>
 
-          <Select 
-            label={t('patients_table_header_patient')} 
-            required 
-            value={admitForm.patientId} 
-            onChange={e => setAdmitForm({...admitForm, patientId: e.target.value})}
-          >
-            <option value="">{t('appointments_form_select_patient')}</option>
-            {patients.filter(p => p.type !== 'inpatient').map(p => (
-              <option key={p.id} value={p.id}>{p.fullName} ({p.patientId})</option>
-            ))}
-          </Select>
+          <div className="relative">
+            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">{t('patients_table_header_patient')}</label>
+            {selectedPatientForAdmission ? (
+              <div className="flex items-center justify-between p-3 border border-primary-200 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-800 rounded-xl">
+                <div>
+                  <div className="font-bold text-primary-900 dark:text-primary-100">{selectedPatientForAdmission.fullName}</div>
+                  <div className="text-xs text-primary-700 dark:text-primary-300">{selectedPatientForAdmission.patientId}</div>
+                </div>
+                <button type="button" onClick={() => setSelectedPatientForAdmission(null)} className="text-primary-500 hover:text-primary-700 p-1">
+                  <XCircle size={18} />
+                </button>
+              </div>
+            ) : (
+              <div>
+                <input 
+                  type="text" 
+                  className="block w-full rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5 px-4 border"
+                  placeholder="Search by name or ID..."
+                  value={patientSearchTerm}
+                  onChange={e => {
+                    setPatientSearchTerm(e.target.value);
+                    setShowPatientResults(true);
+                  }}
+                  onFocus={() => setShowPatientResults(true)}
+                />
+                {showPatientResults && patientSearchTerm && (
+                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-48 overflow-auto">
+                    {filteredPatientsForAdmission.length === 0 ? (
+                      <div className="p-3 text-sm text-slate-500 text-center">No eligible patients found.</div>
+                    ) : (
+                      filteredPatientsForAdmission.map(p => (
+                        <div 
+                          key={p.id} 
+                          className="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-50 dark:border-slate-700 last:border-0"
+                          onClick={() => {
+                            setSelectedPatientForAdmission(p);
+                            setAdmitForm({...admitForm, patientId: p.id.toString()});
+                            setShowPatientResults(false);
+                          }}
+                        >
+                          <div className="font-medium text-slate-900 dark:text-white">{p.fullName}</div>
+                          <div className="text-xs text-slate-500">{p.patientId} • {p.phone}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <Select 
             label={t('patients_modal_action_assign_doctor')}
@@ -352,7 +472,14 @@ export const Admissions = () => {
           </Select>
 
           <div className="grid grid-cols-2 gap-4">
-            <Input label={t('patients_modal_action_admission_date')} type="date" required value={admitForm.entryDate} onChange={e => setAdmitForm({...admitForm, entryDate: e.target.value})} />
+            <Input 
+              label={t('patients_modal_action_admission_date')} 
+              type="date" 
+              required 
+              min={new Date().toISOString().split('T')[0]}
+              value={admitForm.entryDate} 
+              onChange={e => setAdmitForm({...admitForm, entryDate: e.target.value})} 
+            />
             <Input label={t('patients_modal_action_required_deposit')} type="number" required value={admitForm.deposit} onChange={e => setAdmitForm({...admitForm, deposit: e.target.value})} />
           </div>
 
@@ -360,7 +487,7 @@ export const Admissions = () => {
 
           <div className="pt-4 flex justify-end gap-3">
             <Button type="button" variant="secondary" onClick={() => setIsAdmitModalOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit">{t('admissions_modal_reserve_button')}</Button>
+            <Button type="submit" disabled={!selectedPatientForAdmission}>{t('admissions_modal_reserve_button')}</Button>
           </div>
         </form>
       </Modal>
@@ -384,9 +511,12 @@ export const Admissions = () => {
             <div className="flex justify-between"><span>{t('date')}:</span> <strong>{selectedAdmission?.entry_date ? new Date(selectedAdmission.entry_date).toLocaleDateString() : '-'}</strong></div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t dark:border-slate-700">
-            <Button variant="secondary" onClick={() => setIsConfirmModalOpen(false)}>{t('cancel')}</Button>
-            <Button onClick={handleConfirmAdmission} icon={CheckCircle}>{t('admissions_modal_confirm_button')}</Button>
+          <div className="flex justify-between items-center pt-4 border-t dark:border-slate-700">
+            <Button variant="danger" onClick={handleCancelReservation}>Cancel Reservation</Button>
+            <div className="flex gap-3">
+                <Button variant="secondary" onClick={() => setIsConfirmModalOpen(false)}>{t('close')}</Button>
+                <Button onClick={handleConfirmAdmission} icon={CheckCircle}>{t('admissions_modal_confirm_button')}</Button>
+            </div>
           </div>
         </div>
       </Modal>
@@ -518,13 +648,26 @@ export const Admissions = () => {
               {/* DISCHARGE TAB */}
               {careTab === 'discharge' && (
                 <div className="space-y-6 animate-in fade-in">
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/50 p-4 rounded-xl flex gap-3">
-                    <AlertCircle className="text-yellow-600 shrink-0" size={20} />
-                    <div>
-                      <h4 className="font-bold text-yellow-800 dark:text-yellow-500">{t('admissions_care_discharge_process')}</h4>
-                      <p className="text-sm text-yellow-700 dark:text-yellow-600/80">{t('admissions_care_discharge_note')}</p>
+                  
+                  {/* Financial Status Check */}
+                  {inpatientDetails.outstandingBalance > 0 ? (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 p-4 rounded-xl flex gap-3">
+                      <AlertCircle className="text-red-600 shrink-0" size={24} />
+                      <div>
+                        <h4 className="font-bold text-red-800 dark:text-red-500">Unsettled Bills Detected</h4>
+                        <p className="text-sm text-red-700 dark:text-red-600/80 mb-2">Patient has outstanding bills totaling <strong>${inpatientDetails.outstandingBalance.toLocaleString()}</strong>. Discharge is disabled until full payment is received.</p>
+                        <Button size="sm" variant="outline" className="border-red-200 text-red-700 hover:bg-red-100" onClick={() => navigate('/billing')}>Go to Billing</Button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/50 p-4 rounded-xl flex gap-3">
+                      <AlertCircle className="text-yellow-600 shrink-0" size={20} />
+                      <div>
+                        <h4 className="font-bold text-yellow-800 dark:text-yellow-500">{t('admissions_care_discharge_process')}</h4>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-600/80">{t('admissions_care_discharge_note')}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-gray-50 dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 text-center">
@@ -548,7 +691,14 @@ export const Admissions = () => {
                   </div>
 
                   <div className="pt-4 border-t border-gray-100 dark:border-slate-700 flex justify-end">
-                    <Button variant="danger" icon={LogOut} onClick={handleDischarge}>{t('admissions_discharge_button')}</Button>
+                    <Button 
+                      variant="danger" 
+                      icon={LogOut} 
+                      onClick={handleDischarge}
+                      disabled={inpatientDetails.outstandingBalance > 0}
+                    >
+                      {t('admissions_discharge_button')}
+                    </Button>
                   </div>
                 </div>
               )}
@@ -602,7 +752,7 @@ export const Admissions = () => {
         onConfirm={confirmState.action}
         title={confirmState.title}
         message={confirmState.message}
-        type="warning"
+        type={confirmState.type as any || "warning"}
       />
     </div>
   );

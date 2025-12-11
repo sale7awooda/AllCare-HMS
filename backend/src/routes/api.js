@@ -1,5 +1,4 @@
 
-
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -97,6 +96,7 @@ router.post('/admissions/:id/confirm', authorizeRoles(Permissions.MANAGE_ADMISSI
 router.put('/admissions/:id/cancel', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.cancelAdmission);
 router.post('/admissions/:id/notes', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.addInpatientNote);
 router.post('/admissions/:id/discharge', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.dischargePatient);
+router.put('/admissions/beds/:id/clean', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.markBedClean);
 
 // Configuration: General
 router.get('/config/settings', authorizeRoles(Permissions.VIEW_SETTINGS), configurationController.getSettings);

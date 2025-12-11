@@ -9,6 +9,7 @@ import { api } from '../services/api';
 import { Bill, Patient, Appointment, PaymentMethod } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
+import { useAuth } from '../context/AuthContext';
 
 export const Billing = () => {
   const { t } = useTranslation();
@@ -16,7 +17,7 @@ export const Billing = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const { user: currentUser } = useAuth();
 
   // Pagination & Filtering State
   const [currentPage, setCurrentPage] = useState(1);
@@ -51,16 +52,14 @@ export const Billing = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [b, p, pm, u] = await Promise.all([
+      const [b, p, pm] = await Promise.all([
         api.getBills(), 
         api.getPatients(),
-        api.getPaymentMethods(),
-        api.me()
+        api.getPaymentMethods()
       ]);
       setBills(Array.isArray(b) ? b : []);
       setPatients(Array.isArray(p) ? p : []);
       setPaymentMethods(Array.isArray(pm) ? pm : []);
-      setCurrentUser(u);
 
       // Calculate Stats
       const total = b.reduce((acc: number, curr: Bill) => acc + (curr.paidAmount || 0), 0);

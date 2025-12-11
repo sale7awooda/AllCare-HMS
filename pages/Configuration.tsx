@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -558,7 +559,7 @@ export const Configuration = () => {
                           <td className="px-4 py-3 font-medium">{bed.roomNumber}</td>
                           <td className="px-4 py-3">{bed.type}</td>
                           <td className="px-4 py-3 text-right font-mono">${bed.costPerDay}</td>
-                          <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : 'red'}>{bed.status}</Badge></td>
+                          <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : bed.status === 'cleaning' ? 'purple' : 'red'}>{bed.status}</Badge></td>
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => openBedModal(bed)} className="p-1 text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
                             <button onClick={() => handleDeleteBed(bed.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
@@ -720,6 +721,13 @@ export const Configuration = () => {
              <option>General</option><option>Private</option><option>ICU</option>
            </Select>
            <Input label={t('config_beds_header_cost')} type="number" value={bedForm.costPerDay || 0} onChange={e => setBedForm({...bedForm, costPerDay: parseFloat(e.target.value)})} />
+           <Select label={t('status')} value={bedForm.status} onChange={e => setBedForm({...bedForm, status: e.target.value as any})}>
+             <option value="available">Available</option>
+             <option value="maintenance">Maintenance</option>
+             <option value="cleaning">Cleaning</option>
+             <option value="reserved">Reserved</option>
+             <option value="occupied">Occupied</option>
+           </Select>
            <div className="flex justify-end pt-4 gap-3">
              <Button type="button" variant="secondary" onClick={() => setIsBedModalOpen(false)}>{t('cancel')}</Button>
              <Button type="submit">{editingBedId ? t('edit') : t('add')}</Button>

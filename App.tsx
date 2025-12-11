@@ -12,16 +12,51 @@ import { Operations } from './pages/Operations';
 import { Configuration } from './pages/Configuration';
 import { Settings } from './pages/Settings'; 
 import { Reports } from './pages/Reports'; 
-import { Records } from './pages/Records'; // New Import
+import { Records } from './pages/Records';
 import { Login } from './pages/Login';
 import { User } from './types'; 
 import { api } from './services/api';
 import { useTranslation } from './context/TranslationContext';
+import { AuthContext } from './context/AuthContext';
+
+function AppContent() {
+  const { user, isAuthChecking } = React.useContext(AuthContext)!;
+  const { t } = useTranslation();
+
+  if (isAuthChecking) {
+    return <div className="min-h-screen flex items-center justify-center text-gray-500 bg-slate-50 dark:bg-slate-950">{t('app_loading')}</div>;
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  return (
+    <Router>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/patients" element={<Patients />} />
+          <Route path="/appointments" element={<Appointments />} />
+          <Route path="/admissions" element={<Admissions />} /> 
+          <Route path="/laboratory" element={<Laboratory />} /> 
+          <Route path="/operations" element={<Operations />} /> 
+          <Route path="/billing" element={<Billing />} />
+          <Route path="/hr" element={<Staff />} /> 
+          <Route path="/reports" element={<Reports />} /> 
+          <Route path="/records" element={<Records />} /> 
+          <Route path="/settings" element={<Settings />} /> 
+          <Route path="/configuration" element={<Configuration />} /> 
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Layout>
+    </Router>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const { t } = useTranslation();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -40,33 +75,19 @@ export default function App() {
     checkAuth();
   }, []);
 
-  if (isAuthChecking) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-500 bg-slate-50 dark:bg-slate-950">{t('app_loading')}</div>;
-  }
+  const login = (userData: User, token: string) => {
+    localStorage.setItem('token', token);
+    setUser(userData);
+  };
 
-  if (!user) {
-    return <Login onLogin={setUser} />;
-  }
+  const logout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+  };
 
   return (
-    <Router>
-      <Layout user={user} onLogout={() => { localStorage.removeItem('token'); setUser(null); }}>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/patients" element={<Patients />} />
-          <Route path="/appointments" element={<Appointments />} />
-          <Route path="/admissions" element={<Admissions />} /> 
-          <Route path="/laboratory" element={<Laboratory />} /> 
-          <Route path="/operations" element={<Operations />} /> 
-          <Route path="/billing" element={<Billing />} />
-          <Route path="/hr" element={<Staff />} /> 
-          <Route path="/reports" element={<Reports />} /> 
-          <Route path="/records" element={<Records />} /> 
-          <Route path="/settings" element={<Settings />} /> 
-          <Route path="/configuration" element={<Configuration />} /> 
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </Layout>
-    </Router>
+    <AuthContext.Provider value={{ user, isAuthChecking, login, logout }}>
+      <AppContent />
+    </AuthContext.Provider>
   );
 }

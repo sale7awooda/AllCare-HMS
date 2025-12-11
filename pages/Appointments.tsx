@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -12,6 +10,7 @@ import { api } from '../services/api';
 import { Patient, Appointment, MedicalStaff, User as UserType, NurseServiceCatalog } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
+import { useAuth } from '../context/AuthContext';
 
 // Date Helpers
 const formatDate = (date: Date) => date.toISOString().split('T')[0];
@@ -266,7 +265,7 @@ export const Appointments = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
-  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const { user: currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [filterDept, setFilterDept] = useState('all');
   const { t } = useTranslation();
@@ -308,18 +307,16 @@ export const Appointments = () => {
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [apts, pts, stf, depts, user] = await Promise.all([
+      const [apts, pts, stf, depts] = await Promise.all([
         api.getAppointments(),
         api.getPatients(),
         api.getStaff(),
         api.getDepartments(),
-        api.me()
       ]);
       setAppointments(Array.isArray(apts) ? apts : []);
       setPatients(Array.isArray(pts) ? pts : []);
       setStaff(Array.isArray(stf) ? stf : []);
       setDepartments(Array.isArray(depts) ? depts : []);
-      setCurrentUser(user);
     } catch (e) {
       console.error("Failed to load appointment data", e);
     } finally {
