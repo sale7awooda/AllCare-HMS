@@ -154,6 +154,7 @@ export interface Bill {
   status: 'pending' | 'partial' | 'paid' | 'overdue';
   date: string;
   items: BillItem[];
+  serviceStatus?: string; // New field to track status of related service
 }
 
 export interface BillItem {

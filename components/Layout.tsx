@@ -243,12 +243,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           className={`absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 ${isMobileOpen ? 'opacity-100' : 'opacity-0'}`}
           onClick={() => setMobileOpen(false)}
         />
-        <div className={`absolute top-0 bottom-0 w-72 bg-slate-900 transition-transform duration-300 ${isRtl ? 'right-0' : 'left-0'} ${isMobileOpen ? 'translate-x-0' : (isRtl ? 'translate-x-full' : '-translate-x-full')}`}>
+        <div className={`absolute top-0 bottom-0 w-64 bg-slate-900 transition-transform duration-300 ${isRtl ? 'right-0' : 'left-0'} ${isMobileOpen ? 'translate-x-0' : (isRtl ? 'translate-x-full' : '-translate-x-full')}`}>
           <SidebarContent mobile={true} />
         </div>
       </div>
 
-      <aside className={`hidden md:block relative z-20 shrink-0 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-72'}`}>
+      <aside className={`hidden md:block relative z-20 shrink-0 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-[200px]'}`}>
         <SidebarContent />
       </aside>
 

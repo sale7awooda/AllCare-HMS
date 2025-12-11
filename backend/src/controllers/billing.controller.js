@@ -2,13 +2,19 @@
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
+  // Join with service tables to get the status of the related service (Appointment, Lab, etc.)
   const bills = db.prepare(`
     SELECT 
       b.id, b.bill_number as billNumber, b.total_amount as totalAmount, 
       b.paid_amount as paidAmount, b.status, b.bill_date as date,
-      p.full_name as patientName, p.id as patientId
+      p.full_name as patientName, p.id as patientId,
+      COALESCE(a.status, l.status, o.status, adm.status) as serviceStatus
     FROM billing b
     JOIN patients p ON b.patient_id = p.id
+    LEFT JOIN appointments a ON a.bill_id = b.id
+    LEFT JOIN lab_requests l ON l.bill_id = b.id
+    LEFT JOIN operations o ON o.bill_id = b.id
+    LEFT JOIN admissions adm ON adm.bill_id = b.id
     ORDER BY b.bill_date DESC
   `).all();
 

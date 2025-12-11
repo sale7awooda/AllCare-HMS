@@ -10,7 +10,7 @@ backend/.env
 # Production builds
 dist/
 build/
-backend/public/
+# backend/public/  <-- Commented out to allow committing build artifacts
 
 # Database (SQLite)
 *.db

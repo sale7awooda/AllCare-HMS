@@ -228,8 +228,7 @@ export const Billing = () => {
     setPayingBill(bill);
     // Default to remaining balance
     const remaining = bill.totalAmount - (bill.paidAmount || 0);
-    // Determine default payment method. If user has insurance, maybe default to insurance?
-    // For now, simpler to default to Cash.
+    // Determine default payment method.
     setPaymentForm({ 
         amount: remaining.toString(), 
         method: 'Cash',
@@ -513,6 +512,16 @@ export const Billing = () => {
   const canManageBilling = hasPermission(currentUser, Permissions.MANAGE_BILLING);
   const isAccountant = currentUser?.role === 'accountant' || currentUser?.role === 'admin';
 
+  // Refund condition logic
+  const isRefundEnabled = (bill: Bill) => {
+      // Logic: Enabled if service is NOT in progress (i.e. either not received or completed).
+      // Disables only if service is actively happening (locking funds temporarily).
+      if (!isAccountant) return false;
+      const status = bill.serviceStatus;
+      if (!status) return true; // Manual bills are refundable
+      return !['in_progress', 'active'].includes(status);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -661,10 +670,10 @@ export const Billing = () => {
                                         <Button 
                                             size="sm" 
                                             variant="danger" 
-                                            disabled={!isAccountant} 
+                                            disabled={!isRefundEnabled(bill)} 
                                             icon={RefreshCcw}
-                                            title={!isAccountant ? "Refunds require Accountant role" : ""}
-                                            onClick={() => isAccountant && openRefundModal(bill)}
+                                            title={!isAccountant ? "Refunds require Accountant role" : (!isRefundEnabled(bill) ? "Cannot refund active service" : "")}
+                                            onClick={() => isRefundEnabled(bill) && openRefundModal(bill)}
                                         >
                                             Refund
                                         </Button>
