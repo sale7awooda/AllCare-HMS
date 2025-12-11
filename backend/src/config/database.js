@@ -1,4 +1,3 @@
-
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
@@ -358,6 +357,135 @@ const initDB = (forceReset = false) => {
   });
   console.log('✅ Users seeded.');
 
+  // Departments
+  if (db.prepare('SELECT COUNT(*) FROM departments').get()['COUNT(*)'] === 0) {
+    const departments = [
+      { name_en: 'Cardiology', name_ar: 'أمراض القلب' },
+      { name_en: 'Neurology', name_ar: 'طب الأعصاب' },
+      { name_en: 'Orthopedics', name_ar: 'طب العظام' },
+      { name_en: 'Pediatrics', name_ar: 'طب الأطفال' },
+      { name_en: 'Oncology', name_ar: 'علم الأورام' },
+      { name_en: 'General Surgery', name_ar: 'الجراحة العامة' },
+      { name_en: 'Emergency', name_ar: 'الطوارئ' },
+      { name_en: 'Obstetrics and Gynecology', name_ar: 'أمراض النساء والتوليد' },
+      { name_en: 'Dermatology', name_ar: 'الأمراض الجلدية' },
+      { name_en: 'Radiology', name_ar: 'الأشعة' },
+      { name_en: 'Anesthesiology', name_ar: 'التخدير' },
+      { name_en: 'Internal Medicine', name_ar: 'الطب الباطني' }
+    ];
+    const insertDept = db.prepare('INSERT OR IGNORE INTO departments (name_en, name_ar) VALUES (?, ?)');
+    departments.forEach(d => insertDept.run(d.name_en, d.name_ar));
+    console.log('✅ Departments seeded.');
+  }
+
+  // Specializations
+  if (db.prepare('SELECT COUNT(*) FROM specializations').get()['COUNT(*)'] === 0) {
+    const specializations = [
+      { name_en: 'Cardiologist', name_ar: 'أخصائي أمراض القلب' },
+      { name_en: 'Neurologist', name_ar: 'أخصائي طب الأعصاب' },
+      { name_en: 'Orthopedic Surgeon', name_ar: 'جراح عظام' },
+      { name_en: 'Pediatrician', name_ar: 'طبيب أطفال' },
+      { name_en: 'Oncologist', name_ar: 'طبيب أورام' },
+      { name_en: 'General Surgeon', name_ar: 'جراح عام' },
+      { name_en: 'Emergency Physician', name_ar: 'طبيب طوارئ' },
+      { name_en: 'Gynecologist', name_ar: 'طبيب نساء' },
+      { name_en: 'Dermatologist', name_ar: 'طبيب جلدية' },
+      { name_en: 'Radiologist', name_ar: 'أخصائي أشعة' },
+      { name_en: 'Anesthesiologist', name_ar: 'طبيب تخدير' },
+      { name_en: 'Internist', name_ar: 'طبيب باطني' }
+    ];
+    const insertSpec = db.prepare('INSERT OR IGNORE INTO specializations (name_en, name_ar) VALUES (?, ?)');
+    specializations.forEach(s => insertSpec.run(s.name_en, s.name_ar));
+    console.log('✅ Specializations seeded.');
+  }
+
+  // Lab Tests (Extended)
+  if (db.prepare('SELECT COUNT(*) FROM lab_tests').get()['COUNT(*)'] === 0) {
+    const tests = [
+      { name_en: 'CBC (Complete Blood Count)', name_ar: 'تعداد الدم الكامل', category_en: 'Hematology', category_ar: 'أمراض الدم', cost: 15 },
+      { name_en: 'BMP (Basic Metabolic Panel)', name_ar: 'لوحة الأيض الأساسية', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 25 },
+      { name_en: 'Lipid Panel', name_ar: 'لوحة الدهون', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 30 },
+      { name_en: 'Liver Function Tests (LFT)', name_ar: 'اختبارات وظائف الكبد', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 40 },
+      { name_en: 'Urinalysis', name_ar: 'تحليل البول', category_en: 'Microbiology', category_ar: 'علم الأحياء الدقيقة', cost: 10 },
+      { name_en: 'Glucose Test (Fasting)', name_ar: 'اختبار الجلوكوز (صائم)', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 8 },
+      { name_en: 'Thyroid Stimulating Hormone (TSH)', name_ar: 'هرمون الغدة الدرقية', category_en: 'Endocrinology', category_ar: 'الغدد الصماء', cost: 50 },
+      { name_en: 'Hemoglobin A1c (HbA1c)', name_ar: 'الهيموجلوبين السكري', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 35 },
+      { name_en: 'Prothrombin Time (PT/INR)', name_ar: 'زمن البروثرومبين', category_en: 'Hematology', category_ar: 'أمراض الدم', cost: 22 },
+      { name_en: 'Creatinine Kinase (CK)', name_ar: 'كيناز الكرياتينين', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 18 }
+    ];
+    const insertTest = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost) VALUES (?, ?, ?, ?, ?)');
+    tests.forEach(t => insertTest.run(t.name_en, t.name_ar, t.category_en, t.category_ar, t.cost));
+    console.log('✅ Lab tests seeded.');
+  }
+
+  // Nurse Services
+  if (db.prepare('SELECT COUNT(*) FROM nurse_services').get()['COUNT(*)'] === 0) {
+    const services = [
+      { name_en: 'IV Drip Administration', name_ar: 'إعطاء محاليل وريدية', description_en: 'Administering intravenous fluids.', description_ar: 'إعطاء السوائل عن طريق الوريد.', cost: 20 },
+      { name_en: 'Wound Dressing', name_ar: 'تضميد الجروح', description_en: 'Cleaning and dressing wounds.', description_ar: 'تنظيف وتضميد الجروح.', cost: 15 },
+      { name_en: 'Vital Signs Monitoring', name_ar: 'مراقبة العلامات الحيوية', description_en: 'Regular check of vital signs.', description_ar: 'فحص دوري للعلامات الحيوية.', cost: 5 },
+      { name_en: 'Medication Administration (IM/SC)', name_ar: 'إعطاء الأدوية (حقن)', description_en: 'Administering prescribed medication via injection.', description_ar: 'إعطاء الدواء الموصوف عن طريق الحقن.', cost: 10 },
+      { name_en: 'Catheter Care', name_ar: 'العناية بالقسطرة', description_en: 'Maintenance and cleaning of urinary catheters.', description_ar: 'صيانة وتنظيف القسطرة البولية.', cost: 25 },
+      { name_en: 'Nebulizer Treatment', name_ar: 'جلسة استنشاق', description_en: 'Administering medication via a nebulizer.', description_ar: 'إعطاء الدواء عن طريق جهاز الاستنشاق.', cost: 12 }
+    ];
+    const insertSvc = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?, ?)');
+    services.forEach(s => insertSvc.run(s.name_en, s.name_ar, s.description_en, s.description_ar, s.cost));
+    console.log('✅ Nurse services seeded.');
+  }
+
+  // Operations Catalog
+  if (db.prepare('SELECT COUNT(*) FROM operations_catalog').get()['COUNT(*)'] === 0) {
+    const operations = [
+      { name_en: 'Appendectomy', name_ar: 'استئصال الزائدة الدودية', base_cost: 1500 },
+      { name_en: 'Hernia Repair', name_ar: 'إصلاح الفتق', base_cost: 2000 },
+      { name_en: 'Knee Arthroscopy', name_ar: 'تنظير الركبة', base_cost: 3000 },
+      { name_en: 'Gallbladder Removal (Cholecystectomy)', name_ar: 'استئصال المرارة', base_cost: 2500 },
+      { name_en: 'Cesarean Section', name_ar: 'الولادة القيصرية', base_cost: 2200 },
+      { name_en: 'Tonsillectomy', name_ar: 'استئصال اللوزتين', base_cost: 800 }
+    ];
+    const insertOp = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
+    operations.forEach(o => insertOp.run(o.name_en, o.name_ar, o.base_cost));
+    console.log('✅ Operations catalog seeded.');
+  }
+
+  // Beds
+  if (db.prepare('SELECT COUNT(*) FROM beds').get()['COUNT(*)'] === 0) {
+    const beds = [
+      { room_number: 'G-101', type: 'General', cost_per_day: 50 }, { room_number: 'G-102', type: 'General', cost_per_day: 50 },
+      { room_number: 'G-103', type: 'General', cost_per_day: 50 }, { room_number: 'G-104', type: 'General', cost_per_day: 50 },
+      { room_number: 'P-201', type: 'Private', cost_per_day: 150 }, { room_number: 'P-202', type: 'Private', cost_per_day: 150 },
+      { room_number: 'P-203', type: 'Private', cost_per_day: 150 },
+      { room_number: 'M-301', type: 'Private', cost_per_day: 160 }, { room_number: 'M-302', type: 'General', cost_per_day: 60 },
+      { room_number: 'ICU-01', type: 'ICU', cost_per_day: 300 }, { room_number: 'ICU-02', type: 'ICU', cost_per_day: 300 }
+    ];
+    const insertBed = db.prepare('INSERT INTO beds (room_number, type, cost_per_day) VALUES (?, ?, ?)');
+    beds.forEach(b => insertBed.run(b.room_number, b.type, b.cost_per_day));
+    console.log('✅ Beds seeded.');
+  }
+  
+  // Payment Methods
+  if (db.prepare('SELECT COUNT(*) FROM payment_methods').get()['COUNT(*)'] === 0) {
+    const methods = [
+      { name_en: 'Cash', name_ar: 'نقداً' },
+      { name_en: 'Bankak (Bank of Khartoum)', name_ar: 'بنكك (بنك الخرطوم)' },
+      { name_en: 'SyberPay', name_ar: 'سايبر باي' },
+      { name_en: 'Credit Card', name_ar: 'بطاقة ائتمان' },
+      { name_en: 'Insurance', name_ar: 'تأمين' },
+      { name_en: 'Bank Transfer', name_ar: 'تحويل بنكي' }
+    ];
+    const insertMethod = db.prepare('INSERT OR IGNORE INTO payment_methods (name_en, name_ar) VALUES (?, ?)');
+    methods.forEach(m => insertMethod.run(m.name_en, m.name_ar));
+    console.log('✅ Payment Methods seeded.');
+  }
+
+  // Tax Rates
+  if (db.prepare('SELECT COUNT(*) FROM tax_rates').get()['COUNT(*)'] === 0) {
+    const taxes = [ { name_en: 'VAT', name_ar: 'ضريبة القيمة المضافة', rate: 15 } ];
+    const insertTax = db.prepare('INSERT INTO tax_rates (name_en, name_ar, rate) VALUES (?, ?, ?)');
+    taxes.forEach(t => insertTax.run(t.name_en, t.name_ar, t.rate));
+    console.log('✅ Tax Rates seeded.');
+  }
+
   // Insurance Providers Seed
   if (db.prepare('SELECT COUNT(*) FROM insurance_providers').get()['COUNT(*)'] === 0) {
     const providers = [
@@ -372,7 +500,7 @@ const initDB = (forceReset = false) => {
         { name_en: "Islamic Insurance Company", name_ar: "شركة التأمين الإسلامية" },
         { name_en: "National Reinsurance Co. (Sudan)", name_ar: "الشركة الوطنية لإعادة التأمين (السودان)" }
     ];
-    const insertProvider = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)');
+    const insertProvider = db.prepare('INSERT OR IGNORE INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)');
     providers.forEach(p => {
         try {
             insertProvider.run(p.name_en, p.name_ar);
@@ -381,20 +509,6 @@ const initDB = (forceReset = false) => {
         }
     });
     console.log('✅ Insurance providers seeded.');
-  }
-
-  // Lab Tests (Extended)
-  if (db.prepare('SELECT COUNT(*) FROM lab_tests').get()['COUNT(*)'] === 0) {
-    const tests = [
-      { name_en: 'CBC (Complete Blood Count)', name_ar: 'تعداد الدم الكامل', category_en: 'Hematology', category_ar: 'أمراض الدم', cost: 15, range: 'N/A' }
-    ];
-    const insertTest = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost, normal_range) VALUES (?, ?, ?, ?, ?, ?)');
-    tests.forEach(t => {
-      try {
-        insertTest.run(t.name_en, t.name_ar, t.category_en, t.category_ar, t.cost, t.range);
-      } catch (e) {}
-    });
-    console.log('✅ Lab tests seeded.');
   }
 };
 

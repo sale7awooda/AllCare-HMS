@@ -5,7 +5,7 @@ type Language = 'en' | 'ar';
 interface TranslationContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number>) => string;
 }
 
 const TranslationContext = createContext<TranslationContextType | undefined>(undefined);
@@ -54,8 +54,14 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     root.dir = language === 'ar' ? 'rtl' : 'ltr';
   }, [language]);
 
-  const t = useCallback((key: string, fallback?: string): string => {
-    return translations[key] || fallback || key;
+  const t = useCallback((key: string, options?: Record<string, string | number>): string => {
+    let text = translations[key] || key;
+    if (options && typeof text === 'string') {
+      for (const [k, v] of Object.entries(options)) {
+        text = text.replace(new RegExp(`{${k}}`, 'g'), String(v));
+      }
+    }
+    return text;
   }, [translations]);
 
   return (

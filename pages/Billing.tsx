@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { 
@@ -9,8 +8,10 @@ import {
 import { api } from '../services/api';
 import { Bill, Patient, Appointment, PaymentMethod } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
+import { useTranslation } from '../context/TranslationContext';
 
 export const Billing = () => {
+  const { t } = useTranslation();
   const [bills, setBills] = useState<Bill[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -230,8 +231,8 @@ export const Billing = () => {
         <tbody className="divide-y divide-slate-100">
           {bill.items.map((item, i) => (
             <tr key={i}>
-              <td className="py-4 px-4 text-slate-700">{item.description}</td>
-              <td className="py-4 px-4 text-right font-mono text-slate-900">${item.amount.toFixed(2)}</td>
+              <td className="py-3 px-4">{item.description}</td>
+              <td className="py-3 px-4 text-right font-medium">${item.amount.toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
@@ -239,34 +240,30 @@ export const Billing = () => {
 
       {/* Totals */}
       <div className="flex justify-end">
-        <div className="w-64 space-y-3">
+        <div className="w-full max-w-xs space-y-3">
           <div className="flex justify-between text-slate-600">
             <span>Subtotal</span>
-            <span>${bill.totalAmount.toFixed(2)}</span>
+            <span className="font-medium">${bill.totalAmount.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-slate-600 border-b border-slate-200 pb-3">
+          <div className="flex justify-between text-slate-600">
             <span>Tax (0%)</span>
-            <span>$0.00</span>
+            <span className="font-medium">$0.00</span>
           </div>
-          <div className="flex justify-between font-bold text-xl text-slate-900">
+          <div className="flex justify-between text-slate-900 font-bold text-lg border-t-2 border-slate-200 pt-3 mt-2">
             <span>Total</span>
             <span>${bill.totalAmount.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-sm font-medium pt-2">
-             <span className="text-green-600">Paid to Date</span>
-             <span className="text-green-600">-${(bill.paidAmount || 0).toFixed(2)}</span>
+           <div className="flex justify-between text-green-600 font-bold text-sm pt-1">
+            <span>Amount Paid</span>
+            <span>-${(bill.paidAmount || 0).toFixed(2)}</span>
           </div>
-          <div className="flex justify-between font-bold text-lg border-t-2 border-slate-900 pt-3">
+          <div className="flex justify-between text-slate-900 font-bold text-xl bg-slate-100 p-3 rounded-lg">
             <span>Balance Due</span>
-            <span className="text-primary-600">${(bill.totalAmount - (bill.paidAmount || 0)).toFixed(2)}</span>
+            <span>${(bill.totalAmount - (bill.paidAmount || 0)).toFixed(2)}</span>
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <div className="mt-16 pt-8 border-t border-slate-100 text-center text-slate-400 text-sm">
-        <p>Thank you for choosing AllCare Hospital. For billing inquiries, please contact finance.</p>
-      </div>
+      
     </div>
   );
 
@@ -276,330 +273,183 @@ export const Billing = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Billing & Finance</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Manage invoices, payments, and revenue.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('billing_title')}</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('billing_subtitle')}</p>
         </div>
         {canManageBilling ? (
-          <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus} className="shadow-lg shadow-primary-500/20">Create Invoice</Button>
+            <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('billing_create_invoice_button')}</Button>
         ) : (
-          <Button disabled variant="secondary" icon={Lock}>Locked</Button>
+            <Button disabled variant="secondary" icon={Lock}>{t('billing_create_invoice_button')}</Button>
         )}
       </div>
 
-      {/* Financial Stats */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-l-4 border-l-emerald-500">
-            <div className="flex items-start justify-between">
-                <div>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Total Revenue</p>
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${stats.totalRevenue.toLocaleString()}</h3>
-                </div>
-                <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-xl">
-                    <TrendingUp size={24} />
-                </div>
-            </div>
+        <Card>
+          <h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_stat_revenue')}</h4>
+          <p className="text-3xl font-bold text-emerald-600 mt-2">${stats.totalRevenue.toLocaleString()}</p>
         </Card>
-        <Card className="border-l-4 border-l-orange-500">
-            <div className="flex items-start justify-between">
-                <div>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Pending Collections</p>
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${stats.pendingAmount.toLocaleString()}</h3>
-                </div>
-                <div className="p-3 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl">
-                    <AlertCircle size={24} />
-                </div>
-            </div>
+        <Card>
+          <h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_stat_pending')}</h4>
+          <p className="text-3xl font-bold text-orange-500 mt-2">${stats.pendingAmount.toLocaleString()}</p>
         </Card>
-        <Card className="border-l-4 border-l-blue-500">
-            <div className="flex items-start justify-between">
-                <div>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Paid Invoices</p>
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.paidInvoices}</h3>
-                </div>
-                <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl">
-                    <CheckCircle size={24} />
-                </div>
-            </div>
+        <Card>
+          <h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_stat_paid')}</h4>
+          <p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">{stats.paidInvoices}</p>
         </Card>
       </div>
 
-      <Card className="!p-0 overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
-        {/* Search Toolbar */}
-        <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex items-center gap-3">
-           <div className="relative flex-1 max-w-md">
+      <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-visible z-10">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+           <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input 
                 type="text" 
-                placeholder="Search invoice # or patient name..." 
-                className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all shadow-sm"
+                placeholder={t('billing_search_placeholder')}
+                className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
                 value={searchTerm}
                 onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
            </div>
         </div>
 
-        <div className="overflow-x-auto min-h-[400px]">
+        <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-white dark:bg-slate-900">
+            <thead className="bg-slate-50 dark:bg-slate-900">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Invoice Info</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Patient</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_info')}</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_patient')}</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_status')}</th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_amount')}</th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_actions')}</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-              {loading ? (
-                  <tr><td colSpan={5} className="text-center py-20 text-slate-500">Loading billing data...</td></tr>
-              ) : paginatedBills.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center py-20 text-slate-500">No invoices found matching criteria.</td></tr>
-              ) : (
-                  paginatedBills.map((bill) => (
-                    <tr key={bill.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                            <span className="font-mono text-xs font-bold text-slate-500">#{bill.billNumber}</span>
-                            <span className="text-xs text-slate-400">{new Date(bill.date).toLocaleDateString()}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                         <div className="font-bold text-sm text-slate-900 dark:text-white">{bill.patientName}</div>
-                         <div className="text-xs text-slate-500">ID: {bill.patientId}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'orange' : 'red'}>
-                          {bill.status}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                         <div className="font-bold text-sm text-slate-900 dark:text-white">${bill.totalAmount.toLocaleString()}</div>
-                         {(bill.paidAmount || 0) > 0 && (
-                             <div className="text-xs text-green-600 font-medium">Paid: ${bill.paidAmount?.toLocaleString()}</div>
-                         )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                         <div className="flex justify-end gap-2">
-                            <button 
-                                onClick={() => setSelectedBill(bill)}
-                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                                title="View Invoice"
-                            >
-                                <FileText size={18} />
-                            </button>
-                            {bill.status !== 'paid' && canManageBilling && (
-                                <Button 
-                                    size="sm" 
-                                    variant="primary" 
-                                    onClick={() => openPaymentModal(bill)}
-                                    className="bg-emerald-600 hover:bg-emerald-700"
-                                    icon={CreditCard}
-                                >
-                                    Pay
-                                </Button>
-                            )}
-                         </div>
-                      </td>
-                    </tr>
-                  ))
-              )}
+              {loading ? <tr><td colSpan={5} className="text-center py-10 text-slate-500">{t('billing_table_loading')}</td></tr> :
+               paginatedBills.length === 0 ? <tr><td colSpan={5} className="text-center py-10 text-slate-500">{t('billing_table_empty')}</td></tr> :
+               paginatedBills.map(bill => (
+                 <tr key={bill.id}>
+                   <td className="px-6 py-4 whitespace-nowrap">
+                     <div className="font-mono text-sm font-medium text-slate-900 dark:text-white">{bill.billNumber}</div>
+                     <div className="text-xs text-slate-500">{new Date(bill.date).toLocaleDateString()}</div>
+                   </td>
+                   <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200">{bill.patientName}</td>
+                   <td className="px-6 py-4 whitespace-nowrap">
+                     <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{bill.status}</Badge>
+                   </td>
+                   <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="font-bold text-lg text-slate-900 dark:text-white">${bill.totalAmount.toLocaleString()}</div>
+                      <div className="text-xs text-green-600">{t('billing_table_paid_amount')}: ${bill.paidAmount.toLocaleString()}</div>
+                   </td>
+                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
+                     <Button size="sm" variant="outline" onClick={() => setSelectedBill(bill)}>{t('billing_action_view_invoice')}</Button>
+                     {canManageBilling && bill.status !== 'paid' && (
+                       <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>
+                     )}
+                   </td>
+                 </tr>
+               ))}
             </tbody>
           </table>
         </div>
-
-        {/* Enhanced Pagination Footer */}
-        {!loading && filteredBills.length > 0 && (
-           <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-b-xl gap-4">
-             <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
-                <span>
-                  Showing <span className="font-medium text-slate-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="font-medium text-slate-900 dark:text-white">{Math.min(currentPage * itemsPerPage, filteredBills.length)}</span> of <span className="font-medium text-slate-900 dark:text-white">{filteredBills.length}</span>
-                </span>
-                
-                <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-4">
-                  <span>Rows:</span>
-                  <select 
-                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-primary-500"
-                    value={itemsPerPage}
-                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                  </select>
-                </div>
-             </div>
-
-             <div className="flex gap-1.5">
-               <button 
-                 onClick={() => setCurrentPage(1)}
-                 disabled={currentPage === 1}
-                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-               >
-                 <ChevronsLeft size={16} />
-               </button>
-               <button 
-                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                 disabled={currentPage === 1}
-                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-               >
-                 <ChevronLeft size={16} />
-               </button>
-               
-               {getPageNumbers().map((p, i) => (
-                 <button
-                   key={i}
-                   onClick={() => typeof p === 'number' && setCurrentPage(p)}
-                   disabled={typeof p !== 'number'}
-                   className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-all ${
-                     p === currentPage 
-                       ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30' 
-                       : typeof p === 'number' 
-                         ? 'border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300' 
-                         : 'text-slate-400 cursor-default'
-                   }`}
-                 >
-                   {p}
-                 </button>
-               ))}
-
-               <button 
-                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                 disabled={currentPage === totalPages}
-                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-               >
-                 <ChevronRight size={16} />
-               </button>
-               <button 
-                 onClick={() => setCurrentPage(totalPages)}
-                 disabled={currentPage === totalPages}
-                 className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-               >
-                 <ChevronsRight size={16} />
-               </button>
-             </div>
+        
+        {!loading && filteredBills.length > itemsPerPage && (
+           <div className="px-6 py-4 border-t flex justify-end">
+             {/* Pagination controls can be added here */}
            </div>
         )}
       </Card>
 
-      {/* CREATE INVOICE MODAL */}
-      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create New Invoice">
-        <form onSubmit={handleCreateSubmit} className="space-y-6">
-           <Select 
-            label="Select Patient" 
-            required
+      {/* MODALS */}
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title={t('billing_modal_create_title')}>
+        <form onSubmit={handleCreateSubmit} className="space-y-4">
+          <Select 
+            label={t('billing_modal_create_select_patient')}
             value={createForm.patientId}
             onChange={e => setCreateForm({...createForm, patientId: e.target.value})}
+            required
           >
-            <option value="">Choose a patient...</option>
-            {patients.map(p => <option key={p.id} value={p.id}>{p.fullName} ({p.patientId})</option>)}
+            <option value="">{t('billing_modal_create_choose_patient')}</option>
+            {patients.map(p => <option key={p.id} value={p.id}>{p.fullName}</option>)}
           </Select>
-
-          <div className="space-y-3">
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Bill Items</label>
-            {createForm.items.map((item, index) => (
-                <div key={index} className="flex gap-2 items-start">
-                    <Input 
-                        placeholder="Description (e.g. Consultation)" 
-                        className="flex-1"
-                        value={item.description}
-                        onChange={e => handleItemChange(index, 'description', e.target.value)}
-                    />
-                    <Input 
-                        placeholder="Amount" 
-                        type="number"
-                        className="w-32"
-                        value={item.amount}
-                        onChange={e => handleItemChange(index, 'amount', e.target.value)}
-                    />
-                    {createForm.items.length > 1 && (
-                        <button 
-                            type="button" 
-                            onClick={() => handleRemoveItem(index)}
-                            className="p-2.5 text-slate-400 hover:text-red-500 transition-colors"
-                        >
-                            <Trash2 size={18} />
-                        </button>
-                    )}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">{t('billing_modal_create_items_label')}</label>
+            <div className="space-y-2">
+              {createForm.items.map((item, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input 
+                    placeholder={t('billing_modal_create_item_placeholder')}
+                    value={item.description}
+                    onChange={e => handleItemChange(index, 'description', e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input 
+                    placeholder={t('billing_modal_create_amount_placeholder')}
+                    type="number"
+                    value={item.amount}
+                    onChange={e => handleItemChange(index, 'amount', e.target.value)}
+                    className="w-28"
+                  />
+                  <button type="button" onClick={() => handleRemoveItem(index)} className="text-red-500 hover:text-red-700 p-2">
+                    <Trash2 size={16}/>
+                  </button>
                 </div>
-            ))}
-            <Button type="button" size="sm" variant="secondary" onClick={handleAddItem} icon={Plus}>Add Item</Button>
+              ))}
+            </div>
+            <Button size="sm" variant="secondary" onClick={handleAddItem} className="mt-2">{t('billing_modal_create_add_item_button')}</Button>
           </div>
-
-          <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl flex justify-between items-center border border-slate-100 dark:border-slate-800">
-             <span className="font-bold text-slate-700 dark:text-slate-300">Total Amount</span>
-             <span className="font-bold text-xl text-primary-600">
-                ${createForm.items.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0).toFixed(2)}
-             </span>
+          <div className="pt-2 border-t text-right">
+             <span className="text-sm text-slate-500">{t('billing_modal_create_total_label')}: </span>
+             <span className="text-lg font-bold">${createForm.items.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0)}</span>
           </div>
-
-          <div className="pt-4 flex justify-end gap-3 border-t dark:border-slate-700">
-             <Button type="button" variant="secondary" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
-             <Button type="submit">Generate Invoice</Button>
+          <div className="flex justify-end pt-4">
+            <Button type="submit">{t('billing_modal_create_generate_button')}</Button>
           </div>
         </form>
       </Modal>
 
-      {/* RECORD PAYMENT MODAL */}
-      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Record Payment">
-        <form onSubmit={handlePaymentSubmit} className="space-y-6">
-            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
-                <p className="text-sm text-slate-500">Balance Due</p>
-                <h3 className="text-3xl font-bold text-slate-900 dark:text-white mt-1">
-                    ${payingBill ? (payingBill.totalAmount - (payingBill.paidAmount || 0)).toLocaleString() : '0.00'}
-                </h3>
-                <p className="text-xs text-slate-400 mt-2">Invoice #{payingBill?.billNumber}</p>
+      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title={t('billing_modal_payment_title')}>
+        {payingBill && (
+          <form onSubmit={handlePaymentSubmit} className="space-y-6">
+            <div className="text-center p-4 bg-slate-50 dark:bg-slate-900 rounded-xl">
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t('billing_modal_payment_balance_due')}</p>
+              <p className="text-4xl font-bold text-slate-900 dark:text-white">${(payingBill.totalAmount - payingBill.paidAmount).toLocaleString()}</p>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                <Input 
-                    label="Payment Amount ($)" 
-                    type="number" 
-                    required
-                    value={paymentForm.amount}
-                    onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
-                />
-                <Select 
-                    label="Payment Method" 
-                    required
-                    value={paymentForm.method}
-                    onChange={e => setPaymentForm({...paymentForm, method: e.target.value})}
-                >
-                    <option value="">Select...</option>
-                    <option value="Cash">Cash</option>
-                    <option value="Credit Card">Credit Card</option>
-                    <option value="Debit Card">Debit Card</option>
-                    <option value="Insurance">Insurance</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    {paymentMethods.filter(m => m.isActive).map(m => (
-                        <option key={m.id} value={m.name}>{m.name}</option>
-                    ))}
-                </Select>
+            <Input 
+              label={t('billing_modal_payment_amount')}
+              type="number" 
+              value={paymentForm.amount}
+              onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
+              required
+            />
+            <Select 
+              label={t('billing_modal_payment_method')}
+              value={paymentForm.method}
+              onChange={e => setPaymentForm({...paymentForm, method: e.target.value})}
+              required
+            >
+              <option value="">{t('billing_modal_payment_method_select')}</option>
+              {paymentMethods.filter(p => p.isActive).map(p => <option key={p.id} value={p.name_en}>{p.name_en}</option>)}
+            </Select>
+            <div className="flex justify-end pt-4">
+              <Button type="submit" icon={CheckCircle}>{t('billing_modal_payment_confirm_button')}</Button>
             </div>
-
-            <div className="pt-4 flex justify-end gap-3 border-t dark:border-slate-700">
-                <Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)}>Cancel</Button>
-                <Button type="submit" variant="primary" icon={CheckCircle}>Confirm Payment</Button>
-            </div>
-        </form>
+          </form>
+        )}
       </Modal>
 
-      {/* INVOICE PREVIEW OVERLAY */}
-      {selectedBill && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden">
-             <div className="flex justify-between items-center p-4 border-b bg-slate-50 sticky top-0 z-10">
-               <h3 className="font-bold text-slate-700 flex items-center gap-2"><FileText size={18}/> Invoice Preview</h3>
-               <div className="flex gap-2">
-                 <Button size="sm" variant="outline" icon={Printer} onClick={() => window.print()}>Print</Button>
-                 <button onClick={() => setSelectedBill(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500"><X size={20} /></button>
-               </div>
-             </div>
-             <div className="overflow-y-auto custom-scrollbar">
-                <InvoiceView bill={selectedBill} />
-             </div>
+      <Modal isOpen={!!selectedBill} onClose={() => setSelectedBill(null)} title={t('billing_modal_preview_title')}>
+        {selectedBill && (
+          <div>
+            <InvoiceView bill={selectedBill} />
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setSelectedBill(null)}>{t('close')}</Button>
+              <Button icon={Printer}>{t('billing_modal_preview_print_button')}</Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
+
     </div>
   );
 };

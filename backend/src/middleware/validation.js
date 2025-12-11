@@ -2,8 +2,8 @@ const { z } = require('zod');
 
 const validate = (schema) => (req, res, next) => {
   try {
-    // This will strip out any fields not in the schema
-    const parsedBody = schema.parse(req.body);
+    // Use .strip() to remove unrecognized keys, matching the original intent.
+    const parsedBody = schema.strip().parse(req.body);
     // Replace the original body with the validated and cleaned one
     req.body = parsedBody;
     next();

@@ -1,18 +1,44 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Wrench, Settings as SettingsIcon, Building, Database, Trash2, Plus, Save, Edit, 
   Bed, Users, Loader2, CheckCircle, XCircle, AlertTriangle, Upload, Download, Server, 
-  CreditCard, RotateCcw, Shield, Lock, Activity, RefreshCw 
+  CreditCard, RotateCcw, Shield, Lock, Activity, RefreshCw, Briefcase, FlaskConical, Stethoscope 
 } from 'lucide-react';
 import { api } from '../services/api';
 import { LabTestCatalog, NurseServiceCatalog, OperationCatalog, Bed as BedType, User, Role, TaxRate, PaymentMethod, InsuranceProvider } from '../types';
 import { Permissions } from '../utils/rbac';
+import { useTranslation } from '../context/TranslationContext';
 
 type CatalogType = 'dept' | 'spec' | 'lab' | 'nurse' | 'ops' | 'insurance';
 
+const permissionGroups: Record<string, string[]> = {
+  'General': ['VIEW_DASHBOARD'],
+  'Patients': ['VIEW_PATIENTS', 'MANAGE_PATIENTS', 'DELETE_PATIENTS'],
+  'Appointments': ['VIEW_APPOINTMENTS', 'MANAGE_APPOINTMENTS', 'DELETE_APPOINTMENTS'],
+  'Billing': ['VIEW_BILLING', 'MANAGE_BILLING', 'DELETE_BILLING'],
+  'HR': ['VIEW_HR', 'MANAGE_HR', 'DELETE_HR'],
+  'Admissions': ['VIEW_ADMISSIONS', 'MANAGE_ADMISSIONS', 'DELETE_ADMISSIONS'],
+  'Laboratory': ['VIEW_LABORATORY', 'MANAGE_LABORATORY', 'DELETE_LABORATORY'],
+  'Operations': ['VIEW_OPERATIONS', 'MANAGE_OPERATIONS', 'DELETE_OPERATIONS'],
+  'Reports & Records': ['VIEW_REPORTS', 'MANAGE_REPORTS', 'VIEW_RECORDS'],
+  'System': ['VIEW_SETTINGS', 'MANAGE_SETTINGS', 'MANAGE_CONFIGURATION'],
+};
+
+const DiagnosticStat = ({ title, value, icon: Icon }: any) => (
+  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4">
+    <div className="p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm text-primary-600">
+       <Icon size={20} />
+    </div>
+    <div>
+      <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">{title}</p>
+      <p className="text-lg font-bold text-slate-800 dark:text-white">{value}</p>
+    </div>
+  </div>
+);
+
 export const Configuration = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'general' | 'beds' | 'catalogs' | 'users' | 'data' | 'financial' | 'diagnostics'>('general');
   const [loading, setLoading] = useState(true);
   
@@ -60,7 +86,7 @@ export const Configuration = () => {
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [financeForm, setFinanceForm] = useState<any>({});
   const [editingFinanceId, setEditingFinanceId] = useState<number | null>(null);
-  const [financeType, setFinanceType] = useState<'tax' | 'payment'>('tax');
+  const [financeTab, setFinanceTab] = useState<'tax' | 'payment'>('tax');
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
 
 
@@ -104,7 +130,7 @@ export const Configuration = () => {
 
   const handleAction = async (action: () => Promise<void>, successMsg: string) => {
     setProcessStatus('processing');
-    setProcessMessage('Processing...');
+    setProcessMessage(t('processing'));
     try {
       await action();
       setProcessStatus('success');
@@ -203,7 +229,7 @@ export const Configuration = () => {
 
   // Financial Handlers
   const openFinanceModal = (type: 'tax' | 'payment', item?: any) => {
-    setFinanceType(type);
+    setFinanceTab(type);
     setEditingFinanceId(item ? item.id : null);
     setFinanceForm(item ? { ...item } : { name_en: '', name_ar: '', isActive: true });
     setIsFinanceModalOpen(true);
@@ -211,7 +237,7 @@ export const Configuration = () => {
   const handleFinanceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleAction(async () => {
-      if (financeType === 'tax') {
+      if (financeTab === 'tax') {
         if (editingFinanceId) await api.updateTaxRate(editingFinanceId, financeForm);
         else await api.addTaxRate(financeForm);
       } else {
@@ -255,7 +281,31 @@ export const Configuration = () => {
   };
   
   // Diagnostics
-  const runDiagnostics = async () => { /* ... (omitted for brevity, no changes needed) ... */ };
+  const runDiagnostics = async () => {
+    setIsTesting(true);
+    setTestLogs(['Starting diagnostics...']);
+    try {
+      const addLog = (msg: string) => setTestLogs(prev => [...prev, msg]);
+      await new Promise(res => setTimeout(res, 300));
+      
+      addLog('Checking API server connectivity...');
+      const health = await api.checkSystemHealth();
+      setHealthData(health);
+      addLog(`✅ Server operational. Uptime: ${(health.uptime / 60).toFixed(1)} mins.`);
+      
+      await new Promise(res => setTimeout(res, 500));
+      addLog('Verifying database connection...');
+      addLog(`✅ Database connected. Latency: ${health.database.latency}.`);
+      
+      await new Promise(res => setTimeout(res, 300));
+      addLog('All tests passed.');
+    } catch (e: any) {
+      setTestLogs(prev => [...prev, `❌ Test failed: ${e.message}`]);
+      setHealthData({ status: 'error' });
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   // --- DYNAMIC CATALOG CONFIGURATION ---
   const catalogMetadata: Record<CatalogType, any> = {
@@ -331,83 +381,196 @@ export const Configuration = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">System Configuration</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('config_title')}</h1>
 
-      <div className="flex border-b border-gray-200 bg-white rounded-t-xl px-4 pt-2 overflow-x-auto">
+      <div className="flex border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-t-xl px-4 pt-2 overflow-x-auto">
         {[
-          { id: 'general', icon: SettingsIcon, label: 'General' },
-          { id: 'users', icon: Shield, label: 'Roles & Permissions' }, 
-          { id: 'financial', icon: CreditCard, label: 'Financial' },
-          { id: 'beds', icon: Bed, label: 'Rooms & Beds' },
-          { id: 'catalogs', icon: Database, label: 'Medical Catalogs' },
-          { id: 'data', icon: Server, label: 'Data Management' },
-          { id: 'diagnostics', icon: Activity, label: 'System Health' }
+          { id: 'general', icon: SettingsIcon, label: t('config_tab_general') },
+          { id: 'users', icon: Shield, label: t('config_tab_roles') }, 
+          { id: 'financial', icon: CreditCard, label: t('config_tab_financial') },
+          { id: 'beds', icon: Bed, label: t('config_tab_beds') },
+          { id: 'catalogs', icon: Database, label: t('config_tab_catalogs') },
+          { id: 'data', icon: Server, label: t('config_tab_data') },
+          { id: 'diagnostics', icon: Activity, label: t('config_tab_health') }
         ].map(tab => (
           <button 
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)} 
             className={`px-5 py-3 font-medium text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap 
               ${activeTab === tab.id 
-                ? 'border-primary-600 text-primary-600 bg-primary-50/50' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                ? 'border-primary-600 text-primary-600 bg-primary-50/50 dark:bg-primary-900/20' 
+                : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
           >
             <tab.icon size={18}/> {tab.label}
           </button>
         ))}
       </div>
 
-      <div className="bg-white rounded-b-xl shadow-sm border border-t-0 border-gray-200 p-6 min-h-[400px] relative">
-        {loading && <div className="absolute inset-0 z-10 bg-white/80 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary-500" /></div>}
+      <div className="bg-white dark:bg-slate-800 rounded-b-xl shadow-sm border border-t-0 border-gray-200 dark:border-slate-700 p-6 min-h-[400px] relative">
+        {loading && <div className="absolute inset-0 z-10 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary-500" /></div>}
 
         {!loading && (
           <>
             {activeTab === 'general' && (
               <form onSubmit={handleSaveSettings} className="max-w-xl space-y-6 animate-in fade-in">
-                <Input label="Hospital Name" value={settings.hospitalName} onChange={e => setSettings({...settings, hospitalName: e.target.value})} />
-                <Input label="Address" value={settings.hospitalAddress} onChange={e => setSettings({...settings, hospitalAddress: e.target.value})} />
-                <div className="pt-4 border-t">
-                  <Button type="submit" icon={Save}>Save Settings</Button>
+                <Input label={t('config_general_hospital_name')} value={settings.hospitalName} onChange={e => setSettings({...settings, hospitalName: e.target.value})} />
+                <Input label={t('config_general_address')} value={settings.hospitalAddress} onChange={e => setSettings({...settings, hospitalAddress: e.target.value})} />
+                <div className="pt-4 border-t dark:border-slate-700">
+                  <Button type="submit" icon={Save}>{t('config_general_save_button')}</Button>
                 </div>
               </form>
+            )}
+
+            {activeTab === 'users' && (
+              <div className="animate-in fade-in">
+                <div className="flex gap-2 mb-6">
+                   <Button variant={userTabMode === 'accounts' ? 'primary' : 'outline'} onClick={() => setUserTabMode('accounts')} icon={Users}>{t('config_users_accounts_tab')}</Button>
+                   <Button variant={userTabMode === 'roles' ? 'primary' : 'outline'} onClick={() => setUserTabMode('roles')} icon={Lock}>{t('config_users_roles_tab')}</Button>
+                </div>
+
+                {userTabMode === 'accounts' ? (
+                  <>
+                    <div className="flex justify-end mb-4"><Button icon={Plus} onClick={() => openUserModal()}>{t('config_users_add_button')}</Button></div>
+                    <div className="overflow-x-auto border rounded-xl shadow-sm">
+                      <table className="min-w-full divide-y">
+                        <thead className="bg-slate-50 dark:bg-slate-900">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_users_header_user')}</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_users_header_role')}</th>
+                            <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">{t('config_users_header_status')}</th>
+                            <th className="px-4 py-3"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y dark:bg-slate-800">
+                          {users.map(user => (
+                            <tr key={user.id}>
+                              <td className="px-4 py-3"><div className="font-medium">{user.fullName}</div><div className="text-xs text-slate-500">{user.username}</div></td>
+                              <td className="px-4 py-3 capitalize"><Badge color="blue">{user.role}</Badge></td>
+                              <td className="px-4 py-3 text-center"><Badge color={user.isActive ? 'green' : 'gray'}>{user.isActive ? 'Active' : 'Inactive'}</Badge></td>
+                              <td className="px-4 py-3 text-right">
+                                <button onClick={() => openUserModal(user)} className="p-1 text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
+                                <button onClick={() => handleDeleteUser(user.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-6">
+                    {availableRoles.map(role => (
+                      <Card key={role} title={t('config_users_permissions_for', { role })} className="!p-0 capitalize" action={role !== 'admin' && <Button size="sm" onClick={() => savePermissions(role)}>{t('config_users_permissions_save_button')}</Button>}>
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                           {Object.entries(permissionGroups).map(([groupName, perms]) => (
+                             <div key={groupName} className="p-3 border rounded-xl bg-slate-50 dark:bg-slate-900/50 space-y-2">
+                               <h4 className="font-bold text-sm text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">{groupName}</h4>
+                               {perms.map(p => (
+                                 <label key={p} className="flex items-center gap-2 text-sm">
+                                   <input type="checkbox" className="rounded text-primary-600 focus:ring-primary-500" checked={(rolePermissions[role] || []).includes(p)} onChange={() => togglePermission(role, p)} disabled={role === 'admin'} />
+                                   <span className="capitalize text-slate-700 dark:text-slate-300">{p.replace(/_/g, ' ').toLowerCase()}</span>
+                                 </label>
+                               ))}
+                             </div>
+                           ))}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'financial' && (
+              <div className="animate-in fade-in">
+                <div className="flex gap-2 mb-6">
+                   <Button variant={financeTab === 'tax' ? 'primary' : 'outline'} onClick={() => setFinanceTab('tax')}>{t('config_financial_tax_tab')}</Button>
+                   <Button variant={financeTab === 'payment' ? 'primary' : 'outline'} onClick={() => setFinanceTab('payment')}>{t('config_financial_payment_tab')}</Button>
+                </div>
+                {financeTab === 'tax' ? (
+                  <div>
+                    <div className="flex justify-end mb-4"><Button size="sm" icon={Plus} onClick={() => openFinanceModal('tax')}>{t('add')}</Button></div>
+                    {taxes.map(t => <div key={t.id} className="flex justify-between items-center py-2 border-b last:border-0"><span>{t.name_en} ({t.rate}%)</span><div><button onClick={() => openFinanceModal('tax', t)} className="p-1"><Edit size={14}/></button><button onClick={() => handleDeleteFinance(t.id, 'tax')} className="p-1 text-red-500"><Trash2 size={14}/></button></div></div>)}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex justify-end mb-4"><Button size="sm" icon={Plus} onClick={() => openFinanceModal('payment')}>{t('add')}</Button></div>
+                    {paymentMethods.map(p => <div key={p.id} className="flex justify-between items-center py-2 border-b last:border-0"><span>{p.name_en}</span><div><button onClick={() => openFinanceModal('payment', p)} className="p-1"><Edit size={14}/></button><button onClick={() => handleDeleteFinance(p.id, 'payment')} className="p-1 text-red-500"><Trash2 size={14}/></button></div></div>)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'beds' && (
+              <div className="animate-in fade-in">
+                <div className="flex justify-end mb-4"><Button icon={Plus} onClick={() => openBedModal()}>{t('config_beds_add_button')}</Button></div>
+                <div className="overflow-x-auto border rounded-xl shadow-sm">
+                  <table className="min-w-full divide-y">
+                    <thead className="bg-slate-50 dark:bg-slate-900">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_room')}</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_type')}</th>
+                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_cost')}</th>
+                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_status')}</th>
+                        <th className="px-4 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y dark:bg-slate-800">
+                      {beds.map(bed => (
+                        <tr key={bed.id}>
+                          <td className="px-4 py-3 font-medium">{bed.roomNumber}</td>
+                          <td className="px-4 py-3">{bed.type}</td>
+                          <td className="px-4 py-3 text-right font-mono">${bed.costPerDay}</td>
+                          <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : 'red'}>{bed.status}</Badge></td>
+                          <td className="px-4 py-3 text-right">
+                            <button onClick={() => openBedModal(bed)} className="p-1 text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
+                            <button onClick={() => handleDeleteBed(bed.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
 
             {activeTab === 'catalogs' && (
               <div className="animate-in fade-in">
                 <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-                  <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
+                  <div className="flex gap-1 bg-gray-100 dark:bg-slate-900 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
                     {Object.keys(catalogMetadata).map(key => (
                       <button 
                         key={key}
                         onClick={() => setCatalogTab(key as CatalogType)} 
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm whitespace-nowrap ${catalogTab === key ? 'bg-white text-primary-700 shadow' : 'bg-transparent text-gray-500 hover:text-gray-700'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm whitespace-nowrap ${catalogTab === key ? 'bg-white dark:bg-slate-800 text-primary-700 shadow' : 'bg-transparent text-gray-500 hover:text-gray-700'}`}
                       >
                         {catalogMetadata[key as CatalogType].label}
                       </button>
                     ))}
                   </div>
-                  <Button size="sm" icon={Plus} onClick={() => openItemModal()}>Add New Item</Button>
+                  <Button size="sm" icon={Plus} onClick={() => openItemModal()}>{t('config_catalogs_add_button')}</Button>
                 </div>
 
                 <div className="overflow-x-auto border rounded-xl shadow-sm">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50/80">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                    <thead className="bg-gray-50/80 dark:bg-slate-900">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name (EN)</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name (AR)</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Details</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_catalogs_header_name_en')}</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_catalogs_header_name_ar')}</th>
+                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{t('config_catalogs_header_details')}</th>
                         <th className="px-4 py-3 text-right"></th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                       {catalogMetadata[catalogTab].data.map((item: any) => (
-                        <tr key={item.id} className="hover:bg-slate-50">
+                        <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.name_en}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{item.name_ar}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-slate-300">{item.name_ar}</td>
                           <td className="px-4 py-3 text-sm text-right font-mono text-slate-500">
                             {item.cost !== undefined && `$${item.cost}`}
                             {item.base_cost !== undefined && `$${item.base_cost}`}
                             {item.rate !== undefined && `${item.rate}%`}
-                            {item.is_active !== undefined && <Badge color={item.is_active ? 'green' : 'gray'}>{item.is_active ? 'Active' : 'Inactive'}</Badge>}
+                            {item.isActive !== undefined && <Badge color={item.isActive ? 'green' : 'gray'}>{item.isActive ? 'Active' : 'Inactive'}</Badge>}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => openItemModal(item)} className="p-1 text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
@@ -421,12 +584,49 @@ export const Configuration = () => {
               </div>
             )}
             
-             {/* All other tabs remain unchanged */}
-             {activeTab === 'users' && <div>Users content...</div>}
-             {activeTab === 'beds' && <div>Beds content...</div>}
-             {activeTab === 'financial' && <div>Financial content...</div>}
-             {activeTab === 'data' && <div>Data content...</div>}
-             {activeTab === 'diagnostics' && <div>Diagnostics content...</div>}
+            {activeTab === 'data' && (
+              <div className="max-w-xl space-y-8 animate-in fade-in">
+                <Card title={t('config_data_backup_title')} action={<Button icon={Download} onClick={handleDownloadBackup}>{t('config_data_backup_button')}</Button>}>
+                  <p>{t('config_data_backup_note')}</p>
+                </Card>
+                <Card title={t('config_data_restore_title')}>
+                  <form onSubmit={handleRestoreDatabase} className="space-y-4">
+                    <Input type="file" accept=".db,.sqlite,.sqlite3" onChange={e => setRestoreFile(e.target.files ? e.target.files[0] : null)} />
+                    <Button type="submit" icon={Upload} disabled={!restoreFile}>{t('config_data_restore_button')}</Button>
+                  </form>
+                </Card>
+                <Card title={t('config_data_danger_title')} className="border-red-500 bg-red-50 dark:bg-red-900/10">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-bold text-red-800 dark:text-red-300">{t('config_data_danger_reset_title')}</h4>
+                      <p className="text-sm text-red-600 dark:text-red-400">{t('config_data_danger_reset_note')}</p>
+                    </div>
+                    <Button variant="danger" icon={RotateCcw} onClick={handleResetDatabase}>{t('config_data_danger_reset_button')}</Button>
+                  </div>
+                </Card>
+              </div>
+            )}
+            
+            {activeTab === 'diagnostics' && (
+              <div className="max-w-3xl space-y-6 animate-in fade-in">
+                <Button onClick={runDiagnostics} disabled={isTesting} icon={isTesting ? undefined : RefreshCw}>
+                  {isTesting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin"/>{t('config_health_running_button')}</> : t('config_health_run_button')}
+                </Button>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <DiagnosticStat title={t('config_health_stat_status')} value={healthData?.status || 'Unknown'} icon={healthData?.status === 'operational' ? CheckCircle : AlertTriangle} />
+                  <DiagnosticStat title={t('config_health_stat_latency')} value={healthData?.database?.latency || 'N/A'} icon={Database} />
+                  <DiagnosticStat title={t('config_health_stat_uptime')} value={healthData?.uptime ? `${(healthData.uptime / 60).toFixed(1)} mins` : 'N/A'} icon={Activity} />
+                  <DiagnosticStat title={t('config_health_stat_memory')} value={healthData?.memory?.rss || 'N/A'} icon={Server} />
+                </div>
+
+                {testLogs.length > 0 && (
+                  <div className="bg-slate-900 text-slate-300 p-4 rounded-xl text-xs font-mono h-64 overflow-y-auto custom-scrollbar">
+                    {testLogs.map((log, i) => <p key={i} className={`flex items-start gap-2 ${log.startsWith('❌') ? 'text-red-400' : log.startsWith('✅') ? 'text-green-400' : ''}`}><span className="text-slate-600 select-none">&gt;</span><span className="flex-1">{log}</span></p>)}
+                  </div>
+                )}
+              </div>
+            )}
 
           </>
         )}
@@ -436,7 +636,7 @@ export const Configuration = () => {
       <Modal 
         isOpen={isItemModalOpen} 
         onClose={() => setIsItemModalOpen(false)} 
-        title={`${editingItemId ? 'Edit' : 'Add'} ${catalogMetadata[catalogTab].label}`}
+        title={`${editingItemId ? t('edit') : t('add')} ${catalogMetadata[catalogTab].label}`}
       >
         <form onSubmit={handleItemSubmit} className="space-y-4">
           {catalogMetadata[catalogTab].fields.map((field: any) => {
@@ -454,19 +654,65 @@ export const Configuration = () => {
             return <Input key={field.name} label={field.label} type={field.type || 'text'} value={itemFormData[field.name] || ''} onChange={e => setItemFormData({...itemFormData, [field.name]: e.target.value})} required={field.required} prefix={field.prefix} />
           })}
           <div className="flex justify-end pt-4 gap-3">
-            <Button type="button" variant="secondary" onClick={() => setIsItemModalOpen(false)}>Cancel</Button>
-            <Button type="submit">{editingItemId ? 'Update Item' : 'Add Item'}</Button>
+            <Button type="button" variant="secondary" onClick={() => setIsItemModalOpen(false)}>{t('cancel')}</Button>
+            <Button type="submit">{editingItemId ? t('edit') : t('add')}</Button>
           </div>
         </form>
       </Modal>
 
-      {/* All other modals are omitted for brevity, no changes needed */}
+      <Modal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} title={editingUserId ? t('edit') : t('add')}>
+        <form onSubmit={handleUserSubmit} className="space-y-4">
+          <Input label={t('patients_modal_form_fullName')} required value={userForm.fullName || ''} onChange={e => setUserForm({...userForm, fullName: e.target.value})} />
+          <Input label={t('settings_profile_username')} required value={userForm.username || ''} onChange={e => setUserForm({...userForm, username: e.target.value})} />
+          <Input label={t('login_password_label')} type="password" placeholder={editingUserId ? 'Leave blank to keep unchanged' : ''} value={userForm.password || ''} onChange={e => setUserForm({...userForm, password: e.target.value})} required={!editingUserId} />
+          <Input label={t('settings_profile_email')} type="email" value={userForm.email || ''} onChange={e => setUserForm({...userForm, email: e.target.value})} />
+          <Select label={t('config_users_header_role')} value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value})}>
+            {availableRoles.map(r => <option key={r} value={r} className="capitalize">{r}</option>)}
+          </Select>
+          <div className="flex justify-end pt-4 gap-3">
+            <Button type="button" variant="secondary" onClick={() => setIsUserModalOpen(false)}>{t('cancel')}</Button>
+            <Button type="submit">{editingUserId ? t('edit') : t('add')}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={isBedModalOpen} onClose={() => setIsBedModalOpen(false)} title={editingBedId ? t('edit') : t('add')}>
+         <form onSubmit={handleBedSubmit} className="space-y-4">
+           <Input label={t('config_beds_header_room')} required value={bedForm.roomNumber || ''} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} />
+           <Select label={t('config_beds_header_type')} value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value as any})}>
+             <option>General</option><option>Private</option><option>ICU</option>
+           </Select>
+           <Input label={t('config_beds_header_cost')} type="number" value={bedForm.costPerDay || 0} onChange={e => setBedForm({...bedForm, costPerDay: parseFloat(e.target.value)})} />
+           <div className="flex justify-end pt-4 gap-3">
+             <Button type="button" variant="secondary" onClick={() => setIsBedModalOpen(false)}>{t('cancel')}</Button>
+             <Button type="submit">{editingBedId ? t('edit') : t('add')}</Button>
+           </div>
+         </form>
+      </Modal>
+
+      <Modal isOpen={isFinanceModalOpen} onClose={() => setIsFinanceModalOpen(false)} title={`${editingFinanceId ? t('edit') : t('add')} ${financeTab === 'tax' ? t('config_financial_tax_tab') : t('config_financial_payment_tab')}`}>
+        <form onSubmit={handleFinanceSubmit} className="space-y-4">
+           <Input label="Name (EN)" required value={financeForm.name_en || ''} onChange={e => setFinanceForm({...financeForm, name_en: e.target.value})} />
+           <Input label="Name (AR)" required value={financeForm.name_ar || ''} onChange={e => setFinanceForm({...financeForm, name_ar: e.target.value})} />
+           {financeTab === 'tax' && (
+             <Input label="Rate (%)" type="number" required value={financeForm.rate || ''} onChange={e => setFinanceForm({...financeForm, rate: e.target.value})} />
+           )}
+           <div className="flex items-center gap-2"><input type="checkbox" checked={financeForm.isActive !== false} onChange={e => setFinanceForm({...financeForm, isActive: e.target.checked})} /> Active</div>
+           <div className="flex justify-end pt-2 gap-3">
+             <Button type="button" variant="secondary" onClick={() => setIsFinanceModalOpen(false)}>{t('cancel')}</Button>
+             <Button type="submit">{t('save')}</Button>
+           </div>
+        </form>
+      </Modal>
 
       {/* --- CONFIRMATION DIALOG --- */}
       <ConfirmationDialog 
         isOpen={confirmState.isOpen}
         onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
-        onConfirm={confirmState.action}
+        onConfirm={() => {
+          confirmState.action();
+          setConfirmState({ ...confirmState, isOpen: false });
+        }}
         title={confirmState.title}
         message={confirmState.message}
         type={confirmState.type || 'danger'}

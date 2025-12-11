@@ -4,9 +4,11 @@ import { Card, Button, Badge, Modal, Input, Textarea, Select, ConfirmationDialog
 import { Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, DollarSign, Loader2, XCircle } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
+import { useTranslation } from '../context/TranslationContext';
 
 export const Admissions = () => {
   const { accent } = useTheme();
+  const { t } = useTranslation();
   const [beds, setBeds] = useState<any[]>([]);
   const [activeAdmissions, setActiveAdmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,7 +123,7 @@ export const Admissions = () => {
     if (!selectedBedForAdmission) return;
     
     setProcessStatus('processing');
-    setProcessMessage('Reserving bed...');
+    setProcessMessage(t('processing'));
 
     try {
       await api.createAdmission({
@@ -134,7 +136,7 @@ export const Admissions = () => {
       });
       
       setProcessStatus('success');
-      setProcessMessage('Bed reserved successfully. Please collect deposit.');
+      setProcessMessage(t('patients_process_success_admission'));
       await loadData(true);
       
       setTimeout(() => {
@@ -151,7 +153,7 @@ export const Admissions = () => {
     if (!selectedAdmission) return;
     
     setProcessStatus('processing');
-    setProcessMessage('Confirming admission...');
+    setProcessMessage(t('processing'));
     
     try {
       await api.confirmAdmissionDeposit(selectedAdmission.id);
@@ -191,11 +193,11 @@ export const Admissions = () => {
   const handleDischarge = async () => {
     setConfirmState({
       isOpen: true,
-      title: 'Discharge Patient',
-      message: 'Are you sure you want to discharge this patient? This will generate the final bill and release the bed.',
+      title: t('admissions_dialog_discharge_title'),
+      message: t('admissions_dialog_discharge_message'),
       action: async () => {
         setProcessStatus('processing');
-        setProcessMessage('Processing discharge...');
+        setProcessMessage(t('processing'));
 
         try {
           await api.dischargePatient(inpatientDetails.id, {
@@ -223,28 +225,28 @@ export const Admissions = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inpatient Ward</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">Overview of bed occupancy and patient management.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('admissions_title')}</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">{t('admissions_subtitle')}</p>
         </div>
         <div className="flex gap-3 text-xs font-medium">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg border border-green-100 dark:border-green-800">
-            <div className="w-2 h-2 rounded-full bg-green-500"></div> Available
+            <div className="w-2 h-2 rounded-full bg-green-500"></div> {t('admissions_legend_available')}
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-100 dark:border-blue-800">
-            <div className="w-2 h-2 rounded-full bg-blue-500"></div> Reserved
+            <div className="w-2 h-2 rounded-full bg-blue-500"></div> {t('admissions_legend_reserved')}
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg border border-red-100 dark:border-red-800">
-            <div className="w-2 h-2 rounded-full bg-red-500"></div> Occupied
+            <div className="w-2 h-2 rounded-full bg-red-500"></div> {t('admissions_legend_occupied')}
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded-lg border border-yellow-100 dark:border-yellow-800">
-            <div className="w-2 h-2 rounded-full bg-yellow-500"></div> Maintenance
+            <div className="w-2 h-2 rounded-full bg-yellow-500"></div> {t('admissions_legend_maintenance')}
           </div>
         </div>
       </div>
 
       {/* Ward Dashboard */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {loading ? <p className="col-span-full text-center py-10 text-gray-500">Loading ward status...</p> : 
+        {loading ? <p className="col-span-full text-center py-10 text-gray-500">{t('admissions_loading')}</p> : 
          beds.map(bed => {
            // Find any admission (active OR reserved) for this bed
            const admission = activeAdmissions.find(a => a.bedId === bed.id);
@@ -283,25 +285,25 @@ export const Admissions = () => {
                  {isOccupied || isReserved ? (
                    <div className="space-y-1">
                      <p className="text-sm font-bold text-gray-900 dark:text-white truncate" title={admission?.patientName}>{admission?.patientName}</p>
-                     <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><User size={10}/> Dr. {doctorName.split(' ')[1] || doctorName}</p>
+                     <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><User size={10}/> {t('admissions_bed_doctor', {name: doctorName.split(' ')[1] || doctorName})}</p>
                      
                      {isOccupied && (
                        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-50 text-red-700 rounded text-[10px] font-bold mt-1">
-                         <Clock size={10}/> {calculateDays(admission?.entry_date)} Days
+                         <Clock size={10}/> {t('admissions_bed_days', {count: calculateDays(admission?.entry_date)})}
                        </div>
                      )}
                      {isReserved && (
                         <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold mt-1">
-                          <DollarSign size={10}/> Payment Pending
+                          <DollarSign size={10}/> {t('admissions_bed_payment_pending')}
                         </div>
                      )}
                    </div>
                  ) : isMaintenance ? (
-                   <p className="text-sm text-yellow-700 dark:text-yellow-500 font-medium text-center">Maintenance</p>
+                   <p className="text-sm text-yellow-700 dark:text-yellow-500 font-medium text-center">{t('admissions_bed_maintenance')}</p>
                  ) : (
                    <div className="text-center group-hover:scale-105 transition-transform">
-                     <p className="text-sm text-green-600 dark:text-green-400 font-bold mb-1">Available</p>
-                     <p className="text-xs text-green-500/70 uppercase tracking-wider font-semibold group-hover:text-green-600">Click to Admit</p>
+                     <p className="text-sm text-green-600 dark:text-green-400 font-bold mb-1">{t('admissions_bed_available')}</p>
+                     <p className="text-xs text-green-500/70 uppercase tracking-wider font-semibold group-hover:text-green-600">{t('admissions_bed_click_to_admit')}</p>
                    </div>
                  )}
                </div>
@@ -309,7 +311,7 @@ export const Admissions = () => {
                {/* Footer: Type */}
                <div className="mt-2 pt-2 border-t border-dashed border-gray-100 dark:border-slate-700 text-[10px] text-gray-400 uppercase tracking-wide flex justify-between">
                  <span>{bed.type}</span>
-                 {(isOccupied || isReserved) && <span className="text-primary-500 font-bold">Manage &rarr;</span>}
+                 {(isOccupied || isReserved) && <span className="text-primary-500 font-bold">{t('admissions_bed_manage')} &rarr;</span>}
                </div>
              </div>
            );
@@ -318,81 +320,80 @@ export const Admissions = () => {
       </div>
 
       {/* MODAL 1: ADMIT (RESERVE) PATIENT */}
-      <Modal isOpen={isAdmitModalOpen} onClose={() => setIsAdmitModalOpen(false)} title={`Reserve Bed ${selectedBedForAdmission?.roomNumber}`}>
+      <Modal isOpen={isAdmitModalOpen} onClose={() => setIsAdmitModalOpen(false)} title={t('admissions_modal_reserve_title', { room: selectedBedForAdmission?.roomNumber })}>
         <form onSubmit={handleAdmitSubmit} className="space-y-4">
           <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-sm text-blue-800 flex items-center gap-2 mb-2">
             <CheckCircle size={16} />
-            <span>This will reserve Bed <strong>{selectedBedForAdmission?.roomNumber}</strong>. Confirmation requires deposit payment.</span>
+            <span>{t('admissions_modal_reserve_note', { room: selectedBedForAdmission?.roomNumber })}</span>
           </div>
 
           <Select 
-            label="Select Patient" 
+            label={t('patients_table_header_patient')} 
             required 
             value={admitForm.patientId} 
             onChange={e => setAdmitForm({...admitForm, patientId: e.target.value})}
           >
-            <option value="">Choose a patient...</option>
+            <option value="">{t('appointments_form_select_patient')}</option>
             {patients.filter(p => p.type !== 'inpatient').map(p => (
               <option key={p.id} value={p.id}>{p.fullName} ({p.patientId})</option>
             ))}
           </Select>
 
           <Select 
-            label="Assign Doctor" 
+            label={t('patients_modal_action_assign_doctor')}
             required 
             value={admitForm.doctorId} 
             onChange={e => setAdmitForm({...admitForm, doctorId: e.target.value})}
           >
-            <option value="">Choose a doctor...</option>
+            <option value="">{t('patients_modal_action_select_doctor')}</option>
             {staff.filter(s => s.type === 'doctor').map(s => (
               <option key={s.id} value={s.id}>{s.fullName} - {s.specialization}</option>
             ))}
           </Select>
 
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Entry Date" type="date" required value={admitForm.entryDate} onChange={e => setAdmitForm({...admitForm, entryDate: e.target.value})} />
-            <Input label="Initial Deposit ($)" type="number" required value={admitForm.deposit} onChange={e => setAdmitForm({...admitForm, deposit: e.target.value})} />
+            <Input label={t('patients_modal_action_admission_date')} type="date" required value={admitForm.entryDate} onChange={e => setAdmitForm({...admitForm, entryDate: e.target.value})} />
+            <Input label={t('patients_modal_action_required_deposit')} type="number" required value={admitForm.deposit} onChange={e => setAdmitForm({...admitForm, deposit: e.target.value})} />
           </div>
 
-          <Textarea label="Admission Notes" rows={2} value={admitForm.notes} onChange={e => setAdmitForm({...admitForm, notes: e.target.value})} />
+          <Textarea label={t('admissions_care_admission_note')} rows={2} value={admitForm.notes} onChange={e => setAdmitForm({...admitForm, notes: e.target.value})} />
 
           <div className="pt-4 flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => setIsAdmitModalOpen(false)}>Cancel</Button>
-            <Button type="submit">Reserve Bed</Button>
+            <Button type="button" variant="secondary" onClick={() => setIsAdmitModalOpen(false)}>{t('cancel')}</Button>
+            <Button type="submit">{t('admissions_modal_reserve_button')}</Button>
           </div>
         </form>
       </Modal>
 
       {/* MODAL 2: CONFIRM ADMISSION (PAYMENT) */}
-      <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title="Confirm Admission">
+      <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title={t('admissions_modal_confirm_title')}>
         <div className="space-y-6">
           <div className="text-center p-4">
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
               <DollarSign size={32} />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Collect Deposit</h3>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('admissions_modal_confirm_subtitle')}</h3>
             <p className="text-gray-500 mt-2">
-              Patient <strong>{selectedAdmission?.patientName}</strong> has reserved this bed. 
-              Please confirm that the deposit of <strong>${selectedAdmission?.projected_cost}</strong> has been collected.
+              {t('admissions_modal_confirm_message', { name: selectedAdmission?.patientName, amount: selectedAdmission?.projected_cost })}
             </p>
           </div>
           
           <div className="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl text-sm space-y-2">
-            <div className="flex justify-between"><span>Bed:</span> <strong>{selectedAdmission?.roomNumber}</strong></div>
-            <div className="flex justify-between"><span>Doctor:</span> <strong>{selectedAdmission?.doctorName}</strong></div>
-            <div className="flex justify-between"><span>Entry Date:</span> <strong>{selectedAdmission?.entry_date ? new Date(selectedAdmission.entry_date).toLocaleDateString() : '-'}</strong></div>
+            <div className="flex justify-between"><span>{t('nav_admissions')}:</span> <strong>{selectedAdmission?.roomNumber}</strong></div>
+            <div className="flex justify-between"><span>{t('appointments_form_select_staff')}:</span> <strong>{selectedAdmission?.doctorName}</strong></div>
+            <div className="flex justify-between"><span>{t('date')}:</span> <strong>{selectedAdmission?.entry_date ? new Date(selectedAdmission.entry_date).toLocaleDateString() : '-'}</strong></div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t dark:border-slate-700">
-            <Button variant="secondary" onClick={() => setIsConfirmModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleConfirmAdmission} icon={CheckCircle}>Confirm & Admit</Button>
+            <Button variant="secondary" onClick={() => setIsConfirmModalOpen(false)}>{t('cancel')}</Button>
+            <Button onClick={handleConfirmAdmission} icon={CheckCircle}>{t('admissions_modal_confirm_button')}</Button>
           </div>
         </div>
       </Modal>
 
       {/* MODAL 3: PATIENT CARE (EXISTING LOGIC) */}
       {isCareModalOpen && inpatientDetails && (
-        <Modal isOpen={isCareModalOpen} onClose={() => setIsCareModalOpen(false)} title="Patient Care & Management">
+        <Modal isOpen={isCareModalOpen} onClose={() => setIsCareModalOpen(false)} title={t('admissions_modal_care_title')}>
           <div className="space-y-6">
             
             {/* Header */}
@@ -416,13 +417,17 @@ export const Admissions = () => {
 
             {/* Tabs */}
             <div className="flex border-b border-gray-200 dark:border-slate-700">
-              {['overview', 'notes', 'discharge'].map((t: any) => (
+              {[
+                {id: 'overview', label: t('admissions_modal_care_tab_overview')}, 
+                {id: 'notes', label: t('admissions_modal_care_tab_notes')}, 
+                {id: 'discharge', label: t('admissions_modal_care_tab_discharge')}
+              ].map((tab: any) => (
                 <button 
-                  key={t}
-                  onClick={() => setCareTab(t)}
-                  className={`px-6 py-2.5 text-sm font-medium border-b-2 transition-colors capitalize ${careTab === t ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                  key={tab.id}
+                  onClick={() => setCareTab(tab.id)}
+                  className={`px-6 py-2.5 text-sm font-medium border-b-2 transition-colors capitalize ${careTab === tab.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
-                  {t}
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -434,33 +439,33 @@ export const Admissions = () => {
               {careTab === 'overview' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
                   <div className="space-y-4">
-                    <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2"><Calendar size={18}/> Stay Details</h3>
+                    <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2"><Calendar size={18}/> {t('admissions_care_stay_details')}</h3>
                     <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 space-y-3 text-sm">
                       <div className="flex justify-between border-b dark:border-slate-700 pb-2">
-                        <span className="text-gray-500">Admission Date</span>
+                        <span className="text-gray-500">{t('admissions_care_admission_date')}</span>
                         <span className="font-medium">{new Date(inpatientDetails.entry_date).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between border-b dark:border-slate-700 pb-2">
-                        <span className="text-gray-500">Duration</span>
-                        <span className="font-medium">{inpatientDetails.daysStayed} Days</span>
+                        <span className="text-gray-500">{t('admissions_care_duration')}</span>
+                        <span className="font-medium">{inpatientDetails.daysStayed} {t('admissions_bed_days', {count: ''}).trim()}</span>
                       </div>
                       <div className="flex justify-between pb-2">
-                        <span className="text-gray-500">Daily Rate</span>
+                        <span className="text-gray-500">{t('admissions_care_daily_rate')}</span>
                         <span className="font-medium">${inpatientDetails.costPerDay}</span>
                       </div>
                     </div>
                   </div>
                   
                   <div className="space-y-4">
-                    <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2"><Activity size={18}/> Clinical Info</h3>
+                    <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2"><Activity size={18}/> {t('admissions_care_clinical_info')}</h3>
                     <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 space-y-3 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Blood Group</span>
-                        <span className="font-bold text-red-500">{inpatientDetails.bloodGroup || 'N/A'}</span>
+                        <span className="text-gray-500">{t('patients_modal_view_blood_group')}</span>
+                        <span className="font-bold text-red-500">{inpatientDetails.bloodGroup || t('patients_modal_view_na')}</span>
                       </div>
                       <div>
-                        <span className="text-gray-500 block mb-1">Admission Note</span>
-                        <p className="text-gray-700 dark:text-slate-300 bg-gray-50 dark:bg-slate-900 p-2 rounded">{inpatientDetails.notes || 'No initial notes.'}</p>
+                        <span className="text-gray-500 block mb-1">{t('admissions_care_admission_note')}</span>
+                        <p className="text-gray-700 dark:text-slate-300 bg-gray-50 dark:bg-slate-900 p-2 rounded">{inpatientDetails.notes || t('admissions_care_no_initial_notes')}</p>
                       </div>
                     </div>
                   </div>
@@ -472,22 +477,22 @@ export const Admissions = () => {
                 <div className="space-y-6 animate-in fade-in">
                   {/* Add Note Form */}
                   <form onSubmit={handleAddNote} className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700">
-                    <h4 className="font-bold text-sm text-gray-800 dark:text-white mb-3 flex items-center gap-2"><Plus size={16}/> Add Clinical Note</h4>
+                    <h4 className="font-bold text-sm text-gray-800 dark:text-white mb-3 flex items-center gap-2"><Plus size={16}/> {t('admissions_care_add_note')}</h4>
                     <div className="grid grid-cols-4 gap-3 mb-3">
-                      <Input placeholder="BP (120/80)" value={noteForm.bp} onChange={e => setNoteForm({...noteForm, bp: e.target.value})} className="bg-white" />
-                      <Input placeholder="Temp (°C)" value={noteForm.temp} onChange={e => setNoteForm({...noteForm, temp: e.target.value})} className="bg-white" />
-                      <Input placeholder="Pulse (bpm)" value={noteForm.pulse} onChange={e => setNoteForm({...noteForm, pulse: e.target.value})} className="bg-white" />
-                      <Input placeholder="Resp (rpm)" value={noteForm.resp} onChange={e => setNoteForm({...noteForm, resp: e.target.value})} className="bg-white" />
+                      <Input placeholder={t('admissions_care_vitals_bp')} value={noteForm.bp} onChange={e => setNoteForm({...noteForm, bp: e.target.value})} className="bg-white" />
+                      <Input placeholder={t('admissions_care_vitals_temp')} value={noteForm.temp} onChange={e => setNoteForm({...noteForm, temp: e.target.value})} className="bg-white" />
+                      <Input placeholder={t('admissions_care_vitals_pulse')} value={noteForm.pulse} onChange={e => setNoteForm({...noteForm, pulse: e.target.value})} className="bg-white" />
+                      <Input placeholder={t('admissions_care_vitals_resp')} value={noteForm.resp} onChange={e => setNoteForm({...noteForm, resp: e.target.value})} className="bg-white" />
                     </div>
-                    <Textarea placeholder="Clinical observations and progress..." value={noteForm.note} onChange={e => setNoteForm({...noteForm, note: e.target.value})} className="bg-white mb-3" rows={2} required />
+                    <Textarea placeholder={t('admissions_care_observations_placeholder')} value={noteForm.note} onChange={e => setNoteForm({...noteForm, note: e.target.value})} className="bg-white mb-3" rows={2} required />
                     <div className="flex justify-end">
-                      <Button size="sm" type="submit">Save Note</Button>
+                      <Button size="sm" type="submit">{t('admissions_care_save_note_button')}</Button>
                     </div>
                   </form>
 
                   {/* Notes Timeline */}
                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {inpatientDetails.notes.length === 0 ? <p className="text-center text-gray-400 py-4">No notes recorded yet.</p> : 
+                    {inpatientDetails.notes.length === 0 ? <p className="text-center text-gray-400 py-4">{t('admissions_care_no_notes')}</p> : 
                      inpatientDetails.notes.map((note: any) => (
                        <div key={note.id} className="relative pl-6 pb-4 border-l-2 border-gray-200 dark:border-slate-700 last:pb-0">
                          <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary-100 border-2 border-primary-500"></div>
@@ -516,34 +521,34 @@ export const Admissions = () => {
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/50 p-4 rounded-xl flex gap-3">
                     <AlertCircle className="text-yellow-600 shrink-0" size={20} />
                     <div>
-                      <h4 className="font-bold text-yellow-800 dark:text-yellow-500">Discharge Process</h4>
-                      <p className="text-sm text-yellow-700 dark:text-yellow-600/80">Discharging will calculate the final bill amount based on the room stay duration and release the bed for new patients.</p>
+                      <h4 className="font-bold text-yellow-800 dark:text-yellow-500">{t('admissions_care_discharge_process')}</h4>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-600/80">{t('admissions_care_discharge_note')}</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-gray-50 dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 text-center">
-                      <span className="text-gray-500 text-xs uppercase font-bold">Total Stay</span>
-                      <p className="text-2xl font-bold text-gray-800 dark:text-white">{inpatientDetails.daysStayed} Days</p>
+                      <span className="text-gray-500 text-xs uppercase font-bold">{t('admissions_care_total_stay')}</span>
+                      <p className="text-2xl font-bold text-gray-800 dark:text-white">{inpatientDetails.daysStayed} {t('admissions_bed_days', {count: ''}).trim()}</p>
                     </div>
                     <div className="p-4 bg-primary-50 dark:bg-primary-900/20 rounded-xl border border-primary-100 dark:border-primary-800 text-center">
-                      <span className="text-primary-600 text-xs uppercase font-bold">Estimated Bill</span>
+                      <span className="text-primary-600 text-xs uppercase font-bold">{t('admissions_care_estimated_bill')}</span>
                       <p className="text-2xl font-bold text-primary-700 dark:text-primary-400">${inpatientDetails.estimatedBill}</p>
                     </div>
                   </div>
 
                   <div className="space-y-4 pt-2">
-                    <Select label="Discharge Status" value={dischargeForm.status} onChange={e => setDischargeForm({...dischargeForm, status: e.target.value})}>
-                      <option value="Recovered">Recovered</option>
-                      <option value="Transferred">Transferred</option>
-                      <option value="AMA">Left Against Medical Advice</option>
-                      <option value="Deceased">Deceased</option>
+                    <Select label={t('admissions_care_discharge_status')} value={dischargeForm.status} onChange={e => setDischargeForm({...dischargeForm, status: e.target.value})}>
+                      <option value="Recovered">{t('admissions_care_discharge_status_recovered')}</option>
+                      <option value="Transferred">{t('admissions_care_discharge_status_transferred')}</option>
+                      <option value="AMA">{t('admissions_care_discharge_status_ama')}</option>
+                      <option value="Deceased">{t('admissions_care_discharge_status_deceased')}</option>
                     </Select>
-                    <Textarea label="Discharge Summary / Notes" required rows={3} value={dischargeForm.notes} onChange={e => setDischargeForm({...dischargeForm, notes: e.target.value})} />
+                    <Textarea label={t('admissions_care_discharge_summary')} required rows={3} value={dischargeForm.notes} onChange={e => setDischargeForm({...dischargeForm, notes: e.target.value})} />
                   </div>
 
                   <div className="pt-4 border-t border-gray-100 dark:border-slate-700 flex justify-end">
-                    <Button variant="danger" icon={LogOut} onClick={handleDischarge}>Finalize Discharge & Bill</Button>
+                    <Button variant="danger" icon={LogOut} onClick={handleDischarge}>{t('admissions_discharge_button')}</Button>
                   </div>
                 </div>
               )}
@@ -563,7 +568,7 @@ export const Admissions = () => {
                    <div className="w-16 h-16 border-4 border-slate-100 border-t-primary-600 rounded-full animate-spin"></div>
                    <Loader2 className="absolute inset-0 m-auto text-primary-600 animate-pulse" size={24}/>
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">Processing</h3>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">{t('processing')}</h3>
                 <p className="text-slate-500">{processMessage}</p>
               </>
             )}
@@ -572,7 +577,7 @@ export const Admissions = () => {
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-600 animate-in zoom-in duration-300">
                   <CheckCircle size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">Success!</h3>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">{t('success')}</h3>
                 <p className="text-slate-600 font-medium">{processMessage}</p>
               </>
             )}
@@ -581,9 +586,9 @@ export const Admissions = () => {
                 <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6 text-red-600 animate-in zoom-in duration-300">
                   <XCircle size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Action Failed</h3>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">{t('patients_process_title_failed')}</h3>
                 <p className="text-red-600 bg-red-50 p-3 rounded-xl border border-red-100 text-sm mb-6 w-full">{processMessage}</p>
-                <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">Close & Fix</Button>
+                <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">{t('patients_process_close_button')}</Button>
               </>
             )}
           </div>

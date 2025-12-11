@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Select } from '../components/UI';
 import { 
@@ -11,6 +10,7 @@ import {
   FilePlus, ClipboardList
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useTranslation } from '../context/TranslationContext';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
@@ -18,6 +18,7 @@ export const Reports = () => {
   const [activeTab, setActiveTab] = useState<'financial' | 'operational' | 'demographics' | 'records'>('financial');
   const [timeRange, setTimeRange] = useState('30');
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
   
   // Raw Data
   const [bills, setBills] = useState<any[]>([]);
@@ -213,7 +214,7 @@ export const Reports = () => {
     document.body.removeChild(link);
   };
 
-  if (loading) return <div className="flex justify-center items-center h-96 text-slate-400">Generating analytics...</div>;
+  if (loading) return <div className="flex justify-center items-center h-96 text-slate-400">{t('loading')}</div>;
 
   const StatCard = ({ title, value, icon: Icon, color, subtext }: any) => (
     <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-start justify-between">
@@ -233,8 +234,8 @@ export const Reports = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Analytics & Reports</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Comprehensive insights into hospital performance.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('reports_title')}</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('reports_subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <div className="relative">
@@ -244,22 +245,22 @@ export const Reports = () => {
                value={timeRange}
                onChange={e => setTimeRange(e.target.value)}
              >
-               <option value="7">Last 7 Days</option>
-               <option value="30">Last 30 Days</option>
-               <option value="90">Last 3 Months</option>
+               <option value="7">{t('reports_time_7')}</option>
+               <option value="30">{t('reports_time_30')}</option>
+               <option value="90">{t('reports_time_90')}</option>
              </select>
           </div>
-          <Button variant="outline" icon={Download} onClick={handleExport}>Export</Button>
+          <Button variant="outline" icon={Download} onClick={handleExport}>{t('reports_export_button')}</Button>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-t-xl px-4 pt-2 overflow-x-auto">
         {[
-          { id: 'financial', label: 'Financial', icon: DollarSign },
-          { id: 'operational', label: 'Operational', icon: Activity },
-          { id: 'demographics', label: 'Demographics', icon: Users },
-          { id: 'records', label: 'New Records', icon: FilePlus },
+          { id: 'financial', label: t('reports_tab_financial'), icon: DollarSign },
+          { id: 'operational', label: t('reports_tab_operational'), icon: Activity },
+          { id: 'demographics', label: t('reports_tab_demographics'), icon: Users },
+          { id: 'records', label: t('reports_tab_records'), icon: FilePlus },
         ].map(tab => (
           <button 
             key={tab.id}
@@ -281,21 +282,21 @@ export const Reports = () => {
           <div className="space-y-8 animate-in fade-in">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard 
-                title="Total Revenue" 
+                title={t('reports_card_revenue')} 
                 value={`$${financialStats.totalRevenue.toLocaleString()}`} 
                 icon={DollarSign} 
                 color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
                 subtext={<span className="text-emerald-600 font-bold flex items-center gap-1"><ArrowUpRight size={12}/> +12.5% vs last period</span>}
               />
               <StatCard 
-                title="Outstanding" 
+                title={t('reports_card_outstanding')} 
                 value={`$${financialStats.pendingAmount.toLocaleString()}`} 
                 icon={TrendingUp} 
                 color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
                 subtext={<span className="text-slate-400">Across {financialStats.totalInvoices} invoices</span>}
               />
               <StatCard 
-                title="Avg. Invoice" 
+                title={t('reports_card_avg_invoice')}
                 value={`$${Math.round(financialStats.totalRevenue / (financialStats.totalInvoices || 1)).toLocaleString()}`} 
                 icon={PieChartIcon} 
                 color="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
@@ -304,7 +305,7 @@ export const Reports = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-white">Revenue Trend</h3>
+                <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_revenue_trend')}</h3>
                 <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={financialStats.revenueTrend}>
@@ -325,7 +326,7 @@ export const Reports = () => {
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-white">Invoice Status</h3>
+                <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_invoice_status')}</h3>
                 <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700 flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -355,13 +356,13 @@ export const Reports = () => {
           <div className="space-y-8 animate-in fade-in">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <StatCard 
-                title="Total Appointments" 
+                title={t('reports_card_appointments')} 
                 value={operationalStats.totalAppts} 
                 icon={Calendar} 
                 color="bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"
               />
               <StatCard 
-                title="Completion Rate" 
+                title={t('reports_card_completion')}
                 value={`${Math.round((operationalStats.completedAppts / (operationalStats.totalAppts || 1)) * 100)}%`} 
                 icon={CheckCircle} 
                 color="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
@@ -371,7 +372,7 @@ export const Reports = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-white">Doctor Workload</h3>
+                <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_doctor_workload')}</h3>
                 <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={operationalStats.doctorPerformance} layout="vertical">
@@ -386,7 +387,7 @@ export const Reports = () => {
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-white">Appointment Status</h3>
+                <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_appointment_status')}</h3>
                 <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                    <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -416,13 +417,13 @@ export const Reports = () => {
           <div className="space-y-8 animate-in fade-in">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <StatCard 
-                  title="Registered Patients" 
+                  title={t('reports_card_registered_patients')} 
                   value={demographicStats.totalPatients} 
                   icon={Users} 
                   color="bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400"
                />
                <StatCard 
-                  title="New This Month" 
+                  title={t('reports_card_new_this_month')} 
                   value={patients.filter(p => new Date(p.createdAt).getMonth() === new Date().getMonth()).length} 
                   icon={ArrowUpRight} 
                   color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
@@ -431,7 +432,7 @@ export const Reports = () => {
 
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-800 dark:text-white">Age Distribution</h3>
+                  <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_age_dist')}</h3>
                   <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={demographicStats.ageDist}>
@@ -446,7 +447,7 @@ export const Reports = () => {
                </div>
 
                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-800 dark:text-white">Gender Split</h3>
+                  <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_gender_split')}</h3>
                   <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -476,21 +477,21 @@ export const Reports = () => {
           <div className="space-y-8 animate-in fade-in">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard 
-                title="New Patients" 
+                title={t('reports_card_new_patients')} 
                 value={recordsStats.counts.patients} 
                 icon={Users} 
                 color="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
                 subtext={<span className="text-slate-400">Newly registered in period</span>}
               />
               <StatCard 
-                title="New Appointments" 
+                title={t('reports_card_new_appointments')} 
                 value={recordsStats.counts.appointments} 
                 icon={Calendar} 
                 color="bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"
                 subtext={<span className="text-slate-400">Total bookings created</span>}
               />
               <StatCard 
-                title="New Invoices" 
+                title={t('reports_card_new_invoices')} 
                 value={recordsStats.counts.bills} 
                 icon={DollarSign} 
                 color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
@@ -500,7 +501,7 @@ export const Reports = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-white">Growth Trend</h3>
+                <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_growth_trend')}</h3>
                 <div className="h-96 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={recordsStats.chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -518,7 +519,7 @@ export const Reports = () => {
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-white">Recent Records Stream</h3>
+                <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_stream')}</h3>
                 <div className="h-96 overflow-y-auto bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700 custom-scrollbar">
                   {recordsStats.activity.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-slate-400 text-sm">No recent activity found.</div>

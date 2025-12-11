@@ -9,14 +9,19 @@ import {
 import { api } from '../services/api';
 import { MedicalStaff, User as UserType, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
+import { useTranslation } from '../context/TranslationContext';
 
-const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAYS_OF_WEEK_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAYS_OF_WEEK_AR = ['إث', 'ثل', 'أر', 'خم', 'جم', 'سب', 'أح'];
 
 export const Staff = () => {
+  const { t, language } = useTranslation();
   const [activeTab, setActiveTab] = useState<'directory' | 'attendance' | 'leaves' | 'payroll' | 'financials'>('directory');
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  const DAYS_OF_WEEK = language === 'ar' ? DAYS_OF_WEEK_AR : DAYS_OF_WEEK_EN;
   
   // Tab specific data
   const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -87,7 +92,7 @@ export const Staff = () => {
     if (!staffForm.fullName) return;
 
     setProcessStatus('processing');
-    setProcessMessage(staffForm.id ? 'Updating staff...' : 'Creating staff...');
+    setProcessMessage(staffForm.id ? t('staff_updating') : t('staff_creating'));
 
     const { bankName, bankAccount, ...restOfForm } = staffForm;
     const payload = {
@@ -100,7 +105,7 @@ export const Staff = () => {
       else await api.addStaff(payload);
       
       setProcessStatus('success');
-      setProcessMessage(staffForm.id ? 'Staff updated successfully' : 'Staff created successfully');
+      setProcessMessage(staffForm.id ? t('staff_update_success') : t('staff_create_success'));
       
       await loadData(true);
 
@@ -111,7 +116,7 @@ export const Staff = () => {
       
     } catch (err: any) {
       setProcessStatus('error');
-      setProcessMessage(err.response?.data?.error || 'Failed to save staff');
+      setProcessMessage(err.response?.data?.error || t('staff_save_fail'));
     }
   };
 
@@ -142,10 +147,11 @@ export const Staff = () => {
 
   const toggleDay = (day: string) => {
       const currentDays = staffForm.availableDays || [];
-      if (currentDays.includes(day)) {
-          setStaffForm({ ...staffForm, availableDays: currentDays.filter(d => d !== day) });
+      const dayEN = DAYS_OF_WEEK_EN[DAYS_OF_WEEK.indexOf(day)];
+      if (currentDays.includes(dayEN)) {
+          setStaffForm({ ...staffForm, availableDays: currentDays.filter(d => d !== dayEN) });
       } else {
-          setStaffForm({ ...staffForm, availableDays: [...currentDays, day] });
+          setStaffForm({ ...staffForm, availableDays: [...currentDays, dayEN] });
       }
   };
 
@@ -179,8 +185,8 @@ export const Staff = () => {
   const handleGeneratePayroll = () => {
       setConfirmState({
           isOpen: true,
-          title: 'Generate Payroll',
-          message: `Generate payroll for ${selectedMonth}? This will calculate salaries based on attendance and adjustments, overwriting any existing drafts for this month.`,
+          title: t('staff_tab_payroll'),
+          message: t('staff_generate_payroll_confirm', {month: selectedMonth}),
           action: async () => {
               await api.generatePayroll({ month: selectedMonth });
               const data = await api.getPayroll(selectedMonth);
@@ -243,7 +249,7 @@ export const Staff = () => {
                    <div className="w-16 h-16 border-4 border-slate-100 dark:border-slate-800 border-t-primary-600 rounded-full animate-spin"></div>
                    <Loader2 className="absolute inset-0 m-auto text-primary-600 animate-pulse" size={24}/>
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Processing</h3>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{t('processing')}</h3>
                 <p className="text-slate-500 dark:text-slate-400">{processMessage}</p>
               </>
             )}
@@ -252,7 +258,7 @@ export const Staff = () => {
                 <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-6 text-green-600 dark:text-green-400 animate-in zoom-in duration-300">
                   <CheckCircle size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Success!</h3>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{t('success')}</h3>
                 <p className="text-slate-600 dark:text-slate-300 font-medium">{processMessage}</p>
               </>
             )}
@@ -261,9 +267,9 @@ export const Staff = () => {
                 <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6 text-red-600 dark:text-red-400 animate-in zoom-in duration-300">
                   <XCircle size={40} strokeWidth={3} />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Action Failed</h3>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{t('patients_process_title_failed')}</h3>
                 <p className="text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/50 text-sm mb-6 w-full">{processMessage}</p>
-                <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">Close</Button>
+                <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">{t('close')}</Button>
               </>
             )}
           </div>
@@ -272,18 +278,18 @@ export const Staff = () => {
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Human Resources</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Staff directory, payroll, attendance, and leave management.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('staff_title')}</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('staff_subtitle')}</p>
         </div>
       </div>
 
       <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-x-auto">
           {[
-              { id: 'directory', label: 'Directory', icon: Briefcase },
-              { id: 'attendance', label: 'Attendance', icon: Clock },
-              { id: 'leaves', label: 'Leaves', icon: Calendar },
-              { id: 'payroll', label: 'Payroll', icon: DollarSign },
-              { id: 'financials', label: 'Loans & Fines', icon: Wallet },
+              { id: 'directory', label: t('staff_tab_directory'), icon: Briefcase },
+              { id: 'attendance', label: t('staff_tab_attendance'), icon: Clock },
+              { id: 'leaves', label: t('staff_tab_leaves'), icon: Calendar },
+              { id: 'payroll', label: t('staff_tab_payroll'), icon: DollarSign },
+              { id: 'financials', label: t('staff_tab_financials'), icon: Wallet },
           ].map(tab => (
               <button
                 key={tab.id}
@@ -302,13 +308,13 @@ export const Staff = () => {
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <input 
                         type="text" 
-                        placeholder="Search staff..." 
+                        placeholder={t('staff_search_placeholder')} 
                         className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                       />
                   </div>
-                  {canManageHR && <Button onClick={() => openStaffModal()} icon={Plus}>Add Employee</Button>}
+                  {canManageHR && <Button onClick={() => openStaffModal()} icon={Plus}>{t('staff_add_employee_button')}</Button>}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -327,15 +333,15 @@ export const Staff = () => {
 
                           <div className="flex-1 space-y-2 text-sm border-t border-slate-100 dark:border-slate-700 pt-3">
                               <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                  <span>Department</span>
+                                  <span>{t('staff_card_department')}</span>
                                   <span className="font-medium text-slate-800 dark:text-slate-200">{person.department}</span>
                               </div>
                               <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                  <span>Shift</span>
+                                  <span>{t('staff_card_shift')}</span>
                                   <span className="font-medium text-slate-800 dark:text-slate-200">{person.availableTimeStart} - {person.availableTimeEnd}</span>
                               </div>
                               <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                  <span>Working Days</span>
+                                  <span>{t('staff_card_working_days')}</span>
                                   <span className="font-medium text-slate-800 dark:text-slate-200 text-xs truncate max-w-[120px]" title={person.availableDays?.join(', ')}>
                                     {formatDays(person.availableDays)}
                                   </span>
@@ -343,7 +349,7 @@ export const Staff = () => {
                               {person.type === 'doctor' && (
                                 <div className="mt-2 pt-2 border-t border-dashed border-slate-100 dark:border-slate-700">
                                    <div className="flex justify-between items-center text-xs">
-                                      <span className="text-slate-500">Consultation</span>
+                                      <span className="text-slate-500">{t('staff_card_consultation')}</span>
                                       <span className="font-bold text-slate-700 dark:text-slate-300">${person.consultationFee}</span>
                                    </div>
                                 </div>
@@ -352,7 +358,7 @@ export const Staff = () => {
                           
                           {canManageHR && (
                               <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-end">
-                                  <Button size="sm" variant="outline" onClick={() => openStaffModal(person)}>Edit Profile</Button>
+                                  <Button size="sm" variant="outline" onClick={() => openStaffModal(person)}>{t('staff_card_edit_button')}</Button>
                               </div>
                           )}
                       </div>
@@ -362,23 +368,23 @@ export const Staff = () => {
       )}
 
       {/* Other tabs remain the same... */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={staffForm.id ? "Edit Staff" : "Add Staff Member"}>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={staffForm.id ? t('staff_modal_edit_title') : t('staff_modal_add_title')}>
         <form onSubmit={handleCreateStaff} className="space-y-6">
           <div className="space-y-4">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2"><User size={16}/> Personal Information</h4>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2"><User size={16}/> {t('staff_form_personal_title')}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input label="Full Name" required value={staffForm.fullName || ''} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} />
-              <Input label="Phone" value={staffForm.phone || ''} onChange={e => setStaffForm({...staffForm, phone: e.target.value})} prefix={<Phone size={14}/>} />
+              <Input label={t('patients_modal_form_fullName')} required value={staffForm.fullName || ''} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} />
+              <Input label={t('patients_modal_form_phone')} value={staffForm.phone || ''} onChange={e => setStaffForm({...staffForm, phone: e.target.value})} prefix={<Phone size={14}/>} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input label="Email" type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} prefix={<Mail size={14}/>} />
-              <Input label="Join Date" type="date" value={staffForm.joinDate || ''} onChange={e => setStaffForm({...staffForm, joinDate: e.target.value})} />
+              <Input label={t('settings_profile_email')} type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} prefix={<Mail size={14}/>} />
+              <Input label={t('staff_join_date')} type="date" value={staffForm.joinDate || ''} onChange={e => setStaffForm({...staffForm, joinDate: e.target.value})} />
             </div>
           </div>
           <div className="space-y-4">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2"><Briefcase size={16}/> Role & Department</h4>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2"><Briefcase size={16}/> {t('staff_form_role_title')}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select label="Role" value={staffForm.type} onChange={e => setStaffForm({...staffForm, type: e.target.value as any})}>
+              <Select label={t('config_users_header_role')} value={staffForm.type} onChange={e => setStaffForm({...staffForm, type: e.target.value as any})}>
                 <option value="doctor">Doctor</option>
                 <option value="nurse">Nurse</option>
                 <option value="technician">Technician</option>
@@ -387,22 +393,22 @@ export const Staff = () => {
                 <option value="admin_staff">Admin Staff</option>
                 <option value="hr_manager">HR Manager</option>
               </Select>
-              <Select label="Department" required value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})}>
+              <Select label={t('staff_card_department')} required value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})}>
                 <option value="">Select department...</option>
-                {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                {departments.map(d => <option key={d.id} value={d.name}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
               </Select>
             </div>
             <Select label="Specialization" value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}>
               <option value="">Select specialization...</option>
-              {specializations.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              {specializations.map(s => <option key={s.id} value={s.name}>{language === 'ar' ? s.name_ar : s.name_en}</option>)}
             </Select>
           </div>
           <div className="space-y-4">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2"><Clock size={16}/> Schedule & Status</h4>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2"><Clock size={16}/> {t('staff_form_schedule_title')}</h4>
             <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
               <div className="flex flex-wrap gap-2">
-                {DAYS_OF_WEEK.map(day => (
-                    <button type="button" key={day} onClick={() => toggleDay(day)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${staffForm.availableDays?.includes(day) ? 'bg-primary-600 text-white shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600'}`}>
+                {DAYS_OF_WEEK.map((day, index) => (
+                    <button type="button" key={day} onClick={() => toggleDay(day)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${staffForm.availableDays?.includes(DAYS_OF_WEEK_EN[index]) ? 'bg-primary-600 text-white shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600'}`}>
                         {day}
                     </button>
                 ))}
@@ -411,7 +417,7 @@ export const Staff = () => {
                 <Input label="Start Time" type="time" value={staffForm.availableTimeStart || ''} onChange={e => setStaffForm({...staffForm, availableTimeStart: e.target.value})} />
                 <Input label="End Time" type="time" value={staffForm.availableTimeEnd || ''} onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})} />
               </div>
-              <Select label="Status" value={staffForm.status} onChange={e => setStaffForm({...staffForm, status: e.target.value as any})}>
+              <Select label={t('status')} value={staffForm.status} onChange={e => setStaffForm({...staffForm, status: e.target.value as any})}>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
                 <option value="dismissed">Dismissed</option>
@@ -420,30 +426,30 @@ export const Staff = () => {
           </div>
           {canManageHR && (
             <div className="space-y-4">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2"><Wallet size={16}/> Financial Details</h4>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2"><Wallet size={16}/> {t('staff_form_financial_title')}</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input label="Base Monthly Salary ($)" type="number" value={staffForm.baseSalary} onChange={e => setStaffForm({...staffForm, baseSalary: parseFloat(e.target.value)})} />
-                    <Input label="Bank Name" placeholder="e.g. Bank of Khartoum" value={staffForm.bankName || ''} onChange={e => setStaffForm({...staffForm, bankName: e.target.value})} />
+                    <Input label={t('staff_form_salary')} type="number" value={staffForm.baseSalary} onChange={e => setStaffForm({...staffForm, baseSalary: parseFloat(e.target.value)})} />
+                    <Input label={t('staff_form_bank_name')} placeholder="e.g. Bank of Khartoum" value={staffForm.bankName || ''} onChange={e => setStaffForm({...staffForm, bankName: e.target.value})} />
                 </div>
-                <Input label="Bank Account Number (IBAN)" placeholder="Account Number..." value={staffForm.bankAccount || ''} onChange={e => setStaffForm({...staffForm, bankAccount: e.target.value})} />
+                <Input label={t('staff_form_bank_account')} placeholder="Account Number..." value={staffForm.bankAccount || ''} onChange={e => setStaffForm({...staffForm, bankAccount: e.target.value})} />
                 
                 {staffForm.type === 'doctor' && (
                     <div className="grid grid-cols-3 gap-3 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
-                        <Input label="Consultation Fee" type="number" value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: parseFloat(e.target.value)})} className="bg-white" />
-                        <Input label="Follow-up Fee" type="number" value={staffForm.consultationFeeFollowup} onChange={e => setStaffForm({...staffForm, consultationFeeFollowup: parseFloat(e.target.value)})} className="bg-white" />
-                        <Input label="Emergency Fee" type="number" value={staffForm.consultationFeeEmergency} onChange={e => setStaffForm({...staffForm, consultationFeeEmergency: parseFloat(e.target.value)})} className="bg-white" />
+                        <Input label={t('staff_form_consultation_fee')} type="number" value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: parseFloat(e.target.value)})} className="bg-white" />
+                        <Input label={t('staff_form_followup_fee')} type="number" value={staffForm.consultationFeeFollowup} onChange={e => setStaffForm({...staffForm, consultationFeeFollowup: parseFloat(e.target.value)})} className="bg-white" />
+                        <Input label={t('staff_form_emergency_fee')} type="number" value={staffForm.consultationFeeEmergency} onChange={e => setStaffForm({...staffForm, consultationFeeEmergency: parseFloat(e.target.value)})} className="bg-white" />
                     </div>
                 )}
             </div>
           )}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
-            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="submit">{staffForm.id ? 'Update Staff' : 'Create Staff'}</Button>
+            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button>
+            <Button type="submit">{staffForm.id ? t('save') : t('add')}</Button>
           </div>
         </form>
       </Modal>
 
-      <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title="Request Leave">
+      <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title={t('staff_modal_leave_title')}>
           <form onSubmit={handleLeaveRequest} className="space-y-4">
               <Select label="Staff Member" required value={leaveForm.staffId} onChange={e => setLeaveForm({...leaveForm, staffId: e.target.value})}>
                   <option value="">Select yourself...</option>
@@ -461,12 +467,12 @@ export const Staff = () => {
               </div>
               <Textarea label="Reason" required rows={3} value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
               <div className="flex justify-end pt-2">
-                  <Button type="submit">Submit Request</Button>
+                  <Button type="submit">{t('submit')}</Button>
               </div>
           </form>
       </Modal>
 
-      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={`Add ${adjForm.type === 'loan' ? 'Loan' : adjForm.type === 'bonus' ? 'Bonus' : 'Fine'}`}>
+      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={adjForm.type === 'loan' ? t('staff_modal_adjustment_title_loan') : adjForm.type === 'bonus' ? t('staff_modal_adjustment_title_bonus') : t('staff_modal_adjustment_title_fine')}>
           <form onSubmit={handleAdjustmentSubmit} className="space-y-4">
               <Select label="Staff Member" required value={adjForm.staffId} onChange={e => setAdjForm({...adjForm, staffId: e.target.value})}>
                   <option value="">Select staff...</option>
@@ -476,7 +482,7 @@ export const Staff = () => {
               <Input label="Date" type="date" required value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
               <Textarea label="Reason / Notes" required rows={2} value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
               <div className="flex justify-end pt-2">
-                  <Button type="submit" variant={adjForm.type === 'fine' ? 'danger' : 'primary'}>Confirm</Button>
+                  <Button type="submit" variant={adjForm.type === 'fine' ? 'danger' : 'primary'}>{t('confirm')}</Button>
               </div>
           </form>
       </Modal>
@@ -484,10 +490,15 @@ export const Staff = () => {
       <ConfirmationDialog 
         isOpen={confirmState.isOpen}
         onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
-        onConfirm={confirmState.action}
+        onConfirm={() => {
+            confirmState.action();
+            setConfirmState({...confirmState, isOpen: false});
+        }}
         title={confirmState.title}
         message={confirmState.message}
         type="warning"
+        confirmLabel={t('confirm')}
+        cancelLabel={t('cancel')}
       />
     </div>
   );

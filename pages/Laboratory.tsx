@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge, Modal, Input, Textarea } from '../components/UI';
 import { FlaskConical, CheckCircle, Search, Clock, FileText, User, ChevronRight, Activity, History as HistoryIcon, Save } from 'lucide-react';
 import { api } from '../services/api';
+import { useTranslation } from '../context/TranslationContext';
 
 export const Laboratory = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,8 +76,8 @@ export const Laboratory = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Laboratory Workbench</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Manage sample collection, processing, and result entry.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('lab_title')}</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('lab_subtitle')}</p>
         </div>
         
         <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
@@ -83,13 +85,13 @@ export const Laboratory = () => {
                 onClick={() => setActiveTab('queue')}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeTab === 'queue' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
             >
-                <FlaskConical size={16}/> Work Queue <span className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 text-xs px-2 py-0.5 rounded-full ml-1">{requests.filter(r => r.status !== 'completed').length}</span>
+                <FlaskConical size={16}/> {t('lab_tab_queue')} <span className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 text-xs px-2 py-0.5 rounded-full ml-1">{requests.filter(r => r.status !== 'completed').length}</span>
             </button>
             <button 
                 onClick={() => setActiveTab('history')}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
             >
-                <HistoryIcon size={16}/> History
+                <HistoryIcon size={16}/> {t('lab_tab_history')}
             </button>
         </div>
       </div>
@@ -100,7 +102,7 @@ export const Laboratory = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
             <input 
                 type="text" 
-                placeholder="Search by patient name..." 
+                placeholder={t('lab_search_placeholder')} 
                 className="pl-10 w-full sm:w-96 rounded-lg border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -111,11 +113,11 @@ export const Laboratory = () => {
       {/* Main Content */}
       <div className="grid grid-cols-1 gap-4">
         {loading ? (
-            <div className="text-center py-20 text-slate-400">Loading requests...</div>
+            <div className="text-center py-20 text-slate-400">{t('lab_loading')}</div>
         ) : filteredRequests.length === 0 ? (
             <div className="text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
                 <FlaskConical size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-600" />
-                <p className="text-slate-500 dark:text-slate-400 font-medium">No requests found in {activeTab}.</p>
+                <p className="text-slate-500 dark:text-slate-400 font-medium">{t('lab_empty', {tab: activeTab})}</p>
             </div>
         ) : (
             filteredRequests.map(req => (
@@ -132,37 +134,39 @@ export const Laboratory = () => {
                     <div className="flex-1">
                         <div className="flex items-center gap-3 mb-1">
                             <h3 className="text-lg font-bold text-slate-800 dark:text-white">{req.patientName}</h3>
-                            <Badge color={req.status === 'confirmed' ? 'green' : req.status === 'completed' ? 'gray' : 'yellow'}>
-                                {req.status === 'confirmed' ? 'Paid & Ready' : req.status === 'completed' ? 'Results Ready' : 'Payment Pending'}
-                            </Badge>
+                            {req.status === 'completed' 
+                                ? <Badge color="green"><CheckCircle size={12} className="inline mr-1"/>{t('lab_card_results_ready')}</Badge>
+                                : req.status === 'confirmed'
+                                  ? <Badge color="blue">{t('lab_card_paid')}</Badge>
+                                  : <Badge color="yellow">{t('lab_card_payment_pending')}</Badge>
+                            }
                         </div>
-                        
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            {/* If test names are available, map them. Otherwise show placeholder */}
-                            {req.testNames ? (
-                                req.testNames.split(',').map((t: string, i: number) => (
-                                    <span key={i} className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md font-medium border border-blue-100 dark:border-blue-800">
-                                        {t.trim()}
-                                    </span>
-                                ))
-                            ) : (
-                                <span className="text-sm text-slate-500 italic">Laboratory Investigation Request</span>
-                            )}
-                        </div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{req.testNames || 'Multiple Tests'}</p>
+                        <p className="text-xs text-slate-400 font-mono mt-2">ID: {req.id}</p>
+                    </div>
+
+                    {/* Cost */}
+                    <div className="text-right">
+                        <span className="text-xs text-slate-400">Cost</span>
+                        <p className="text-xl font-bold text-slate-800 dark:text-white">${req.projected_cost.toLocaleString()}</p>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
-                        {req.status === 'completed' ? (
-                            <Button variant="outline" size="sm" icon={FileText}>View Report</Button>
-                        ) : (
-                            <Button 
-                                onClick={() => openProcessModal(req)} 
-                                disabled={req.status === 'pending'} // Disable if not paid (pending usually means unpaid in this system context)
-                                className={req.status === 'pending' ? 'opacity-50' : ''}
-                                icon={req.status === 'pending' ? Clock : Activity}
-                            >
-                                {req.status === 'pending' ? 'Awaiting Payment' : 'Enter Results'}
+                    <div className="sm:ml-auto">
+                        {req.status === 'confirmed' && (
+                            <Button onClick={() => openProcessModal(req)} icon={Activity} className="bg-gradient-to-r from-primary-600 to-indigo-600 shadow-lg shadow-primary-500/20">
+                                {t('lab_card_enter_results')}
+                            </Button>
+                        )}
+                        {req.status === 'pending' && (
+                            <div className="text-sm text-orange-600 font-medium flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-100 dark:border-orange-800">
+                                <Clock size={16}/>
+                                <span>{t('lab_card_awaiting_payment')}</span>
+                            </div>
+                        )}
+                        {req.status === 'completed' && (
+                            <Button variant="secondary" icon={FileText} onClick={() => openProcessModal(req)}>
+                                View Results
                             </Button>
                         )}
                     </div>
@@ -171,43 +175,37 @@ export const Laboratory = () => {
         )}
       </div>
 
-      {/* Result Entry Modal */}
-      <Modal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)} title="Enter Test Results">
-        <form onSubmit={handleComplete} className="space-y-6">
-            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
-                <div className="flex justify-between mb-2">
-                    <span className="text-sm text-slate-500">Patient</span>
-                    <span className="font-bold text-slate-800 dark:text-white">{selectedReq?.patientName}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-sm text-slate-500">Tests</span>
-                    <span className="font-medium text-slate-800 dark:text-white text-right max-w-[200px]">{selectedReq?.testNames || 'Lab Request'}</span>
-                </div>
-            </div>
-
-            <div className="space-y-4">
-                <Textarea 
-                    label="Clinical Findings / Values" 
-                    placeholder="Enter detailed results, values, and reference ranges..."
-                    rows={6}
-                    required
-                    value={resultForm.results}
-                    onChange={e => setResultForm({...resultForm, results: e.target.value})}
-                />
-                <Input 
-                    label="Technician Notes (Internal)" 
-                    placeholder="Comments on sample quality, etc."
-                    value={resultForm.notes}
-                    onChange={e => setResultForm({...resultForm, notes: e.target.value})}
-                />
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3">
-                <Button type="button" variant="secondary" onClick={() => setIsProcessModalOpen(false)}>Cancel</Button>
-                <Button type="submit" icon={Save} disabled={processStatus === 'processing'}>
-                    {processStatus === 'processing' ? 'Saving...' : 'Finalize & Publish'}
-                </Button>
-            </div>
+      {/* Process Modal */}
+      <Modal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)} title={`${t('lab_modal_title')} - ${selectedReq?.patientName}`}>
+        <form onSubmit={handleComplete} className="space-y-4">
+          <div>
+            <h4 className="font-bold mb-2">{selectedReq?.testNames}</h4>
+            <Textarea 
+              label={t('lab_modal_findings')}
+              placeholder={t('lab_modal_findings_placeholder')}
+              rows={6}
+              value={resultForm.results}
+              onChange={e => setResultForm({...resultForm, results: e.target.value})}
+              required={selectedReq?.status !== 'completed'}
+              disabled={selectedReq?.status === 'completed'}
+            />
+          </div>
+          <Textarea 
+            label={t('lab_modal_notes')}
+            placeholder={t('lab_modal_notes_placeholder')}
+            rows={2}
+            value={resultForm.notes}
+            onChange={e => setResultForm({...resultForm, notes: e.target.value})}
+            disabled={selectedReq?.status === 'completed'}
+          />
+          <div className="pt-4 flex justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={() => setIsProcessModalOpen(false)}>{t('close')}</Button>
+            {selectedReq?.status !== 'completed' && (
+              <Button type="submit" icon={Save} disabled={processStatus === 'processing'}>
+                {processStatus === 'processing' ? t('processing') : t('lab_modal_save_button')}
+              </Button>
+            )}
+          </div>
         </form>
       </Modal>
     </div>

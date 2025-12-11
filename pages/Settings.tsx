@@ -73,20 +73,20 @@ export const Settings = () => {
     e.preventDefault();
     try {
       await api.updateProfile(profileForm);
-      showMessage('success', 'Profile and preferences updated successfully.');
+      showMessage('success', t('settings_toast_profile_success'));
     } catch (e: any) {
-      showMessage('error', e.response?.data?.error || 'Failed to update profile.');
+      showMessage('error', e.response?.data?.error || t('settings_toast_profile_error'));
     }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      showMessage('error', 'New passwords do not match.');
+      showMessage('error', t('settings_toast_password_mismatch'));
       return;
     }
     if (passwordForm.newPassword.length < 6) {
-      showMessage('error', 'Password must be at least 6 characters.');
+      showMessage('error', t('settings_toast_password_short'));
       return;
     }
 
@@ -95,10 +95,10 @@ export const Settings = () => {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword
       });
-      showMessage('success', 'Password changed successfully.');
+      showMessage('success', t('settings_toast_password_success'));
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (e: any) {
-      showMessage('error', e.response?.data?.error || 'Failed to change password.');
+      showMessage('error', e.response?.data?.error || t('settings_toast_password_error'));
     }
   };
 
@@ -229,18 +229,18 @@ export const Settings = () => {
                       value={language} 
                       onChange={e => setLanguage(e.target.value as 'en' | 'ar')}
                    >
-                      <option value="en">English (US)</option>
-                      <option value="ar">العربية (Arabic)</option>
+                      <option value="en">{t('settings_language_en')}</option>
+                      <option value="ar">{t('settings_language_ar')}</option>
                    </Select>
                    <Select 
                       label={t('settings_profile_timezone')} 
                       value={profileForm.timezone} 
                       onChange={e => setProfileForm({...profileForm, timezone: e.target.value})}
                    >
-                      <option value="UTC">UTC (GMT+0)</option>
-                      <option value="UTC+2">Cairo (GMT+2)</option>
-                      <option value="UTC+3">Riyadh/Nairobi (GMT+3)</option>
-                      <option value="UTC+4">Dubai (GMT+4)</option>
+                      <option value="UTC">{t('settings_timezone_utc')}</option>
+                      <option value="UTC+2">{t('settings_timezone_utc2')}</option>
+                      <option value="UTC+3">{t('settings_timezone_utc3')}</option>
+                      <option value="UTC+4">{t('settings_timezone_utc4')}</option>
                    </Select>
                 </div>
 
@@ -298,7 +298,7 @@ export const Settings = () => {
              </div>
              
              <div className="flex justify-end pt-4">
-                <Button onClick={() => showMessage('success', 'Notification preferences saved.')}>{t('settings_notifications_save_button')}</Button>
+                <Button onClick={() => showMessage('success', t('settings_toast_notifications_success'))}>{t('settings_notifications_save_button')}</Button>
              </div>
           </div>
         )}

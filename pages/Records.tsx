@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Modal, Badge } from '../components/UI';
 import { 
@@ -6,6 +5,7 @@ import {
   DollarSign, Bed, Activity, Download, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useTranslation } from '../context/TranslationContext';
 
 // Unified Record Interface
 interface SystemRecord {
@@ -24,6 +24,7 @@ interface SystemRecord {
 export const Records = () => {
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<SystemRecord[]>([]);
+  const { t } = useTranslation();
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -223,11 +224,11 @@ export const Records = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Database className="text-primary-600" /> System Records
+            <Database className="text-primary-600" /> {t('records_title')}
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Master registry of all hospital activities and data.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('records_subtitle')}</p>
         </div>
-        <Button variant="outline" icon={Download} onClick={handleExport}>Export Data</Button>
+        <Button variant="outline" icon={Download} onClick={handleExport}>{t('records_export_button')}</Button>
       </div>
 
       <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-visible z-10">
@@ -238,7 +239,7 @@ export const Records = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input 
               type="text" 
-              placeholder="Search ref, name..." 
+              placeholder={t('records_search_placeholder')} 
               className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
               value={searchTerm}
               onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
@@ -252,11 +253,11 @@ export const Records = () => {
                value={filterType}
                onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}
              >
-               <option value="All">All Types</option>
-               <option value="Patient">Patients</option>
-               <option value="Appointment">Appointments</option>
-               <option value="Bill">Invoices</option>
-               <option value="Admission">Admissions</option>
+               <option value="All">{t('records_filter_all')}</option>
+               <option value="Patient">{t('records_filter_patients')}</option>
+               <option value="Appointment">{t('records_filter_appointments')}</option>
+               <option value="Bill">{t('records_filter_invoices')}</option>
+               <option value="Admission">{t('records_filter_admissions')}</option>
              </select>
           </div>
 
@@ -283,19 +284,19 @@ export const Records = () => {
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
             <thead className="bg-white dark:bg-slate-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Reference</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Primary Entity</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Details</th>
-                <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Action</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('records_table_header_ref')}</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('records_table_header_date')}</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('records_table_header_primary')}</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('records_table_header_details')}</th>
+                <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">{t('records_table_header_status')}</th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('records_table_header_action')}</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
               {loading ? (
-                <tr><td colSpan={6} className="text-center py-20 text-slate-500">Loading master records...</td></tr>
+                <tr><td colSpan={6} className="text-center py-20 text-slate-500">{t('records_table_loading')}</td></tr>
               ) : paginatedRecords.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-20 text-slate-500">No records found matching filters.</td></tr>
+                <tr><td colSpan={6} className="text-center py-20 text-slate-500">{t('records_table_empty')}</td></tr>
               ) : (
                 paginatedRecords.map((r) => {
                   const Icon = getTypeIcon(r.type);
@@ -348,11 +349,11 @@ export const Records = () => {
            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-b-xl gap-4">
              <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
                 <span>
-                  Showing <span className="font-medium text-slate-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="font-medium text-slate-900 dark:text-white">{Math.min(currentPage * itemsPerPage, filteredRecords.length)}</span> of <span className="font-medium text-slate-900 dark:text-white">{filteredRecords.length}</span>
+                  {t('patients_pagination_showing')} <span className="font-medium text-slate-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="font-medium text-slate-900 dark:text-white">{Math.min(currentPage * itemsPerPage, filteredRecords.length)}</span> {t('patients_pagination_of')} <span className="font-medium text-slate-900 dark:text-white">{filteredRecords.length}</span>
                 </span>
                 
                 <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-4">
-                  <span>Rows:</span>
+                  <span>{t('patients_pagination_rows')}</span>
                   <select 
                     className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-primary-500"
                     value={itemsPerPage}
@@ -419,7 +420,7 @@ export const Records = () => {
       </Card>
 
       {/* Detail Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`${selectedRecord?.type} Details`}>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('records_modal_title', {type: selectedRecord?.type || ''})}>
         {selectedRecord && (
           <div className="space-y-6">
             <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -437,32 +438,32 @@ export const Records = () => {
 
             <div className="grid grid-cols-2 gap-4 text-sm">
                <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
-                 <span className="block text-xs text-slate-400 uppercase font-bold mb-1">Primary Entity</span>
+                 <span className="block text-xs text-slate-400 uppercase font-bold mb-1">{t('records_modal_primary')}</span>
                  <span className="font-medium text-slate-900 dark:text-white">{selectedRecord.primaryEntity}</span>
                </div>
                {selectedRecord.associateEntity && (
                  <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
-                   <span className="block text-xs text-slate-400 uppercase font-bold mb-1">Associate</span>
+                   <span className="block text-xs text-slate-400 uppercase font-bold mb-1">{t('records_modal_associate')}</span>
                    <span className="font-medium text-slate-900 dark:text-white">{selectedRecord.associateEntity}</span>
                  </div>
                )}
                {selectedRecord.value !== undefined && (
                  <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
-                   <span className="block text-xs text-slate-400 uppercase font-bold mb-1">Value</span>
+                   <span className="block text-xs text-slate-400 uppercase font-bold mb-1">{t('records_modal_value')}</span>
                    <span className="font-bold text-emerald-600">${selectedRecord.value.toLocaleString()}</span>
                  </div>
                )}
             </div>
 
             <div>
-              <h4 className="font-bold text-slate-800 dark:text-white mb-2 text-sm">Raw Data</h4>
+              <h4 className="font-bold text-slate-800 dark:text-white mb-2 text-sm">{t('records_modal_raw')}</h4>
               <div className="bg-slate-900 text-slate-300 p-4 rounded-xl text-xs font-mono overflow-auto max-h-60 custom-scrollbar">
                 <pre>{JSON.stringify(selectedRecord.details, null, 2)}</pre>
               </div>
             </div>
 
             <div className="flex justify-end pt-4 border-t dark:border-slate-700">
-              <Button onClick={() => setIsModalOpen(false)}>Close</Button>
+              <Button onClick={() => setIsModalOpen(false)}>{t('close')}</Button>
             </div>
           </div>
         )}

@@ -8,6 +8,7 @@ import {
 import { api } from '../services/api';
 import { Patient, Appointment, MedicalStaff, User as UserType } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
+import { useTranslation } from '../context/TranslationContext';
 
 // Date Helpers
 const formatDate = (date: Date) => date.toISOString().split('T')[0];
@@ -17,6 +18,7 @@ const isSameDay = (d1: Date, d2: Date) =>
   d1.getDate() === d2.getDate();
 
 const StatusBadge = ({ status }: { status: string }) => {
+  const { t } = useTranslation();
   const styles: Record<string, string> = {
     pending: 'bg-yellow-50 text-yellow-700 border-yellow-200', // Unpaid
     confirmed: 'bg-blue-50 text-blue-700 border-blue-200', // Paid/Waiting
@@ -28,13 +30,13 @@ const StatusBadge = ({ status }: { status: string }) => {
   };
   
   const labels: Record<string, string> = {
-    pending: 'Unpaid',
-    confirmed: 'In Queue',
-    waiting: 'In Queue',
-    checked_in: 'Ready',
-    in_progress: 'In Consultation',
-    completed: 'Completed',
-    cancelled: 'Cancelled'
+    pending: t('appointments_status_unpaid'),
+    confirmed: t('appointments_status_in_queue'),
+    waiting: t('appointments_status_in_queue'),
+    checked_in: t('appointments_status_ready'),
+    in_progress: t('appointments_status_in_consultation'),
+    completed: t('appointments_status_completed'),
+    cancelled: t('appointments_status_cancelled')
   };
 
   return (
@@ -52,6 +54,7 @@ interface DoctorQueueColumnProps {
 }
 
 const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointments, onStatusUpdate, onCancel }) => {
+  const { t } = useTranslation();
   // 1. Separate Active vs Waiting
   const activePatient = appointments.find(a => a.status === 'in_progress');
   
@@ -73,16 +76,16 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-slate-800 dark:text-white truncate" title={doctor.fullName}>{doctor.fullName}</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{doctor.type === 'nurse' ? 'Nurse' : doctor.specialization}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{doctor.type === 'nurse' ? t('appointments_form_select_nurse') : doctor.specialization}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="flex flex-col items-center bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg border border-blue-100 dark:border-blue-800">
-             <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">Waiting</span>
+             <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">{t('appointments_queue_waiting')}</span>
              <span className="text-lg font-bold text-blue-800 dark:text-blue-300">{queue.length}</span>
           </div>
           <div className="flex flex-col items-center bg-green-50 dark:bg-green-900/20 p-2 rounded-lg border border-green-100 dark:border-green-800">
-             <span className="text-[10px] uppercase font-bold text-green-600 dark:text-green-400">Done</span>
+             <span className="text-[10px] uppercase font-bold text-green-600 dark:text-green-400">{t('appointments_queue_done')}</span>
              <span className="text-lg font-bold text-green-800 dark:text-green-300">{completedCount}</span>
           </div>
         </div>
@@ -100,7 +103,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                 </span>
-                Now Seeing
+                {t('appointments_queue_now_seeing')}
               </span>
               <span className="font-mono text-xs text-slate-400">#{activePatient.appointmentNumber.slice(-4)}</span>
             </div>
@@ -117,7 +120,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
               onClick={() => onStatusUpdate(activePatient.id, 'completed')}
               icon={CheckCircle}
             >
-              Complete Visit
+              {t('appointments_queue_complete_button')}
             </Button>
           </div>
         ) : (
@@ -125,7 +128,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
             <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-2">
                <User size={20} className="opacity-50"/>
             </div>
-            <span className="text-xs font-medium">Room Empty</span>
+            <span className="text-xs font-medium">{t('appointments_queue_room_empty')}</span>
           </div>
         )}
 
@@ -133,8 +136,8 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
         {queue.length > 0 && (
           <div className="space-y-2 mt-4">
             <h5 className="text-xs font-bold uppercase text-slate-400 pl-1 flex justify-between items-end">
-                <span>Up Next</span>
-                <span className="text-[10px] font-normal bg-slate-200 dark:bg-slate-700 px-1.5 rounded-md text-slate-600 dark:text-slate-300">Sorted by Payment & Time</span>
+                <span>{t('appointments_queue_up_next')}</span>
+                <span className="text-[10px] font-normal bg-slate-200 dark:bg-slate-700 px-1.5 rounded-md text-slate-600 dark:text-slate-300">{t('appointments_queue_sort_label')}</span>
             </h5>
             {queue.map((apt, index) => {
               const isPaid = apt.status !== 'pending'; // Assuming pending means unpaid in this workflow
@@ -182,7 +185,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                          onClick={() => onStatusUpdate(apt.id, 'confirmed')}
                          icon={DollarSign}
                        >
-                         Pay
+                         {t('appointments_queue_pay_button')}
                        </Button>
                     )}
                     
@@ -194,9 +197,9 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                         onClick={() => onStatusUpdate(apt.id, 'in_progress')}
                         icon={Play}
                         disabled={!isNextCallable} // Enforce queue order for starting
-                        title={!isNextCallable ? "Complete the top patient first" : "Start Consultation"}
+                        title={!isNextCallable ? t('appointments_queue_start_tooltip') : t('appointments_queue_start_button')}
                       >
-                        Start
+                        {t('appointments_queue_start_button')}
                       </Button>
                     )}
                     
@@ -204,7 +207,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                       size="sm" 
                       variant="ghost" 
                       className="h-7 w-7 p-0 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      title="Cancel"
+                      title={t('cancel')}
                       onClick={() => onCancel(apt.id)}
                     >
                       <X size={14} />
@@ -221,6 +224,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
 };
 
 export const Appointments = () => {
+  const { t, language } = useTranslation();
   // Data State
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -324,8 +328,8 @@ export const Appointments = () => {
   const handleCancel = (id: number) => {
     setConfirmState({
       isOpen: true,
-      title: 'Cancel Appointment',
-      message: 'Are you sure you want to cancel this appointment?',
+      title: t('appointments_cancel_dialog_title'),
+      message: t('appointments_cancel_dialog_message'),
       action: () => updateStatus(id, 'cancelled')
     });
   };
@@ -392,7 +396,7 @@ export const Appointments = () => {
               <ChevronLeft size={18} />
             </button>
             <div className="px-3 font-bold text-slate-800 dark:text-white min-w-[130px] text-center text-sm">
-              {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              {selectedDate.toLocaleDateString(language, { weekday: 'short', month: 'short', day: 'numeric' })}
             </div>
             <button 
               onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}
@@ -406,7 +410,7 @@ export const Appointments = () => {
             onClick={() => setSelectedDate(new Date())} 
             className="text-xs font-bold text-primary-600 hover:text-primary-700 bg-primary-50 dark:bg-primary-900/20 px-3 py-2 rounded-lg transition-colors border border-primary-100 dark:border-primary-800 whitespace-nowrap"
           >
-            Today
+            {t('dashboard_today')}
           </button>
         </div>
 
@@ -418,7 +422,7 @@ export const Appointments = () => {
             onChange={e => setSelectedDept(e.target.value)}
             className="!w-40 !py-2 !text-sm !rounded-lg !border-slate-200"
           >
-            <option value="all">All Depts</option>
+            <option value="all">{t('appointments_filter_all_depts')}</option>
             {departments.map(d => <option key={d} value={d}>{d}</option>)}
           </Select>
 
@@ -429,14 +433,14 @@ export const Appointments = () => {
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'queue' ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
             >
               <LayoutGrid size={14} />
-              Queue
+              {t('appointments_view_queue')}
             </button>
             <button 
               onClick={() => setViewMode('list')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
             >
               <ListIcon size={14} />
-              List
+              {t('appointments_view_list')}
             </button>
           </div>
 
@@ -448,7 +452,7 @@ export const Appointments = () => {
               className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg shadow-lg shadow-primary-500/25 hover:shadow-primary-500/40 transition-all transform active:scale-95 font-bold text-sm whitespace-nowrap"
             >
               <Plus size={16} strokeWidth={2.5} />
-              <span>New Walk-In</span>
+              <span>{t('appointments_new_walkin_button')}</span>
             </button>
           ) : (
             <Button size="sm" disabled variant="secondary" icon={Lock}>Locked</Button>
@@ -462,7 +466,7 @@ export const Appointments = () => {
         {viewMode === 'queue' ? (
           <div className="h-full overflow-x-auto overflow-y-hidden p-4 bg-slate-50/50 dark:bg-slate-950/20">
             {doctors.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-slate-400">No staff scheduled.</div>
+              <div className="flex h-full items-center justify-center text-slate-400">{t('appointments_queue_no_staff')}</div>
             ) : (
               <div className="flex gap-4 h-full min-w-max">
                 {doctors.map(doc => (
@@ -483,17 +487,17 @@ export const Appointments = () => {
             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
               <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Token / Time</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Patient</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Staff</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Type</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Status</th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase">Actions</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_list_header_token')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_list_header_patient')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_list_header_staff')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_list_header_type')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_list_header_status')}</th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase">{t('appointments_list_header_actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800">
                 {dailyAppointments.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-10 text-slate-400">No appointments for this day.</td></tr>
+                  <tr><td colSpan={6} className="text-center py-10 text-slate-400">{t('appointments_list_empty')}</td></tr>
                 ) : (
                   dailyAppointments.map(apt => (
                     <tr key={apt.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
@@ -530,31 +534,31 @@ export const Appointments = () => {
       </div>
 
       {/* MODAL: CREATE APPOINTMENT */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Walk-In Appointment">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('appointments_modal_title')}>
         <form onSubmit={handleCreate} className="space-y-4">
-          <Select label="Patient" required value={formData.patientId} onChange={e => setFormData({...formData, patientId: e.target.value})}>
-            <option value="">Select a patient...</option>
+          <Select label={t('patients_title')} required value={formData.patientId} onChange={e => setFormData({...formData, patientId: e.target.value})}>
+            <option value="">{t('appointments_form_select_patient')}</option>
             {patients.map(p => <option key={p.id} value={p.id}>{p.fullName}</option>)}
           </Select>
-          <Select label="Staff" required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})}>
-            <option value="">Select a staff member...</option>
+          <Select label={t('nav_hr')} required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})}>
+            <option value="">{t('appointments_form_select_staff')}</option>
             {staff.filter(s => s.type === 'doctor' || s.type === 'nurse').map(s => <option key={s.id} value={s.id}>{s.fullName} ({s.specialization || s.type})</option>)}
           </Select>
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Date" type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
-            <Input label="Time" type="time" required value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
+            <Input label={t('date')} type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+            <Input label={t('appointments_form_time')} type="time" required value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
           </div>
-          <Select label="Type" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
+          <Select label={t('appointments_form_type')} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
             <option>Consultation</option>
             <option>Follow-up</option>
             <option>Emergency</option>
             <option>Procedure</option>
           </Select>
-          <Textarea label="Reason (Optional)" value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
+          <Textarea label={t('appointments_form_reason')} value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button>
             <Button type="submit" disabled={processStatus === 'processing'}>
-              {processStatus === 'processing' ? 'Creating...' : 'Create Appointment'}
+              {processStatus === 'processing' ? t('appointments_form_creating_button') : t('appointments_form_create_button')}
             </Button>
           </div>
         </form>
@@ -571,6 +575,8 @@ export const Appointments = () => {
         title={confirmState.title}
         message={confirmState.message}
         type="danger"
+        confirmLabel={t('confirm')}
+        cancelLabel={t('cancel')}
       />
     </div>
   );

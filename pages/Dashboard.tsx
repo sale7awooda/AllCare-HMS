@@ -135,7 +135,7 @@ export const Dashboard = () => {
         // --- 5. "Needs Attention" Feed (Pending Labs + Unpaid Recent Bills) ---
         const recentPendingLabs = labs.filter((l: any) => l.status === 'pending').slice(0, 3).map((l: any) => ({
             type: 'lab',
-            title: 'Lab Request Pending',
+            title: t('dashboard_feed_lab_title'),
             subtitle: `${l.patientName} - $${l.projected_cost}`,
             id: l.id,
             time: l.created_at
@@ -143,7 +143,7 @@ export const Dashboard = () => {
 
         const unpaidBills = bills.filter((b: any) => b.status === 'pending').slice(0, 3).map((b: any) => ({
             type: 'bill',
-            title: 'Unpaid Invoice',
+            title: t('dashboard_feed_bill_title'),
             subtitle: `${b.patientName} - $${b.totalAmount}`,
             id: b.id,
             time: b.date
@@ -158,7 +158,7 @@ export const Dashboard = () => {
       }
     };
     loadData();
-  }, []);
+  }, [t]);
 
   const StatCard = ({ title, value, subtext, icon: Icon, colorClass, trend }: any) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
@@ -248,7 +248,7 @@ export const Dashboard = () => {
         <StatCard 
           title={t('dashboard_stat_revenue')}
           value={`$${stats.totalRevenue.toLocaleString()}`} 
-          subtext={`$${stats.outstandingRevenue.toLocaleString()} ${t('dashboard_stat_revenue_subtext', { amount: '' })}`}
+          subtext={t('dashboard_stat_revenue_subtext', { amount: `$${stats.outstandingRevenue.toLocaleString()}` })}
           icon={Wallet} 
           colorClass="from-emerald-500 to-emerald-600" 
         />
@@ -257,7 +257,7 @@ export const Dashboard = () => {
           value={`${stats.occupancyRate}%`} 
           subtext={t('dashboard_stat_occupancy_subtext', { count: stats.activeAdmissions })}
           icon={Bed} 
-          trend={stats.occupancyRate > 80 ? 'High' : undefined}
+          trend={stats.occupancyRate > 80 ? t('dashboard_stat_occupancy_high') : undefined}
           colorClass="from-rose-500 to-rose-600" 
         />
       </div>
