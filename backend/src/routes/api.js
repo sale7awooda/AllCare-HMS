@@ -1,3 +1,5 @@
+
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -63,6 +65,7 @@ router.post('/hr/financials', authorizeRoles(Permissions.MANAGE_HR), staffContro
 router.get('/appointments', authorizeRoles(Permissions.VIEW_APPOINTMENTS), appointmentController.getAll);
 router.post('/appointments', authorizeRoles(Permissions.MANAGE_APPOINTMENTS), appointmentController.create);
 router.put('/appointments/:id/status', authorizeRoles(Permissions.MANAGE_APPOINTMENTS), appointmentController.updateStatus);
+router.put('/appointments/:id/cancel', authorizeRoles(Permissions.MANAGE_APPOINTMENTS), appointmentController.cancel);
 
 // Billing
 router.get('/billing', authorizeRoles(Permissions.VIEW_BILLING), billingController.getAll);
@@ -91,6 +94,7 @@ router.get('/admissions', authorizeRoles(Permissions.VIEW_ADMISSIONS), medicalCo
 router.get('/admissions/:id', authorizeRoles(Permissions.VIEW_ADMISSIONS), medicalController.getInpatientDetails);
 router.post('/admissions', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.createAdmission);
 router.post('/admissions/:id/confirm', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.confirmAdmission);
+router.put('/admissions/:id/cancel', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.cancelAdmission);
 router.post('/admissions/:id/notes', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.addInpatientNote);
 router.post('/admissions/:id/discharge', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.dischargePatient);
 

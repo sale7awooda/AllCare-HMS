@@ -1,142 +1,222 @@
 # Database Schema (SQLite)
 
-The system uses `better-sqlite3`. Below is the schema definition.
+This schema is defined and initialized in `backend/src/config/database.js` using `better-sqlite3`.
 
-## Users & Roles
+## 1. Core & Access Control
 
 ```sql
+-- users: Manages login credentials and system roles.
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE NOT NULL,
-  password TEXT NOT NULL, -- Bcrypt hash
+  password TEXT NOT NULL,
   full_name TEXT NOT NULL,
-  role TEXT CHECK(role IN ('admin', 'receptionist', 'manager', 'accountant')) NOT NULL,
+  role TEXT NOT NULL,
+  email TEXT,
   phone TEXT,
-  email TEXT UNIQUE,
-  department_id INTEGER,
   is_active BOOLEAN DEFAULT 1,
-  deleted_at DATETIME DEFAULT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  last_login DATETIME,
-  FOREIGN KEY (department_id) REFERENCES departments(id)
-);
-
-CREATE TABLE IF NOT EXISTS role_permissions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  role TEXT CHECK(role IN ('admin', 'receptionist', 'manager', 'accountant')) NOT NULL UNIQUE,
-  permissions TEXT NOT NULL, -- JSON string
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS departments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE,
-  description TEXT,
-  is_active BOOLEAN DEFAULT 1,
-  deleted_at DATETIME DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- role_permissions: Stores permissions for each role as a JSON array.
+CREATE TABLE IF NOT EXISTS role_permissions (
+  role TEXT PRIMARY KEY,
+  permissions TEXT NOT NULL, -- JSON array of permission strings
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-## Patients
+## 2. Patient & Clinical Records
 
 ```sql
+-- patients: Central repository for all patient information.
 CREATE TABLE IF NOT EXISTS patients (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  patient_id TEXT UNIQUE NOT NULL, -- Format: PAT-YYYYMMDD-XXXX
+  patient_id TEXT UNIQUE NOT NULL,
   full_name TEXT NOT NULL,
   phone TEXT NOT NULL,
-  address TEXT NOT NULL,
-  age INTEGER NOT NULL CHECK(age >= 0 AND age <= 150),
-  gender TEXT CHECK(gender IN ('male', 'female', 'other')) NOT NULL,
-  type TEXT CHECK(type IN ('inpatient', 'outpatient', 'emergency')) NOT NULL DEFAULT 'outpatient',
+  address TEXT,
+  age INTEGER,
+  gender TEXT,
+  type TEXT DEFAULT 'outpatient',
   symptoms TEXT,
   medical_history TEXT,
   allergies TEXT,
   blood_group TEXT,
+  emergency_contacts TEXT, -- JSON object
   has_insurance BOOLEAN DEFAULT 0,
-  insurance_details TEXT, -- JSON string
-  emergency_contacts TEXT, -- JSON string
-  deleted_at DATETIME DEFAULT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-## Medical Staff
-
-```sql
-CREATE TABLE IF NOT EXISTS medical_staff (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  full_name TEXT NOT NULL,
-  staff_type TEXT CHECK(staff_type IN ('doctor', 'nurse', 'anesthesiologist', 'technician', 'medical_assistant')) NOT NULL,
-  license_number TEXT UNIQUE,
-  employee_id TEXT UNIQUE NOT NULL,
-  specialization TEXT,
-  department TEXT,
-  consultation_fee REAL DEFAULT 0 CHECK(consultation_fee >= 0),
-  is_available BOOLEAN DEFAULT 1,
-  available_days TEXT DEFAULT '["monday","tuesday","wednesday","thursday","friday"]', -- JSON array
-  available_time_start TEXT DEFAULT '09:00',
-  available_time_end TEXT DEFAULT '17:00',
-  shift TEXT CHECK(shift IN ('morning', 'evening', 'night', 'flexible')) DEFAULT 'morning',
-  deleted_at DATETIME DEFAULT NULL,
+  insurance_details TEXT, -- JSON object
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-```
 
-## Appointments
-
-```sql
+-- appointments: Tracks all scheduled patient visits and consultations.
 CREATE TABLE IF NOT EXISTS appointments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  appointment_number TEXT UNIQUE NOT NULL, -- APT-20251207-0001
+  appointment_number TEXT UNIQUE NOT NULL,
   patient_id INTEGER NOT NULL,
   medical_staff_id INTEGER NOT NULL,
   appointment_datetime DATETIME NOT NULL,
-  type TEXT NOT NULL DEFAULT 'consultation',
-  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'confirmed', 'completed', 'cancelled', 'no_show', 'rescheduled')),
-  billing_status TEXT NOT NULL DEFAULT 'unbilled' CHECK(billing_status IN ('unbilled', 'billed', 'paid')),
-  service_fee REAL DEFAULT 0,
+  type TEXT DEFAULT 'Consultation',
+  status TEXT DEFAULT 'pending',
+  billing_status TEXT DEFAULT 'unbilled',
+  reason TEXT,
   bill_id INTEGER DEFAULT NULL,
-  notes TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
-  FOREIGN KEY (medical_staff_id) REFERENCES medical_staff(id) ON DELETE CASCADE,
-  FOREIGN KEY (bill_id) REFERENCES billing(id) ON DELETE SET NULL
+  FOREIGN KEY(patient_id) REFERENCES patients(id),
+  FOREIGN KEY(medical_staff_id) REFERENCES medical_staff(id)
 );
 ```
 
-## Billing
+## 3. Human Resources (HR)
 
 ```sql
-CREATE TABLE IF NOT EXISTS billing (
+-- medical_staff: Stores profiles for all hospital employees.
+CREATE TABLE IF NOT EXISTS medical_staff (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  bill_number TEXT UNIQUE NOT NULL, -- BILL-20251207-0001
-  patient_id INTEGER NOT NULL,
-  bill_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-  total_amount REAL NOT NULL CHECK(total_amount >= 0),
-  discount_amount REAL DEFAULT 0,
-  final_amount REAL NOT NULL,
-  paid_amount REAL DEFAULT 0,
-  payment_status TEXT CHECK(payment_status IN ('pending', 'partial', 'paid', 'overdue', 'refunded', 'cancelled')) DEFAULT 'pending',
-  payment_method TEXT,
-  transaction_id TEXT UNIQUE,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (patient_id) REFERENCES patients(id)
+  employee_id TEXT UNIQUE NOT NULL,
+  full_name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  department TEXT,
+  specialization TEXT,
+  consultation_fee REAL DEFAULT 0,
+  consultation_fee_followup REAL DEFAULT 0,
+  consultation_fee_emergency REAL DEFAULT 0,
+  status TEXT CHECK(status IN ('active', 'inactive', 'dismissed')) DEFAULT 'active',
+  available_days TEXT, -- JSON array
+  available_time_start TEXT, -- HH:mm
+  available_time_end TEXT, -- HH:mm
+  email TEXT,
+  phone TEXT,
+  base_salary REAL DEFAULT 0,
+  join_date DATE,
+  bank_details TEXT, -- JSON object { bankName, bankAccount }
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- hr_attendance: Tracks daily staff attendance.
+CREATE TABLE IF NOT EXISTS hr_attendance (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  staff_id INTEGER NOT NULL,
+  date DATE NOT NULL,
+  status TEXT CHECK(status IN ('present', 'absent', 'late', 'half_day')) DEFAULT 'present',
+  check_in TIME,
+  check_out TIME,
+  FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
+);
+
+-- hr_leaves: Manages staff leave requests.
+CREATE TABLE IF NOT EXISTS hr_leaves (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  staff_id INTEGER NOT NULL,
+  type TEXT CHECK(type IN ('sick', 'vacation', 'casual', 'unpaid')) NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  reason TEXT,
+  status TEXT CHECK(status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+  FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
+);
+
+-- hr_adjustments: Records bonuses, fines, or loans for payroll calculation.
+CREATE TABLE IF NOT EXISTS hr_adjustments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  staff_id INTEGER NOT NULL,
+  type TEXT CHECK(type IN ('bonus', 'fine', 'loan')) NOT NULL,
+  amount REAL NOT NULL,
+  reason TEXT,
+  date DATE NOT NULL,
+  status TEXT DEFAULT 'active',
+  FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
+);
+
+-- hr_payroll: Stores generated monthly payroll records.
+CREATE TABLE IF NOT EXISTS hr_payroll (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  staff_id INTEGER NOT NULL,
+  month TEXT NOT NULL, -- Format: YYYY-MM
+  base_salary REAL NOT NULL,
+  total_bonuses REAL DEFAULT 0,
+  total_fines REAL DEFAULT 0,
+  net_salary REAL NOT NULL,
+  status TEXT DEFAULT 'draft',
+  generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
+);
+```
+
+## 4. Billing & Financials
+
+```sql
+-- billing: Header table for each invoice.
+CREATE TABLE IF NOT EXISTS billing (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  bill_number TEXT UNIQUE NOT NULL,
+  patient_id INTEGER NOT NULL,
+  total_amount REAL NOT NULL,
+  paid_amount REAL DEFAULT 0,
+  status TEXT DEFAULT 'pending', -- pending, partial, paid, overdue
+  bill_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(patient_id) REFERENCES patients(id)
+);
+
+-- billing_items: Line items for each bill.
 CREATE TABLE IF NOT EXISTS billing_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   billing_id INTEGER NOT NULL,
-  service_name TEXT NOT NULL,
-  description TEXT,
-  quantity REAL NOT NULL DEFAULT 1,
-  unit_price REAL NOT NULL,
-  total_price REAL NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (billing_id) REFERENCES billing(id) ON DELETE CASCADE
+  description TEXT NOT NULL,
+  amount REAL NOT NULL,
+  FOREIGN KEY(billing_id) REFERENCES billing(id)
 );
+```
+
+## 5. Medical Services & Wards
+
+```sql
+-- lab_tests: Catalog of available laboratory tests.
+CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, category_en TEXT, category_ar TEXT, cost REAL, normal_range TEXT);
+
+-- lab_requests: Tracks patient lab test requests.
+CREATE TABLE IF NOT EXISTS lab_requests (id INTEGER PRIMARY KEY, patient_id INTEGER, test_ids TEXT, status TEXT, projected_cost REAL, bill_id INTEGER, created_at DATETIME);
+
+-- nurse_services: Catalog of nursing services.
+CREATE TABLE IF NOT EXISTS nurse_services (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT, cost REAL);
+
+-- nurse_requests: Tracks nursing service requests for patients.
+CREATE TABLE IF NOT EXISTS nurse_requests (id INTEGER PRIMARY KEY, patient_id INTEGER, staff_id INTEGER, service_name TEXT, cost REAL, notes TEXT, status TEXT, created_at DATETIME);
+
+-- operations_catalog: Catalog of surgical procedures.
+CREATE TABLE IF NOT EXISTS operations_catalog (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, base_cost REAL);
+
+-- operations: Tracks patient surgical operation requests and status.
+CREATE TABLE IF NOT EXISTS operations (id INTEGER PRIMARY KEY, patient_id INTEGER, operation_name TEXT, doctor_id INTEGER, notes TEXT, status TEXT, projected_cost REAL, bill_id INTEGER, cost_details TEXT);
+
+-- beds: Manages hospital beds and their status.
+CREATE TABLE IF NOT EXISTS beds (id INTEGER PRIMARY KEY, room_number TEXT, type TEXT, status TEXT, cost_per_day REAL);
+
+-- admissions: Tracks inpatient admissions, linking patients to beds.
+CREATE TABLE IF NOT EXISTS admissions (id INTEGER PRIMARY KEY, patient_id INTEGER, bed_id INTEGER, doctor_id INTEGER, entry_date DATETIME, discharge_date DATETIME, actual_discharge_date DATETIME, status TEXT, notes TEXT, discharge_notes TEXT, discharge_status TEXT, projected_cost REAL, bill_id INTEGER);
+
+-- inpatient_notes: Clinical notes for admitted patients.
+CREATE TABLE IF NOT EXISTS inpatient_notes (id INTEGER PRIMARY KEY, admission_id INTEGER, doctor_id INTEGER, note TEXT, vitals TEXT, created_at DATETIME, FOREIGN KEY(admission_id) REFERENCES admissions(id));
+```
+
+## 6. System Configuration
+
+```sql
+-- departments: List of hospital departments.
+CREATE TABLE IF NOT EXISTS departments (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT);
+
+-- specializations: List of medical specializations.
+CREATE TABLE IF NOT EXISTS specializations (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT);
+
+-- system_settings: Key-value store for global settings.
+CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value TEXT);
+
+-- tax_rates: Manages applicable tax rates for billing.
+CREATE TABLE IF NOT EXISTS tax_rates (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, rate REAL, is_active BOOLEAN);
+
+-- payment_methods: Manages accepted payment methods.
+CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN);
+
+-- insurance_providers: Catalog of supported insurance companies.
+CREATE TABLE IF NOT EXISTS insurance_providers (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN);
 ```

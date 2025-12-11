@@ -360,18 +360,26 @@ const initDB = (forceReset = false) => {
   // Departments
   if (db.prepare('SELECT COUNT(*) FROM departments').get()['COUNT(*)'] === 0) {
     const departments = [
+      { name_en: 'Administration', name_ar: 'الإدارة' },
+      { name_en: 'Anesthesiology', name_ar: 'التخدير' },
       { name_en: 'Cardiology', name_ar: 'أمراض القلب' },
+      { name_en: 'Dermatology', name_ar: 'الأمراض الجلدية' },
+      { name_en: 'Emergency', name_ar: 'الطوارئ' },
+      { name_en: 'Finance', name_ar: 'المالية' },
+      { name_en: 'General Surgery', name_ar: 'الجراحة العامة' },
+      { name_en: 'Internal Medicine', name_ar: 'الطب الباطني' },
+      { name_en: 'IT Support', name_ar: 'دعم تقنية المعلومات' },
+      { name_en: 'Laboratory', name_ar: 'المختبر' },
+      { name_en: 'Maintenance', name_ar: 'الصيانة' },
       { name_en: 'Neurology', name_ar: 'طب الأعصاب' },
+      { name_en: 'Obstetrics and Gynecology', name_ar: 'أمراض النساء والتوليد' },
+      { name_en: 'Oncology', name_ar: 'علم الأورام' },
       { name_en: 'Orthopedics', name_ar: 'طب العظام' },
       { name_en: 'Pediatrics', name_ar: 'طب الأطفال' },
-      { name_en: 'Oncology', name_ar: 'علم الأورام' },
-      { name_en: 'General Surgery', name_ar: 'الجراحة العامة' },
-      { name_en: 'Emergency', name_ar: 'الطوارئ' },
-      { name_en: 'Obstetrics and Gynecology', name_ar: 'أمراض النساء والتوليد' },
-      { name_en: 'Dermatology', name_ar: 'الأمراض الجلدية' },
+      { name_en: 'Pharmacy', name_ar: 'الصيدلية' },
       { name_en: 'Radiology', name_ar: 'الأشعة' },
-      { name_en: 'Anesthesiology', name_ar: 'التخدير' },
-      { name_en: 'Internal Medicine', name_ar: 'الطب الباطني' }
+      { name_en: 'Security', name_ar: 'الأمن' },
+      { name_en: 'Support Services', name_ar: 'خدمات الدعم' }
     ];
     const insertDept = db.prepare('INSERT OR IGNORE INTO departments (name_en, name_ar) VALUES (?, ?)');
     departments.forEach(d => insertDept.run(d.name_en, d.name_ar));
@@ -381,18 +389,22 @@ const initDB = (forceReset = false) => {
   // Specializations
   if (db.prepare('SELECT COUNT(*) FROM specializations').get()['COUNT(*)'] === 0) {
     const specializations = [
+      { name_en: 'Anesthesiologist', name_ar: 'طبيب تخدير' },
       { name_en: 'Cardiologist', name_ar: 'أخصائي أمراض القلب' },
+      { name_en: 'Dermatologist', name_ar: 'طبيب جلدية' },
+      { name_en: 'Emergency Physician', name_ar: 'طبيب طوارئ' },
+      { name_en: 'ENT Specialist', name_ar: 'أخصائي أنف وأذن وحنجرة' },
+      { name_en: 'Gastroenterologist', name_ar: 'أخصائي أمراض الجهاز الهضمي' },
+      { name_en: 'General Surgeon', name_ar: 'جراح عام' },
+      { name_en: 'Gynecologist', name_ar: 'طبيب نساء' },
+      { name_en: 'Internist', name_ar: 'طبيب باطني' },
       { name_en: 'Neurologist', name_ar: 'أخصائي طب الأعصاب' },
+      { name_en: 'Oncologist', name_ar: 'طبيب أورام' },
       { name_en: 'Orthopedic Surgeon', name_ar: 'جراح عظام' },
       { name_en: 'Pediatrician', name_ar: 'طبيب أطفال' },
-      { name_en: 'Oncologist', name_ar: 'طبيب أورام' },
-      { name_en: 'General Surgeon', name_ar: 'جراح عام' },
-      { name_en: 'Emergency Physician', name_ar: 'طبيب طوارئ' },
-      { name_en: 'Gynecologist', name_ar: 'طبيب نساء' },
-      { name_en: 'Dermatologist', name_ar: 'طبيب جلدية' },
+      { name_en: 'Psychiatrist', name_ar: 'طبيب نفسي' },
       { name_en: 'Radiologist', name_ar: 'أخصائي أشعة' },
-      { name_en: 'Anesthesiologist', name_ar: 'طبيب تخدير' },
-      { name_en: 'Internist', name_ar: 'طبيب باطني' }
+      { name_en: 'Urologist', name_ar: 'أخصائي مسالك بولية' }
     ];
     const insertSpec = db.prepare('INSERT OR IGNORE INTO specializations (name_en, name_ar) VALUES (?, ?)');
     specializations.forEach(s => insertSpec.run(s.name_en, s.name_ar));
@@ -411,7 +423,17 @@ const initDB = (forceReset = false) => {
       { name_en: 'Thyroid Stimulating Hormone (TSH)', name_ar: 'هرمون الغدة الدرقية', category_en: 'Endocrinology', category_ar: 'الغدد الصماء', cost: 50 },
       { name_en: 'Hemoglobin A1c (HbA1c)', name_ar: 'الهيموجلوبين السكري', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 35 },
       { name_en: 'Prothrombin Time (PT/INR)', name_ar: 'زمن البروثرومبين', category_en: 'Hematology', category_ar: 'أمراض الدم', cost: 22 },
-      { name_en: 'Creatinine Kinase (CK)', name_ar: 'كيناز الكرياتينين', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 18 }
+      { name_en: 'Creatinine Kinase (CK)', name_ar: 'كيناز الكرياتينين', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 18 },
+      { name_en: 'C-Reactive Protein (CRP)', name_ar: 'بروتين سي التفاعلي', category_en: 'Immunology', category_ar: 'علم المناعة', cost: 20 },
+      { name_en: 'Erythrocyte Sedimentation Rate (ESR)', name_ar: 'سرعة تثفل الكريات الحمر', category_en: 'Hematology', category_ar: 'أمراض الدم', cost: 12 },
+      { name_en: 'Blood Urea Nitrogen (BUN)', name_ar: 'نيتروجين اليوريا في الدم', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 15 },
+      { name_en: 'Uric Acid', name_ar: 'حمض اليوريك', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 14 },
+      { name_en: 'Calcium, Total', name_ar: 'الكالسيوم, الكلي', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 10 },
+      { name_en: 'Vitamin D, 25-Hydroxy', name_ar: 'فيتامين د, 25-هيدروكسي', category_en: 'Endocrinology', category_ar: 'الغدد الصماء', cost: 60 },
+      { name_en: 'Iron, Total', name_ar: 'الحديد, الكلي', category_en: 'Chemistry', category_ar: 'الكيمياء', cost: 25 },
+      { name_en: 'Ferritin', name_ar: 'الفيريتين', category_en: 'Immunology', category_ar: 'علم المناعة', cost: 30 },
+      { name_en: 'Hepatitis B Surface Antigen', name_ar: 'المستضد السطحي لالتهاب الكبد ب', category_en: 'Serology', category_ar: 'علم الأمصال', cost: 45 },
+      { name_en: 'HIV Antibody Test', name_ar: 'اختبار الأجسام المضادة لفيروس نقص المناعة', category_en: 'Serology', category_ar: 'علم الأمصال', cost: 55 }
     ];
     const insertTest = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost) VALUES (?, ?, ?, ?, ?)');
     tests.forEach(t => insertTest.run(t.name_en, t.name_ar, t.category_en, t.category_ar, t.cost));
@@ -441,7 +463,14 @@ const initDB = (forceReset = false) => {
       { name_en: 'Knee Arthroscopy', name_ar: 'تنظير الركبة', base_cost: 3000 },
       { name_en: 'Gallbladder Removal (Cholecystectomy)', name_ar: 'استئصال المرارة', base_cost: 2500 },
       { name_en: 'Cesarean Section', name_ar: 'الولادة القيصرية', base_cost: 2200 },
-      { name_en: 'Tonsillectomy', name_ar: 'استئصال اللوزتين', base_cost: 800 }
+      { name_en: 'Tonsillectomy', name_ar: 'استئصال اللوزتين', base_cost: 800 },
+      { name_en: 'Coronary Artery Bypass Graft (CABG)', name_ar: 'مجازة الشريان التاجي', base_cost: 25000 },
+      { name_en: 'Hip Replacement', name_ar: 'استبدال مفصل الورك', base_cost: 15000 },
+      { name_en: 'Cataract Surgery', name_ar: 'جراحة إعتام عدسة العين', base_cost: 1800 },
+      { name_en: 'Mastectomy', name_ar: 'استئصال الثدي', base_cost: 6000 },
+      { name_en: 'Prostatectomy', name_ar: 'استئصال البروستاتا', base_cost: 8000 },
+      { name_en: 'Spinal Fusion', name_ar: 'دمج الفقرات', base_cost: 18000 },
+      { name_en: 'Angioplasty', name_ar: 'رأب الوعاء', base_cost: 12000 }
     ];
     const insertOp = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
     operations.forEach(o => insertOp.run(o.name_en, o.name_ar, o.base_cost));

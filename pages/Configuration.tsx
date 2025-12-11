@@ -378,6 +378,10 @@ export const Configuration = () => {
     }
   };
 
+  const formatPermissionName = (p: string) => {
+    return p.replace(/_/g, ' ').toLowerCase();
+  };
+
 
   return (
     <div className="space-y-6">
@@ -458,24 +462,57 @@ export const Configuration = () => {
                     </div>
                   </>
                 ) : (
-                  <div className="space-y-6">
-                    {availableRoles.map(role => (
-                      <Card key={role} title={t('config_users_permissions_for', { role })} className="!p-0 capitalize" action={role !== 'admin' && <Button size="sm" onClick={() => savePermissions(role)}>{t('config_users_permissions_save_button')}</Button>}>
-                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                           {Object.entries(permissionGroups).map(([groupName, perms]) => (
-                             <div key={groupName} className="p-3 border rounded-xl bg-slate-50 dark:bg-slate-900/50 space-y-2">
-                               <h4 className="font-bold text-sm text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">{groupName}</h4>
-                               {perms.map(p => (
-                                 <label key={p} className="flex items-center gap-2 text-sm">
-                                   <input type="checkbox" className="rounded text-primary-600 focus:ring-primary-500" checked={(rolePermissions[role] || []).includes(p)} onChange={() => togglePermission(role, p)} disabled={role === 'admin'} />
-                                   <span className="capitalize text-slate-700 dark:text-slate-300">{p.replace(/_/g, ' ').toLowerCase()}</span>
-                                 </label>
-                               ))}
-                             </div>
-                           ))}
-                        </div>
-                      </Card>
-                    ))}
+                  <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm">
+                    <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                      <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-1/4">
+                            Feature
+                          </th>
+                          {availableRoles.map(role => (
+                            <th key={role} className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                              <div className="flex flex-col items-center gap-2">
+                                <span className="capitalize">{role}</span>
+                                {role !== 'admin' && (
+                                  <Button size="sm" onClick={() => savePermissions(role)} className="!px-2 !py-0.5 !text-[10px] h-auto">
+                                    {t('config_users_permissions_save_button')}
+                                  </Button>
+                                )}
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-slate-800">
+                        {Object.entries(permissionGroups).map(([groupName, perms]) => (
+                          <React.Fragment key={groupName}>
+                            <tr className="bg-slate-50/50 dark:bg-slate-900/50">
+                              <td colSpan={availableRoles.length + 1} className="px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300">
+                                {groupName}
+                              </td>
+                            </tr>
+                            {perms.map(p => (
+                              <tr key={p} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                <td className="px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300 capitalize">
+                                  {formatPermissionName(p)}
+                                </td>
+                                {availableRoles.map(role => (
+                                  <td key={`${role}-${p}`} className="px-4 py-3 text-center">
+                                    <input
+                                      type="checkbox"
+                                      className="h-5 w-5 rounded text-primary-600 focus:ring-primary-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                                      checked={(rolePermissions[role] || []).includes(p)}
+                                      onChange={() => togglePermission(role, p)}
+                                      disabled={role === 'admin'}
+                                    />
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>

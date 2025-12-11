@@ -58,7 +58,7 @@ export interface MedicalStaff {
   employeeId: string;
   fullName: string;
   // Expanded staff types to include all potential roles/types
-  type: 'doctor' | 'nurse' | 'anesthesiologist' | 'technician' | 'medical_assistant' | 'pharmacist' | 'admin_staff' | 'hr_manager'; 
+  type: 'doctor' | 'nurse' | 'anesthesiologist' | 'technician' | 'medical_assistant' | 'pharmacist' | 'staff' | 'hr_manager'; 
   department: string;
   specialization: string;
   consultationFee: number;
@@ -137,6 +137,10 @@ export interface Appointment {
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'checked_in' | 'in_progress' | 'waiting';
   billingStatus: 'unbilled' | 'billed' | 'paid';
   reason?: string;
+  billId?: number;
+  totalAmount?: number;
+  paidAmount?: number;
+  dailyToken?: number;
 }
 
 export interface Bill {

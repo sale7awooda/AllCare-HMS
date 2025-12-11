@@ -54,61 +54,70 @@ export const Records = () => {
 
         // Normalize Patients
         (Array.isArray(pts) ? pts : []).forEach((p: any) => {
-          allRecords.push({
-            id: `pat-${p.id}`,
-            originalId: p.id,
-            type: 'Patient',
-            reference: p.patientId,
-            date: p.createdAt || new Date().toISOString(),
-            primaryEntity: p.fullName,
-            status: p.type,
-            details: p
-          });
+          if (p && p.id && p.createdAt) {
+            allRecords.push({
+              id: `pat-${p.id}`,
+              originalId: p.id,
+              type: 'Patient',
+              reference: p.patientId,
+              date: p.createdAt,
+              primaryEntity: p.fullName,
+              status: p.type,
+              details: p
+            });
+          }
         });
 
         // Normalize Appointments
         (Array.isArray(apts) ? apts : []).forEach((a: any) => {
-          allRecords.push({
-            id: `apt-${a.id}`,
-            originalId: a.id,
-            type: 'Appointment',
-            reference: a.appointmentNumber,
-            date: a.datetime,
-            primaryEntity: a.patientName,
-            associateEntity: a.staffName,
-            status: a.status,
-            details: a
-          });
+          if (a && a.id && a.datetime) {
+            allRecords.push({
+              id: `apt-${a.id}`,
+              originalId: a.id,
+              type: 'Appointment',
+              reference: a.appointmentNumber,
+              date: a.datetime,
+              primaryEntity: a.patientName,
+              associateEntity: a.staffName,
+              status: a.status,
+              details: a
+            });
+          }
         });
 
         // Normalize Bills
         (Array.isArray(bills) ? bills : []).forEach((b: any) => {
-          allRecords.push({
-            id: `bill-${b.id}`,
-            originalId: b.id,
-            type: 'Bill',
-            reference: b.billNumber,
-            date: b.date,
-            primaryEntity: b.patientName,
-            status: b.status,
-            value: b.totalAmount,
-            details: b
-          });
+          if (b && b.id && b.date) {
+            allRecords.push({
+              id: `bill-${b.id}`,
+              originalId: b.id,
+              type: 'Bill',
+              reference: b.billNumber,
+              date: b.date,
+              primaryEntity: b.patientName,
+              status: b.status,
+              value: b.totalAmount,
+              details: b
+            });
+          }
         });
 
         // Normalize Admissions
         (Array.isArray(admissions) ? admissions : []).forEach((ad: any) => {
-          allRecords.push({
-            id: `adm-${ad.id}`,
-            originalId: ad.id,
-            type: 'Admission',
-            reference: `BED-${ad.roomNumber}`,
-            date: ad.entry_date || ad.entryDate,
-            primaryEntity: ad.patientName,
-            associateEntity: ad.doctorName,
-            status: ad.status,
-            details: ad
-          });
+          const entryDate = ad.entry_date || ad.entryDate;
+          if (ad && ad.id && entryDate) {
+            allRecords.push({
+              id: `adm-${ad.id}`,
+              originalId: ad.id,
+              type: 'Admission',
+              reference: `BED-${ad.roomNumber}`,
+              date: entryDate,
+              primaryEntity: ad.patientName,
+              associateEntity: ad.doctorName,
+              status: ad.status,
+              details: ad
+            });
+          }
         });
 
         // Sort by date descending

@@ -73,11 +73,13 @@ export const Reports = () => {
 
   const operationalStats = useMemo(() => {
     const totalAppts = appointments.length;
-    const completedAppts = appointments.filter(a => a.status === 'completed').length;
+    const completedAppts = appointments.filter(a => a && a.status === 'completed').length;
     
     // Appointments by Doctor
     const doctorCounts = appointments.reduce((acc: any, a) => {
-      acc[a.staffName] = (acc[a.staffName] || 0) + 1;
+      if(a && a.staffName) {
+        acc[a.staffName] = (acc[a.staffName] || 0) + 1;
+      }
       return acc;
     }, {});
     const doctorPerformance = Object.keys(doctorCounts)
@@ -87,8 +89,10 @@ export const Reports = () => {
 
     // Appointments by Status
     const statusCounts = appointments.reduce((acc: any, a) => {
-      const status = a.status === 'in_progress' ? 'active' : a.status;
-      acc[status] = (acc[status] || 0) + 1;
+      if(a && a.status) {
+        const status = a.status === 'in_progress' ? 'active' : a.status;
+        acc[status] = (acc[status] || 0) + 1;
+      }
       return acc;
     }, {});
     const statusDist = Object.keys(statusCounts).map(key => ({ name: key, value: statusCounts[key] }));
@@ -128,9 +132,9 @@ export const Reports = () => {
     startDate.setDate(now.getDate() - days);
 
     // Filter data by date range
-    const filteredPatients = patients.filter(p => new Date(p.createdAt || new Date()) >= startDate);
-    const filteredAppts = appointments.filter(a => new Date(a.datetime) >= startDate);
-    const filteredBills = bills.filter(b => new Date(b.date) >= startDate);
+    const filteredPatients = patients.filter(p => p && p.createdAt && new Date(p.createdAt) >= startDate);
+    const filteredAppts = appointments.filter(a => a && a.datetime && new Date(a.datetime) >= startDate);
+    const filteredBills = bills.filter(b => b && b.date && new Date(b.date) >= startDate);
 
     // Daily Trend Compilation
     const dailyData: Record<string, any> = {};
@@ -144,32 +148,38 @@ export const Reports = () => {
     }
 
     filteredPatients.forEach(p => {
-        const key = new Date(p.createdAt || new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      if (p && p.createdAt) {
+        const key = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         if(dailyData[key]) dailyData[key].patients++;
+      }
     });
     filteredAppts.forEach(a => {
+      if (a && a.datetime) {
         const key = new Date(a.datetime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         if(dailyData[key]) dailyData[key].appointments++;
+      }
     });
     filteredBills.forEach(b => {
+      if (b && b.date) {
         const key = new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         if(dailyData[key]) dailyData[key].bills++;
+      }
     });
 
     const chartData = Object.values(dailyData).sort((a: any, b: any) => a.dateObj.getTime() - b.dateObj.getTime());
 
     // Recent Activity Feed
     const activity = [
-        ...filteredPatients.map(p => ({ 
+        ...filteredPatients.filter(p => p && p.createdAt).map(p => ({ 
             type: 'Patient', 
             text: `New Patient: ${p.fullName}`, 
             subtext: `ID: ${p.patientId}`,
-            date: p.createdAt || new Date(), 
+            date: p.createdAt, 
             id: `p-${p.id}`, 
             icon: Users, 
             color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400' 
         })),
-        ...filteredAppts.map(a => ({ 
+        ...filteredAppts.filter(a => a && a.datetime).map(a => ({ 
             type: 'Appointment', 
             text: `Appointment: ${a.patientName}`, 
             subtext: `Dr. ${a.staffName} (${a.type})`,
@@ -178,7 +188,7 @@ export const Reports = () => {
             icon: Calendar, 
             color: 'text-violet-600 bg-violet-50 dark:bg-violet-900/20 dark:text-violet-400' 
         })),
-        ...filteredBills.map(b => ({ 
+        ...filteredBills.filter(b => b && b.date).map(b => ({ 
             type: 'Bill', 
             text: `Invoice #${b.billNumber}`, 
             subtext: `$${b.totalAmount.toLocaleString()} (${b.status})`,

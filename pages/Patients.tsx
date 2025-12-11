@@ -506,7 +506,7 @@ export const Patients = () => {
 
   const getPatientHistory = () => {
     if (!selectedPatient) return { historyApps: [], historyBills: [] };
-    const historyApps = appointments.filter(a => a.patientId === selectedPatient.id).sort((a,b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+    const historyApps = appointments.filter(a => a && a.patientId === selectedPatient.id).sort((a,b) => (a && b && a.datetime && b.datetime) ? new Date(b.datetime).getTime() - new Date(a.datetime).getTime() : 0);
     const historyBills = bills.filter(b => b.patientId === selectedPatient.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return { historyApps, historyBills };
   };
@@ -1231,6 +1231,7 @@ export const Patients = () => {
                          <div className="text-center py-8 text-gray-500">{t('patients_modal_view_no_timeline')}</div>
                       ) : (
                          getPatientHistory().historyApps.map((apt: any) => (
+                           (apt && apt.datetime) && (
                             <div key={apt.id} className="flex gap-4 relative">
                                <div className="flex flex-col items-center">
                                   <div className="w-2 h-2 rounded-full bg-primary-500 z-10"></div>
@@ -1250,6 +1251,7 @@ export const Patients = () => {
                                   </div>
                                </div>
                             </div>
+                           )
                          ))
                       )}
                    </div>

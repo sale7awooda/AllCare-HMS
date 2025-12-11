@@ -27,29 +27,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [rememberMe, setRememberMe] = useState(false);
   const { t } = useTranslation();
   
-  // Initialize from cache to prevent flash of default content
-  const [hospitalName, setHospitalName] = useState(() => localStorage.getItem('hospital_name') || '');
-  // Only show loading state if we don't have a cached value
-  const [isSettingsLoading, setIsSettingsLoading] = useState(() => !localStorage.getItem('hospital_name'));
+  // Read hospital name directly from cache for instant loading.
+  // It's only updated from the Configuration page now.
+  const [hospitalName] = useState(() => localStorage.getItem('hospital_name') || t('login_title'));
   
   const [activeProfile, setActiveProfile] = useState<Role | null>(null);
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const settings = await api.getPublicSettings();
-        if (settings?.hospitalName) {
-          setHospitalName(settings.hospitalName);
-          localStorage.setItem('hospital_name', settings.hospitalName); // Update cache
-        }
-      } catch (e) {
-        console.error("Failed to load public settings", e);
-      } finally {
-        setIsSettingsLoading(false);
-      }
-    };
-    fetchSettings();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,11 +113,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/20 mb-4 text-white">
               <Activity size={28} />
             </div>
-            {isSettingsLoading ? (
-              <div className="h-8 w-48 bg-slate-200 animate-pulse rounded-lg mx-auto mb-1"></div>
-            ) : (
-              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{hospitalName || t('login_title')}</h1>
-            )}
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{hospitalName}</h1>
             <p className="text-slate-500 text-sm mt-1">{t('login_subtitle')}</p>
           </div>
 

@@ -60,7 +60,7 @@ export const Dashboard = () => {
         const occupancyRate = Math.round((occupiedBeds / totalBeds) * 100);
 
         const todayStr = new Date().toISOString().split('T')[0];
-        const todayAppts = apts.filter((a: any) => a.datetime.startsWith(todayStr)).length;
+        const todayAppts = apts.filter((a: any) => a && a.datetime && a.datetime.startsWith(todayStr)).length;
 
         setStats({
           patients: pts.length,

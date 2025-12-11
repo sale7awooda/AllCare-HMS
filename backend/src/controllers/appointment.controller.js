@@ -1,4 +1,5 @@
 
+
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
@@ -6,13 +7,14 @@ exports.getAll = (req, res) => {
     const appointments = db.prepare(`
       SELECT 
         a.id, a.appointment_number as appointmentNumber, a.appointment_datetime as datetime, 
-        a.type, a.status, a.billing_status as billingStatus,
+        a.type, a.status, a.billing_status as billingStatus, a.reason,
         p.full_name as patientName, p.id as patientId,
         m.full_name as staffName, m.id as staffId,
-        m.consultation_fee as consultationFee
+        b.id as billId, b.total_amount as totalAmount, b.paid_amount as paidAmount
       FROM appointments a
       JOIN patients p ON a.patient_id = p.id
       JOIN medical_staff m ON a.medical_staff_id = m.id
+      LEFT JOIN billing b ON a.bill_id = b.id
       ORDER BY a.appointment_datetime DESC
     `).all();
     res.json(appointments);
@@ -66,7 +68,6 @@ exports.create = (req, res) => {
   }
 };
 
-// Deprecated or Admin use only
 exports.updateStatus = (req, res) => {
   const { status } = req.body;
   const { id } = req.params;
@@ -75,5 +76,32 @@ exports.updateStatus = (req, res) => {
     res.sendStatus(200);
   } catch(err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+exports.cancel = (req, res) => {
+  const { id } = req.params;
+
+  const tx = db.transaction(() => {
+    const appt = db.prepare('SELECT bill_id FROM appointments WHERE id = ?').get(id);
+    if (!appt) {
+      throw new Error('Appointment not found');
+    }
+
+    // 1. Cancel the appointment
+    db.prepare("UPDATE appointments SET status = 'cancelled' WHERE id = ?").run(id);
+
+    // 2. If there's a linked bill, cancel it ONLY if it's pending
+    if (appt.bill_id) {
+      db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ? AND status = 'pending'").run(appt.bill_id);
+    }
+  });
+
+  try {
+    tx();
+    res.json({ message: 'Appointment cancelled successfully' });
+  } catch (err) {
+    console.error(`Error cancelling appointment ${id}:`, err);
+    res.status(err.message === 'Appointment not found' ? 404 : 500).json({ error: err.message });
   }
 };

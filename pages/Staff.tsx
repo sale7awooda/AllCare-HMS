@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Search, Briefcase, Clock, 
@@ -13,6 +13,17 @@ import { useTranslation } from '../context/TranslationContext';
 
 const DAYS_OF_WEEK_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAYS_OF_WEEK_AR = ['إث', 'ثل', 'أر', 'خم', 'جم', 'سب', 'أح'];
+
+const roleDepartmentMap: Record<string, string[]> = {
+  doctor: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology', 'Dermatology', 'Radiology', 'Anesthesiology', 'Internal Medicine'],
+  nurse: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology'],
+  technician: ['Radiology', 'Laboratory'],
+  anesthesiologist: ['Anesthesiology', 'General Surgery'],
+  pharmacist: ['Pharmacy'],
+  hr_manager: ['Administration'],
+  staff: ['Administration', 'Maintenance', 'Security', 'Support Services', 'Finance', 'IT Support'],
+  medical_assistant: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology', 'Dermatology', 'Internal Medicine']
+};
 
 export const Staff = () => {
   const { t, language } = useTranslation();
@@ -154,6 +165,23 @@ export const Staff = () => {
           setStaffForm({ ...staffForm, availableDays: [...currentDays, dayEN] });
       }
   };
+  
+  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newType = e.target.value;
+    setStaffForm(prev => ({
+        ...prev,
+        type: newType as any,
+        department: '',
+        specialization: ''
+    }));
+  };
+  
+  const filteredDepartments = useMemo(() => {
+    if (!staffForm.type) return departments;
+    const allowedDepts = roleDepartmentMap[staffForm.type];
+    if (!allowedDepts || allowedDepts.length === 0) return departments;
+    return departments.filter(d => allowedDepts.includes(d.name_en));
+  }, [staffForm.type, departments]);
 
   const handleMarkAttendance = async (staffId: number, status: string) => {
       const now = new Date();
@@ -324,7 +352,7 @@ export const Staff = () => {
                               <div className={`h-12 w-12 rounded-full flex items-center justify-center text-lg font-bold shadow-sm ${getRoleColor(person.type)}`}>
                                   {person.fullName.charAt(0)}
                               </div>
-                              <Badge color={getStatusColor(person.status)}>{person.status}</Badge>
+                              <Badge color={getStatusColor(person.status)}>{t(`staff_status_${person.status}`)}</Badge>
                           </div>
                           
                           <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate" title={person.fullName}>{person.fullName}</h3>
@@ -384,23 +412,24 @@ export const Staff = () => {
           <div className="space-y-4">
             <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b dark:border-slate-700 pb-1 flex items-center gap-2"><Briefcase size={16}/> {t('staff_form_role_title')}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select label={t('config_users_header_role')} value={staffForm.type} onChange={e => setStaffForm({...staffForm, type: e.target.value as any})}>
-                <option value="doctor">Doctor</option>
-                <option value="nurse">Nurse</option>
-                <option value="technician">Technician</option>
-                <option value="anesthesiologist">Anesthesiologist</option>
-                <option value="pharmacist">Pharmacist</option>
-                <option value="admin_staff">Admin Staff</option>
-                <option value="hr_manager">HR Manager</option>
+              <Select label={t('config_users_header_role')} value={staffForm.type} onChange={handleTypeChange}>
+                <option value="doctor">{t('staff_role_doctor')}</option>
+                <option value="nurse">{t('staff_role_nurse')}</option>
+                <option value="technician">{t('staff_role_technician')}</option>
+                <option value="anesthesiologist">{t('staff_role_anesthesiologist')}</option>
+                <option value="pharmacist">{t('staff_role_pharmacist')}</option>
+                <option value="staff">{t('staff_role_staff')}</option>
+                <option value="hr_manager">{t('staff_role_hr_manager')}</option>
+                <option value="medical_assistant">{t('staff_role_medical_assistant')}</option>
               </Select>
               <Select label={t('staff_card_department')} required value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})}>
-                <option value="">Select department...</option>
-                {departments.map(d => <option key={d.id} value={d.name}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
+                <option value="">{t('staff_select_department')}</option>
+                {filteredDepartments.map(d => <option key={d.id} value={d.name_en}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
               </Select>
             </div>
-            <Select label="Specialization" value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}>
-              <option value="">Select specialization...</option>
-              {specializations.map(s => <option key={s.id} value={s.name}>{language === 'ar' ? s.name_ar : s.name_en}</option>)}
+            <Select label="Specialization" disabled={staffForm.type !== 'doctor'} value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}>
+              <option value="">{t('staff_select_specialization')}</option>
+              {specializations.map(s => <option key={s.id} value={s.name_en}>{language === 'ar' ? s.name_ar : s.name_en}</option>)}
             </Select>
           </div>
           <div className="space-y-4">
@@ -418,9 +447,9 @@ export const Staff = () => {
                 <Input label="End Time" type="time" value={staffForm.availableTimeEnd || ''} onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})} />
               </div>
               <Select label={t('status')} value={staffForm.status} onChange={e => setStaffForm({...staffForm, status: e.target.value as any})}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="dismissed">Dismissed</option>
+                <option value="active">{t('staff_status_active')}</option>
+                <option value="inactive">{t('staff_status_inactive')}</option>
+                <option value="dismissed">{t('staff_status_dismissed')}</option>
               </Select>
             </div>
           </div>

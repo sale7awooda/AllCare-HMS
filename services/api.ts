@@ -67,6 +67,7 @@ export const api = {
   getAppointments: () => client.get('/appointments'),
   createAppointment: (data) => client.post('/appointments', data),
   updateAppointmentStatus: (id, status) => client.put(`/appointments/${id}/status`, { status }),
+  cancelAppointment: (id) => client.put(`/appointments/${id}/cancel`),
 
   // --- Billing ---
   getBills: () => client.get('/billing'),
@@ -78,6 +79,7 @@ export const api = {
   getInpatientDetails: (id) => client.get(`/admissions/${id}`),
   createAdmission: (data) => client.post('/admissions', data),
   confirmAdmissionDeposit: (id) => client.post(`/admissions/${id}/confirm`),
+  cancelAdmission: (id) => client.put(`/admissions/${id}/cancel`),
   addInpatientNote: (id, data) => client.post(`/admissions/${id}/notes`, data),
   dischargePatient: (id, data) => client.post(`/admissions/${id}/discharge`, data),
 
