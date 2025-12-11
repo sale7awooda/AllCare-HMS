@@ -67,6 +67,17 @@ export const Staff = () => {
   const [adjForm, setAdjForm] = useState({ staffId: '', type: 'bonus', amount: '', reason: '', date: new Date().toISOString().split('T')[0] });
   const [leaveForm, setLeaveForm] = useState({ staffId: '', type: 'sick', startDate: '', endDate: '', reason: '' });
 
+  // New Attendance Modal State
+  const [attendanceModal, setAttendanceModal] = useState<{
+      isOpen: boolean;
+      staffId: number;
+      staffName: string;
+      status: 'present' | 'late' | 'absent';
+      checkIn: string;
+      checkOut: string;
+      isUpdate: boolean;
+  } | null>(null);
+
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
@@ -154,7 +165,6 @@ export const Staff = () => {
       const formState = s ? { 
           ...s, 
           ...bankDetailsParsed,
-          // If editing, keep existing values. If it was 0, it shows 0.
       } : { 
           fullName: '', type: 'doctor', status: 'active', 
           baseSalary: '', 
@@ -199,21 +209,52 @@ export const Staff = () => {
 
   const filteredSpecializations = useMemo(() => {
     if (!staffForm.type) return specializations;
-    // Filter by related_role. If related_role is null or matches current type.
     return specializations.filter(s => !s.related_role || s.related_role === staffForm.type);
   }, [staffForm.type, specializations]);
 
-  const handleMarkAttendance = async (staffId: number, status: string) => {
+  const openAttendanceModal = (staffId: number, staffName: string, status: 'present' | 'late' | 'absent') => {
+      const existingRecord = attendance.find(a => a.staffId === staffId);
       const now = new Date();
       const timeString = now.toTimeString().slice(0, 5);
-      await api.markAttendance({
-          staffId, 
-          date: selectedDate, 
-          status,
-          checkIn: status === 'present' || status === 'late' ? timeString : null
+      
+      setAttendanceModal({
+          isOpen: true,
+          staffId,
+          staffName,
+          status: existingRecord ? existingRecord.status : status,
+          checkIn: existingRecord?.checkIn || timeString,
+          checkOut: existingRecord?.checkOut || '',
+          isUpdate: !!existingRecord
       });
-      const data = await api.getAttendance(selectedDate);
-      setAttendance(data);
+  };
+
+  const handleAttendanceSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!attendanceModal) return;
+
+      setProcessStatus('processing');
+      setProcessMessage(t('processing'));
+
+      try {
+          await api.markAttendance({
+              staffId: attendanceModal.staffId, 
+              date: selectedDate, 
+              status: attendanceModal.status,
+              checkIn: ['present', 'late'].includes(attendanceModal.status) ? attendanceModal.checkIn : null,
+              checkOut: ['present', 'late'].includes(attendanceModal.status) && attendanceModal.checkOut ? attendanceModal.checkOut : null
+          });
+          const data = await api.getAttendance(selectedDate);
+          setAttendance(data);
+          
+          setProcessStatus('success');
+          setTimeout(() => {
+              setProcessStatus('idle');
+              setAttendanceModal(null);
+          }, 500);
+      } catch (err: any) {
+          setProcessStatus('error');
+          setProcessMessage(err.message || 'Failed to mark attendance');
+      }
   };
 
   const handleLeaveRequest = async (e: React.FormEvent) => {
@@ -410,9 +451,9 @@ export const Staff = () => {
                                       {canManageHR && (
                                           <td className="px-4 py-3 text-right">
                                               <div className="flex justify-end gap-1">
-                                                  <button onClick={() => handleMarkAttendance(s.id, 'present')} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Present"><CheckCircle size={16}/></button>
-                                                  <button onClick={() => handleMarkAttendance(s.id, 'late')} className="p-1.5 text-orange-600 hover:bg-orange-50 rounded" title="Late"><Clock size={16}/></button>
-                                                  <button onClick={() => handleMarkAttendance(s.id, 'absent')} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Absent"><XCircle size={16}/></button>
+                                                  <button onClick={() => openAttendanceModal(s.id, s.fullName, 'present')} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Present"><CheckCircle size={16}/></button>
+                                                  <button onClick={() => openAttendanceModal(s.id, s.fullName, 'late')} className="p-1.5 text-orange-600 hover:bg-orange-50 rounded" title="Late"><Clock size={16}/></button>
+                                                  <button onClick={() => openAttendanceModal(s.id, s.fullName, 'absent')} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Absent"><XCircle size={16}/></button>
                                               </div>
                                           </td>
                                       )}
@@ -536,6 +577,70 @@ export const Staff = () => {
 
       {/* --- MODALS --- */}
       
+      {/* Attendance Modal (New) */}
+      {attendanceModal && (
+          <Modal isOpen={attendanceModal.isOpen} onClose={() => setAttendanceModal(null)} title={t('staff_attendance_modal_title')}>
+              <form onSubmit={handleAttendanceSubmit} className="space-y-4">
+                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mb-4">
+                      <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm text-slate-500">{t('staff_form_role_title')}</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{attendanceModal.staffName}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-500">{t('date')}</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{selectedDate}</span>
+                      </div>
+                  </div>
+
+                  <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">{t('staff_attendance_mark_as')}</label>
+                      <div className="flex gap-4">
+                          <select 
+                            className="block w-full rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5 px-4 border"
+                            value={attendanceModal.status}
+                            onChange={(e) => setAttendanceModal({...attendanceModal, status: e.target.value as any})}
+                          >
+                            <option value="present">Present</option>
+                            <option value="late">Late</option>
+                            <option value="absent">Absent</option>
+                          </select>
+                      </div>
+                  </div>
+
+                  {['present', 'late'].includes(attendanceModal.status) && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input 
+                            type="time" 
+                            label={t('staff_attendance_time')} 
+                            required 
+                            value={attendanceModal.checkIn} 
+                            onChange={e => setAttendanceModal({...attendanceModal, checkIn: e.target.value})} 
+                        />
+                        {attendanceModal.isUpdate && (
+                          <Input 
+                              type="time" 
+                              label="Check Out" 
+                              value={attendanceModal.checkOut} 
+                              onChange={e => setAttendanceModal({...attendanceModal, checkOut: e.target.value})} 
+                          />
+                        )}
+                      </div>
+                  )}
+
+                  {attendanceModal.status === 'absent' && (
+                      <p className="text-sm text-slate-500 italic">
+                          Staff member will be marked as absent for the selected date.
+                      </p>
+                  )}
+
+                  <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700 mt-6">
+                      <Button type="button" variant="secondary" onClick={() => setAttendanceModal(null)}>{t('cancel')}</Button>
+                      <Button type="submit">{t('staff_attendance_confirm')}</Button>
+                  </div>
+              </form>
+          </Modal>
+      )}
+
       {/* Staff Add/Edit Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={staffForm.id ? t('staff_modal_edit_title') : t('staff_modal_add_title')}>
           <form onSubmit={handleCreateStaff} className="space-y-4">
