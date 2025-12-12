@@ -2,13 +2,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
-  Plus, Calendar as CalendarIcon, Clock, User, Lock, 
-  ChevronLeft, ChevronRight, MoreVertical, 
-  CheckCircle, X, Search, Filter, Play, DollarSign, LayoutGrid, List as ListIcon, Edit,
-  Loader2, XCircle
+  Plus, Play, LayoutGrid, List as ListIcon, Edit,
+  Loader2, XCircle, CheckCircle, X, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { api } from '../services/api';
-import { Patient, Appointment, MedicalStaff, User as UserType, NurseServiceCatalog } from '@/types';
+import { Patient, Appointment, MedicalStaff } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
@@ -131,7 +129,8 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
         ) : (
           <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 flex flex-col items-center justify-center text-slate-400 h-28 bg-slate-50/50 dark:bg-slate-900/20">
             <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-2">
-               <User size={20} className="opacity-50"/>
+               {/* User icon placeholder */}
+               <div className="w-5 h-5 rounded-full border-2 border-slate-300"></div>
             </div>
             <span className="text-xs font-medium">{t('appointments_queue_room_empty')}</span>
           </div>

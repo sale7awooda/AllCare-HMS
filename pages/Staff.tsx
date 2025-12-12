@@ -1,12 +1,10 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Search, Briefcase, Clock, 
   Calendar, DollarSign, Wallet,
-  AlertTriangle, CheckCircle, User, Phone, Mail,
-  Loader2, XCircle, Edit, Trash2, X, Check, MapPin,
-  LogIn, LogOut
+  Loader2, Edit, Trash2, MapPin,
+  LogIn, LogOut, CheckCircle, XCircle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment } from '../types';
@@ -551,8 +549,8 @@ export const Staff = () => {
                           
                           <div className="space-y-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
                               <div className="flex items-center gap-2"><Briefcase size={14}/> {person.department || t('patients_modal_view_na')}</div>
-                              <div className="flex items-center gap-2"><Phone size={14}/> {person.phone || t('patients_modal_view_na')}</div>
-                              <div className="flex items-center gap-2 truncate"><Mail size={14}/> {person.email || t('patients_modal_view_na')}</div>
+                              <div className="flex items-center gap-2"><MapPin size={14}/> {person.phone || t('patients_modal_view_na')}</div>
+                              <div className="flex items-center gap-2 truncate"><MapPin size={14}/> {person.email || t('patients_modal_view_na')}</div>
                               {person.address && <div className="flex items-center gap-2 truncate"><MapPin size={14}/> {person.address}</div>}
                           </div>
 
@@ -592,36 +590,34 @@ export const Staff = () => {
                               
                               return (
                                   <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{s.fullName} <span className="text-xs text-slate-400 block">{t(`staff_role_${s.type}`)}</span></td>
                                       <td className="px-4 py-3">
-                                          <Badge color={record?.status === 'present' ? 'green' : record?.status === 'absent' ? 'red' : record?.status === 'late' ? 'orange' : record?.status === 'half_day' ? 'blue' : 'gray'}>
-                                              {record?.status || 'Pending'}
-                                          </Badge>
+                                          <div className="font-bold text-slate-700 dark:text-slate-200">{s.fullName}</div>
+                                          <div className="text-xs text-slate-400 capitalize">{s.type}</div>
                                       </td>
-                                      <td className="px-4 py-3">{record?.checkIn || '-'}</td>
-                                      <td className="px-4 py-3">{record?.checkOut || '-'}</td>
+                                      <td className="px-4 py-3">
+                                          {record ? (
+                                              <Badge color={record.status === 'present' ? 'green' : record.status === 'late' ? 'yellow' : record.status === 'half_day' ? 'blue' : 'red'}>
+                                                  {record.status}
+                                              </Badge>
+                                          ) : <span className="text-slate-400">-</span>}
+                                      </td>
+                                      <td className="px-4 py-3 font-mono">
+                                          {record?.checkIn || '-'}
+                                      </td>
+                                      <td className="px-4 py-3 font-mono">
+                                          {record?.checkOut || '-'}
+                                      </td>
                                       {canManageHR && (
                                           <td className="px-4 py-3 text-right">
-                                              <div className="flex justify-end gap-2 items-center">
-                                                  {!record && (
-                                                      <>
-                                                        <Button size="sm" onClick={() => handleCheckIn(s)} className="!bg-green-600 hover:!bg-green-700 text-white border-none" icon={LogIn}>Check In</Button>
-                                                        <button onClick={() => openAttendanceModal(s.id, s.fullName, 'absent')} className="text-red-500 hover:bg-red-50 p-1.5 rounded" title="Mark Absent"><XCircle size={18}/></button>
-                                                      </>
-                                                  )}
-                                                  
-                                                  {isCheckedIn && (
-                                                      <Button size="sm" onClick={() => handleCheckOut(record)} variant="danger" icon={LogOut}>Check Out</Button>
-                                                  )}
-
-                                                  {(record?.checkOut || isAbsent || record?.status === 'half_day') && (
-                                                      <button onClick={() => openAttendanceModal(s.id, s.fullName, record.status)} className="text-slate-400 hover:text-primary-600 p-1.5 rounded hover:bg-slate-100" title="Edit"><Edit size={16}/></button>
-                                                  )}
+                                              <div className="flex justify-end gap-2">
+                                                  {!isCheckedIn && !isAbsent && <Button size="sm" icon={LogIn} onClick={() => handleCheckIn(s)}>Check In</Button>}
+                                                  {isCheckedIn && <Button size="sm" variant="secondary" icon={LogOut} onClick={() => handleCheckOut(record!)}>Check Out</Button>}
+                                                  <Button size="sm" variant="ghost" onClick={() => openAttendanceModal(s.id, s.fullName, record ? record.status : 'present')}><Edit size={14}/></Button>
                                               </div>
                                           </td>
                                       )}
                                   </tr>
-                              )
+                              );
                           })}
                       </tbody>
                   </table>
@@ -633,38 +629,30 @@ export const Staff = () => {
       {activeTab === 'leaves' && (
           <div className="animate-in fade-in">
               <div className="flex justify-end mb-4">
-                  <Button icon={Plus} onClick={() => setIsLeaveModalOpen(true)}>{t('staff_modal_leave_title')}</Button>
+                  <Button icon={Plus} onClick={() => setIsLeaveModalOpen(true)}>{t('staff_leave_request')}</Button>
               </div>
-              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                  <table className="w-full text-sm text-left">
-                      <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium">
-                          <tr>
-                              <th className="px-4 py-3">{t('staff_form_role_title')}</th>
-                              <th className="px-4 py-3">{t('appointments_form_type')}</th>
-                              <th className="px-4 py-3">{t('date')}</th>
-                              <th className="px-4 py-3">{t('patients_modal_action_reason')}</th>
-                              <th className="px-4 py-3">{t('status')}</th>
-                              {canManageHR && <th className="px-4 py-3 text-right">{t('actions')}</th>}
-                          </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {leaves.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-slate-400">{t('no_data')}</td></tr> : leaves.map(leave => (
-                              <tr key={leave.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                                  <td className="px-4 py-3 font-medium">{leave.staffName}</td>
-                                  <td className="px-4 py-3 capitalize">{t(`hr_leave_${leave.type}`)}</td>
-                                  <td className="px-4 py-3 text-slate-500">{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</td>
-                                  <td className="px-4 py-3 text-slate-500 truncate max-w-xs">{leave.reason}</td>
-                                  <td className="px-4 py-3"><Badge color={leave.status === 'approved' ? 'green' : leave.status === 'rejected' ? 'red' : 'yellow'}>{leave.status}</Badge></td>
-                                  {canManageHR && leave.status === 'pending' && (
-                                      <td className="px-4 py-3 text-right space-x-2">
-                                          <button onClick={() => updateLeaveStatus(leave.id, 'approved')} className="text-green-600 hover:underline">{t('hr_approve')}</button>
-                                          <button onClick={() => updateLeaveStatus(leave.id, 'rejected')} className="text-red-600 hover:underline">{t('hr_reject')}</button>
-                                      </td>
-                                  )}
-                              </tr>
-                          ))}
-                      </tbody>
-                  </table>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {leaves.length === 0 ? <p className="col-span-full text-center text-slate-400 py-10">{t('staff_no_leaves')}</p> :
+                  leaves.map(leave => (
+                      <div key={leave.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                          <div className={`absolute top-0 left-0 w-1 h-full ${leave.status === 'approved' ? 'bg-green-500' : leave.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                          <div className="flex justify-between items-start mb-2 pl-2">
+                              <h4 className="font-bold text-slate-800 dark:text-white">{leave.staffName}</h4>
+                              <Badge color={leave.status === 'approved' ? 'green' : leave.status === 'rejected' ? 'red' : 'yellow'}>{leave.status}</Badge>
+                          </div>
+                          <div className="pl-2 space-y-1 text-sm text-slate-500 dark:text-slate-400">
+                              <p className="capitalize"><span className="font-medium text-slate-700 dark:text-slate-300">Type:</span> {leave.type}</p>
+                              <p><span className="font-medium text-slate-700 dark:text-slate-300">Dates:</span> {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</p>
+                              <p className="italic bg-slate-50 dark:bg-slate-900 p-2 rounded mt-2 border border-slate-100 dark:border-slate-700">"{leave.reason}"</p>
+                          </div>
+                          {canManageHR && leave.status === 'pending' && (
+                              <div className="flex gap-2 mt-4 pl-2">
+                                  <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 border-none text-white" onClick={() => updateLeaveStatus(leave.id, 'approved')}>{t('hr_approve')}</Button>
+                                  <Button size="sm" variant="danger" className="w-full" onClick={() => updateLeaveStatus(leave.id, 'rejected')}>{t('hr_reject')}</Button>
+                              </div>
+                          )}
+                      </div>
+                  ))}
               </div>
           </div>
       )}
@@ -672,37 +660,36 @@ export const Staff = () => {
       {/* --- PAYROLL TAB --- */}
       {activeTab === 'payroll' && (
           <div className="animate-in fade-in">
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between mb-4">
                   <Input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="w-auto" />
-                  {canManageHR && <Button icon={DollarSign} onClick={handleGeneratePayroll}>Generate Payroll</Button>}
+                  {canManageHR && <Button icon={DollarSign} onClick={handleGeneratePayroll}>{t('staff_generate_payroll')}</Button>}
               </div>
-              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                  <table className="w-full text-sm text-left">
+              <div className="overflow-x-auto bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <table className="min-w-full text-sm text-left">
                       <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium">
                           <tr>
-                              <th className="px-4 py-3">Staff</th>
-                              <th className="px-4 py-3 text-right">{t('staff_form_salary')}</th>
-                              <th className="px-4 py-3 text-right">{t('hr_adj_bonus')}</th>
-                              <th className="px-4 py-3 text-right">{t('staff_tab_financials')}</th>
-                              <th className="px-4 py-3 text-right font-bold">Net Salary</th>
+                              <th className="px-4 py-3">{t('staff_form_role_title')}</th>
+                              <th className="px-4 py-3 text-right">{t('staff_payroll_base')}</th>
+                              <th className="px-4 py-3 text-right text-green-600">Bonuses</th>
+                              <th className="px-4 py-3 text-right text-red-600">Deductions</th>
+                              <th className="px-4 py-3 text-right font-bold">{t('staff_payroll_net')}</th>
                               <th className="px-4 py-3 text-center">{t('status')}</th>
-                              {canManageHR && <th className="px-4 py-3 text-right">{t('actions')}</th>}
+                              {canManageHR && <th className="px-4 py-3"></th>}
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {payroll.length === 0 ? <tr><td colSpan={7} className="text-center py-8 text-slate-400">{t('no_data')}</td></tr> : payroll.map(p => (
-                              <tr key={p.id}>
-                                  <td className="px-4 py-3 font-medium">{p.staffName}</td>
-                                  <td className="px-4 py-3 text-right">${p.baseSalary.toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right text-green-600">+${p.totalBonuses.toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right text-red-600">-${p.totalFines.toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">${p.netSalary.toLocaleString()}</td>
+                          {payroll.length === 0 ? <tr><td colSpan={7} className="text-center py-8 text-slate-400">{t('staff_payroll_empty')}</td></tr> :
+                          payroll.map(p => (
+                              <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">{p.staffName}</td>
+                                  <td className="px-4 py-3 text-right font-mono">${p.baseSalary.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right font-mono text-green-600">+${p.totalBonuses.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right font-mono text-red-600">-${p.totalFines.toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 dark:text-white">${p.netSalary.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-center"><Badge color={p.status === 'paid' ? 'green' : 'yellow'}>{p.status}</Badge></td>
                                   {canManageHR && (
                                       <td className="px-4 py-3 text-right">
-                                          {p.status === 'draft' && (
-                                              <Button size="sm" onClick={() => handleMarkPaid(p)}>Mark Paid</Button>
-                                          )}
+                                          {p.status === 'draft' && <Button size="sm" onClick={() => handleMarkPaid(p)}>Mark Paid</Button>}
                                       </td>
                                   )}
                               </tr>
@@ -717,27 +704,29 @@ export const Staff = () => {
       {activeTab === 'financials' && (
           <div className="animate-in fade-in">
               <div className="flex justify-end mb-4">
-                  <Button icon={Plus} onClick={() => setIsAdjustmentModalOpen(true)}>{t('hr_add_entry')}</Button>
+                  {canManageHR && <Button icon={Plus} onClick={() => setIsAdjustmentModalOpen(true)}>{t('staff_financial_add_entry')}</Button>}
               </div>
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                  <table className="w-full text-sm text-left">
+                  <table className="min-w-full text-sm text-left">
                       <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium">
                           <tr>
                               <th className="px-4 py-3">{t('date')}</th>
                               <th className="px-4 py-3">{t('staff_form_role_title')}</th>
                               <th className="px-4 py-3">{t('appointments_form_type')}</th>
-                              <th className="px-4 py-3">{t('billing_table_header_amount')}</th>
-                              <th className="px-4 py-3">{t('patients_modal_action_reason')}</th>
+                              <th className="px-4 py-3">{t('admissions_care_observations_placeholder')}</th>
+                              <th className="px-4 py-3 text-right">{t('billing_table_header_amount')}</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {financials.length === 0 ? <tr><td colSpan={5} className="text-center py-8 text-slate-400">{t('no_data')}</td></tr> : financials.map(f => (
-                              <tr key={f.id}>
+                          {financials.map(f => (
+                              <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                                   <td className="px-4 py-3 text-slate-500">{new Date(f.date).toLocaleDateString()}</td>
-                                  <td className="px-4 py-3 font-medium">{f.staffName}</td>
-                                  <td className="px-4 py-3 capitalize"><Badge color={f.type === 'bonus' ? 'green' : f.type === 'fine' ? 'red' : 'orange'}>{t(`hr_adj_${f.type}`)}</Badge></td>
-                                  <td className="px-4 py-3 font-mono">${f.amount}</td>
+                                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">{f.staffName}</td>
+                                  <td className="px-4 py-3"><Badge color={f.type === 'bonus' ? 'green' : f.type === 'fine' ? 'red' : 'blue'}>{f.type}</Badge></td>
                                   <td className="px-4 py-3 text-slate-500">{f.reason}</td>
+                                  <td className={`px-4 py-3 text-right font-mono font-bold ${f.type === 'bonus' ? 'text-green-600' : 'text-red-600'}`}>
+                                      ${f.amount.toLocaleString()}
+                                  </td>
                               </tr>
                           ))}
                       </tbody>
@@ -748,181 +737,139 @@ export const Staff = () => {
 
       {/* --- MODALS --- */}
       
-      {/* Attendance Modal (New) */}
-      {attendanceModal && (
-          <Modal isOpen={attendanceModal.isOpen} onClose={() => setAttendanceModal(null)} title={t('staff_attendance_modal_title')}>
+      {/* Staff Create/Edit Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={staffForm.id ? t('staff_edit_employee') : t('staff_add_employee_button')}>
+        <form onSubmit={handleCreateStaff} className="space-y-4 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
+          <div className="grid grid-cols-2 gap-4">
+              <Input label={t('patients_modal_form_fullName')} required value={staffForm.fullName} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} />
+              <Select label={t('staff_form_role')} value={staffForm.type} onChange={handleTypeChange}>
+                  <option value="doctor">Doctor</option>
+                  <option value="nurse">Nurse</option>
+                  <option value="technician">Technician</option>
+                  <option value="pharmacist">Pharmacist</option>
+                  <option value="receptionist">Receptionist</option>
+                  <option value="accountant">Accountant</option>
+                  <option value="hr_manager">HR Manager</option>
+                  <option value="manager">Manager</option>
+                  <option value="staff">Support Staff</option>
+              </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+              <Select label={t('staff_form_department')} value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})}>
+                  <option value="">Select Department</option>
+                  {filteredDepartments.map((d: any) => <option key={d.id} value={d.name_en}>{d.name_en}</option>)}
+              </Select>
+              <Select label={t('staff_form_specialization')} value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}>
+                  <option value="">Select Specialization</option>
+                  {filteredSpecializations.map((s: any) => <option key={s.id} value={s.name_en}>{s.name_en}</option>)}
+              </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+              <Input label={t('staff_form_email')} type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} />
+              <Input label={t('staff_form_phone')} value={staffForm.phone || ''} onChange={e => setStaffForm({...staffForm, phone: e.target.value})} />
+          </div>
+          <Input label={t('staff_form_address')} value={staffForm.address || ''} onChange={e => setStaffForm({...staffForm, address: e.target.value})} />
+
+          <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
+              <h4 className="text-sm font-bold text-slate-500 mb-2">{t('staff_form_financials')}</h4>
+              <div className="grid grid-cols-2 gap-4">
+                  <Input label={t('staff_form_base_salary')} type="number" required value={staffForm.baseSalary} onChange={e => setStaffForm({...staffForm, baseSalary: e.target.value})} />
+                  {(staffForm.type === 'doctor') && (
+                      <Input label={t('staff_form_consultation_fee')} type="number" value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: e.target.value})} />
+                  )}
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                  <Select label={t('staff_form_bank_name')} value={staffForm.bankName || ''} onChange={e => setStaffForm({...staffForm, bankName: e.target.value})}>
+                      <option value="">Select Bank</option>
+                      {banks.map((b: any) => <option key={b.id} value={b.name_en}>{language === 'ar' ? b.name_ar : b.name_en}</option>)}
+                  </Select>
+                  <Input label={t('staff_form_account_number')} value={staffForm.bankAccount || ''} onChange={e => setStaffForm({...staffForm, bankAccount: e.target.value})} />
+              </div>
+          </div>
+
+          <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
+              <h4 className="text-sm font-bold text-slate-500 mb-2">{t('staff_form_availability')}</h4>
+              <div className="flex flex-wrap gap-2 mb-3">
+                  {DAYS_OF_WEEK.map((day) => (
+                      <button
+                          key={day}
+                          type="button"
+                          onClick={() => toggleDay(day)}
+                          className={`w-8 h-8 rounded-full text-xs font-bold transition-all ${
+                              (staffForm.availableDays || []).includes(DAYS_OF_WEEK_EN[DAYS_OF_WEEK.indexOf(day)])
+                                  ? 'bg-primary-600 text-white'
+                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                          }`}
+                      >
+                          {day}
+                      </button>
+                  ))}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                  <Input label={t('staff_form_start_time')} type="time" value={staffForm.availableTimeStart} onChange={e => setStaffForm({...staffForm, availableTimeStart: e.target.value})} />
+                  <Input label={t('staff_form_end_time')} type="time" value={staffForm.availableTimeEnd} onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})} />
+              </div>
+          </div>
+
+          <div className="flex justify-end pt-4 gap-3 border-t border-slate-100 dark:border-slate-700">
+            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button>
+            <Button type="submit">{t('save')}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Attendance Modal */}
+      <Modal isOpen={!!attendanceModal} onClose={() => setAttendanceModal(null)} title={t('staff_modal_attendance_title')}>
+          {attendanceModal && (
               <form onSubmit={handleAttendanceSubmit} className="space-y-4">
-                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mb-4">
-                      <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm text-slate-500">{t('staff_form_role_title')}</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{attendanceModal.staffName}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                          <span className="text-sm text-slate-500">{t('date')}</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{selectedDate}</span>
-                      </div>
+                  <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg text-center">
+                      <p className="font-bold text-lg">{attendanceModal.staffName}</p>
+                      <p className="text-xs text-slate-500">{new Date(selectedDate).toLocaleDateString()}</p>
                   </div>
+                  
+                  <Select label={t('status')} value={attendanceModal.status} onChange={e => setAttendanceModal({...attendanceModal, status: e.target.value as any})}>
+                      <option value="present">Present</option>
+                      <option value="late">Late</option>
+                      <option value="half_day">Half Day</option>
+                      <option value="absent">Absent</option>
+                  </Select>
 
-                  <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">{t('staff_attendance_mark_as')}</label>
-                      <div className="flex gap-4">
-                          <select 
-                            className="block w-full rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5 px-4 border"
-                            value={attendanceModal.status}
-                            onChange={(e) => setAttendanceModal({...attendanceModal, status: e.target.value as any})}
-                          >
-                            <option value="present">Present</option>
-                            <option value="late">Late</option>
-                            <option value="absent">Absent</option>
-                            <option value="half_day">Half Day</option>
-                          </select>
-                      </div>
-                  </div>
-
-                  {['present', 'late', 'half_day'].includes(attendanceModal.status) && (
+                  {attendanceModal.status !== 'absent' && (
                       <div className="grid grid-cols-2 gap-4">
-                        <Input 
-                            type="time" 
-                            label={t('staff_attendance_time')} 
-                            required 
-                            value={attendanceModal.checkIn} 
-                            onChange={e => setAttendanceModal({...attendanceModal, checkIn: e.target.value})} 
-                        />
-                        {attendanceModal.isUpdate && (
-                          <Input 
-                              type="time" 
-                              label="Check Out" 
-                              value={attendanceModal.checkOut} 
-                              onChange={e => setAttendanceModal({...attendanceModal, checkOut: e.target.value})} 
-                          />
-                        )}
+                          <Input label="Check In Time" type="time" value={attendanceModal.checkIn} onChange={e => setAttendanceModal({...attendanceModal, checkIn: e.target.value})} />
+                          <Input label="Check Out Time" type="time" value={attendanceModal.checkOut} onChange={e => setAttendanceModal({...attendanceModal, checkOut: e.target.value})} />
                       </div>
                   )}
 
-                  {attendanceModal.status === 'absent' && (
-                      <p className="text-sm text-slate-500 italic">
-                          {t('hr_absent_warning')}
-                      </p>
-                  )}
-
-                  <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700 mt-6">
+                  <div className="flex justify-end pt-4 gap-3">
                       <Button type="button" variant="secondary" onClick={() => setAttendanceModal(null)}>{t('cancel')}</Button>
-                      <Button type="submit">{t('staff_attendance_confirm')}</Button>
+                      <Button type="submit">{t('save')}</Button>
                   </div>
               </form>
-          </Modal>
-      )}
-
-      {/* Staff Add/Edit Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={staffForm.id ? t('staff_modal_edit_title') : t('staff_modal_add_title')}>
-          <form onSubmit={handleCreateStaff} className="space-y-4">
-              <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase">{t('staff_form_personal_title')}</h4>
-                  <Input label={t('patients_modal_form_fullName')} required value={staffForm.fullName || ''} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} />
-                  <div className="grid grid-cols-2 gap-4">
-                      <Input label={t('settings_profile_email')} type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} />
-                      <Input label={t('settings_profile_phone')} value={staffForm.phone || ''} onChange={e => setStaffForm({...staffForm, phone: e.target.value})} />
-                  </div>
-                  <Input label={t('patients_modal_form_address')} value={staffForm.address || ''} onChange={e => setStaffForm({...staffForm, address: e.target.value})} />
-              </div>
-
-              <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase">{t('staff_form_role_title')}</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                      <Select label="Role" value={staffForm.type} onChange={handleTypeChange}>
-                          {Object.keys(roleDepartmentMap).map(role => <option key={role} value={role} className="capitalize">{t(`staff_role_${role}`)}</option>)}
-                      </Select>
-                      <Select label={t('status')} value={staffForm.status} onChange={e => setStaffForm({...staffForm, status: e.target.value as any})}>
-                          <option value="active">{t('staff_status_active')}</option>
-                          <option value="inactive">{t('staff_status_inactive')}</option>
-                          <option value="dismissed">{t('staff_status_dismissed')}</option>
-                      </Select>
-                  </div>
-                  
-                  <Select 
-                    label={t('staff_select_department')} 
-                    value={staffForm.department || ''} 
-                    onChange={e => setStaffForm({...staffForm, department: e.target.value})}
-                  >
-                      <option value="">{t('staff_select_department')}</option>
-                      {filteredDepartments.map(d => <option key={d.id} value={d.name_en}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
-                  </Select>
-                  
-                  {filteredSpecializations.length > 0 && (
-                    <Select 
-                        label={t('staff_select_specialization')} 
-                        value={staffForm.specialization || ''} 
-                        onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}
-                    >
-                        <option value="">{t('staff_select_specialization')}</option>
-                        {filteredSpecializations.map(s => <option key={s.id} value={s.name_en}>{language === 'ar' ? s.name_ar : s.name_en}</option>)}
-                    </Select>
-                  )}
-              </div>
-
-              <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase">{t('staff_form_schedule_title')}</h4>
-                  <div className="flex flex-wrap gap-2">
-                      {DAYS_OF_WEEK.map((day, i) => (
-                          <button 
-                              key={day} 
-                              type="button"
-                              onClick={() => toggleDay(day)}
-                              className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all ${(staffForm.availableDays || []).includes(DAYS_OF_WEEK_EN[i]) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'}`}
-                          >
-                              {day}
-                          </button>
-                      ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                      <Input type="time" label="Start Time" value={staffForm.availableTimeStart || ''} onChange={e => setStaffForm({...staffForm, availableTimeStart: e.target.value})} />
-                      <Input type="time" label="End Time" value={staffForm.availableTimeEnd || ''} onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})} />
-                  </div>
-              </div>
-
-              <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase">{t('staff_form_financial_title')}</h4>
-                  <Input type="number" label={t('staff_form_salary')} value={staffForm.baseSalary} onChange={e => setStaffForm({...staffForm, baseSalary: e.target.value})} />
-                  <div className="grid grid-cols-3 gap-3">
-                      <Input type="number" label={t('staff_form_consultation_fee')} value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: e.target.value})} />
-                      <Input type="number" label={t('staff_form_followup_fee')} value={staffForm.consultationFeeFollowup} onChange={e => setStaffForm({...staffForm, consultationFeeFollowup: e.target.value})} />
-                      <Input type="number" label={t('staff_form_emergency_fee')} value={staffForm.consultationFeeEmergency} onChange={e => setStaffForm({...staffForm, consultationFeeEmergency: e.target.value})} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                      <Select label={t('staff_form_bank_name')} value={staffForm.bankName || ''} onChange={e => setStaffForm({...staffForm, bankName: e.target.value})}>
-                          <option value="">Select Bank...</option>
-                          {banks.map(bank => <option key={bank.id} value={bank.name_en}>{language === 'ar' ? bank.name_ar : bank.name_en}</option>)}
-                      </Select>
-                      <Input label={t('staff_form_bank_account')} value={staffForm.bankAccount || ''} onChange={e => setStaffForm({...staffForm, bankAccount: e.target.value})} />
-                  </div>
-                  <Input type="date" label={t('staff_join_date')} value={staffForm.joinDate || ''} onChange={e => setStaffForm({...staffForm, joinDate: e.target.value})} />
-              </div>
-
-              <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700">
-                  <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button>
-                  <Button type="submit">{t('save')}</Button>
-              </div>
-          </form>
+          )}
       </Modal>
 
       {/* Leave Request Modal */}
-      <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title={t('staff_modal_leave_title')}>
+      <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title={t('staff_leave_request')}>
           <form onSubmit={handleLeaveRequest} className="space-y-4">
               <Select label={t('staff_form_role_title')} required value={leaveForm.staffId} onChange={e => setLeaveForm({...leaveForm, staffId: e.target.value})}>
-                  <option value="">Select Staff...</option>
-                  {staff.filter(s => s.status === 'active').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                  <option value="">Select Employee</option>
+                  {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
               </Select>
               <Select label={t('appointments_form_type')} value={leaveForm.type} onChange={e => setLeaveForm({...leaveForm, type: e.target.value})}>
-                  <option value="sick">{t('hr_leave_sick')}</option>
-                  <option value="vacation">{t('hr_leave_vacation')}</option>
-                  <option value="casual">{t('hr_leave_casual')}</option>
-                  <option value="unpaid">{t('hr_leave_unpaid')}</option>
+                  <option value="sick">Sick Leave</option>
+                  <option value="vacation">Vacation</option>
+                  <option value="casual">Casual Leave</option>
+                  <option value="unpaid">Unpaid Leave</option>
               </Select>
               <div className="grid grid-cols-2 gap-4">
-                  <Input type="date" label="Start Date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} />
-                  <Input type="date" label="End Date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} />
+                  <Input label={t('start_date')} type="date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} />
+                  <Input label={t('end_date')} type="date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} />
               </div>
-              <Textarea label={t('patients_modal_action_reason')} rows={2} value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
+              <Textarea label={t('reason')} required value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
               <div className="flex justify-end pt-4 gap-3">
                   <Button type="button" variant="secondary" onClick={() => setIsLeaveModalOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit">{t('submit')}</Button>
@@ -931,23 +878,23 @@ export const Staff = () => {
       </Modal>
 
       {/* Financial Adjustment Modal */}
-      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={t('hr_financial_adjustment')}>
+      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={t('staff_financial_add_entry')}>
           <form onSubmit={handleAdjustmentSubmit} className="space-y-4">
               <Select label={t('staff_form_role_title')} required value={adjForm.staffId} onChange={e => setAdjForm({...adjForm, staffId: e.target.value})}>
-                  <option value="">Select Staff...</option>
-                  {staff.filter(s => s.status === 'active').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                  <option value="">Select Employee</option>
+                  {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
               </Select>
               <Select label={t('appointments_form_type')} value={adjForm.type} onChange={e => setAdjForm({...adjForm, type: e.target.value})}>
-                  <option value="bonus">{t('hr_adj_bonus')}</option>
-                  <option value="fine">{t('hr_adj_fine')}</option>
-                  <option value="loan">{t('hr_adj_loan')}</option>
+                  <option value="bonus">Bonus</option>
+                  <option value="fine">Fine / Deduction</option>
+                  <option value="loan">Loan</option>
               </Select>
-              <Input type="number" label={`${t('billing_table_header_amount')} ($)`} required value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} />
-              <Input type="date" label={t('date')} required value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
-              <Textarea label={t('patients_modal_action_reason')} rows={2} value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
+              <Input label={t('billing_table_header_amount')} type="number" required value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} />
+              <Input label={t('date')} type="date" required value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
+              <Textarea label={t('reason')} required value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
               <div className="flex justify-end pt-4 gap-3">
                   <Button type="button" variant="secondary" onClick={() => setIsAdjustmentModalOpen(false)}>{t('cancel')}</Button>
-                  <Button type="submit">{t('submit')}</Button>
+                  <Button type="submit">{t('save')}</Button>
               </div>
           </form>
       </Modal>

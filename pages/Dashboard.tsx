@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, Cell, PieChart, Pie
+  AreaChart, Area, Cell
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../context/TranslationContext';

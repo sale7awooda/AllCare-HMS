@@ -4,11 +4,11 @@ import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog
 import { 
   Plus, Search, Filter, Edit, Calendar, Lock, 
   FlaskConical, Bed, Activity, Trash2, CheckCircle,
-  Phone, User as UserIcon, Loader2,
-  ChevronLeft, ChevronRight, Stethoscope, FileText, XCircle, DollarSign, Clock
+  Phone, User, Loader2,
+  ChevronLeft, ChevronRight, Stethoscope, FileText, XCircle, DollarSign
 } from 'lucide-react';
 import { api } from '../services/api';
-import { Patient, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill, InsuranceProvider } from '@/types';
+import { Patient, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill, InsuranceProvider } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';

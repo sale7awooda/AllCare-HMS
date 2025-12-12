@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -6,7 +7,7 @@ import {
   CreditCard, RotateCcw, Shield, Lock, Activity, RefreshCw, Briefcase, FlaskConical, Stethoscope 
 } from 'lucide-react';
 import { api } from '../services/api';
-import { LabTestCatalog, NurseServiceCatalog, OperationCatalog, Bed as BedType, User, Role, TaxRate, PaymentMethod, InsuranceProvider } from '@/types';
+import { LabTestCatalog, NurseServiceCatalog, OperationCatalog, Bed as BedType, User, Role, TaxRate, PaymentMethod, InsuranceProvider } from '../types';
 import { Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 
@@ -98,7 +99,7 @@ export const Configuration = () => {
         api.getSystemSettings(),
         api.getDepartments(),
         api.getSpecializations(),
-        api.getConfigBeds(),
+        api.getBeds(), // Corrected from getConfigBeds
         api.getLabTests(),
         api.getNurseServices(),
         api.getOperations(),

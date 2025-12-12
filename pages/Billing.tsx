@@ -1,22 +1,19 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
-  Plus, Printer, Download, X, Lock, CreditCard, 
-  Wallet, TrendingUp, AlertCircle, FileText, CheckCircle, Trash2,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, Calendar,
-  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Loader2, Coins
+  Plus, Printer, Lock, CreditCard, 
+  Wallet, FileText, CheckCircle, Trash2,
+  ChevronLeft, ChevronRight, Search, Filter, Calendar,
+  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Coins
 } from 'lucide-react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
 } from 'recharts';
 import { api } from '../services/api';
 import { Bill, Patient, Appointment, PaymentMethod, TaxRate, Transaction, InsuranceProvider } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
-
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
 export const Billing = () => {
   const { t, language } = useTranslation();
@@ -169,8 +166,8 @@ export const Billing = () => {
 
       // Calculate Treasury Stats
       const transArr = Array.isArray(trans) ? trans : [];
-      const income = transArr.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + t.amount, 0);
-      const expense = transArr.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + t.amount, 0);
+      const income = transArr.filter((tx: any) => tx.type === 'income').reduce((sum: number, tx: any) => sum + tx.amount, 0);
+      const expense = transArr.filter((tx: any) => tx.type === 'expense').reduce((sum: number, tx: any) => sum + tx.amount, 0);
       setTreasuryStats({ income, expenses: expense, net: income - expense });
 
     } catch (e) {
@@ -371,15 +368,13 @@ export const Billing = () => {
   const handleCancelService = (bill: Bill) => {
     setConfirmState({
       isOpen: true,
-      title: 'Cancel Service',
-      message: 'Are you sure you want to cancel the service associated with this bill? This will update the status of the Appointment, Lab Request, or Admission to Cancelled.',
+      title: t('billing_cancel_dialog_title'),
+      message: t('billing_cancel_dialog_message'),
       type: 'danger',
       action: async () => {
         setIsProcessing(true);
         try {
-          // Use axios directly or add to api.ts. Here using a mock approach assuming api.ts is updated.
-          // Add this to api.ts: cancelBillService: (id) => client.post(`/billing/${id}/cancel-service`)
-          await api.cancelService(bill.id); // Assuming api.ts update
+          await api.cancelService(bill.id); 
           loadData();
         } catch (e) {
           console.error(e);
@@ -502,14 +497,14 @@ export const Billing = () => {
     // Sort transactions by date asc for chart
     const sortedTrans = [...filteredTransactions].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    sortedTrans.forEach(t => {
-        const day = new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    sortedTrans.forEach(tx => {
+        const day = new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         if (!dailyMap.has(day)) {
             dailyMap.set(day, { name: day, income: 0, expense: 0 });
         }
         const entry = dailyMap.get(day)!;
-        if (t.type === 'income') entry.income += t.amount;
-        else entry.expense += t.amount;
+        if (tx.type === 'income') entry.income += tx.amount;
+        else entry.expense += tx.amount;
     });
 
     return Array.from(dailyMap.values());
@@ -526,16 +521,16 @@ export const Billing = () => {
     // Ensure Cash exists
     if (!stats['Cash']) stats['Cash'] = { income: 0, expense: 0, balance: 0 };
 
-    filteredTransactions.forEach(t => {
-        const method = t.method || 'Unknown';
+    filteredTransactions.forEach(tx => {
+        const method = tx.method || 'Unknown';
         if (!stats[method]) stats[method] = { income: 0, expense: 0, balance: 0 };
         
-        if (t.type === 'income') {
-            stats[method].income += t.amount;
-            stats[method].balance += t.amount;
+        if (tx.type === 'income') {
+            stats[method].income += tx.amount;
+            stats[method].balance += tx.amount;
         } else {
-            stats[method].expense += t.amount;
-            stats[method].balance -= t.amount;
+            stats[method].expense += tx.amount;
+            stats[method].balance -= tx.amount;
         }
     });
 
@@ -603,7 +598,7 @@ export const Billing = () => {
             <div>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">{t('billing_invoice_billed_to')}</p>
                 <p className="font-bold text-lg text-slate-900">{bill.patientName}</p>
-                <p className="text-slate-500 text-sm mt-1">Patient ID: <span className="font-mono text-slate-600">#{bill.patientId}</span></p>
+                <p className="text-slate-500 text-sm mt-1">{t('patient_id')}: <span className="font-mono text-slate-600">#{bill.patientId}</span></p>
             </div>
             <div className="text-right">
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">{t('billing_invoice_date')}</p>
@@ -617,7 +612,7 @@ export const Billing = () => {
             <table className="w-full">
                 <thead>
                 <tr className="border-b border-slate-200">
-                    <th className="text-left py-4 px-2 font-bold text-xs text-slate-500 uppercase tracking-wider">Description :</th>
+                    <th className="text-left py-4 px-2 font-bold text-xs text-slate-500 uppercase tracking-wider">{t('billing_invoice_description')} :</th>
                     <th className="text-right py-4 px-2 font-bold text-xs text-slate-500 uppercase tracking-wider">{t('billing_table_header_amount')}</th>
                 </tr>
                 </thead>
@@ -682,7 +677,7 @@ export const Billing = () => {
                   onClick={() => handleCancelService(bill)}
                   disabled={isProcessing}
               >
-                  Cancel Process
+                  {t('billing_action_cancel_process')}
               </Button>
           );
       } else {
@@ -695,7 +690,7 @@ export const Billing = () => {
                   title={!isAccountant ? "Refunds require Accountant role" : ""}
                   onClick={() => isAccountant && openRefundModal(bill)}
               >
-                  Refund
+                  {t('billing_action_refund')}
               </Button>
           );
       }
@@ -713,8 +708,8 @@ export const Billing = () => {
       {/* Main Tabs */}
       <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 w-fit mb-6">
           {[
-              { id: 'invoices', label: t('billing_tab_invoices') || 'Invoices', icon: FileText },
-              { id: 'treasury', label: t('billing_tab_treasury') || 'Treasury', icon: Landmark },
+              { id: 'invoices', label: t('billing_tab_invoices'), icon: FileText },
+              { id: 'treasury', label: t('billing_tab_treasury'), icon: Landmark },
           ].map(tab => (
               <button
                 key={tab.id}
@@ -865,21 +860,21 @@ export const Billing = () => {
       {activeTab === 'treasury' && (
           <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-end">
-                  <Button onClick={() => setIsExpenseModalOpen(true)} icon={Plus} variant="secondary">Record Expense</Button>
+                  <Button onClick={() => setIsExpenseModalOpen(true)} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button>
               </div>
 
               {/* Treasury Stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <Card>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase">Total Income</h4>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_income')}</h4>
                     <p className="text-3xl font-bold text-green-600 mt-2 flex items-center gap-2"><ArrowUpRight size={24}/> ${treasuryStats.income.toLocaleString()}</p>
                   </Card>
                   <Card>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase">Total Expenses</h4>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_expenses')}</h4>
                     <p className="text-3xl font-bold text-red-500 mt-2 flex items-center gap-2"><ArrowDownRight size={24}/> ${treasuryStats.expenses.toLocaleString()}</p>
                   </Card>
                   <Card>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase">Net Cash Flow</h4>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_net')}</h4>
                     <p className={`text-3xl font-bold mt-2 ${treasuryStats.net >= 0 ? 'text-blue-600' : 'text-red-600'}`}>${treasuryStats.net.toLocaleString()}</p>
                   </Card>
               </div>
@@ -888,7 +883,7 @@ export const Billing = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Cash Flow Bar Chart */}
                   <div className="h-96 w-full bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                      <h3 className="font-bold text-slate-800 dark:text-white mb-4">Cash Flow Overview</h3>
+                      <h3 className="font-bold text-slate-800 dark:text-white mb-4">{t('billing_treasury_chart_flow')}</h3>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={treasuryChartData}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
@@ -899,8 +894,8 @@ export const Billing = () => {
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }} 
                             />
                             <Legend />
-                            <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
-                            <Bar dataKey="expense" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
+                            <Bar dataKey="income" name={t('billing_treasury_type_income')} fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
+                            <Bar dataKey="expense" name={t('billing_treasury_type_expense')} fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
                         </BarChart>
                       </ResponsiveContainer>
                   </div>
@@ -908,8 +903,8 @@ export const Billing = () => {
                   {/* Method Holdings */}
                   <div className="h-96 w-full bg-white dark:bg-slate-800 rounded-xl p-0 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden">
                       <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
-                          <h3 className="font-bold text-slate-800 dark:text-white">Treasury Holdings by Method</h3>
-                          <p className="text-xs text-slate-500">Net flow based on current filters</p>
+                          <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_holdings')}</h3>
+                          <p className="text-xs text-slate-500">{t('billing_treasury_holdings_subtitle')}</p>
                       </div>
                       <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                           {methodStats.map((item) => {
@@ -946,12 +941,12 @@ export const Billing = () => {
                   <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
                       <div className="flex items-center gap-2 flex-1">
                           <Landmark size={18} className="text-slate-500"/> 
-                          <h3 className="font-bold text-slate-800 dark:text-white">Recent Transactions</h3>
+                          <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3>
                       </div>
                       <div className="flex gap-2">
                           <input 
                             type="text" 
-                            placeholder="Search..." 
+                            placeholder={t('search_placeholder')} 
                             className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
                             value={treasurySearch}
                             onChange={(e) => setTreasurySearch(e.target.value)}
@@ -961,9 +956,9 @@ export const Billing = () => {
                             value={treasuryFilter}
                             onChange={(e) => setTreasuryFilter(e.target.value)}
                           >
-                              <option value="all">All</option>
-                              <option value="income">Income</option>
-                              <option value="expense">Expense</option>
+                              <option value="all">{t('patients_filter_type_all')}</option>
+                              <option value="income">{t('billing_treasury_type_income')}</option>
+                              <option value="expense">{t('billing_treasury_type_expense')}</option>
                           </select>
                           <input 
                             type="date" 
@@ -977,26 +972,26 @@ export const Billing = () => {
                       <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                           <thead className="bg-white dark:bg-slate-900">
                               <tr>
-                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Date</th>
-                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Type</th>
-                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Category</th>
-                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Description</th>
-                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Method</th>
-                                  <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Amount</th>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th>
+                                  <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th>
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800">
-                              {paginatedTransactions.map((t) => (
-                                  <tr key={t.id}>
-                                      <td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300">{new Date(t.date).toLocaleDateString()}</td>
+                              {paginatedTransactions.map((tx) => (
+                                  <tr key={tx.id}>
+                                      <td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300">{new Date(tx.date).toLocaleDateString()}</td>
                                       <td className="px-6 py-3">
-                                          <Badge color={t.type === 'income' ? 'green' : 'red'}>{t.type}</Badge>
+                                          <Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge>
                                       </td>
-                                      <td className="px-6 py-3 text-sm font-medium">{t.category || '-'}</td>
-                                      <td className="px-6 py-3 text-sm text-slate-500">{t.description}</td>
-                                      <td className="px-6 py-3 text-sm">{t.method}</td>
-                                      <td className={`px-6 py-3 text-sm font-bold text-right ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                          {t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString()}
+                                      <td className="px-6 py-3 text-sm font-medium">{tx.category || '-'}</td>
+                                      <td className="px-6 py-3 text-sm text-slate-500">{tx.description}</td>
+                                      <td className="px-6 py-3 text-sm">{tx.method}</td>
+                                      <td className={`px-6 py-3 text-sm font-bold text-right ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                          {tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}
                                       </td>
                                   </tr>
                               ))}
@@ -1005,7 +1000,7 @@ export const Billing = () => {
                   </div>
                   {/* Pagination Footer */}
                   <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                      <span className="text-sm text-slate-500">Page {treasuryPage} of {totalTreasuryPages || 1}</span>
+                      <span className="text-sm text-slate-500">{t('patients_pagination_showing')} {treasuryPage} {t('patients_pagination_of')} {totalTreasuryPages || 1}</span>
                       <div className="flex gap-2">
                           <button onClick={() => setTreasuryPage(p => Math.max(1, p - 1))} disabled={treasuryPage === 1} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50"><ChevronLeft size={16}/></button>
                           <button onClick={() => setTreasuryPage(p => Math.min(totalTreasuryPages, p + 1))} disabled={treasuryPage === totalTreasuryPages} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50"><ChevronRight size={16}/></button>
@@ -1039,7 +1034,7 @@ export const Billing = () => {
                     onChange={(e) => handleCatalogSelect(index, e.target.value)}
                     defaultValue=""
                   >
-                    <option value="" disabled>Quick Add...</option>
+                    <option value="" disabled>{t('billing_modal_create_quick_add')}</option>
                     {catalogItems.map((c, i) => <option key={i} value={c.label}>{c.label}</option>)}
                   </select>
 
@@ -1069,13 +1064,13 @@ export const Billing = () => {
 
           <div className="grid grid-cols-2 gap-4 border-t pt-4">
              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Tax Rate</label>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('billing_modal_create_tax_rate')}</label>
                 <select 
                     className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-sm"
                     value={createForm.selectedTaxId}
                     onChange={e => setCreateForm({...createForm, selectedTaxId: e.target.value})}
                 >
-                    <option value="">None</option>
+                    <option value="">{t('billing_modal_create_none')}</option>
                     {taxRates.filter(t => t.isActive).map(t => (
                         <option key={t.id} value={t.id}>{language === 'ar' ? t.name_ar : t.name_en} ({t.rate}%)</option>
                     ))}
@@ -1168,7 +1163,7 @@ export const Billing = () => {
                                 onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})}
                                 required
                             >
-                                <option value="">Select Provider...</option>
+                                <option value="">{t('patients_modal_form_insurance_provider_select')}</option>
                                 {insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}
                             </Select>
                         </div>
@@ -1187,7 +1182,7 @@ export const Billing = () => {
                         />
                         <div className="md:col-span-2">
                             <Textarea 
-                                label="Coverage Notes" 
+                                label={t('patients_modal_form_insurance_notes')} 
                                 rows={2} 
                                 value={paymentForm.notes} 
                                 onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} 
@@ -1208,7 +1203,7 @@ export const Billing = () => {
                             className="md:col-span-2"
                         />
                         <Input 
-                            label="Transaction ID / Ref" 
+                            label={t('billing_modal_payment_ref')} 
                             value={paymentForm.transactionId} 
                             onChange={e => setPaymentForm({...paymentForm, transactionId: e.target.value})} 
                             required 
@@ -1242,23 +1237,23 @@ export const Billing = () => {
       </Modal>
 
       {/* Refund Modal */}
-      <Modal isOpen={isRefundModalOpen} onClose={() => setIsRefundModalOpen(false)} title="Process Refund">
+      <Modal isOpen={isRefundModalOpen} onClose={() => setIsRefundModalOpen(false)} title={t('billing_modal_refund_title')}>
         {refundingBill && (
             <form onSubmit={handleRefundSubmit} className="space-y-4">
                 <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-100 dark:border-red-900/50">
                     <div className="flex items-center gap-3 mb-2">
                         <RefreshCcw className="text-red-600" size={20}/>
-                        <p className="text-sm text-red-800 dark:text-red-300 font-bold">Refund for Bill #{refundingBill.billNumber}</p>
+                        <p className="text-sm text-red-800 dark:text-red-300 font-bold">{t('billing_modal_refund_subtitle', {billNumber: refundingBill.billNumber})}</p>
                     </div>
                     <div className="flex justify-between text-xs text-red-600 dark:text-red-400">
-                        <span>Total Paid: ${refundingBill.paidAmount}</span>
-                        <span>Max Refundable: ${refundingBill.paidAmount}</span>
+                        <span>{t('billing_modal_refund_total_paid')}: ${refundingBill.paidAmount}</span>
+                        <span>{t('billing_modal_refund_max')}: ${refundingBill.paidAmount}</span>
                     </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                     <Input 
-                        label="Refund Amount" 
+                        label={t('billing_modal_refund_amount')} 
                         type="number" 
                         max={refundingBill.paidAmount}
                         value={refundForm.amount}
@@ -1266,7 +1261,7 @@ export const Billing = () => {
                         required
                     />
                     <Select 
-                        label="Refund Method"
+                        label={t('billing_modal_refund_method')}
                         value={refundForm.method}
                         onChange={e => setRefundForm({...refundForm, method: e.target.value})}
                     >
@@ -1278,21 +1273,21 @@ export const Billing = () => {
                 </div>
 
                 <Select 
-                    label="Reason for Refund" 
+                    label={t('billing_modal_refund_reason')} 
                     value={refundForm.reason}
                     onChange={e => setRefundForm({...refundForm, reason: e.target.value})}
                     required
                 >
-                    <option value="Service Cancelled">Service Cancelled</option>
-                    <option value="Overcharged">Overcharged / Billing Error</option>
-                    <option value="Duplicate Payment">Duplicate Payment</option>
-                    <option value="Customer Satisfaction">Customer Satisfaction</option>
-                    <option value="Other">Other</option>
+                    <option value="Service Cancelled">{t('billing_modal_refund_reason_service')}</option>
+                    <option value="Overcharged">{t('billing_modal_refund_reason_overcharged')}</option>
+                    <option value="Duplicate Payment">{t('billing_modal_refund_reason_duplicate')}</option>
+                    <option value="Customer Satisfaction">{t('billing_modal_refund_reason_satisfaction')}</option>
+                    <option value="Other">{t('billing_modal_refund_reason_other')}</option>
                 </Select>
 
                 {refundForm.reason === 'Other' && (
                     <Textarea 
-                        label="Specify Reason" 
+                        label={t('billing_modal_refund_custom_reason')} 
                         value={refundForm.customReason}
                         onChange={e => setRefundForm({...refundForm, customReason: e.target.value})}
                         required
@@ -1303,7 +1298,7 @@ export const Billing = () => {
                 <div className="flex justify-end pt-4 gap-2">
                     <Button type="button" variant="secondary" onClick={() => setIsRefundModalOpen(false)}>{t('cancel')}</Button>
                     <Button type="submit" variant="danger" disabled={isProcessing}>
-                        {isProcessing ? t('processing') : 'Confirm Refund'}
+                        {isProcessing ? t('processing') : t('billing_modal_refund_confirm')}
                     </Button>
                 </div>
             </form>
@@ -1311,30 +1306,30 @@ export const Billing = () => {
       </Modal>
 
       {/* Expense Modal */}
-      <Modal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} title="Record Expense">
+      <Modal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} title={t('billing_modal_expense_title')}>
           <form onSubmit={handleExpenseSubmit} className="space-y-4">
-              <Select label="Category" value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})}>
-                  <option value="General">General</option>
-                  <option value="Supplies">Medical Supplies</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Utilities">Utilities</option>
-                  <option value="Salary">Salary / Wages</option>
-                  <option value="Equipment">Equipment</option>
+              <Select label={t('billing_modal_expense_category')} value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})}>
+                  <option value="General">{t('billing_modal_expense_cat_general')}</option>
+                  <option value="Supplies">{t('billing_modal_expense_cat_supplies')}</option>
+                  <option value="Maintenance">{t('billing_modal_expense_cat_maintenance')}</option>
+                  <option value="Utilities">{t('billing_modal_expense_cat_utilities')}</option>
+                  <option value="Salary">{t('billing_modal_expense_cat_salary')}</option>
+                  <option value="Equipment">{t('billing_modal_expense_cat_equipment')}</option>
               </Select>
-              <Input label="Amount ($)" type="number" required value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} />
+              <Input label={t('billing_modal_expense_amount')} type="number" required value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} />
               <div className="grid grid-cols-2 gap-4">
-                  <Select label="Payment Method" value={expenseForm.method} onChange={e => setExpenseForm({...expenseForm, method: e.target.value})}>
+                  <Select label={t('billing_modal_expense_method')} value={expenseForm.method} onChange={e => setExpenseForm({...expenseForm, method: e.target.value})}>
                       <option value="Cash">Cash</option>
                       <option value="Bank Transfer">Bank Transfer</option>
                       <option value="Check">Check</option>
                   </Select>
-                  <Input label="Date" type="date" required value={expenseForm.date} onChange={e => setExpenseForm({...expenseForm, date: e.target.value})} />
+                  <Input label={t('date')} type="date" required value={expenseForm.date} onChange={e => setExpenseForm({...expenseForm, date: e.target.value})} />
               </div>
-              <Textarea label="Description" required rows={3} value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} />
+              <Textarea label={t('billing_modal_expense_description')} required rows={3} value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} />
               <div className="flex justify-end pt-4 gap-3">
-                  <Button type="button" variant="secondary" onClick={() => setIsExpenseModalOpen(false)}>Cancel</Button>
+                  <Button type="button" variant="secondary" onClick={() => setIsExpenseModalOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit" disabled={isProcessing}>
-                      {isProcessing ? t('processing') : 'Save Expense'}
+                      {isProcessing ? t('processing') : t('billing_modal_expense_save')}
                   </Button>
               </div>
           </form>
