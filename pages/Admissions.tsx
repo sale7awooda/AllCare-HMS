@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge, Modal, Input, Textarea, Select, ConfirmationDialog } from '../components/UI';
-import { Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, DollarSign, Loader2, XCircle, Sparkles } from 'lucide-react';
+import { Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, DollarSign, Loader2, XCircle, Sparkles, Thermometer } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from '../context/TranslationContext';
@@ -563,4 +564,144 @@ export const Admissions = () => {
                       </div>
                       <div className="flex justify-between border-b dark:border-slate-700 pb-2">
                         <span className="text-gray-500">{t('admissions_care_duration')}</span>
-                        <span className="font-medium">{inpatientDetails.daysStayed} {t('admissions_bed_days', {count: ''}).trim()}</span
+                        <span className="font-medium">{inpatientDetails.daysStayed} {t('admissions_bed_days', {count: ''}).trim()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{t('admissions_care_daily_rate')}</span>
+                        <span className="font-mono font-bold text-primary-600">${inpatientDetails.costPerDay}/day</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2"><Activity size={18}/> {t('admissions_care_clinical_info')}</h3>
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 space-y-2">
+                      <p className="text-xs text-gray-500 uppercase font-bold">{t('admissions_care_admission_note')}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 italic">"{inpatientDetails.notes || t('admissions_care_no_initial_notes')}"</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* NOTES TAB */}
+              {careTab === 'notes' && (
+                <div className="space-y-6 animate-in fade-in">
+                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">{t('admissions_care_add_note')}</h4>
+                    <form onSubmit={handleAddNote} className="space-y-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <Input placeholder={t('admissions_care_vitals_bp')} value={noteForm.bp} onChange={e => setNoteForm({...noteForm, bp: e.target.value})} className="bg-white dark:bg-slate-800" />
+                        <Input placeholder={t('admissions_care_vitals_temp')} type="number" value={noteForm.temp} onChange={e => setNoteForm({...noteForm, temp: e.target.value})} className="bg-white dark:bg-slate-800" />
+                        <Input placeholder={t('admissions_care_vitals_pulse')} type="number" value={noteForm.pulse} onChange={e => setNoteForm({...noteForm, pulse: e.target.value})} className="bg-white dark:bg-slate-800" />
+                        <Input placeholder={t('admissions_care_vitals_resp')} type="number" value={noteForm.resp} onChange={e => setNoteForm({...noteForm, resp: e.target.value})} className="bg-white dark:bg-slate-800" />
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Textarea placeholder={t('admissions_care_observations_placeholder')} rows={2} value={noteForm.note} onChange={e => setNoteForm({...noteForm, note: e.target.value})} className="bg-white dark:bg-slate-800" />
+                        </div>
+                        <Button type="submit" icon={Plus} className="self-end h-[50px]">{t('admissions_care_save_note_button')}</Button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                    {inpatientDetails.notes && inpatientDetails.notes.length > 0 ? (
+                      inpatientDetails.notes.map((note: any) => (
+                        <div key={note.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 relative">
+                          <div className="flex justify-between mb-2">
+                            <span className="text-xs font-bold text-primary-600 flex items-center gap-1"><User size={12}/> Dr. {note.doctorName}</span>
+                            <span className="text-xs text-gray-400">{new Date(note.created_at).toLocaleString()}</span>
+                          </div>
+                          <p className="text-sm text-gray-800 dark:text-gray-200 mb-3">{note.note}</p>
+                          {note.vitals && (
+                            <div className="flex gap-3 text-xs text-gray-500 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg w-fit">
+                              {note.vitals.bp && <span className="flex items-center gap-1"><Activity size={10}/> BP: {note.vitals.bp}</span>}
+                              {note.vitals.temp && <span className="flex items-center gap-1"><Thermometer size={10}/> {note.vitals.temp}°C</span>}
+                              {note.vitals.pulse && <span className="flex items-center gap-1"><HeartPulse size={10}/> {note.vitals.pulse} bpm</span>}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">{t('admissions_care_no_notes')}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* DISCHARGE TAB */}
+              {careTab === 'discharge' && (
+                <div className="space-y-6 animate-in fade-in">
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-xl border border-yellow-100 dark:border-yellow-900/50 flex gap-3">
+                    <AlertCircle className="text-yellow-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-yellow-800 dark:text-yellow-500 text-sm">{t('admissions_care_discharge_process')}</h4>
+                      <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">{t('admissions_care_discharge_note')}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl space-y-3">
+                      <h4 className="font-bold text-sm text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">{t('admissions_modal_discharge_summary_title')}</h4>
+                      <div className="flex justify-between text-sm">
+                        <span>{t('admissions_care_total_stay')}</span>
+                        <span className="font-bold">{inpatientDetails.daysStayed} days</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>{t('admissions_care_estimated_bill')}</span>
+                        <span className="font-mono font-bold">${inpatientDetails.estimatedBill.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm pt-2 border-t border-slate-200 dark:border-slate-700">
+                         <span className="text-red-600 font-bold">{t('admissions_care_balance_due')}</span>
+                         <span className="font-mono font-bold text-red-600">${(inpatientDetails.outstandingBalance + inpatientDetails.estimatedBill).toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('admissions_care_discharge_status')}</label>
+                        <Select value={dischargeForm.status} onChange={e => setDischargeForm({...dischargeForm, status: e.target.value})}>
+                          <option value="Recovered">{t('admissions_care_discharge_status_recovered')}</option>
+                          <option value="Transferred">{t('admissions_care_discharge_status_transferred')}</option>
+                          <option value="AMA">{t('admissions_care_discharge_status_ama')}</option>
+                          <option value="Deceased">{t('admissions_care_discharge_status_deceased')}</option>
+                        </Select>
+                      </div>
+                      <Textarea 
+                        label={t('admissions_care_discharge_summary')} 
+                        rows={3} 
+                        value={dischargeForm.notes} 
+                        onChange={e => setDischargeForm({...dischargeForm, notes: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4 border-t dark:border-slate-700">
+                    <Button variant="danger" icon={LogOut} onClick={handleDischarge}>
+                      {t('admissions_discharge_button')}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-slate-700 mt-4">
+            <Button variant="secondary" onClick={() => setIsCareModalOpen(false)}>{t('close')}</Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog 
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        type={confirmState.type}
+      />
+    </div>
+  );
+};
