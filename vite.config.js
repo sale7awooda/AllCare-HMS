@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
       host: true,
       proxy: {
         '/api': {
-          target: 'https://allcare.up.railway.app',
+          target: 'http://localhost:3000',
           changeOrigin: true,
           secure: false,
         }

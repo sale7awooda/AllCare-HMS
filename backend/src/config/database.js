@@ -229,18 +229,40 @@ const seedData = () => {
     console.log('Seeded departments.');
   }
 
-  // 4. Lab Tests
+  // 4. Lab Tests (Expanded)
   const labCount = db.prepare('SELECT count(*) as count FROM lab_tests').get().count;
   if (labCount === 0) {
     const tests = [
-      { en: 'CBC', ar: 'صورة دم كاملة', cat: 'Hematology', cost: 15 },
+      // Hematology
+      { en: 'Complete Blood Count (CBC)', ar: 'صورة دم كاملة', cat: 'Hematology', cost: 15 },
+      { en: 'ESR', ar: 'سرعة الترسيب', cat: 'Hematology', cost: 5 },
+      { en: 'Blood Grouping & Rh', ar: 'فصيلة الدم', cat: 'Hematology', cost: 5 },
+      { en: 'Prothrombin Time (PT)', ar: 'زمن البروثرومبين', cat: 'Hematology', cost: 10 },
+      // Biochemistry
+      { en: 'Fasting Blood Sugar (FBS)', ar: 'سكر صائم', cat: 'Biochemistry', cost: 5 },
+      { en: 'HbA1c', ar: 'السكر التراكمي', cat: 'Biochemistry', cost: 20 },
       { en: 'Lipid Profile', ar: 'دهون الدم', cat: 'Biochemistry', cost: 25 },
-      { en: 'Blood Sugar (Fasting)', ar: 'سكر صائم', cat: 'Biochemistry', cost: 10 },
-      { en: 'Liver Function Test', ar: 'وظائف كبد', cat: 'Biochemistry', cost: 30 },
-      { en: 'Kidney Function Test', ar: 'وظائف كلى', cat: 'Biochemistry', cost: 30 },
-      { en: 'Thyroid Profile', ar: 'وظائف غدة درقية', cat: 'Hormones', cost: 40 },
-      { en: 'Urinalysis', ar: 'تحليل بول', cat: 'Clinical Pathology', cost: 10 },
-      { en: 'PCR (Covid-19)', ar: 'فحص كورونا', cat: 'Virology', cost: 50 }
+      { en: 'Liver Function Test (LFT)', ar: 'وظائف كبد كاملة', cat: 'Biochemistry', cost: 30 },
+      { en: 'Renal Function Test (RFT)', ar: 'وظائف كلى كاملة', cat: 'Biochemistry', cost: 30 },
+      { en: 'Uric Acid', ar: 'حمض اليوريك', cat: 'Biochemistry', cost: 10 },
+      { en: 'Serum Electrolytes (Na, K, Cl)', ar: 'شوارد الدم', cat: 'Biochemistry', cost: 25 },
+      // Hormones
+      { en: 'Thyroid Profile (T3, T4, TSH)', ar: 'وظائف الغدة الدرقية', cat: 'Hormones', cost: 40 },
+      { en: 'Vitamin D', ar: 'فيتامين د', cat: 'Hormones', cost: 50 },
+      { en: 'Beta HCG (Pregnancy)', ar: 'اختبار الحمل الرقمي', cat: 'Hormones', cost: 15 },
+      // Serology & Immunology
+      { en: 'H. Pylori Ag (Stool)', ar: 'جرثومة المعدة (براز)', cat: 'Serology', cost: 15 },
+      { en: 'Widal Test', ar: 'تفاعل فيدال', cat: 'Serology', cost: 10 },
+      { en: 'Hepatitis B Surface Ag', ar: 'فيروس بي', cat: 'Serology', cost: 15 },
+      { en: 'Hepatitis C Ab', ar: 'فيروس سي', cat: 'Serology', cost: 15 },
+      { en: 'HIV Combo', ar: 'فحص المناعة', cat: 'Serology', cost: 20 },
+      { en: 'CRP', ar: 'بروتين سي التفاعلي', cat: 'Serology', cost: 10 },
+      // Clinical Pathology
+      { en: 'Urine Analysis', ar: 'تحليل بول كامل', cat: 'Clinical Pathology', cost: 5 },
+      { en: 'Stool Analysis', ar: 'تحليل براز كامل', cat: 'Clinical Pathology', cost: 5 },
+      // Microbiology
+      { en: 'Urine Culture & Sensitivity', ar: 'مزرعة بول', cat: 'Microbiology', cost: 25 },
+      { en: 'Blood Culture', ar: 'مزرعة دم', cat: 'Microbiology', cost: 35 }
     ];
     const stmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost) VALUES (?, ?, ?, ?, ?)');
     tests.forEach(t => stmt.run(t.en, t.ar, t.cat, t.cat, t.cost));
@@ -262,15 +284,31 @@ const seedData = () => {
     console.log('Seeded nurse services.');
   }
 
-  // 6. Operations
+  // 6. Operations (Expanded)
   const opCount = db.prepare('SELECT count(*) as count FROM operations_catalog').get().count;
   if (opCount === 0) {
     const ops = [
-      { en: 'Appendectomy', ar: 'استئصال الزائدة', cost: 800 },
+      // General Surgery
+      { en: 'Appendectomy', ar: 'استئصال الزائدة الدودية', cost: 800 },
+      { en: 'Laparoscopic Cholecystectomy', ar: 'استئصال المرارة بالمنظار', cost: 1500 },
+      { en: 'Inguinal Hernia Repair', ar: 'إصلاح فتق إربي', cost: 900 },
+      { en: 'Hemorrhoidectomy', ar: 'استئصال البواسير', cost: 700 },
+      { en: 'Thyroidectomy', ar: 'استئصال الغدة الدرقية', cost: 1200 },
+      // OB/GYN
       { en: 'Cesarean Section', ar: 'ولادة قيصرية', cost: 1200 },
-      { en: 'Hernia Repair', ar: 'إصلاح فتق', cost: 700 },
-      { en: 'Tonsillectomy', ar: 'استئصال اللوزتين', cost: 400 },
-      { en: 'Cataract Surgery', ar: 'مياه بيضاء', cost: 600 }
+      { en: 'Normal Delivery', ar: 'ولادة طبيعية', cost: 500 },
+      { en: 'Hysterectomy', ar: 'استئصال الرحم', cost: 1800 },
+      { en: 'Dilation and Curettage (D&C)', ar: 'توسيع وكحت', cost: 400 },
+      // Orthopedics
+      { en: 'Knee Arthroscopy', ar: 'منظار ركبة', cost: 1100 },
+      { en: 'Total Hip Replacement', ar: 'استبدال مفصل الورك', cost: 3500 },
+      { en: 'Fracture Fixation (ORIF)', ar: 'تثبيت كسور', cost: 1300 },
+      // ENT
+      { en: 'Tonsillectomy', ar: 'استئصال اللوزتين', cost: 600 },
+      { en: 'Septoplasty', ar: 'تجميل الحاجز الأنفي', cost: 900 },
+      // Ophthalmology
+      { en: 'Cataract Surgery (Phaco)', ar: 'إزالة المياه البيضاء (فاكو)', cost: 1000 },
+      { en: 'LASIK', ar: 'ليزك', cost: 800 }
     ];
     const stmt = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
     ops.forEach(o => stmt.run(o.en, o.ar, o.cost));
@@ -301,7 +339,26 @@ const seedData = () => {
     console.log('Seeded payment methods.');
   }
 
-  // 9. Medical Staff
+  // 9. Insurance Providers (Sudan)
+  const insCount = db.prepare('SELECT count(*) as count FROM insurance_providers').get().count;
+  if (insCount === 0) {
+      const providers = [
+          { en: 'National Health Insurance Fund', ar: 'الصندوق القومي للتأمين الصحي' },
+          { en: 'Shiekan Insurance', ar: 'شيكان للتأمين وإعادة التأمين' },
+          { en: 'Blue Nile Insurance', ar: 'النيل الأزرق للتأمين' },
+          { en: 'United Insurance', ar: 'المتحدة للتأمين' },
+          { en: 'Al-Salama Insurance', ar: 'شركة السلامة للتأمين' },
+          { en: 'Juba Insurance', ar: 'جوبا للتأمين' },
+          { en: 'General Insurance', ar: 'العامة للتأمين' },
+          { en: 'Savanna Insurance', ar: 'سافانا للتأمين' },
+          { en: 'Africa Reinsurance', ar: 'الشركة الأفريقية لإعادة التأمين' }
+      ];
+      const stmt = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)');
+      providers.forEach(p => stmt.run(p.en, p.ar));
+      console.log('Seeded insurance providers.');
+  }
+
+  // 10. Medical Staff
   const staffCount = db.prepare('SELECT count(*) as count FROM medical_staff').get().count;
   if (staffCount === 0) {
       const staffList = [
