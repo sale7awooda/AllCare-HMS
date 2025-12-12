@@ -1,9 +1,5 @@
 
-import React from 'react';
-
-// Define a comprehensive set of roles as per requirements
-export type Role = 
-  'admin' | 'receptionist' | 'manager' | 'technician' | 'accountant' | 'doctor' | 'nurse' | 'pharmacist' | 'hr'; 
+export type Role = 'admin' | 'receptionist' | 'manager' | 'technician' | 'accountant' | 'doctor' | 'nurse' | 'pharmacist' | 'hr'; 
 
 export interface User {
   id: number;
@@ -37,20 +33,13 @@ export interface Patient {
   gender: 'male' | 'female' | 'other';
   type: 'inpatient' | 'outpatient' | 'emergency';
   address: string;
-  
-  // Medical Details
   medicalHistory?: string;
   symptoms?: string;
   allergies?: string;
   bloodGroup?: string;
-
-  // Emergency
   emergencyContact?: EmergencyContact; 
-
-  // Insurance
   hasInsurance: boolean;
   insuranceDetails?: InsuranceDetails; 
-
   createdAt: string;
 }
 
@@ -58,8 +47,7 @@ export interface MedicalStaff {
   id: number;
   employeeId: string;
   fullName: string;
-  // Expanded staff types to include all potential roles/types
-  type: 'doctor' | 'nurse' | 'anesthesiologist' | 'technician' | 'medical_assistant' | 'pharmacist' | 'staff' | 'hr_manager'; 
+  type: string; 
   department: string;
   specialization: string;
   consultationFee: number;
@@ -69,19 +57,14 @@ export interface MedicalStaff {
   email?: string;
   phone?: string;
   address?: string;
-  
-  // Schedule
-  availableDays?: string[]; // Array of days e.g. ["Mon", "Tue"]
-  availableTimeStart?: string; // HH:mm
-  availableTimeEnd?: string; // HH:mm
-  
-  // HR Specific
+  availableDays?: string[];
+  availableTimeStart?: string;
+  availableTimeEnd?: string;
   baseSalary?: number;
   joinDate?: string;
-  bankDetails?: any; // Can be string or { bankName, bankAccount }
+  bankDetails?: any;
 }
 
-// HR & Payroll Types
 export interface Attendance {
   id: number;
   staffId: number;
@@ -107,7 +90,7 @@ export interface PayrollRecord {
   id: number;
   staffId: number;
   staffName: string;
-  month: string; // YYYY-MM
+  month: string;
   baseSalary: number;
   totalBonuses: number;
   totalFines: number;
@@ -124,7 +107,7 @@ export interface FinancialAdjustment {
   amount: number;
   reason: string;
   date: string;
-  status?: 'active' | 'repaid' | 'deducted'; // For loans
+  status?: string;
 }
 
 export interface Appointment {
@@ -159,7 +142,6 @@ export interface Bill {
 }
 
 export interface BillItem {
-  id?: number;
   description: string;
   amount: number;
 }
@@ -176,7 +158,6 @@ export interface Transaction {
   description?: string;
 }
 
-// Catalogs
 export interface LabTestCatalog {
   id: number;
   name_en: string;
@@ -218,20 +199,11 @@ export interface InsuranceProvider {
     isActive: boolean;
 }
 
-export interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: React.ReactNode;
-  trend?: string;
-  color: string;
-}
-
-// Financial Config Types
 export interface TaxRate {
   id: number;
   name_en: string;
   name_ar: string;
-  rate: number; // percentage
+  rate: number;
   isActive: boolean;
 }
 

@@ -26,7 +26,6 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [language]);
 
   const t = useCallback((key: string, options?: Record<string, string | number>): string => {
-    // Access the dictionary directly
     // @ts-ignore
     let text = translations[language][key] || key;
     if (options && typeof text === 'string') {
@@ -46,8 +45,6 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
 export const useTranslation = () => {
   const context = useContext(TranslationContext);
-  if (!context) {
-    throw new Error('useTranslation must be used within a TranslationProvider');
-  }
+  if (!context) throw new Error('useTranslation must be used within a TranslationProvider');
   return context;
 };

@@ -12,32 +12,25 @@ const apiRoutes = require('./src/routes/api');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Trust the first proxy. This is needed for rate limiting to work correctly
-// behind a reverse proxy (like on Railway, Heroku, etc.).
-app.set('trust proxy', 1);
+app.set('trust proxy', 1); // Crucial for Railway
 
-// Security Warning
-if (!process.env.JWT_SECRET) {
-  console.warn('⚠️  SECURITY WARNING: Using default JWT secret. Set JWT_SECRET in environment variables for production.');
-}
-
-// Initialize Database
+// Initialize DB
 try {
   initDB();
-  console.log('Database initialized successfully.');
+  console.log('Database initialized.');
 } catch (error) {
-  console.error('Failed to initialize database:', error);
+  console.error('Failed to init DB:', error);
 }
 
-// Middleware - Security Headers
+// Middleware
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://aistudiocdn.com", "https://esm.sh"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://esm.sh"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      connectSrc: ["'self'", "https://allcare.up.railway.app", "https://aistudiocdn.com", "https://esm.sh"],
+      connectSrc: ["'self'", "https://esm.sh"],
       imgSrc: ["'self'", "data:", "https:"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
@@ -47,85 +40,49 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// CORS Configuration
 const corsOptions = {
-  origin: function(origin, callback) {
-    // Allow requests from any origin for development convenience
-    return callback(null, true);
-  },
+  origin: function(origin, callback) { return callback(null, true); },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Access-Control-Request-Method', 'Access-Control-Request-Headers']
 };
-
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(morgan('dev'));
+app.use(express.json());
 
 // Rate Limiting
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // Limit each IP to 200 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' }
 });
-
-const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20, // Limit each IP to 20 login attempts per hour
-  message: { error: 'Too many login attempts, please try again later.' }
-});
-
-// Apply Rate Limits
-app.use('/api/auth/login', authLimiter);
 app.use('/api', apiLimiter);
-
-app.use(morgan('dev'));
-app.use(express.json());
 
 // Routes
 app.use('/api', apiRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {
-  const dbStatus = db.open ? 'connected' : 'disconnected';
-  if (db.open) {
-      res.json({ status: 'ok', timestamp: new Date(), database: dbStatus });
-  } else {
-      res.status(503).json({ status: 'error', timestamp: new Date(), database: dbStatus });
-  }
+  res.json({ status: 'ok', db: db.open ? 'connected' : 'disconnected' });
 });
 
-// Serve Static Frontend (Production)
+// Serve Static Files
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Catch-all route for React Router
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Secure Error Handler
+// Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  const isDev = process.env.NODE_ENV !== 'production';
-  
-  if (res.headersSent) {
-    return next(err);
-  }
-
-  res.status(500).json({ 
-    error: 'Internal Server Error', 
-    message: isDev ? err.message : 'An unexpected error occurred.',
-    // Only leak stack trace in development
-    stack: isDev ? err.stack : undefined 
-  });
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// Graceful Shutdown
+// Graceful Shutdown for Railway
 const shutdown = () => {
   console.log('Received kill signal, shutting down gracefully');
   server.close(() => {
@@ -142,7 +99,7 @@ const shutdown = () => {
   });
 
   setTimeout(() => {
-    console.error('Could not close connections in time, forcefully shutting down');
+    console.error('Forcefully shutting down');
     process.exit(1);
   }, 10000);
 };
