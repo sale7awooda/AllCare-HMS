@@ -153,6 +153,7 @@ export interface Bill {
   status: 'pending' | 'partial' | 'paid' | 'overdue';
   date: string;
   items: BillItem[];
+  serviceStatus?: string;
 }
 
 export interface BillItem {
