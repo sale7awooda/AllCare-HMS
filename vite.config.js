@@ -14,11 +14,11 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './'),
+        '@': path.resolve(__dirname, './src'), // Standardize to src if structure allows, otherwise keep ./
       },
     },
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY),
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''), // Safe fallback to empty string
     },
     server: {
       proxy: {

@@ -1,7 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import enTranslations from '../locales/en.json';
-import arTranslations from '../locales/ar.json';
+import { translations } from '../locales/dictionary';
 
 type Language = 'en' | 'ar';
 
@@ -12,14 +11,6 @@ interface TranslationContextType {
 }
 
 const TranslationContext = createContext<TranslationContextType | undefined>(undefined);
-
-// Define a type for our translation files
-type Translations = Record<string, string>;
-
-const translationsData: Record<Language, Translations> = {
-  en: enTranslations,
-  ar: arTranslations,
-};
 
 export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>(() => (localStorage.getItem('language') as Language) || 'en');
@@ -35,7 +26,8 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [language]);
 
   const t = useCallback((key: string, options?: Record<string, string | number>): string => {
-    let text = translationsData[language][key] || key;
+    // Access the dictionary directly
+    let text = translations[language][key] || key;
     if (options && typeof text === 'string') {
       for (const [k, v] of Object.entries(options)) {
         text = text.replace(new RegExp(`{${k}}`, 'g'), String(v));
