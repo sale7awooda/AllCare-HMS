@@ -1,5 +1,4 @@
 
-
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -74,6 +73,7 @@ router.get('/billing', authorizeRoles(Permissions.VIEW_BILLING), billingControll
 router.post('/billing', authorizeRoles(Permissions.MANAGE_BILLING), billingController.create);
 router.post('/billing/:id/pay', authorizeRoles(Permissions.MANAGE_BILLING), billingController.recordPayment);
 router.post('/billing/:id/refund', authorizeRoles(Permissions.MANAGE_BILLING), billingController.processRefund);
+router.post('/billing/:id/cancel-service', authorizeRoles(Permissions.MANAGE_BILLING), billingController.cancelService);
 
 // Treasury
 router.get('/treasury/transactions', authorizeRoles(Permissions.VIEW_BILLING), billingController.getTransactions);
@@ -129,7 +129,8 @@ router.put('/config/beds/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION),
 router.delete('/config/beds/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteBed);
 
 // Configuration: Catalogs (Lab, Nurse, Ops)
-router.get('/config/lab-tests', authorizeRoles(Permissions.VIEW_LABORATORY, Permissions.MANAGE_CONFIGURATION), configurationController.getLabTests);
+// Allow Billing roles to view Lab Tests for invoicing catalog
+router.get('/config/lab-tests', authorizeRoles(Permissions.VIEW_LABORATORY, Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getLabTests);
 router.post('/config/lab-tests', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addLabTest);
 router.put('/config/lab-tests/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateLabTest);
 router.delete('/config/lab-tests/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteLabTest);
@@ -145,7 +146,8 @@ router.put('/config/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURA
 router.delete('/config/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteOperation);
 
 // Configuration: Catalogs (Insurance)
-router.get('/config/insurance-providers', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.MANAGE_PATIENTS), configurationController.getInsuranceProviders);
+// Allow Billing roles to view Insurance Providers for payments
+router.get('/config/insurance-providers', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.MANAGE_PATIENTS, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getInsuranceProviders);
 router.post('/config/insurance-providers', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addInsuranceProvider);
 router.put('/config/insurance-providers/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateInsuranceProvider);
 router.delete('/config/insurance-providers/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteInsuranceProvider);
@@ -167,12 +169,13 @@ router.get('/config/permissions', authorizeRoles(Permissions.MANAGE_CONFIGURATIO
 router.put('/config/permissions/:role', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateRolePermissions);
 
 // Configuration: Financial
-router.get('/config/tax-rates', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getTaxRates);
+// Allow Billing roles to view Taxes and Payment Methods
+router.get('/config/tax-rates', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getTaxRates);
 router.post('/config/tax-rates', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addTaxRate);
 router.put('/config/tax-rates/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateTaxRate);
 router.delete('/config/tax-rates/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteTaxRate);
 
-router.get('/config/payment-methods', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getPaymentMethods);
+router.get('/config/payment-methods', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getPaymentMethods);
 router.post('/config/payment-methods', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addPaymentMethod);
 router.put('/config/payment-methods/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updatePaymentMethod);
 router.delete('/config/payment-methods/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deletePaymentMethod);

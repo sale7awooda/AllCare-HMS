@@ -78,7 +78,8 @@ export const api = {
   getBills: () => client.get('/billing'),
   createBill: (data) => client.post('/billing', data),
   recordPayment: (id, data) => client.post(`/billing/${id}/pay`, data), 
-  processRefund: (id, data) => client.post(`/billing/${id}/refund`, data), 
+  processRefund: (id, data) => client.post(`/billing/${id}/refund`, data),
+  cancelService: (id) => client.post(`/billing/${id}/cancel-service`), 
   getTransactions: () => client.get('/treasury/transactions'),
   addExpense: (data) => client.post('/treasury/expenses', data),
 

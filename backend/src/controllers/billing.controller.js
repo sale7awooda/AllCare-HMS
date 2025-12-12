@@ -61,7 +61,8 @@ exports.recordPayment = (req, res) => {
   if (!bill) return res.status(404).json({ error: 'Bill not found' });
 
   const newPaid = bill.paid_amount + amount;
-  const newStatus = newPaid >= bill.total_amount ? 'paid' : 'partial';
+  // Use epsilon for float comparison safety or simple >=
+  const newStatus = newPaid >= bill.total_amount - 0.01 ? 'paid' : 'partial';
 
   const tx = db.transaction(() => {
     // 1. Update Bill
@@ -75,8 +76,13 @@ exports.recordPayment = (req, res) => {
 
     // 3. Status Propagation
     if (newStatus === 'paid') {
-      // Confirm Appointments
-      db.prepare("UPDATE appointments SET status = 'confirmed', billing_status = 'paid' WHERE bill_id = ?").run(id);
+      // Confirm Appointments: 
+      // Update billing_status for ALL linked appointments
+      db.prepare("UPDATE appointments SET billing_status = 'paid' WHERE bill_id = ?").run(id);
+      // ONLY promote 'pending' (unpaid/new) appointments to 'confirmed'. 
+      // Do NOT touch 'checked_in', 'in_progress', or 'completed' appointments to avoid resetting workflow.
+      db.prepare("UPDATE appointments SET status = 'confirmed' WHERE bill_id = ? AND status = 'pending'").run(id);
+
       // Confirm Lab Requests
       db.prepare("UPDATE lab_requests SET status = 'confirmed' WHERE bill_id = ?").run(id);
       // Confirm Operations
@@ -97,6 +103,31 @@ exports.recordPayment = (req, res) => {
   } catch(e) {
     console.error(e);
     res.status(500).json({ error: e.message });
+  }
+};
+
+exports.cancelService = (req, res) => {
+  const { id } = req.params;
+
+  const tx = db.transaction(() => {
+    // Cancel linked services
+    db.prepare("UPDATE appointments SET status = 'cancelled' WHERE bill_id = ?").run(id);
+    db.prepare("UPDATE lab_requests SET status = 'cancelled' WHERE bill_id = ?").run(id);
+    db.prepare("UPDATE operations SET status = 'cancelled' WHERE bill_id = ?").run(id);
+    
+    // For admissions, we also need to free the bed
+    const adm = db.prepare("SELECT * FROM admissions WHERE bill_id = ?").get(id);
+    if (adm) {
+        db.prepare("UPDATE admissions SET status = 'cancelled' WHERE id = ?").run(adm.id);
+        db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(adm.bed_id);
+    }
+  });
+
+  try {
+    tx();
+    res.json({ success: true, message: 'Related services cancelled.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 

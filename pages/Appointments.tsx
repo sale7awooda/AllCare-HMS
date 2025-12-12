@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -144,21 +143,27 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
             <h5 className="text-xs font-bold uppercase text-slate-400 pl-1 flex justify-between items-center">{t('appointments_queue_up_next')} <span className="text-[10px] font-medium normal-case">{t('appointments_queue_sort_label')}</span></h5>
             {queue.map((apt, index) => {
               const isFirstWaiting = !activePatient && index === 0;
-              const isPaid = apt.billingStatus === 'paid';
+              // Robust check: Is paid if billingStatus is paid OR actual paidAmount covers totalAmount
+              const isPaid = apt.billingStatus === 'paid' || (apt.totalAmount !== undefined && (apt.paidAmount || 0) >= (apt.totalAmount || 0));
 
               return (
                 <div key={apt.id} className={`bg-white dark:bg-slate-800 p-3 rounded-xl border transition-all duration-200 ${isFirstWaiting ? 'border-primary-300 dark:border-primary-700 shadow-md ring-2 ring-primary-500/10' : 'border-slate-200 dark:border-slate-700'}`}>
                   <div className="flex justify-between items-start">
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${apt.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
-                      {apt.status === 'pending' ? t('appointments_status_unpaid') : t('appointments_status_in_queue')}
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${apt.status === 'pending' && !isPaid ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                      {apt.status === 'pending' && !isPaid ? t('appointments_status_unpaid') : t('appointments_status_in_queue')}
                     </span>
                     <span className="font-mono text-xs text-slate-400">#{apt.dailyToken}</span>
                   </div>
                   <h4 className="font-bold text-slate-800 dark:text-white mb-1" title={apt.patientName}>{apt.patientName}</h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{apt.type} • {apt.datetime && new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                  {apt.status === 'pending' && (
+                  
+                  {apt.status === 'pending' && !isPaid && (
                     <p className="text-xs font-semibold text-orange-500 mt-1">{t('appointments_queue_payment_needed')}</p>
                   )}
+                  {apt.status === 'pending' && isPaid && (
+                    <p className="text-xs font-semibold text-green-600 mt-1 flex items-center gap-1"><CheckCircle size={10}/> Paid - Ready</p>
+                  )}
+
                   {canManage && (
                     <div className="flex gap-2 mt-3">
                       {['confirmed', 'checked_in', 'waiting', 'pending'].includes(apt.status) && (
@@ -172,6 +177,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                           >
                               {t('cancel')}
                           </Button>
+                          {/* Enable Start if Paid, regardless of pending status */}
                           {isPaid && (
                             <Button 
                                 size="sm" 
@@ -373,9 +379,16 @@ export const Appointments = () => {
         // Sort for display (Priority)
         const sortedForDisplay = [...withTokens].sort((a, b) => {
             if (!a || !b) return 0;
-            // Prioritize by status first
-            const statusA = statusPriority[a.status] ?? 99;
-            const statusB = statusPriority[b.status] ?? 99;
+            
+            // Derive effective status for sorting: Treat PAID pending appointments as confirmed
+            const getEffectiveStatus = (item: Appointment) => {
+                const isItemPaid = item.billingStatus === 'paid' || (item.totalAmount !== undefined && (item.paidAmount || 0) >= item.totalAmount);
+                if (item.status === 'pending' && isItemPaid) return 'confirmed'; // Treat as confirmed if paid
+                return item.status;
+            };
+
+            const statusA = statusPriority[getEffectiveStatus(a)] ?? 99;
+            const statusB = statusPriority[getEffectiveStatus(b)] ?? 99;
             if (statusA !== statusB) return statusA - statusB;
             // Then by time 
             return (a.datetime && b.datetime) ? new Date(a.datetime).getTime() - new Date(b.datetime).getTime() : 0;

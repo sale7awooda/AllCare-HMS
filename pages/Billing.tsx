@@ -1,20 +1,22 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
+import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Printer, Download, X, Lock, CreditCard, 
   Wallet, TrendingUp, AlertCircle, FileText, CheckCircle, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, Calendar,
-  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Loader2
+  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Loader2, Coins
 } from 'lucide-react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell 
 } from 'recharts';
 import { api } from '../services/api';
 import { Bill, Patient, Appointment, PaymentMethod, TaxRate, Transaction, InsuranceProvider } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
+
+const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
 export const Billing = () => {
   const { t, language } = useTranslation();
@@ -64,6 +66,15 @@ export const Billing = () => {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   
+  // Confirmation Dialog
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    action: () => void;
+    type?: 'danger' | 'warning' | 'info';
+  }>({ isOpen: false, title: '', message: '', action: () => {} });
+
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null); // For Invoice View
   const [payingBill, setPayingBill] = useState<Bill | null>(null); // For Payment Action
   const [refundingBill, setRefundingBill] = useState<Bill | null>(null); // For Refund Action
@@ -109,16 +120,27 @@ export const Billing = () => {
 
   const loadData = async () => {
     setLoading(true);
+    
+    // Helper to catch errors per request so one failure doesn't break the whole page
+    const safeFetch = async (promise: Promise<any>, fallback: any) => {
+        try {
+            return await promise;
+        } catch (e) {
+            console.warn('Non-critical data fetch failed:', e);
+            return fallback;
+        }
+    };
+
     try {
       const [b, p, pm, taxes, labs, services, trans, ins] = await Promise.all([
-        api.getBills(), 
-        api.getPatients(),
-        api.getPaymentMethods(),
-        api.getTaxRates(),
-        api.getLabTests(),
-        api.getNurseServices(),
-        api.getTransactions(),
-        api.getInsuranceProviders()
+        safeFetch(api.getBills(), []), 
+        safeFetch(api.getPatients(), []),
+        safeFetch(api.getPaymentMethods(), []),
+        safeFetch(api.getTaxRates(), []),
+        safeFetch(api.getLabTests(), []),
+        safeFetch(api.getNurseServices(), []),
+        safeFetch(api.getTransactions(), []),
+        safeFetch(api.getInsuranceProviders(), [])
       ]);
       setBills(Array.isArray(b) ? b : []);
       setPatients(Array.isArray(p) ? p : []);
@@ -135,9 +157,9 @@ export const Billing = () => {
       setCatalogItems(catalog);
 
       // Calculate Invoice Stats
-      const total = b.reduce((acc: number, curr: Bill) => acc + (curr.paidAmount || 0), 0);
-      const pending = b.reduce((acc: number, curr: Bill) => acc + ((curr.totalAmount || 0) - (curr.paidAmount || 0)), 0);
-      const paidCount = b.filter((x: Bill) => x.status === 'paid').length;
+      const total = Array.isArray(b) ? b.reduce((acc: number, curr: Bill) => acc + (curr.paidAmount || 0), 0) : 0;
+      const pending = Array.isArray(b) ? b.reduce((acc: number, curr: Bill) => acc + ((curr.totalAmount || 0) - (curr.paidAmount || 0)), 0) : 0;
+      const paidCount = Array.isArray(b) ? b.filter((x: Bill) => x.status === 'paid').length : 0;
 
       setStats({
         totalRevenue: total,
@@ -146,8 +168,9 @@ export const Billing = () => {
       });
 
       // Calculate Treasury Stats
-      const income = trans.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + t.amount, 0);
-      const expense = trans.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + t.amount, 0);
+      const transArr = Array.isArray(trans) ? trans : [];
+      const income = transArr.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + t.amount, 0);
+      const expense = transArr.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + t.amount, 0);
       setTreasuryStats({ income, expenses: expense, net: income - expense });
 
     } catch (e) {
@@ -248,7 +271,13 @@ export const Billing = () => {
     const hasInsurance = patient?.hasInsurance;
     
     // Try to find default method
-    const defaultMethod = hasInsurance ? 'Insurance' : (paymentMethods.length > 0 ? paymentMethods[0].name_en : 'Cash');
+    // If paymentMethods is loaded, use logic. If fallback (empty), default to Cash or Insurance.
+    let defaultMethod = 'Cash';
+    if (paymentMethods.length > 0) {
+        defaultMethod = hasInsurance ? 'Insurance' : paymentMethods[0].name_en;
+    } else {
+        defaultMethod = hasInsurance ? 'Insurance' : 'Cash';
+    }
 
     setPaymentForm({ 
         amount: remaining.toString(), 
@@ -337,6 +366,29 @@ export const Billing = () => {
     } finally {
         setIsProcessing(false);
     }
+  };
+
+  const handleCancelService = (bill: Bill) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Cancel Service',
+      message: 'Are you sure you want to cancel the service associated with this bill? This will update the status of the Appointment, Lab Request, or Admission to Cancelled.',
+      type: 'danger',
+      action: async () => {
+        setIsProcessing(true);
+        try {
+          // Use axios directly or add to api.ts. Here using a mock approach assuming api.ts is updated.
+          // Add this to api.ts: cancelBillService: (id) => client.post(`/billing/${id}/cancel-service`)
+          await api.cancelService(bill.id); // Assuming api.ts update
+          loadData();
+        } catch (e) {
+          console.error(e);
+          alert('Failed to cancel service.');
+        } finally {
+          setIsProcessing(false);
+        }
+      }
+    });
   };
 
   const handleExpenseSubmit = async (e: React.FormEvent) => {
@@ -463,6 +515,43 @@ export const Billing = () => {
     return Array.from(dailyMap.values());
   }, [filteredTransactions]);
 
+  // Method Breakdown (Income vs Expense per Method)
+  const methodStats = useMemo(() => {
+    const stats: Record<string, { income: number; expense: number; balance: number }> = {};
+    
+    // Initialize with config methods to ensure they show up
+    paymentMethods.forEach(pm => {
+        stats[pm.name_en] = { income: 0, expense: 0, balance: 0 };
+    });
+    // Ensure Cash exists
+    if (!stats['Cash']) stats['Cash'] = { income: 0, expense: 0, balance: 0 };
+
+    filteredTransactions.forEach(t => {
+        const method = t.method || 'Unknown';
+        if (!stats[method]) stats[method] = { income: 0, expense: 0, balance: 0 };
+        
+        if (t.type === 'income') {
+            stats[method].income += t.amount;
+            stats[method].balance += t.amount;
+        } else {
+            stats[method].expense += t.amount;
+            stats[method].balance -= t.amount;
+        }
+    });
+
+    return Object.entries(stats)
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.balance - a.balance); // Sort by balance desc
+  }, [filteredTransactions, paymentMethods]);
+
+  const getMethodIcon = (name: string) => {
+      const n = name.toLowerCase();
+      if (n.includes('cash')) return Coins;
+      if (n.includes('bank') || n.includes('transfer')) return Landmark;
+      if (n.includes('card') || n.includes('visa') || n.includes('master')) return CreditCard;
+      return Wallet;
+  };
+
   const totalTreasuryPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const paginatedTransactions = filteredTransactions.slice((treasuryPage - 1) * itemsPerPage, treasuryPage * itemsPerPage);
 
@@ -477,88 +566,100 @@ export const Billing = () => {
     const hospitalName = localStorage.getItem('hospital_name') || 'AllCare Hospital';
 
     return (
-        <div className="p-10 bg-white min-h-[600px] text-slate-800" id="invoice-print">
+        <div className="p-10 bg-white min-h-[600px] text-slate-800 font-sans" id="invoice-print">
         {/* Header */}
         <div className="flex justify-between items-start border-b-2 border-slate-100 pb-8 mb-8">
-            <div>
-            <div className="flex items-center gap-2 mb-2">
-                <div className="bg-primary-600 text-white p-2 rounded-lg"><Wallet size={24}/></div>
-                <h1 className="text-2xl font-bold text-slate-900">{t('billing_invoice_title')}</h1>
-            </div>
-            <p className="text-slate-500 font-mono">#{bill.billNumber}</p>
-            <div className="mt-4 flex gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${bill.status === 'paid' ? 'bg-green-100 text-green-700' : bill.status === 'refunded' ? 'bg-purple-100 text-purple-700' : 'bg-red-100 text-red-700'}`}>
-                    {bill.status}
-                </span>
-                <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
-                    {translateBillType(getBillType(bill))}
-                </span>
-            </div>
+            <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                    <div className="bg-primary-600 text-white p-2.5 rounded-xl shadow-lg shadow-primary-500/30">
+                        <Wallet size={28}/>
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('billing_invoice_title')}</h1>
+                        <p className="text-slate-500 font-mono text-sm">#{bill.billNumber}</p>
+                    </div>
+                </div>
+                <div className="flex gap-2 mt-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${bill.status === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : bill.status === 'refunded' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                        {bill.status}
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
+                        {translateBillType(getBillType(bill))}
+                    </span>
+                </div>
             </div>
             <div className="text-right">
-            <h2 className="text-xl font-bold text-primary-600">{hospitalName}</h2>
-            <p className="text-sm text-slate-500 mt-1">123 Health Ave, Med City</p>
-            <p className="text-sm text-slate-500">contact@allcare.com</p>
-            <p className="text-sm text-slate-500">+1 (555) 012-3456</p>
+                <h2 className="text-xl font-bold text-primary-600">{hospitalName}</h2>
+                <div className="text-sm text-slate-500 mt-2 space-y-1">
+                    <p>123 Health Ave, Med City</p>
+                    <p>contact@allcare.com</p>
+                    <p>+1 (555) 012-3456</p>
+                </div>
             </div>
         </div>
 
-        {/* Client Info */}
-        <div className="flex justify-between mb-10">
+        {/* Client Info Grid */}
+        <div className="grid grid-cols-2 gap-8 mb-10 bg-slate-50 p-6 rounded-2xl border border-slate-100">
             <div>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('billing_invoice_billed_to')}</p>
-            <p className="font-bold text-lg text-slate-900">{bill.patientName}</p>
-            <p className="text-slate-500 text-sm">Patient ID: #{bill.patientId}</p>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">{t('billing_invoice_billed_to')}</p>
+                <p className="font-bold text-lg text-slate-900">{bill.patientName}</p>
+                <p className="text-slate-500 text-sm mt-1">Patient ID: <span className="font-mono text-slate-600">#{bill.patientId}</span></p>
             </div>
             <div className="text-right">
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('billing_invoice_date')}</p>
-            <p className="font-medium text-slate-900">{new Date(bill.date).toLocaleDateString()}</p>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">{t('billing_invoice_date')}</p>
+                <p className="font-bold text-lg text-slate-900">{new Date(bill.date).toLocaleDateString()}</p>
+                <p className="text-slate-500 text-sm mt-1">{new Date(bill.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
             </div>
         </div>
 
         {/* Line Items */}
-        <table className="w-full mb-8">
-            <thead>
-            <tr className="bg-slate-50 border-y border-slate-200">
-                <th className="text-left py-3 px-4 font-semibold text-sm text-slate-600">{t('billing_modal_create_item_placeholder')}</th>
-                <th className="text-right py-3 px-4 font-semibold text-sm text-slate-600">{t('billing_table_header_amount')}</th>
-            </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-            {bill.items.map((item, i) => (
-                <tr key={i}>
-                <td className="py-3 px-4">{item.description}</td>
-                <td className="py-3 px-4 text-right font-medium">${item.amount.toFixed(2)}</td>
+        <div className="mb-8">
+            <table className="w-full">
+                <thead>
+                <tr className="border-b border-slate-200">
+                    <th className="text-left py-4 px-2 font-bold text-xs text-slate-500 uppercase tracking-wider">Description :</th>
+                    <th className="text-right py-4 px-2 font-bold text-xs text-slate-500 uppercase tracking-wider">{t('billing_table_header_amount')}</th>
                 </tr>
-            ))}
-            </tbody>
-        </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                {bill.items.map((item, i) => (
+                    <tr key={i}>
+                    <td className="py-4 px-2 text-sm font-medium text-slate-700">{item.description}</td>
+                    <td className="py-4 px-2 text-right font-bold text-slate-900 font-mono">${item.amount.toFixed(2)}</td>
+                    </tr>
+                ))}
+                </tbody>
+            </table>
+        </div>
 
         {/* Totals */}
         <div className="flex justify-end">
-            <div className="w-full max-w-xs space-y-3">
-            <div className="flex justify-between text-slate-600">
+            <div className="w-full max-w-sm space-y-3 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+            <div className="flex justify-between text-slate-600 text-sm">
                 <span>{t('billing_invoice_subtotal')}</span>
-                <span className="font-medium">${subtotal.toFixed(2)}</span>
+                <span className="font-medium font-mono">${subtotal.toFixed(2)}</span>
             </div>
             {taxAmount > 0 && (
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-slate-600 text-sm">
                     <span>{t('billing_invoice_tax')}</span>
-                    <span className="font-medium">${taxAmount.toFixed(2)}</span>
+                    <span className="font-medium font-mono">${taxAmount.toFixed(2)}</span>
                 </div>
             )}
-            <div className="flex justify-between text-slate-900 font-bold text-lg border-t-2 border-slate-200 pt-3 mt-2">
+            <div className="h-px bg-slate-200 my-2"></div>
+            <div className="flex justify-between text-slate-900 font-bold text-lg">
                 <span>{t('billing_invoice_total')}</span>
-                <span>${bill.totalAmount.toFixed(2)}</span>
+                <span className="font-mono">${bill.totalAmount.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-green-600 font-bold text-sm pt-1">
+            <div className="flex justify-between text-emerald-600 font-bold text-sm">
                 <span>{t('billing_invoice_paid')}</span>
-                <span>-${(bill.paidAmount || 0).toFixed(2)}</span>
+                <span className="font-mono">-${(bill.paidAmount || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-slate-900 font-bold text-xl bg-slate-100 p-3 rounded-lg">
-                <span>{t('billing_invoice_balance')}</span>
-                <span>${(bill.totalAmount - (bill.paidAmount || 0)).toFixed(2)}</span>
-            </div>
+            {bill.totalAmount > bill.paidAmount && (
+                <div className="flex justify-between text-red-600 font-bold text-xl pt-2 border-t border-slate-200 mt-2">
+                    <span>{t('billing_invoice_balance')}</span>
+                    <span className="font-mono">${(bill.totalAmount - (bill.paidAmount || 0)).toFixed(2)}</span>
+                </div>
+            )}
             </div>
         </div>
         </div>
@@ -568,14 +669,36 @@ export const Billing = () => {
   const canManageBilling = hasPermission(currentUser, Permissions.MANAGE_BILLING);
   const isAccountant = currentUser?.role === 'accountant' || currentUser?.role === 'admin';
 
-  // Refund condition logic
-  const isRefundEnabled = (bill: Bill) => {
-      // Logic: Enabled if service is NOT in progress (i.e. either not received or completed).
-      // Disables only if service is actively happening (locking funds temporarily).
-      if (!isAccountant) return false;
-      const status = bill.serviceStatus;
-      if (!status) return true; // Manual bills are refundable
-      return !['in_progress', 'active'].includes(status);
+  // Logic for Refund/Cancel Button
+  // If paid and service active -> Show Cancel (which cancels service).
+  // If paid and service cancelled -> Show Refund (financial action).
+  const getActionForPaidBill = (bill: Bill) => {
+      const isServiceCancelled = bill.serviceStatus === 'cancelled';
+      if (!isServiceCancelled) {
+          return (
+              <Button 
+                  size="sm" 
+                  variant="danger" 
+                  onClick={() => handleCancelService(bill)}
+                  disabled={isProcessing}
+              >
+                  Cancel Process
+              </Button>
+          );
+      } else {
+          return (
+              <Button 
+                  size="sm" 
+                  className="bg-purple-600 hover:bg-purple-700 text-white border-none"
+                  disabled={!isAccountant} 
+                  icon={RefreshCcw}
+                  title={!isAccountant ? "Refunds require Accountant role" : ""}
+                  onClick={() => isAccountant && openRefundModal(bill)}
+              >
+                  Refund
+              </Button>
+          );
+      }
   };
 
   return (
@@ -670,15 +793,15 @@ export const Billing = () => {
                         className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm w-full md:w-auto"
                         value={dateRange.start}
                         onChange={e => setDateRange({...dateRange, start: e.target.value})}
-                        placeholder="Start"
+                        placeholder="From"
                     />
-                    <span className="text-slate-400">-</span>
+                    <span className="text-slate-400">to</span>
                     <input 
                         type="date" 
                         className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm w-full md:w-auto"
                         value={dateRange.end}
                         onChange={e => setDateRange({...dateRange, end: e.target.value})}
-                        placeholder="End"
+                        placeholder="To"
                     />
                 </div>
                 </div>
@@ -709,7 +832,9 @@ export const Billing = () => {
                             <Badge color={getTypeColor(getBillType(bill)) as any}>{translateBillType(getBillType(bill))}</Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'refunded' ? 'purple' : bill.status === 'partial' ? 'yellow' : 'red'}>{bill.status}</Badge>
+                            <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'refunded' ? 'purple' : bill.status === 'partial' ? 'yellow' : 'red'}>
+                                {bill.status === 'paid' && bill.serviceStatus === 'cancelled' ? 'Cancelled (Paid)' : bill.status}
+                            </Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                             <div className="font-bold text-lg text-slate-900 dark:text-white">${bill.totalAmount.toLocaleString()}</div>
@@ -723,18 +848,7 @@ export const Billing = () => {
                                     {(bill.status === 'pending' || bill.status === 'partial') && (
                                         <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>
                                     )}
-                                    {bill.status === 'paid' && (
-                                        <Button 
-                                            size="sm" 
-                                            variant="danger" 
-                                            disabled={!isRefundEnabled(bill)} 
-                                            icon={RefreshCcw}
-                                            title={!isAccountant ? "Refunds require Accountant role" : (!isRefundEnabled(bill) ? "Cannot refund active service" : "")}
-                                            onClick={() => isRefundEnabled(bill) && openRefundModal(bill)}
-                                        >
-                                            Refund
-                                        </Button>
-                                    )}
+                                    {bill.status === 'paid' && getActionForPaidBill(bill)}
                                 </>
                             )}
                         </td>
@@ -747,7 +861,7 @@ export const Billing = () => {
         </>
       )}
 
-      {/* ... Treasury Tab remains similar, skipping for brevity ... */}
+      {/* ... Treasury Tab ... */}
       {activeTab === 'treasury' && (
           <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-end">
@@ -770,23 +884,62 @@ export const Billing = () => {
                   </Card>
               </div>
 
-              {/* Cash Flow Chart - Recharts Visualization */}
-              <div className="h-80 w-full bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                  <h3 className="font-bold text-slate-800 dark:text-white mb-4">Cash Flow Overview</h3>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={treasuryChartData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                        <RechartsTooltip 
-                            cursor={{fill: 'transparent'}}
-                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }} 
-                        />
-                        <Legend />
-                        <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
-                        <Bar dataKey="expense" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
-                    </BarChart>
-                  </ResponsiveContainer>
+              {/* Charts Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Cash Flow Bar Chart */}
+                  <div className="h-96 w-full bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                      <h3 className="font-bold text-slate-800 dark:text-white mb-4">Cash Flow Overview</h3>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={treasuryChartData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                            <RechartsTooltip 
+                                cursor={{fill: 'transparent'}}
+                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }} 
+                            />
+                            <Legend />
+                            <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
+                            <Bar dataKey="expense" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                  </div>
+
+                  {/* Method Holdings */}
+                  <div className="h-96 w-full bg-white dark:bg-slate-800 rounded-xl p-0 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
+                          <h3 className="font-bold text-slate-800 dark:text-white">Treasury Holdings by Method</h3>
+                          <p className="text-xs text-slate-500">Net flow based on current filters</p>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                          {methodStats.map((item) => {
+                              const Icon = getMethodIcon(item.name);
+                              return (
+                                  <div key={item.name} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20">
+                                      <div className={`p-3 rounded-full ${item.balance >= 0 ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-red-100 text-red-600'}`}>
+                                          <Icon size={20} />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                          <div className="flex justify-between items-center mb-1">
+                                              <h4 className="font-bold text-slate-700 dark:text-slate-200 truncate">{item.name}</h4>
+                                              <span className={`font-mono font-bold ${item.balance >= 0 ? 'text-slate-900 dark:text-white' : 'text-red-500'}`}>
+                                                  ${item.balance.toLocaleString()}
+                                              </span>
+                                          </div>
+                                          <div className="flex items-center gap-3 text-xs">
+                                              <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded">
+                                                  <ArrowUpRight size={10}/> ${item.income.toLocaleString()}
+                                              </span>
+                                              <span className="flex items-center gap-1 text-red-600 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">
+                                                  <ArrowDownRight size={10}/> ${item.expense.toLocaleString()}
+                                              </span>
+                                          </div>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  </div>
               </div>
 
               <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
@@ -964,25 +1117,50 @@ export const Billing = () => {
               onChange={e => setPaymentForm({...paymentForm, method: e.target.value})}
               required
             >
-              <option value="Cash">Cash</option>
-              <option value="Insurance">Insurance</option>
-              {paymentMethods.filter(p => p.isActive).map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}
+              {paymentMethods.length > 0 ? (
+                  paymentMethods.filter(p => p.isActive).map(p => (
+                      <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>
+                  ))
+              ) : (
+                  <>
+                    <option value="Cash">Cash</option>
+                    <option value="Insurance">Insurance</option>
+                  </>
+              )}
             </Select>
 
             {/* Dynamic Fields based on Method */}
             <div className="space-y-4 animate-in fade-in">
-                {/* 1. Cash or Generic */}
-                <Input 
-                    label={t('billing_modal_payment_amount')}
-                    type="number" 
-                    value={paymentForm.amount}
-                    onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
-                    required
-                />
+                {/* 1. Cash: Amount & Notes only */}
+                {paymentForm.method === 'Cash' && (
+                    <>
+                        <Input 
+                            label={t('billing_modal_payment_amount')}
+                            type="number" 
+                            value={paymentForm.amount}
+                            onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
+                            required
+                        />
+                        <Textarea 
+                            label={t('patients_modal_action_notes')} 
+                            rows={2} 
+                            value={paymentForm.notes} 
+                            onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} 
+                        />
+                    </>
+                )}
 
                 {/* 2. Insurance Specifics */}
                 {paymentForm.method === 'Insurance' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                        <Input 
+                            label={t('billing_modal_payment_amount')}
+                            type="number" 
+                            value={paymentForm.amount}
+                            onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
+                            required
+                            className="md:col-span-2"
+                        />
                         <div className="md:col-span-2">
                             <Select 
                                 label={t('patients_modal_form_insurance_provider')} 
@@ -1021,6 +1199,14 @@ export const Billing = () => {
                 {/* 3. Bank/Card/Other Specifics */}
                 {paymentForm.method !== 'Cash' && paymentForm.method !== 'Insurance' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <Input 
+                            label={t('billing_modal_payment_amount')}
+                            type="number" 
+                            value={paymentForm.amount}
+                            onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
+                            required
+                            className="md:col-span-2"
+                        />
                         <Input 
                             label="Transaction ID / Ref" 
                             value={paymentForm.transactionId} 
@@ -1165,6 +1351,16 @@ export const Billing = () => {
           </div>
         )}
       </Modal>
+
+      {/* Confirmation Dialog for Service Cancellation */}
+      <ConfirmationDialog 
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        type={confirmState.type}
+      />
 
     </div>
   );

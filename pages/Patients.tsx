@@ -5,7 +5,7 @@ import {
   Plus, Search, Filter, Edit, Calendar, Lock, 
   FlaskConical, Bed, Activity, Trash2, CheckCircle,
   Phone, User as UserIcon, Loader2,
-  ChevronLeft, Stethoscope, FileText, XCircle
+  ChevronLeft, ChevronRight, Stethoscope, FileText, XCircle, DollarSign, Clock
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill, InsuranceProvider } from '@/types';
@@ -18,6 +18,7 @@ export const Patients = () => {
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [allLabRequests, setAllLabRequests] = useState<any[]>([]); // New state for 360 view history
   const { user: currentUser } = useAuth();
   const { t, language } = useTranslation();
   
@@ -47,7 +48,7 @@ export const Patients = () => {
   
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [viewTab, setViewTab] = useState<'info' | 'timeline' | 'billing'>('info');
+  const [viewTab, setViewTab] = useState<'info' | 'visits' | 'labs' | 'financials'>('info');
 
   // --- ACTION FORM STATE ---
   const [currentAction, setCurrentAction] = useState<'appointment' | 'lab' | 'nurse' | 'admission' | 'operation' | null>(null);
@@ -86,16 +87,18 @@ export const Patients = () => {
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [pts, apts, b, stf] = await Promise.all([
+      const [pts, apts, b, stf, labs] = await Promise.all([
         api.getPatients(), 
         api.getAppointments(),
         api.getBills(),
-        api.getStaff()
+        api.getStaff(),
+        api.getPendingLabRequests() // Fetches all lab requests actually
       ]);
       setPatients(Array.isArray(pts) ? pts : []);
       setAppointments(Array.isArray(apts) ? apts : []);
       setBills(Array.isArray(b) ? b : []);
       setStaff(Array.isArray(stf) ? stf : []);
+      setAllLabRequests(Array.isArray(labs) ? labs : []);
     } catch (error) {
       console.error("Failed to load core data:", error);
     } finally {
@@ -376,6 +379,11 @@ export const Patients = () => {
 
   const hasPermissionToCreate = hasPermission(currentUser, Permissions.MANAGE_PATIENTS);
 
+  // 360 View Data Filtering
+  const patientVisits = useMemo(() => selectedPatient ? appointments.filter(a => a.patientId === selectedPatient.id).sort((a,b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime()) : [], [selectedPatient, appointments]);
+  const patientFinancials = useMemo(() => selectedPatient ? bills.filter(b => b.patientId === selectedPatient.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [], [selectedPatient, bills]);
+  const patientLabs = useMemo(() => selectedPatient ? allLabRequests.filter(l => l.patient_id === selectedPatient.id).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) : [], [selectedPatient, allLabRequests]);
+
   return (
     <div className="space-y-6">
       
@@ -412,7 +420,9 @@ export const Patients = () => {
           <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input 
-              type="text" 
+              type="text"
+              name="patient_search_query"
+              autoComplete="off"
               placeholder={t('patients_search_placeholder')} 
               className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
               value={searchTerm}
@@ -453,12 +463,12 @@ export const Patients = () => {
                 paginatedPatients.map((patient) => (
                   <tr key={patient.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500">
+                      <div className="flex items-center group/name cursor-pointer" onClick={() => openViewModal(patient)}>
+                        <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500 group-hover/name:bg-primary-100 group-hover/name:text-primary-600 transition-colors">
                           {patient.fullName.charAt(0)}
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-bold text-slate-900 dark:text-white">{patient.fullName}</div>
+                          <div className="text-sm font-bold text-slate-900 dark:text-white group-hover/name:text-primary-600 transition-colors">{patient.fullName}</div>
                           <div className="text-xs text-slate-500 font-mono">{patient.patientId}</div>
                         </div>
                       </div>
@@ -486,10 +496,26 @@ export const Patients = () => {
           </table>
         </div>
         
-        {/* Pagination Footer (Simplified) */}
+        {/* Pagination Footer */}
         {!loading && (
             <div className="flex justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700">
-                <span className="text-sm text-slate-500">{t('patients_pagination_showing')} {paginatedPatients.length} {t('patients_pagination_of')} {filteredPatients.length}</span>
+                <div className="flex items-center gap-4 text-sm text-slate-500">
+                    <span>{t('patients_pagination_showing')} {paginatedPatients.length} {t('patients_pagination_of')} {filteredPatients.length}</span>
+                    <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-4">
+                        <span>{t('patients_pagination_rows')}</span>
+                        <select 
+                            value={itemsPerPage}
+                            onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-primary-500"
+                        >
+                            <option value={10}>10</option>
+                            <option value={15}>15</option>
+                            <option value={20}>20</option>
+                            <option value={25}>25</option>
+                            <option value={30}>30</option>
+                        </select>
+                    </div>
+                </div>
                 <div className="flex gap-2">
                     <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} icon={ChevronLeft}>Prev</Button>
                     <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages} icon={null}>Next</Button>
@@ -501,8 +527,10 @@ export const Patients = () => {
       {/* --- MODAL 1: ADD/EDIT PATIENT --- */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? t('patients_modal_edit_title') : t('patients_modal_new_title')}>
         <form onSubmit={handlePatientSubmit} className="space-y-6">
+          
+          {/* Personal Info */}
           <div className="space-y-4">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('patients_modal_form_personal_title')}</h4>
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 pb-2">{t('patients_modal_form_personal_title')}</h4>
             <Input label={t('patients_modal_form_fullName')} required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
             <div className="grid grid-cols-2 gap-4">
               <Input label={t('patients_modal_form_phone')} required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
@@ -521,6 +549,56 @@ export const Patients = () => {
             </div>
             <Input label={t('patients_modal_form_address')} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
           </div>
+
+          {/* Medical Profile */}
+          <div className="space-y-4">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 pb-2">{t('patients_modal_form_medical_title')}</h4>
+            <div className="grid grid-cols-2 gap-4">
+               <Select label={t('patients_modal_form_bloodGroup')} value={formData.bloodGroup} onChange={e => setFormData({...formData, bloodGroup: e.target.value})}>
+                  <option value="">{t('patients_modal_form_bloodGroup_unknown')}</option>
+                  {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+               </Select>
+               <Input label={t('patients_modal_form_allergies')} placeholder={t('patients_modal_form_allergies_placeholder')} value={formData.allergies} onChange={e => setFormData({...formData, allergies: e.target.value})} />
+            </div>
+            <Textarea label={t('patients_modal_form_symptoms')} rows={2} value={formData.symptoms} onChange={e => setFormData({...formData, symptoms: e.target.value})} />
+            <Textarea label={t('patients_modal_form_medicalHistory')} placeholder={t('patients_modal_form_medicalHistory_placeholder')} rows={2} value={formData.medicalHistory} onChange={e => setFormData({...formData, medicalHistory: e.target.value})} />
+          </div>
+
+          {/* Emergency Contact */}
+          <div className="space-y-4">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 pb-2">{t('patients_modal_form_emergency_title')}</h4>
+            <Input label={t('patients_modal_form_emergency_name')} value={formData.emergencyName} onChange={e => setFormData({...formData, emergencyName: e.target.value})} />
+            <div className="grid grid-cols-2 gap-4">
+               <Input label={t('patients_modal_form_emergency_phone')} value={formData.emergencyPhone} onChange={e => setFormData({...formData, emergencyPhone: e.target.value})} />
+               <Input label={t('patients_modal_form_emergency_relation')} placeholder={t('patients_modal_form_emergency_relation_placeholder')} value={formData.emergencyRelation} onChange={e => setFormData({...formData, emergencyRelation: e.target.value})} />
+            </div>
+          </div>
+
+          {/* Insurance Details */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-2">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('patients_modal_form_insurance_title')}</h4>
+                <div className="flex items-center gap-2">
+                    <input type="checkbox" id="hasInsurance" className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500" checked={formData.hasInsurance} onChange={e => setFormData({...formData, hasInsurance: e.target.checked})} />
+                    <label htmlFor="hasInsurance" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('patients_modal_form_has_insurance')}</label>
+                </div>
+            </div>
+            
+            {formData.hasInsurance && (
+                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl space-y-4 border border-slate-100 dark:border-slate-700 animate-in slide-in-from-top-2 fade-in">
+                    <Select label={t('patients_modal_form_insurance_provider')} value={formData.insProvider} onChange={e => setFormData({...formData, insProvider: e.target.value})}>
+                        <option value="">{t('patients_modal_form_insurance_provider_select')}</option>
+                        {insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}
+                    </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input label={t('patients_modal_form_insurance_policy')} value={formData.insPolicy} onChange={e => setFormData({...formData, insPolicy: e.target.value})} />
+                        <Input label={t('patients_modal_form_insurance_expiry')} type="date" value={formData.insExpiry} onChange={e => setFormData({...formData, insExpiry: e.target.value})} />
+                    </div>
+                    <Textarea label={t('patients_modal_form_insurance_notes')} rows={2} value={formData.insNotes} onChange={e => setFormData({...formData, insNotes: e.target.value})} />
+                </div>
+            )}
+          </div>
+
           <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700">
             <Button type="button" variant="secondary" onClick={() => setIsFormModalOpen(false)}>{t('cancel')}</Button>
             <Button type="submit">{t('patients_modal_save_button')}</Button>
@@ -765,28 +843,189 @@ export const Patients = () => {
       {/* --- MODAL 4: VIEW HISTORY --- */}
       <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title={t('patients_modal_view_title')}>
         {selectedPatient && (
-          <div className="min-h-[400px]">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center text-2xl font-bold text-slate-500">
+          <div className="space-y-6">
+            <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-2xl font-bold text-primary-600 shadow-sm">
                 {selectedPatient.fullName.charAt(0)}
               </div>
               <div>
-                <h2 className="text-xl font-bold">{selectedPatient.fullName}</h2>
-                <p className="text-sm text-slate-500">{selectedPatient.patientId}</p>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">{selectedPatient.fullName}</h2>
+                <div className="flex gap-2 text-sm text-slate-500 mt-1">
+                   <Badge color="gray">{selectedPatient.patientId}</Badge>
+                   <Badge color={selectedPatient.type === 'inpatient' ? 'red' : 'green'}>{selectedPatient.type}</Badge>
+                </div>
               </div>
             </div>
-            <div className="space-y-4">
-               {/* Simplified view for brevity, expand as needed */}
-               <div className="grid grid-cols-2 gap-4 text-sm">
-                 <div><strong>Phone:</strong> {selectedPatient.phone}</div>
-                 <div><strong>Age:</strong> {selectedPatient.age}</div>
-                 <div><strong>Type:</strong> {selectedPatient.type}</div>
-                 <div><strong>Blood:</strong> {selectedPatient.bloodGroup}</div>
-               </div>
-               <hr />
-               <h4 className="font-bold">Medical History</h4>
-               <p className="text-sm bg-slate-50 p-2 rounded">{selectedPatient.medicalHistory || 'None'}</p>
+
+            {/* Tabs for 360 View */}
+            <div className="flex border-b border-slate-200 dark:border-slate-700">
+                {[
+                    {id: 'info', label: t('patients_modal_view_overview_tab')},
+                    {id: 'visits', label: t('patients_modal_view_timeline_tab')},
+                    {id: 'labs', label: t('patients_modal_action_lab')},
+                    {id: 'financials', label: t('patients_modal_view_financials_tab')},
+                ].map((tab: any) => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setViewTab(tab.id)}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${viewTab === tab.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
             </div>
+
+            {/* Info Tab */}
+            {viewTab === 'info' && (
+                <div className="space-y-6 animate-in fade-in">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_contact_personal')}</h4>
+                        <div className="text-sm space-y-2">
+                            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                                <span className="text-slate-500">{t('patients_modal_view_phone')}</span>
+                                <span className="font-medium">{selectedPatient.phone}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                                <span className="text-slate-500">{t('patients_modal_form_age')} / {t('patients_modal_form_gender')}</span>
+                                <span className="font-medium">{selectedPatient.age} / {selectedPatient.gender}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                                <span className="text-slate-500">{t('patients_modal_view_address')}</span>
+                                <span className="font-medium truncate max-w-[150px]">{selectedPatient.address || '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_medical_profile')}</h4>
+                        <div className="text-sm space-y-2">
+                            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                                <span className="text-slate-500">{t('patients_modal_view_blood_group')}</span>
+                                <span className="font-bold text-red-500">{selectedPatient.bloodGroup || '-'}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                                <span className="text-slate-500">{t('patients_modal_view_allergies')}</span>
+                                <span className="font-medium text-red-600 truncate max-w-[150px]">{selectedPatient.allergies || 'None'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+
+                    {selectedPatient.emergencyContact && (
+                        <div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_emergency_contact')}</h4>
+                            <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg text-sm border border-slate-100 dark:border-slate-800">
+                                <span className="font-bold text-slate-800 dark:text-white">{selectedPatient.emergencyContact.name}</span>
+                                <span className="text-slate-500"> ({selectedPatient.emergencyContact.relation})</span>
+                                <div className="text-slate-600 dark:text-slate-400 mt-1">{selectedPatient.emergencyContact.phone}</div>
+                            </div>
+                        </div>
+                    )}
+
+                    {selectedPatient.insuranceDetails && selectedPatient.hasInsurance && (
+                        <div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_insurance_coverage')}</h4>
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-sm border border-blue-100 dark:border-blue-800">
+                                <div className="flex justify-between mb-1">
+                                    <span className="text-blue-600 dark:text-blue-400 font-bold">{selectedPatient.insuranceDetails.provider}</span>
+                                    <span className="text-blue-500 text-xs">{selectedPatient.insuranceDetails.expiryDate}</span>
+                                </div>
+                                <div className="text-blue-700 dark:text-blue-300 font-mono text-xs">#{selectedPatient.insuranceDetails.policyNumber}</div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_medical_history')}</h4>
+                        <p className="text-sm bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300 italic">
+                            {selectedPatient.medicalHistory || t('patients_modal_view_no_history')}
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Visits Tab */}
+            {viewTab === 'visits' && (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in">
+                    {appointments.filter(a => a.patientId === selectedPatient.id).length === 0 ? (
+                        <p className="text-sm text-slate-400 text-center py-8">{t('patients_modal_view_no_timeline')}</p>
+                    ) : (
+                        appointments.filter(a => a.patientId === selectedPatient.id).sort((a,b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime()).map(apt => (
+                            <div key={apt.id} className="flex gap-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <div className="flex flex-col items-center min-w-[60px]">
+                                    <span className="text-xs font-bold text-slate-500">{new Date(apt.datetime).toLocaleDateString()}</span>
+                                    <span className="text-xs text-slate-400">{new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                                <div>
+                                    <div className="font-bold text-sm text-slate-800 dark:text-white">{apt.type}</div>
+                                    <div className="text-xs text-slate-500">Dr. {apt.staffName}</div>
+                                    <Badge color={apt.status === 'completed' ? 'green' : 'blue'} className="mt-1">{apt.status}</Badge>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            )}
+
+            {/* Labs Tab */}
+            {viewTab === 'labs' && (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in">
+                    {allLabRequests.filter(l => l.patient_id === selectedPatient.id).length === 0 ? (
+                        <p className="text-sm text-slate-400 text-center py-8">{t('lab_empty', {tab: 'history'})}</p>
+                    ) : (
+                        allLabRequests.filter(l => l.patient_id === selectedPatient.id).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(lab => (
+                            <div key={lab.id} className="flex gap-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <div className="flex flex-col items-center min-w-[60px] justify-center">
+                                    <FlaskConical size={20} className="text-orange-500 mb-1" />
+                                    <span className="text-xs font-bold text-slate-500">{new Date(lab.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex-1">
+                                    <div className="font-bold text-sm text-slate-800 dark:text-white">{lab.testNames || 'Lab Request'}</div>
+                                    <div className="text-xs text-slate-500">ID: {lab.id}</div>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    <Badge color={lab.status === 'completed' ? 'green' : 'yellow'}>{lab.status}</Badge>
+                                    <span className="text-xs font-mono font-bold mt-1">${lab.projected_cost}</span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            )}
+
+            {/* Financials Tab */}
+            {viewTab === 'financials' && (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in">
+                    {bills.filter(b => b.patientId === selectedPatient.id).length === 0 ? (
+                        <p className="text-sm text-slate-400 text-center py-8">{t('patients_modal_view_no_billing')}</p>
+                    ) : (
+                        bills.filter(b => b.patientId === selectedPatient.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(bill => (
+                            <div key={bill.id} className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <div className="font-bold text-sm text-slate-800 dark:text-white flex items-center gap-2">
+                                            <DollarSign size={14} className="text-emerald-600" />
+                                            Invoice #{bill.billNumber}
+                                        </div>
+                                        <div className="text-xs text-slate-500">{new Date(bill.date).toLocaleDateString()}</div>
+                                    </div>
+                                    <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{bill.status}</Badge>
+                                </div>
+                                <div className="flex justify-between text-sm border-t border-slate-100 dark:border-slate-800 pt-2 mt-2">
+                                    <span className="text-slate-500">{t('patients_modal_view_billing_amount')}</span>
+                                    <span className="font-bold font-mono">${bill.totalAmount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-slate-500">{t('billing_table_paid_amount')}</span>
+                                    <span className="font-bold font-mono text-emerald-600">${bill.paidAmount.toLocaleString()}</span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            )}
+
           </div>
         )}
         <div className="flex justify-end pt-4">
