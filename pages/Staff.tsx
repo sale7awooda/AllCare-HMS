@@ -77,7 +77,7 @@ export const Staff = () => {
       isOpen: boolean;
       staffId: number;
       staffName: string;
-      status: 'present' | 'late' | 'absent';
+      status: 'present' | 'late' | 'absent' | 'half_day';
       checkIn: string;
       checkOut: string;
       isUpdate: boolean;
@@ -138,7 +138,7 @@ export const Staff = () => {
     };
     
     try {
-      if (payload.id) await api.updateStaff(payload.id, payload);
+      if (staffForm.id) await api.updateStaff(staffForm.id, payload);
       else await api.addStaff(payload);
       
       setProcessStatus('success');
@@ -285,7 +285,7 @@ export const Staff = () => {
     });
   };
 
-  const openAttendanceModal = (staffId: number, staffName: string, status: 'present' | 'late' | 'absent') => {
+  const openAttendanceModal = (staffId: number, staffName: string, status: 'present' | 'late' | 'absent' | 'half_day') => {
       const existingRecord = attendance.find(a => a.staffId === staffId);
       const now = new Date();
       const timeString = now.toTimeString().slice(0, 5);
@@ -313,8 +313,8 @@ export const Staff = () => {
               staffId: attendanceModal.staffId, 
               date: selectedDate, 
               status: attendanceModal.status,
-              checkIn: ['present', 'late'].includes(attendanceModal.status) ? attendanceModal.checkIn : null,
-              checkOut: ['present', 'late'].includes(attendanceModal.status) && attendanceModal.checkOut ? attendanceModal.checkOut : null
+              checkIn: ['present', 'late', 'half_day'].includes(attendanceModal.status) ? attendanceModal.checkIn : null,
+              checkOut: ['present', 'late', 'half_day'].includes(attendanceModal.status) && attendanceModal.checkOut ? attendanceModal.checkOut : null
           });
           const data = await api.getAttendance(selectedDate);
           setAttendance(data);
@@ -594,7 +594,7 @@ export const Staff = () => {
                                   <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{s.fullName} <span className="text-xs text-slate-400 block">{t(`staff_role_${s.type}`)}</span></td>
                                       <td className="px-4 py-3">
-                                          <Badge color={record?.status === 'present' ? 'green' : record?.status === 'absent' ? 'red' : record?.status === 'late' ? 'orange' : 'gray'}>
+                                          <Badge color={record?.status === 'present' ? 'green' : record?.status === 'absent' ? 'red' : record?.status === 'late' ? 'orange' : record?.status === 'half_day' ? 'blue' : 'gray'}>
                                               {record?.status || 'Pending'}
                                           </Badge>
                                       </td>
@@ -614,7 +614,7 @@ export const Staff = () => {
                                                       <Button size="sm" onClick={() => handleCheckOut(record)} variant="danger" icon={LogOut}>Check Out</Button>
                                                   )}
 
-                                                  {(record?.checkOut || isAbsent) && (
+                                                  {(record?.checkOut || isAbsent || record?.status === 'half_day') && (
                                                       <button onClick={() => openAttendanceModal(s.id, s.fullName, record.status)} className="text-slate-400 hover:text-primary-600 p-1.5 rounded hover:bg-slate-100" title="Edit"><Edit size={16}/></button>
                                                   )}
                                               </div>
@@ -774,11 +774,12 @@ export const Staff = () => {
                             <option value="present">Present</option>
                             <option value="late">Late</option>
                             <option value="absent">Absent</option>
+                            <option value="half_day">Half Day</option>
                           </select>
                       </div>
                   </div>
 
-                  {['present', 'late'].includes(attendanceModal.status) && (
+                  {['present', 'late', 'half_day'].includes(attendanceModal.status) && (
                       <div className="grid grid-cols-2 gap-4">
                         <Input 
                             type="time" 

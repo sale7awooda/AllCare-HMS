@@ -1,3 +1,4 @@
+
 # System Architecture
 
 ## 1. Tech Stack
@@ -39,18 +40,16 @@
 │   └── .env                 # Backend environment variables
 │
 ├── docs/                    # Documentation
-│
 ├── locales/                 # Translation files (en.json, ar.json)
 │
-├── src/
-│   ├── components/          # UI Components (Card, Button, Modal, etc.)
-│   ├── context/             # Global Contexts (Auth, Theme, Translation)
-│   ├── pages/               # Route Pages (Dashboard, Patients, HR, etc.)
-│   ├── services/            # API Client (api.ts)
-│   ├── utils/               # Helpers (rbac.ts)
-│   ├── types.ts             # TypeScript Interfaces
-│   ├── App.tsx              # Root Component
-│   └── main.tsx             # Entry Point
+├── components/              # UI Components (Card, Button, Modal, etc.)
+├── context/                 # Global Contexts (Auth, Theme, Translation)
+├── pages/                   # Route Pages (Dashboard, Patients, HR, etc.)
+├── services/                # API Client (api.ts)
+├── utils/                   # Helpers (rbac.ts)
+├── types.ts                 # TypeScript Interfaces
+├── App.tsx                  # Root Component
+├── index.tsx                # Entry Point
 │
 ├── index.html
 ├── vite.config.js           # Vite Configuration (Proxy setup)

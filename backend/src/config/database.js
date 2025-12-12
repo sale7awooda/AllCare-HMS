@@ -2,6 +2,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const { ROLE_PERMISSIONS } = require('../utils/rbac_backend_mirror');
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
 
@@ -14,7 +15,6 @@ if (!fs.existsSync(dbDir)) {
 const db = new Database(dbPath);
 
 // STABILITY FIX: Use DELETE journal mode instead of WAL for containerized environments (Railway/Heroku).
-// WAL mode creates .shm and .wal files that can cause locking issues on ephemeral filesystems.
 db.pragma('journal_mode = DELETE');
 db.pragma('synchronous = NORMAL'); 
 db.pragma('foreign_keys = ON');
@@ -26,13 +26,11 @@ const initDB = (forceReset = false) => {
         try {
           db.close();
           fs.unlinkSync(dbPath);
-          // Re-open
           return new Database(dbPath);
         } catch (e) {
           console.error("Failed to delete DB:", e);
         }
     }
-    // Re-instantiate after delete
     return initDB(false);
   }
 
@@ -171,13 +169,165 @@ const initDB = (forceReset = false) => {
 };
 
 const seedData = () => {
-  // Seed Admin if not exists
+  const bcrypt = require('bcryptjs');
+
+  // 1. Seed Role Permissions
+  const permCount = db.prepare('SELECT count(*) as count FROM role_permissions').get().count;
+  if (permCount === 0) {
+    const stmt = db.prepare('INSERT INTO role_permissions (role, permissions) VALUES (?, ?)');
+    Object.entries(ROLE_PERMISSIONS).forEach(([role, perms]) => {
+      stmt.run(role, JSON.stringify(perms));
+    });
+    console.log('Seeded role permissions.');
+  }
+
+  // 2. Seed Users
   const userCount = db.prepare('SELECT count(*) as count FROM users').get().count;
   if (userCount === 0) {
-    const bcrypt = require('bcryptjs');
+    // Admin
     const hash = bcrypt.hashSync('admin123', 10);
     db.prepare("INSERT INTO users (username, password, full_name, role) VALUES ('admin', ?, 'System Administrator', 'admin')").run(hash);
-    console.log('Seeded admin user.');
+    
+    // Demo Accounts
+    const demos = [
+      { u: 'manager', p: 'manager123', n: 'Sarah Manager', r: 'manager' },
+      { u: 'receptionist', p: 'receptionist123', n: 'Pam Receptionist', r: 'receptionist' },
+      { u: 'technician', p: 'technician123', n: 'Tom Technician', r: 'technician' }, // maps to labtech in frontend login
+      { u: 'labtech', p: 'labtech123', n: 'Tom Technician', r: 'technician' }, // Duplicate for safety if frontend hardcodes 'labtech'
+      { u: 'accountant', p: 'accountant123', n: 'Angela Accountant', r: 'accountant' },
+      { u: 'hr', p: 'hr123', n: 'Toby HR', r: 'hr' },
+      { u: 'pharmacist', p: 'pharmacist123', n: 'Phil Pharmacist', r: 'pharmacist' },
+      { u: 'doctor', p: 'doctor123', n: 'Dr. John Doe', r: 'doctor' },
+      { u: 'nurse', p: 'nurse123', n: 'Nurse Mary', r: 'nurse' }
+    ];
+
+    const stmt = db.prepare("INSERT OR IGNORE INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)");
+    demos.forEach(d => {
+        const h = bcrypt.hashSync(d.p, 10);
+        stmt.run(d.u, h, d.n, d.r);
+    });
+    console.log('Seeded demo users.');
+  }
+
+  // 3. Departments
+  const deptCount = db.prepare('SELECT count(*) as count FROM departments').get().count;
+  if (deptCount === 0) {
+    const depts = [
+      { en: 'Cardiology', ar: 'أمراض القلب' },
+      { en: 'Neurology', ar: 'الأعصاب' },
+      { en: 'Orthopedics', ar: 'العظام' },
+      { en: 'Pediatrics', ar: 'الأطفال' },
+      { en: 'General Surgery', ar: 'الجراحة العامة' },
+      { en: 'Internal Medicine', ar: 'الباطنية' },
+      { en: 'Emergency', ar: 'الطوارئ' },
+      { en: 'Radiology', ar: 'الأشعة' },
+      { en: 'Laboratory', ar: 'المختبر' },
+      { en: 'Pharmacy', ar: 'الصيدلية' }
+    ];
+    const stmt = db.prepare('INSERT INTO departments (name_en, name_ar) VALUES (?, ?)');
+    depts.forEach(d => stmt.run(d.en, d.ar));
+    console.log('Seeded departments.');
+  }
+
+  // 4. Lab Tests
+  const labCount = db.prepare('SELECT count(*) as count FROM lab_tests').get().count;
+  if (labCount === 0) {
+    const tests = [
+      { en: 'CBC', ar: 'صورة دم كاملة', cat: 'Hematology', cost: 15 },
+      { en: 'Lipid Profile', ar: 'دهون الدم', cat: 'Biochemistry', cost: 25 },
+      { en: 'Blood Sugar (Fasting)', ar: 'سكر صائم', cat: 'Biochemistry', cost: 10 },
+      { en: 'Liver Function Test', ar: 'وظائف كبد', cat: 'Biochemistry', cost: 30 },
+      { en: 'Kidney Function Test', ar: 'وظائف كلى', cat: 'Biochemistry', cost: 30 },
+      { en: 'Thyroid Profile', ar: 'وظائف غدة درقية', cat: 'Hormones', cost: 40 },
+      { en: 'Urinalysis', ar: 'تحليل بول', cat: 'Clinical Pathology', cost: 10 },
+      { en: 'PCR (Covid-19)', ar: 'فحص كورونا', cat: 'Virology', cost: 50 }
+    ];
+    const stmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost) VALUES (?, ?, ?, ?, ?)');
+    tests.forEach(t => stmt.run(t.en, t.ar, t.cat, t.cat, t.cost));
+    console.log('Seeded lab tests.');
+  }
+
+  // 5. Nurse Services
+  const nurseCount = db.prepare('SELECT count(*) as count FROM nurse_services').get().count;
+  if (nurseCount === 0) {
+    const services = [
+      { en: 'Injection (IM/IV)', ar: 'حقن', cost: 5 },
+      { en: 'Cannula Insertion', ar: 'تركيب كانيولا', cost: 10 },
+      { en: 'Wound Dressing', ar: 'غيار على جرح', cost: 15 },
+      { en: 'Nebulizer', ar: 'جلسة بخار', cost: 10 },
+      { en: 'ECG', ar: 'رسم قلب', cost: 20 }
+    ];
+    const stmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, cost) VALUES (?, ?, ?)');
+    services.forEach(s => stmt.run(s.en, s.ar, s.cost));
+    console.log('Seeded nurse services.');
+  }
+
+  // 6. Operations
+  const opCount = db.prepare('SELECT count(*) as count FROM operations_catalog').get().count;
+  if (opCount === 0) {
+    const ops = [
+      { en: 'Appendectomy', ar: 'استئصال الزائدة', cost: 800 },
+      { en: 'Cesarean Section', ar: 'ولادة قيصرية', cost: 1200 },
+      { en: 'Hernia Repair', ar: 'إصلاح فتق', cost: 700 },
+      { en: 'Tonsillectomy', ar: 'استئصال اللوزتين', cost: 400 },
+      { en: 'Cataract Surgery', ar: 'مياه بيضاء', cost: 600 }
+    ];
+    const stmt = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
+    ops.forEach(o => stmt.run(o.en, o.ar, o.cost));
+    console.log('Seeded operations.');
+  }
+
+  // 7. Beds
+  const bedCount = db.prepare('SELECT count(*) as count FROM beds').get().count;
+  if (bedCount === 0) {
+    const stmt = db.prepare('INSERT INTO beds (room_number, type, status, cost_per_day) VALUES (?, ?, ?, ?)');
+    for (let i = 1; i <= 5; i++) stmt.run(`10${i}`, 'General', 'available', 50);
+    for (let i = 1; i <= 3; i++) stmt.run(`20${i}`, 'Private', 'available', 120);
+    for (let i = 1; i <= 2; i++) stmt.run(`30${i}`, 'ICU', 'available', 300);
+    console.log('Seeded beds.');
+  }
+
+  // 8. Payment Methods
+  const pmCount = db.prepare('SELECT count(*) as count FROM payment_methods').get().count;
+  if (pmCount === 0) {
+    const pms = [
+      { en: 'Cash', ar: 'نقدي' },
+      { en: 'Credit Card', ar: 'بطاقة ائتمان' },
+      { en: 'Bank Transfer', ar: 'تحويل بنكي' },
+      { en: 'Insurance', ar: 'تأمين' }
+    ];
+    const stmt = db.prepare('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, 1)');
+    pms.forEach(p => stmt.run(p.en, p.ar));
+    console.log('Seeded payment methods.');
+  }
+
+  // 9. Medical Staff
+  const staffCount = db.prepare('SELECT count(*) as count FROM medical_staff').get().count;
+  if (staffCount === 0) {
+      const staffList = [
+          { name: 'Dr. Shaun Murphy', type: 'doctor', dept: 'General Surgery', spec: 'General Surgery', fee: 200 },
+          { name: 'Dr. Meredith Grey', type: 'doctor', dept: 'General Surgery', spec: 'General Surgery', fee: 180 },
+          { name: 'Dr. Gregory House', type: 'doctor', dept: 'Internal Medicine', spec: 'Diagnostic Medicine', fee: 300 },
+          { name: 'Dr. Derek Shepherd', type: 'doctor', dept: 'Neurology', spec: 'Neurosurgery', fee: 250 },
+          { name: 'Dr. Doug Ross', type: 'doctor', dept: 'Pediatrics', spec: 'Pediatrics', fee: 150 },
+          { name: 'Dr. Lisa Cuddy', type: 'doctor', dept: 'Administration', spec: 'Endocrinology', fee: 220 },
+          { name: 'Nurse Carla Espinosa', type: 'nurse', dept: 'General Surgery', spec: 'Head Nurse', fee: 0 },
+          { name: 'Nurse Jackie', type: 'nurse', dept: 'Emergency', spec: 'ER Nurse', fee: 0 },
+          { name: 'John Dorian', type: 'doctor', dept: 'Internal Medicine', spec: 'Internal Medicine', fee: 120 }
+      ];
+
+      const stmt = db.prepare(`
+        INSERT INTO medical_staff (
+            employee_id, full_name, type, department, specialization, consultation_fee, 
+            status, available_days, available_time_start, available_time_end, base_salary
+        ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, '08:00', '17:00', ?)
+      `);
+
+      staffList.forEach((s, i) => {
+          const id = `${s.type === 'doctor' ? 'DOC' : 'NUR'}${1000 + i}`;
+          stmt.run(id, s.name, s.type, s.dept, s.spec, s.fee, JSON.stringify(['Mon','Tue','Wed','Thu','Fri']), 5000 + (s.fee * 10));
+      });
+      console.log('Seeded medical staff.');
   }
 };
 
