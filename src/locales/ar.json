@@ -1,4 +1,3 @@
-
 {
   "app_loading": "جاري تحميل التطبيق...",
   "nav_dashboard": "لوحة التحكم",
@@ -576,6 +575,9 @@
   "staff_role_staff": "موظف عام",
   "staff_role_hr_manager": "مدير موارد بشرية",
   "staff_role_medical_assistant": "مساعد طبي",
+  "staff_role_receptionist": "موظف استقبال",
+  "staff_role_accountant": "محاسب",
+  "staff_role_manager": "مدير",
   "staff_select_department": "اختر القسم...",
   "staff_select_specialization": "اختر التخصص...",
   "staff_status_active": "نشط",

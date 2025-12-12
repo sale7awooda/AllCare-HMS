@@ -113,6 +113,22 @@ const initDB = (forceReset = false) => {
     )
   `).run();
 
+  // MIGRATION: Ensure 'address' column exists in medical_staff for existing databases
+  try {
+    // Attempt to select the column. If it fails, the catch block runs.
+    db.prepare('SELECT address FROM medical_staff LIMIT 1').get();
+  } catch (error) {
+    if (error.message.includes('no such column')) {
+        console.log('Migrating database: Adding missing address column to medical_staff table...');
+        try {
+          db.prepare('ALTER TABLE medical_staff ADD COLUMN address TEXT').run();
+          console.log('Migration successful.');
+        } catch (e) {
+          console.error('Migration failed:', e);
+        }
+    }
+  }
+
   db.prepare(`
     CREATE TABLE IF NOT EXISTS hr_attendance (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -271,7 +287,8 @@ const seedData = () => {
 
   // Seed Specializations with Role mappings
   const specCount = db.prepare('SELECT count(*) as count FROM specializations').get().count;
-  if (specCount < 5) { 
+  // If specializations are missing or minimal, re-seed to include all roles
+  if (specCount < 20) { 
     db.prepare('DELETE FROM specializations').run(); 
 
     const specs = [
@@ -284,27 +301,71 @@ const seedData = () => {
       { en: 'Internal Medicine', ar: 'الباطنية', role: 'doctor' },
       { en: 'Dermatology', ar: 'الجلدية', role: 'doctor' },
       { en: 'Anesthesiology', ar: 'التخدير', role: 'doctor' },
+      { en: 'Oncology', ar: 'الأورام', role: 'doctor' },
+      { en: 'Obstetrics and Gynecology', ar: 'النساء والولادة', role: 'doctor' },
+      { en: 'Radiology', ar: 'الأشعة', role: 'doctor' },
+      { en: 'Ophthalmology', ar: 'العيون', role: 'doctor' },
+      { en: 'ENT', ar: 'أنف وأذن وحنجرة', role: 'doctor' },
+      { en: 'Psychiatry', ar: 'الطب النفسي', role: 'doctor' },
+      { en: 'Urology', ar: 'المسالك البولية', role: 'doctor' },
+
       // Nurses
       { en: 'Critical Care Nursing', ar: 'تمريض العناية المركزة', role: 'nurse' },
       { en: 'Pediatric Nursing', ar: 'تمريض الأطفال', role: 'nurse' },
       { en: 'Surgical Nursing', ar: 'تمريض الجراحة', role: 'nurse' },
       { en: 'Emergency Nursing', ar: 'تمريض الطوارئ', role: 'nurse' },
       { en: 'General Nursing', ar: 'تمريض عام', role: 'nurse' },
+      { en: 'Oncology Nursing', ar: 'تمريض الأورام', role: 'nurse' },
+      { en: 'Maternity Nursing', ar: 'تمريض الأمومة', role: 'nurse' },
+
       // Technicians
       { en: 'Laboratory Technician', ar: 'فني مختبر', role: 'technician' },
       { en: 'Radiology Technician', ar: 'فني أشعة', role: 'technician' },
       { en: 'Phlebotomist', ar: 'سحب دم', role: 'technician' },
+      { en: 'Anesthesia Technician', ar: 'فني تخدير', role: 'technician' },
+      { en: 'Dialysis Technician', ar: 'فني غسيل كلى', role: 'technician' },
+
       // Pharmacists
       { en: 'Clinical Pharmacy', ar: 'صيدلة سريرية', role: 'pharmacist' },
       { en: 'Hospital Pharmacy', ar: 'صيدلة المستشفيات', role: 'pharmacist' },
-      // Anesthesiologist
+      { en: 'Dispensing Pharmacy', ar: 'صيدلة الصرف', role: 'pharmacist' },
+
+      // Anesthesiologists
       { en: 'General Anesthesiology', ar: 'تخدير عام', role: 'anesthesiologist' },
       { en: 'Pediatric Anesthesiology', ar: 'تخدير أطفال', role: 'anesthesiologist' },
-      // HR/Staff
+      { en: 'Cardiac Anesthesiology', ar: 'تخدير قلب', role: 'anesthesiologist' },
+
+      // HR/Staff (Mapped to hr_manager)
       { en: 'Human Resources', ar: 'الموارد البشرية', role: 'hr_manager' },
+      { en: 'Recruitment', ar: 'التوظيف', role: 'hr_manager' },
+      { en: 'Personnel Administration', ar: 'شؤون الموظفين', role: 'hr_manager' },
+
+      // General Staff
       { en: 'Administration', ar: 'الإدارة', role: 'staff' },
       { en: 'Maintenance', ar: 'الصيانة', role: 'staff' },
-      { en: 'Security', ar: 'الأمن', role: 'staff' }
+      { en: 'Security', ar: 'الأمن', role: 'staff' },
+      { en: 'Housekeeping', ar: 'النظافة', role: 'staff' },
+      { en: 'IT Support', ar: 'الدعم الفني', role: 'staff' },
+      { en: 'Transport', ar: 'النقل', role: 'staff' },
+
+      // Medical Assistant
+      { en: 'Clinical Assistance', ar: 'مساعدة سريرية', role: 'medical_assistant' },
+      { en: 'Administrative Assistance', ar: 'مساعدة إدارية', role: 'medical_assistant' },
+
+      // Receptionist
+      { en: 'Front Desk', ar: 'الاستقبال', role: 'receptionist' },
+      { en: 'Patient Registration', ar: 'تسجيل المرضى', role: 'receptionist' },
+      { en: 'Call Center', ar: 'مركز الاتصال', role: 'receptionist' },
+
+      // Accountant
+      { en: 'General Accounting', ar: 'محاسبة عامة', role: 'accountant' },
+      { en: 'Billing & Claims', ar: 'الفواتير والمطالبات', role: 'accountant' },
+      { en: 'Financial Auditing', ar: 'تدقيق مالي', role: 'accountant' },
+
+      // Manager
+      { en: 'Hospital Management', ar: 'إدارة المستشفيات', role: 'manager' },
+      { en: 'Operations Management', ar: 'إدارة العمليات', role: 'manager' },
+      { en: 'Department Head', ar: 'رئيس قسم', role: 'manager' }
     ];
 
     const insert = db.prepare('INSERT INTO specializations (name_en, name_ar, related_role) VALUES (?, ?, ?)');

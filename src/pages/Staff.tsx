@@ -5,7 +5,8 @@ import {
   Plus, Search, Briefcase, Clock, 
   Calendar, DollarSign, Wallet,
   AlertTriangle, CheckCircle, User, Phone, Mail,
-  Loader2, XCircle, Edit, Trash2, X, Check, MapPin
+  Loader2, XCircle, Edit, Trash2, X, Check, MapPin,
+  LogIn, LogOut
 } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment } from '../types';
@@ -24,6 +25,8 @@ const roleDepartmentMap: Record<string, string[]> = {
   anesthesiologist: ['Anesthesiology', 'General Surgery'],
   pharmacist: ['Pharmacy'],
   hr_manager: ['Administration', 'HR'],
+  accountant: ['Finance', 'Administration'],
+  manager: ['Administration', 'Management'],
   staff: ['Administration', 'Maintenance', 'Security', 'Support Services', 'Finance', 'IT Support'],
   medical_assistant: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'General Surgery', 'Internal Medicine'],
   receptionist: ['Administration', 'Front Desk']
@@ -126,6 +129,7 @@ export const Staff = () => {
     // Ensure numbers are converted, empty string becomes 0
     const payload = {
         ...restOfForm,
+        address: restOfForm.address || null, // Explicitly handle empty address
         baseSalary: parseFloat(restOfForm.baseSalary) || 0,
         consultationFee: parseFloat(restOfForm.consultationFee) || 0,
         consultationFeeFollowup: parseFloat(restOfForm.consultationFeeFollowup) || 0,
@@ -163,9 +167,10 @@ export const Staff = () => {
           }
       }
 
-      // Initialize number fields as strings (or empty strings if 0 for new)
+      // Initialize form state
       const formState = s ? { 
           ...s, 
+          address: s.address || '', // Fix: Ensure address defaults to empty string if undefined to avoid uncontrolled input error
           ...bankDetailsParsed,
       } : { 
           fullName: '', type: 'doctor', status: 'active', 
@@ -220,6 +225,53 @@ export const Staff = () => {
     return specializations.filter(s => !s.related_role || s.related_role === staffForm.type);
   }, [staffForm.type, specializations]);
 
+  // --- Attendance Actions ---
+
+  const handleCheckIn = async (staffMember: MedicalStaff) => {
+    const now = new Date();
+    const timeString = now.toTimeString().slice(0, 5); // HH:MM
+    
+    // Determine status (Present or Late)
+    let status: 'present' | 'late' = 'present';
+    if (staffMember.availableTimeStart) {
+        if (timeString > staffMember.availableTimeStart) {
+            status = 'late';
+        }
+    }
+
+    try {
+        await api.markAttendance({
+            staffId: staffMember.id,
+            date: selectedDate,
+            status: status,
+            checkIn: timeString
+        });
+        const data = await api.getAttendance(selectedDate);
+        setAttendance(data);
+    } catch (e: any) {
+        alert(e.message || 'Failed to check in');
+    }
+  };
+
+  const handleCheckOut = async (record: Attendance) => {
+    const now = new Date();
+    const timeString = now.toTimeString().slice(0, 5); // HH:MM
+
+    try {
+        await api.markAttendance({
+            staffId: record.staffId,
+            date: record.date,
+            status: record.status, // Keep existing status (e.g. late remains late)
+            checkOut: timeString
+        });
+        const data = await api.getAttendance(selectedDate);
+        setAttendance(data);
+    } catch (e: any) {
+        alert(e.message || 'Failed to check out');
+    }
+  };
+
+  // Keep modal for manual edits
   const openAttendanceModal = (staffId: number, staffName: string, status: 'present' | 'late' | 'absent') => {
       const existingRecord = attendance.find(a => a.staffId === staffId);
       const now = new Date();
@@ -413,6 +465,7 @@ export const Staff = () => {
                               <div className="flex items-center gap-2"><Briefcase size={14}/> {person.department || t('patients_modal_view_na')}</div>
                               <div className="flex items-center gap-2"><Phone size={14}/> {person.phone || t('patients_modal_view_na')}</div>
                               <div className="flex items-center gap-2 truncate"><Mail size={14}/> {person.email || t('patients_modal_view_na')}</div>
+                              {person.address && <div className="flex items-center gap-2 truncate"><MapPin size={14}/> {person.address}</div>}
                           </div>
 
                           {canManageHR && (
@@ -446,6 +499,9 @@ export const Staff = () => {
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {staff.filter(s => s.status === 'active').map(s => {
                               const record = attendance.find(a => a.staffId === s.id);
+                              const isCheckedIn = record && record.checkIn && !record.checkOut;
+                              const isAbsent = record && record.status === 'absent';
+                              
                               return (
                                   <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{s.fullName} <span className="text-xs text-slate-400 block">{t(`staff_role_${s.type}`)}</span></td>
@@ -458,10 +514,22 @@ export const Staff = () => {
                                       <td className="px-4 py-3">{record?.checkOut || '-'}</td>
                                       {canManageHR && (
                                           <td className="px-4 py-3 text-right">
-                                              <div className="flex justify-end gap-1">
-                                                  <button onClick={() => openAttendanceModal(s.id, s.fullName, 'present')} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Present"><CheckCircle size={16}/></button>
-                                                  <button onClick={() => openAttendanceModal(s.id, s.fullName, 'late')} className="p-1.5 text-orange-600 hover:bg-orange-50 rounded" title="Late"><Clock size={16}/></button>
-                                                  <button onClick={() => openAttendanceModal(s.id, s.fullName, 'absent')} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Absent"><XCircle size={16}/></button>
+                                              <div className="flex justify-end gap-2 items-center">
+                                                  {/* Button Logic */}
+                                                  {!record && (
+                                                      <>
+                                                        <Button size="sm" onClick={() => handleCheckIn(s)} className="!bg-green-600 hover:!bg-green-700 text-white border-none" icon={LogIn}>Check In</Button>
+                                                        <button onClick={() => openAttendanceModal(s.id, s.fullName, 'absent')} className="text-red-500 hover:bg-red-50 p-1.5 rounded" title="Mark Absent"><XCircle size={18}/></button>
+                                                      </>
+                                                  )}
+                                                  
+                                                  {isCheckedIn && (
+                                                      <Button size="sm" onClick={() => handleCheckOut(record)} variant="danger" icon={LogOut}>Check Out</Button>
+                                                  )}
+
+                                                  {(record?.checkOut || isAbsent) && (
+                                                      <button onClick={() => openAttendanceModal(s.id, s.fullName, record.status)} className="text-slate-400 hover:text-primary-600 p-1.5 rounded hover:bg-slate-100" title="Edit"><Edit size={16}/></button>
+                                                  )}
                                               </div>
                                           </td>
                                       )}
@@ -659,6 +727,7 @@ export const Staff = () => {
                       <Input label={t('settings_profile_email')} type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} />
                       <Input label={t('settings_profile_phone')} value={staffForm.phone || ''} onChange={e => setStaffForm({...staffForm, phone: e.target.value})} />
                   </div>
+                  {/* Address Input - Ensures value is never undefined */}
                   <Input label={t('patients_modal_form_address')} value={staffForm.address || ''} onChange={e => setStaffForm({...staffForm, address: e.target.value})} />
               </div>
 

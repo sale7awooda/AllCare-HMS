@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
 import { 
@@ -7,6 +6,9 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, Calendar,
   Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw
 } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
+} from 'recharts';
 import { api } from '../services/api';
 import { Bill, Patient, Appointment, PaymentMethod, TaxRate, Transaction, InsuranceProvider } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
@@ -226,18 +228,24 @@ export const Billing = () => {
 
   const openPaymentModal = (bill: Bill) => {
     setPayingBill(bill);
+    const patient = patients.find(p => p.id === bill.patientId);
+    
     // Default to remaining balance
     const remaining = bill.totalAmount - (bill.paidAmount || 0);
-    // Determine default payment method.
+    
+    // Smart Pre-fill: Check insurance
+    const hasInsurance = patient?.hasInsurance;
+    
+    // Determine default payment method & fill insurance details if applicable
     setPaymentForm({ 
         amount: remaining.toString(), 
-        method: 'Cash',
+        method: hasInsurance ? 'Insurance' : 'Cash',
         date: new Date().toISOString().split('T')[0],
         notes: '',
         transactionId: '',
-        insuranceProvider: '',
-        policyNumber: '',
-        expiryDate: ''
+        insuranceProvider: hasInsurance ? patient?.insuranceDetails?.provider || '' : '',
+        policyNumber: hasInsurance ? patient?.insuranceDetails?.policyNumber || '' : '',
+        expiryDate: hasInsurance ? patient?.insuranceDetails?.expiryDate || '' : ''
     });
     setIsPaymentModalOpen(true);
   };
@@ -408,6 +416,26 @@ export const Billing = () => {
     });
   }, [transactions, treasurySearch, treasuryFilter, treasuryDate]);
 
+  // Aggregate daily data for chart
+  const treasuryChartData = useMemo(() => {
+    const dailyMap = new Map<string, {name: string, income: number, expense: number}>();
+    
+    // Sort transactions by date asc for chart
+    const sortedTrans = [...filteredTransactions].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    sortedTrans.forEach(t => {
+        const day = new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (!dailyMap.has(day)) {
+            dailyMap.set(day, { name: day, income: 0, expense: 0 });
+        }
+        const entry = dailyMap.get(day)!;
+        if (t.type === 'income') entry.income += t.amount;
+        else entry.expense += t.amount;
+    });
+
+    return Array.from(dailyMap.values());
+  }, [filteredTransactions]);
+
   const totalTreasuryPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const paginatedTransactions = filteredTransactions.slice((treasuryPage - 1) * itemsPerPage, treasuryPage * itemsPerPage);
 
@@ -419,6 +447,7 @@ export const Billing = () => {
     const taxItem = bill.items.find(i => i.description.toLowerCase().startsWith('tax'));
     const subtotal = bill.items.filter(i => !i.description.toLowerCase().startsWith('tax')).reduce((sum, i) => sum + i.amount, 0);
     const taxAmount = taxItem ? taxItem.amount : 0;
+    const hospitalName = localStorage.getItem('hospital_name') || 'AllCare Hospital';
 
     return (
         <div className="p-10 bg-white min-h-[600px] text-slate-800" id="invoice-print">
@@ -440,7 +469,7 @@ export const Billing = () => {
             </div>
             </div>
             <div className="text-right">
-            <h2 className="text-xl font-bold text-primary-600">AllCare Hospital</h2>
+            <h2 className="text-xl font-bold text-primary-600">{hospitalName}</h2>
             <p className="text-sm text-slate-500 mt-1">123 Health Ave, Med City</p>
             <p className="text-sm text-slate-500">contact@allcare.com</p>
             <p className="text-sm text-slate-500">+1 (555) 012-3456</p>
@@ -532,19 +561,20 @@ export const Billing = () => {
       </div>
 
       {/* Main Tabs */}
-      <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 w-fit">
-          <button
-            onClick={() => setActiveTab('invoices')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === 'invoices' ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-          >
-              Invoices
-          </button>
-          <button
-            onClick={() => setActiveTab('treasury')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === 'treasury' ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-          >
-              Treasury
-          </button>
+      <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 w-fit mb-6">
+          {[
+              { id: 'invoices', label: t('billing_tab_invoices') || 'Invoices', icon: FileText },
+              { id: 'treasury', label: t('billing_tab_treasury') || 'Treasury', icon: Landmark },
+          ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+              >
+                  <tab.icon size={18} />
+                  {tab.label}
+              </button>
+          ))}
       </div>
 
       {activeTab === 'invoices' && (
@@ -710,6 +740,25 @@ export const Billing = () => {
                     <h4 className="text-xs font-bold text-slate-500 uppercase">Net Cash Flow</h4>
                     <p className={`text-3xl font-bold mt-2 ${treasuryStats.net >= 0 ? 'text-blue-600' : 'text-red-600'}`}>${treasuryStats.net.toLocaleString()}</p>
                   </Card>
+              </div>
+
+              {/* Cash Flow Chart - Recharts Visualization */}
+              <div className="h-80 w-full bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                  <h3 className="font-bold text-slate-800 dark:text-white mb-4">Cash Flow Overview</h3>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={treasuryChartData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                        <RechartsTooltip 
+                            cursor={{fill: 'transparent'}}
+                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }} 
+                        />
+                        <Legend />
+                        <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
+                        <Bar dataKey="expense" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
+                    </BarChart>
+                  </ResponsiveContainer>
               </div>
 
               <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">

@@ -1,22 +1,32 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
+import { Card, Button, Input, Select, Modal, Badge, Textarea } from '../components/UI';
 import { 
   Plus, Printer, Download, X, Lock, CreditCard, 
   Wallet, TrendingUp, AlertCircle, FileText, CheckCircle, Trash2,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, Calendar,
+  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw
 } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
+} from 'recharts';
 import { api } from '../services/api';
-import { Bill, Patient, Appointment, PaymentMethod } from '../types';
+import { Bill, Patient, Appointment, PaymentMethod, TaxRate, Transaction, InsuranceProvider } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
 
 export const Billing = () => {
   const { t, language } = useTranslation();
+  const [activeTab, setActiveTab] = useState<'invoices' | 'treasury'>('invoices');
   const [bills, setBills] = useState<Bill[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
+  const [catalogItems, setCatalogItems] = useState<{label: string, cost: number}[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const { user: currentUser } = useAuth();
 
@@ -25,6 +35,13 @@ export const Billing = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+
+  // Separate Treasury Filters
+  const [treasurySearch, setTreasurySearch] = useState('');
+  const [treasuryFilter, setTreasuryFilter] = useState('all');
+  const [treasuryDate, setTreasuryDate] = useState({ start: '', end: '' });
+  const [treasuryPage, setTreasuryPage] = useState(1);
 
   // Stats
   const [stats, setStats] = useState({
@@ -33,37 +50,88 @@ export const Billing = () => {
     paidInvoices: 0
   });
 
+  // Treasury Stats
+  const [treasuryStats, setTreasuryStats] = useState({
+    income: 0,
+    expenses: 0,
+    net: 0
+  });
+
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null); // For Invoice View
   const [payingBill, setPayingBill] = useState<Bill | null>(null); // For Payment Action
+  const [refundingBill, setRefundingBill] = useState<Bill | null>(null); // For Refund Action
 
-  // Create Form State
+  // Create Invoice Form
   const [createForm, setCreateForm] = useState({
     patientId: '',
-    items: [{ description: '', amount: '' }]
+    items: [{ description: '', amount: '' }],
+    selectedTaxId: ''
   });
 
   // Payment Form State
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
-    method: ''
+    method: 'Cash',
+    date: new Date().toISOString().split('T')[0],
+    notes: '',
+    // Insurance specific
+    insuranceProvider: '',
+    policyNumber: '',
+    expiryDate: '',
+    // Transaction specific
+    transactionId: ''
+  });
+
+  // Refund Form State
+  const [refundForm, setRefundForm] = useState({
+    amount: '',
+    reason: '',
+    date: new Date().toISOString().split('T')[0]
+  });
+
+  // Expense Form State
+  const [expenseForm, setExpenseForm] = useState({
+    category: 'General',
+    amount: '',
+    method: 'Cash',
+    date: new Date().toISOString().split('T')[0],
+    description: ''
   });
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [b, p, pm] = await Promise.all([
+      const [b, p, pm, taxes, labs, services, trans, ins] = await Promise.all([
         api.getBills(), 
         api.getPatients(),
-        api.getPaymentMethods()
+        api.getPaymentMethods(),
+        api.getTaxRates(),
+        api.getLabTests(),
+        api.getNurseServices(),
+        api.getTransactions(),
+        api.getInsuranceProviders()
       ]);
       setBills(Array.isArray(b) ? b : []);
       setPatients(Array.isArray(p) ? p : []);
       setPaymentMethods(Array.isArray(pm) ? pm : []);
+      setTaxRates(Array.isArray(taxes) ? taxes : []);
+      setTransactions(Array.isArray(trans) ? trans : []);
+      setInsuranceProviders(Array.isArray(ins) ? ins : []);
 
-      // Calculate Stats
+      // Build Catalog
+      const catalog = [
+        ...(Array.isArray(labs) ? labs.map((l: any) => ({ label: `Lab: ${l.name_en}`, cost: l.cost })) : []),
+        ...(Array.isArray(services) ? services.map((s: any) => ({ label: `Service: ${s.name_en}`, cost: s.cost })) : [])
+      ];
+      setCatalogItems(catalog);
+
+      // Calculate Invoice Stats
       const total = b.reduce((acc: number, curr: Bill) => acc + (curr.paidAmount || 0), 0);
       const pending = b.reduce((acc: number, curr: Bill) => acc + ((curr.totalAmount || 0) - (curr.paidAmount || 0)), 0);
       const paidCount = b.filter((x: Bill) => x.status === 'paid').length;
@@ -73,6 +141,11 @@ export const Billing = () => {
         pendingAmount: pending,
         paidInvoices: paidCount
       });
+
+      // Calculate Treasury Stats
+      const income = trans.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + t.amount, 0);
+      const expense = trans.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + t.amount, 0);
+      setTreasuryStats({ income, expenses: expense, net: income - expense });
 
     } catch (e) {
       console.error(e);
@@ -105,18 +178,41 @@ export const Billing = () => {
     setCreateForm({ ...createForm, items: newItems });
   };
 
+  const handleCatalogSelect = (index: number, value: string) => {
+    if (!value) return;
+    const item = catalogItems.find(i => i.label === value);
+    if (item) {
+        const newItems = [...createForm.items];
+        newItems[index] = { description: item.label, amount: item.cost.toString() };
+        setCreateForm({ ...createForm, items: newItems });
+    }
+  };
+
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const patient = patients.find(p => p.id === parseInt(createForm.patientId));
     
     // Filter out empty rows and format
-    const formattedItems = createForm.items
+    let formattedItems = createForm.items
       .filter(i => i.description && i.amount)
       .map(i => ({ description: i.description, amount: parseFloat(i.amount) }));
 
     if (patient && formattedItems.length > 0) {
-      const total = formattedItems.reduce((sum, i) => sum + i.amount, 0);
+      let total = formattedItems.reduce((sum, i) => sum + i.amount, 0);
       
+      // Apply Tax if selected
+      if (createForm.selectedTaxId) {
+          const tax = taxRates.find(t => t.id === parseInt(createForm.selectedTaxId));
+          if (tax) {
+              const taxAmount = (total * tax.rate) / 100;
+              formattedItems.push({
+                  description: `Tax: ${tax.name_en} (${tax.rate}%)`,
+                  amount: parseFloat(taxAmount.toFixed(2))
+              });
+              total += taxAmount;
+          }
+      }
+
       await api.createBill({
         patientId: patient.id,
         patientName: patient.fullName,
@@ -126,16 +222,31 @@ export const Billing = () => {
       });
       
       setIsCreateModalOpen(false);
-      setCreateForm({ patientId: '', items: [{ description: '', amount: '' }] });
+      setCreateForm({ patientId: '', items: [{ description: '', amount: '' }], selectedTaxId: '' });
       loadData();
     }
   };
 
   const openPaymentModal = (bill: Bill) => {
     setPayingBill(bill);
+    // Find patient to check for insurance
+    const patient = patients.find(p => p.id === bill.patientId);
+    const hasInsurance = patient?.hasInsurance;
+
     // Default to remaining balance
     const remaining = bill.totalAmount - (bill.paidAmount || 0);
-    setPaymentForm({ amount: remaining.toString(), method: 'Cash' });
+    
+    // Auto-fill insurance details if available
+    setPaymentForm({ 
+        amount: remaining.toString(), 
+        method: hasInsurance ? 'Insurance' : 'Cash',
+        date: new Date().toISOString().split('T')[0],
+        notes: '',
+        transactionId: '',
+        insuranceProvider: patient?.insuranceDetails?.provider || '',
+        policyNumber: patient?.insuranceDetails?.policyNumber || '',
+        expiryDate: patient?.insuranceDetails?.expiryDate || ''
+    });
     setIsPaymentModalOpen(true);
   };
 
@@ -143,14 +254,80 @@ export const Billing = () => {
     e.preventDefault();
     if (!payingBill) return;
 
+    // Construct Payment Payload
+    const payload: any = {
+        amount: parseFloat(paymentForm.amount),
+        method: paymentForm.method,
+        date: paymentForm.date,
+        details: { notes: paymentForm.notes }
+    };
+
+    if (paymentForm.method === 'Insurance') {
+        payload.details = {
+            ...payload.details,
+            provider: paymentForm.insuranceProvider,
+            policyNumber: paymentForm.policyNumber,
+            expiryDate: paymentForm.expiryDate
+        };
+    } else if (paymentForm.method !== 'Cash') {
+        payload.details = {
+            ...payload.details,
+            transactionId: paymentForm.transactionId
+        };
+    }
+
     try {
-      await api.recordPayment(payingBill.id, parseFloat(paymentForm.amount));
+      await api.recordPayment(payingBill.id, payload);
       setIsPaymentModalOpen(false);
       setPayingBill(null);
       loadData();
     } catch (e) {
       alert('Payment failed');
     }
+  };
+
+  const openRefundModal = (bill: Bill) => {
+    setRefundingBill(bill);
+    // Default to fully paid amount
+    setRefundForm({
+        amount: bill.paidAmount.toString(),
+        reason: '',
+        date: new Date().toISOString().split('T')[0]
+    });
+    setIsRefundModalOpen(true);
+  };
+
+  const handleRefundSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!refundingBill) return;
+
+    try {
+        await api.processRefund(refundingBill.id, {
+            amount: parseFloat(refundForm.amount),
+            reason: refundForm.reason,
+            date: refundForm.date
+        });
+        setIsRefundModalOpen(false);
+        setRefundingBill(null);
+        loadData();
+    } catch (e) {
+        alert('Refund failed');
+    }
+  };
+
+  const handleExpenseSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+          await api.addExpense({
+              ...expenseForm,
+              amount: parseFloat(expenseForm.amount)
+          });
+          setIsExpenseModalOpen(false);
+          setExpenseForm({ category: 'General', amount: '', method: 'Cash', date: new Date().toISOString().split('T')[0], description: '' });
+          loadData();
+      } catch(e) {
+          alert('Failed to add expense');
+      }
   };
 
   // --- Helper to derive Bill Type ---
@@ -189,7 +366,7 @@ export const Billing = () => {
       }
   };
 
-  // --- Filtering & Pagination Logic ---
+  // --- Filtering & Pagination Logic (Bills) ---
   const filteredBills = useMemo(() => {
     return bills.filter(bill => {
       const matchesSearch = 
@@ -199,324 +376,152 @@ export const Billing = () => {
       const billType = getBillType(bill);
       const matchesType = filterType === 'all' || billType === filterType;
 
-      return matchesSearch && matchesType;
+      let matchesDate = true;
+      if (dateRange.start) {
+        matchesDate = matchesDate && new Date(bill.date) >= new Date(dateRange.start);
+      }
+      if (dateRange.end) {
+        const endDate = new Date(dateRange.end);
+        endDate.setHours(23, 59, 59, 999);
+        matchesDate = matchesDate && new Date(bill.date) <= endDate;
+      }
+
+      return matchesSearch && matchesType && matchesDate;
     });
-  }, [bills, searchTerm, filterType]);
+  }, [bills, searchTerm, filterType, dateRange]);
 
   const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
   const paginatedBills = filteredBills.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxVisible = 5;
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4, '...', totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-      } else {
-        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
-      }
-    }
-    return pages;
-  };
+  // --- Filtering & Pagination Logic (Treasury) ---
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+        const matchesSearch = 
+            (t.description && t.description.toLowerCase().includes(treasurySearch.toLowerCase())) ||
+            (t.category && t.category.toLowerCase().includes(treasurySearch.toLowerCase()));
+        
+        const matchesType = treasuryFilter === 'all' || t.type === treasuryFilter;
+
+        let matchesDate = true;
+        if (treasuryDate.start) {
+            matchesDate = matchesDate && new Date(t.date) >= new Date(treasuryDate.start);
+        }
+        if (treasuryDate.end) {
+            const endDate = new Date(treasuryDate.end);
+            endDate.setHours(23, 59, 59, 999);
+            matchesDate = matchesDate && new Date(t.date) <= endDate;
+        }
+
+        return matchesSearch && matchesType && matchesDate;
+    });
+  }, [transactions, treasurySearch, treasuryFilter, treasuryDate]);
+
+  // Aggregate daily data for chart
+  const treasuryChartData = useMemo(() => {
+    const dailyMap = new Map<string, {name: string, income: number, expense: number}>();
+    
+    // Sort transactions by date asc for chart
+    const sortedTrans = [...filteredTransactions].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    sortedTrans.forEach(t => {
+        const day = new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (!dailyMap.has(day)) {
+            dailyMap.set(day, { name: day, income: 0, expense: 0 });
+        }
+        const entry = dailyMap.get(day)!;
+        if (t.type === 'income') entry.income += t.amount;
+        else entry.expense += t.amount;
+    });
+
+    return Array.from(dailyMap.values());
+  }, [filteredTransactions]);
+
+  const totalTreasuryPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = filteredTransactions.slice((treasuryPage - 1) * itemsPerPage, treasuryPage * itemsPerPage);
+
 
   // --- Render Helpers ---
 
-  const InvoiceView = ({ bill }: { bill: Bill }) => (
-    <div className="p-10 bg-white min-h-[600px] text-slate-800" id="invoice-print">
-      {/* Header */}
-      <div className="flex justify-between items-start border-b-2 border-slate-100 pb-8 mb-8">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-             <div className="bg-primary-600 text-white p-2 rounded-lg"><Wallet size={24}/></div>
-             <h1 className="text-2xl font-bold text-slate-900">{t('billing_invoice_title')}</h1>
-          </div>
-          <p className="text-slate-500 font-mono">#{bill.billNumber}</p>
-          <div className="mt-4 flex gap-2">
-             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${bill.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                {bill.status}
-             </span>
-             <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
-                {translateBillType(getBillType(bill))}
-             </span>
-          </div>
-        </div>
-        <div className="text-right">
-          <h2 className="text-xl font-bold text-primary-600">AllCare Hospital</h2>
-          <p className="text-sm text-slate-500 mt-1">123 Health Ave, Med City</p>
-          <p className="text-sm text-slate-500">contact@allcare.com</p>
-          <p className="text-sm text-slate-500">+1 (555) 012-3456</p>
-        </div>
-      </div>
+  const InvoiceView = ({ bill }: { bill: Bill }) => {
+    // Try to find Tax Item
+    const taxItem = bill.items.find(i => i.description.toLowerCase().startsWith('tax'));
+    const subtotal = bill.items.filter(i => !i.description.toLowerCase().startsWith('tax')).reduce((sum, i) => sum + i.amount, 0);
+    const taxAmount = taxItem ? taxItem.amount : 0;
+    const hospitalName = localStorage.getItem('hospital_name') || 'AllCare Hospital';
 
-      {/* Client Info */}
-      <div className="flex justify-between mb-10">
-        <div>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('billing_invoice_billed_to')}</p>
-          <p className="font-bold text-lg text-slate-900">{bill.patientName}</p>
-          {/* Mock address since it's not on bill object directly */}
-          <p className="text-slate-500 text-sm">Patient ID: #{bill.patientId}</p>
+    return (
+        <div className="p-10 bg-white min-h-[600px] text-slate-800" id="invoice-print">
+        {/* Header */}
+        <div className="flex justify-between items-start border-b-2 border-slate-100 pb-8 mb-8">
+            <div>
+            <div className="flex items-center gap-2 mb-2">
+                <div className="bg-primary-600 text-white p-2 rounded-lg"><Wallet size={24}/></div>
+                <h1 className="text-2xl font-bold text-slate-900">{t('billing_invoice_title')}</h1>
+            </div>
+            <p className="text-slate-500 font-mono">#{bill.billNumber}</p>
+            <div className="mt-4 flex gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${bill.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {bill.status}
+                </span>
+                <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
+                    {translateBillType(getBillType(bill))}
+                </span>
+            </div>
+            </div>
+            <div className="text-right">
+            <h2 className="text-xl font-bold text-primary-600">{hospitalName}</h2>
+            <p className="text-sm text-slate-500 mt-1">123 Health Ave, Med City</p>
+            <p className="text-sm text-slate-500">contact@allcare.com</p>
+            <p className="text-sm text-slate-500">+1 (555) 012-3456</p>
+            </div>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('billing_invoice_date')}</p>
-          <p className="font-medium text-slate-900">{new Date(bill.date).toLocaleDateString()}</p>
-        </div>
-      </div>
 
-      {/* Line Items */}
-      <table className="w-full mb-8">
-        <thead>
-          <tr className="bg-slate-50 border-y border-slate-200">
-            <th className="text-left py-3 px-4 font-semibold text-sm text-slate-600">{t('billing_modal_create_item_placeholder')}</th>
-            <th className="text-right py-3 px-4 font-semibold text-sm text-slate-600">{t('billing_table_header_amount')}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {bill.items.map((item, i) => (
-            <tr key={i}>
-              <td className="py-3 px-4">{item.description}</td>
-              <td className="py-3 px-4 text-right font-medium">${item.amount.toFixed(2)}</td>
+        {/* Client Info */}
+        <div className="flex justify-between mb-10">
+            <div>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('billing_invoice_billed_to')}</p>
+            <p className="font-bold text-lg text-slate-900">{bill.patientName}</p>
+            <p className="text-slate-500 text-sm">Patient ID: #{bill.patientId}</p>
+            </div>
+            <div className="text-right">
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('billing_invoice_date')}</p>
+            <p className="font-medium text-slate-900">{new Date(bill.date).toLocaleDateString()}</p>
+            </div>
+        </div>
+
+        {/* Line Items */}
+        <table className="w-full mb-8">
+            <thead>
+            <tr className="bg-slate-50 border-y border-slate-200">
+                <th className="text-left py-3 px-4 font-semibold text-sm text-slate-600">{t('billing_modal_create_item_placeholder')}</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm text-slate-600">{t('billing_table_header_amount')}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Totals */}
-      <div className="flex justify-end">
-        <div className="w-full max-w-xs space-y-3">
-          <div className="flex justify-between text-slate-600">
-            <span>{t('billing_invoice_subtotal')}</span>
-            <span className="font-medium">${bill.totalAmount.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-slate-600">
-            <span>{t('billing_invoice_tax')} (0%)</span>
-            <span className="font-medium">$0.00</span>
-          </div>
-          <div className="flex justify-between text-slate-900 font-bold text-lg border-t-2 border-slate-200 pt-3 mt-2">
-            <span>{t('billing_invoice_total')}</span>
-            <span>${bill.totalAmount.toFixed(2)}</span>
-          </div>
-           <div className="flex justify-between text-green-600 font-bold text-sm pt-1">
-            <span>{t('billing_invoice_paid')}</span>
-            <span>-${(bill.paidAmount || 0).toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-slate-900 font-bold text-xl bg-slate-100 p-3 rounded-lg">
-            <span>{t('billing_invoice_balance')}</span>
-            <span>${(bill.totalAmount - (bill.paidAmount || 0)).toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
-      
-    </div>
-  );
-
-  const canManageBilling = hasPermission(currentUser, Permissions.MANAGE_BILLING);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('billing_title')}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t('billing_subtitle')}</p>
-        </div>
-        {canManageBilling ? (
-            <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('billing_create_invoice_button')}</Button>
-        ) : (
-            <Button disabled variant="secondary" icon={Lock}>{t('billing_create_invoice_button')}</Button>
-        )}
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_stat_revenue')}</h4>
-          <p className="text-3xl font-bold text-emerald-600 mt-2">${stats.totalRevenue.toLocaleString()}</p>
-        </Card>
-        <Card>
-          <h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_stat_pending')}</h4>
-          <p className="text-3xl font-bold text-orange-500 mt-2">${stats.pendingAmount.toLocaleString()}</p>
-        </Card>
-        <Card>
-          <h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_stat_paid')}</h4>
-          <p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">{stats.paidInvoices}</p>
-        </Card>
-      </div>
-
-      <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-visible z-10">
-        <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-4 items-center">
-           <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <input 
-                type="text" 
-                placeholder={t('billing_search_placeholder')}
-                className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
-                value={searchTerm}
-                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              />
-           </div>
-           
-           <div className="relative w-full sm:w-auto">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-              <select 
-                className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none appearance-none cursor-pointer"
-                value={filterType}
-                onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="all">{t('patients_filter_type_all')}</option>
-                <option value="Appointment">{t('billing_type_appointment')}</option>
-                <option value="Lab Test">{t('billing_type_lab')}</option>
-                <option value="Admission">{t('billing_type_admission')}</option>
-                <option value="Operation">{t('billing_type_operation')}</option>
-                <option value="Procedure">{t('billing_type_procedure')}</option>
-                <option value="General">{t('billing_type_general')}</option>
-              </select>
-           </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_info')}</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_patient')}</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_form_type')}</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_status')}</th>
-                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_amount')}</th>
-                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('billing_table_header_actions')}</th>
-              </tr>
             </thead>
-            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-              {loading ? <tr><td colSpan={6} className="text-center py-10 text-slate-500">{t('billing_table_loading')}</td></tr> :
-               paginatedBills.length === 0 ? <tr><td colSpan={6} className="text-center py-10 text-slate-500">{t('billing_table_empty')}</td></tr> :
-               paginatedBills.map(bill => (
-                 <tr key={bill.id}>
-                   <td className="px-6 py-4 whitespace-nowrap">
-                     <div className="font-mono text-sm font-medium text-slate-900 dark:text-white">{bill.billNumber}</div>
-                     <div className="text-xs text-slate-500">{new Date(bill.date).toLocaleDateString()}</div>
-                   </td>
-                   <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200">{bill.patientName}</td>
-                   <td className="px-6 py-4 whitespace-nowrap">
-                     <Badge color={getTypeColor(getBillType(bill)) as any}>{translateBillType(getBillType(bill))}</Badge>
-                   </td>
-                   <td className="px-6 py-4 whitespace-nowrap">
-                     <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{bill.status}</Badge>
-                   </td>
-                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="font-bold text-lg text-slate-900 dark:text-white">${bill.totalAmount.toLocaleString()}</div>
-                      <div className="text-xs text-green-600">{t('billing_table_paid_amount')}: ${bill.paidAmount.toLocaleString()}</div>
-                   </td>
-                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
-                     <Button size="sm" variant="outline" onClick={() => setSelectedBill(bill)}>{t('billing_action_view_invoice')}</Button>
-                     {canManageBilling && bill.status !== 'paid' && (
-                       <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>
-                     )}
-                   </td>
-                 </tr>
-               ))}
+            <tbody className="divide-y divide-slate-100">
+            {bill.items.map((item, i) => (
+                <tr key={i}>
+                <td className="py-3 px-4">{item.description}</td>
+                <td className="py-3 px-4 text-right font-medium">${item.amount.toFixed(2)}</td>
+                </tr>
+            ))}
             </tbody>
-          </table>
-        </div>
-        
-        {!loading && filteredBills.length > itemsPerPage && (
-           <div className="px-6 py-4 border-t flex justify-end">
-             {/* Pagination controls can be added here */}
-           </div>
-        )}
-      </Card>
+        </table>
 
-      {/* MODALS */}
-      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title={t('billing_modal_create_title')}>
-        <form onSubmit={handleCreateSubmit} className="space-y-4">
-          <Select 
-            label={t('billing_modal_create_select_patient')}
-            value={createForm.patientId}
-            onChange={e => setCreateForm({...createForm, patientId: e.target.value})}
-            required
-          >
-            <option value="">{t('billing_modal_create_choose_patient')}</option>
-            {patients.map(p => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-          </Select>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">{t('billing_modal_create_items_label')}</label>
-            <div className="space-y-2">
-              {createForm.items.map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Input 
-                    placeholder={t('billing_modal_create_item_placeholder')}
-                    value={item.description}
-                    onChange={e => handleItemChange(index, 'description', e.target.value)}
-                    className="flex-1"
-                  />
-                  <Input 
-                    placeholder={t('billing_modal_create_amount_placeholder')}
-                    type="number"
-                    value={item.amount}
-                    onChange={e => handleItemChange(index, 'amount', e.target.value)}
-                    className="w-28"
-                  />
-                  <button type="button" onClick={() => handleRemoveItem(index)} className="text-red-500 hover:text-red-700 p-2">
-                    <Trash2 size={16}/>
-                  </button>
+        {/* Totals */}
+        <div className="flex justify-end">
+            <div className="w-full max-w-xs space-y-3">
+            <div className="flex justify-between text-slate-600">
+                <span>{t('billing_invoice_subtotal')}</span>
+                <span className="font-medium">${subtotal.toFixed(2)}</span>
+            </div>
+            {taxAmount > 0 && (
+                <div className="flex justify-between text-slate-600">
+                    <span>{t('billing_invoice_tax')}</span>
+                    <span className="font-medium">${taxAmount.toFixed(2)}</span>
                 </div>
-              ))}
+            )}
+            <div className="flex justify-between text-slate-900 font-bold text-lg border-t-2 border-slate-200 pt-3 mt-2">
+                <span>{t('billing_invoice_total')}</span>
+                <span>${bill.totalAmount.toFixed(2)}</span>
             </div>
-            <Button size="sm" variant="secondary" onClick={handleAddItem} className="mt-2">{t('billing_modal_create_add_item_button')}</Button>
-          </div>
-          <div className="pt-2 border-t text-right">
-             <span className="text-sm text-slate-500">{t('billing_modal_create_total_label')}: </span>
-             <span className="text-lg font-bold">${createForm.items.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0)}</span>
-          </div>
-          <div className="flex justify-end pt-4">
-            <Button type="submit">{t('billing_modal_create_generate_button')}</Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title={t('billing_modal_payment_title')}>
-        {payingBill && (
-          <form onSubmit={handlePaymentSubmit} className="space-y-6">
-            <div className="text-center p-4 bg-slate-50 dark:bg-slate-900 rounded-xl">
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t('billing_modal_payment_balance_due')}</p>
-              <p className="text-4xl font-bold text-slate-900 dark:text-white">${(payingBill.totalAmount - payingBill.paidAmount).toLocaleString()}</p>
-            </div>
-            <Input 
-              label={t('billing_modal_payment_amount')}
-              type="number" 
-              value={paymentForm.amount}
-              onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
-              required
-            />
-            <Select 
-              label={t('billing_modal_payment_method')}
-              value={paymentForm.method}
-              onChange={e => setPaymentForm({...paymentForm, method: e.target.value})}
-              required
-            >
-              <option value="">{t('billing_modal_payment_method_select')}</option>
-              {paymentMethods.filter(p => p.isActive).map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}
-            </Select>
-            <div className="flex justify-end pt-4">
-              <Button type="submit" icon={CheckCircle}>{t('billing_modal_payment_confirm_button')}</Button>
-            </div>
-          </form>
-        )}
-      </Modal>
-
-      <Modal isOpen={!!selectedBill} onClose={() => setSelectedBill(null)} title={t('billing_modal_preview_title')}>
-        {selectedBill && (
-          <div>
-            <InvoiceView bill={selectedBill} />
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="secondary" onClick={() => setSelectedBill(null)}>{t('close')}</Button>
-              <Button icon={Printer}>{t('billing_modal_preview_print_button')}</Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-    </div>
-  );
-};
+            <div className="flex

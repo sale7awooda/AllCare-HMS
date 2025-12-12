@@ -1,4 +1,3 @@
-
 {
   "app_loading": "Loading application...",
   "nav_dashboard": "Dashboard",
@@ -576,6 +575,9 @@
   "staff_role_staff": "General Staff",
   "staff_role_hr_manager": "HR Manager",
   "staff_role_medical_assistant": "Medical Assistant",
+  "staff_role_receptionist": "Receptionist",
+  "staff_role_accountant": "Accountant",
+  "staff_role_manager": "Manager",
   "staff_select_department": "Select Department...",
   "staff_select_specialization": "Select Specialization...",
   "staff_status_active": "Active",

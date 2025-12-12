@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // Define a comprehensive set of roles as per requirements
@@ -68,6 +67,7 @@ export interface MedicalStaff {
   status: 'active' | 'inactive' | 'dismissed';
   email?: string;
   phone?: string;
+  address?: string; // Added address to interface
   
   // Schedule
   availableDays?: string[]; // Array of days e.g. ["Mon", "Tue"]

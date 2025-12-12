@@ -28,7 +28,7 @@ exports.getAll = (req, res) => {
         status: s.status,
         email: s.email,
         phone: s.phone,
-        address: s.address,
+        address: s.address || '',
         baseSalary: s.base_salary,
         joinDate: s.join_date,
         bankDetails: bankDetails,
@@ -71,7 +71,7 @@ exports.create = (req, res) => {
     `).run(
       employeeId, fullName, type, department, specialization, 
       consultationFee || 0, consultationFeeFollowup || 0, consultationFeeEmergency || 0, 
-      email, phone, address, baseSalary || 0, joinDate || new Date().toISOString().split('T')[0],
+      email, phone, address || null, baseSalary || 0, joinDate || new Date().toISOString().split('T')[0],
       bankDetailsJson,
       daysJson, availableTimeStart || null, availableTimeEnd || null, status || 'active'
     );
@@ -94,6 +94,7 @@ exports.update = (req, res) => {
   const bankDetailsJson = bankDetails ? JSON.stringify(bankDetails) : null;
 
   try {
+    // Explicitly update address column
     db.prepare(`
       UPDATE medical_staff SET
         full_name = ?, type = ?, department = ?, specialization = ?,
@@ -104,12 +105,13 @@ exports.update = (req, res) => {
     `).run(
       fullName, type, department, specialization,
       consultationFee || 0, consultationFeeFollowup || 0, consultationFeeEmergency || 0,
-      email, phone, address, baseSalary || 0, joinDate, bankDetailsJson,
+      email, phone, address || null, baseSalary || 0, joinDate, bankDetailsJson,
       daysJson, availableTimeStart, availableTimeEnd, status,
       id
     );
     res.json({ message: 'Staff updated successfully' });
   } catch (err) {
+    console.error(err);
     res.status(400).json({ error: err.message });
   }
 };

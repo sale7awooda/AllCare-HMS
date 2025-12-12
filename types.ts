@@ -226,3 +226,15 @@ export interface PaymentMethod {
   name_ar: string;
   isActive: boolean;
 }
+
+export interface Transaction {
+  id: number;
+  type: 'income' | 'expense';
+  category: string;
+  amount: number;
+  method: string;
+  reference_id?: number;
+  details?: any;
+  date: string;
+  description?: string;
+}
