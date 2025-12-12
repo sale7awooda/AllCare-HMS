@@ -67,6 +67,7 @@ export interface MedicalStaff {
   status: 'active' | 'inactive' | 'dismissed';
   email?: string;
   phone?: string;
+  address?: string; // Added address field
   
   // Schedule
   availableDays?: string[]; // Array of days e.g. ["Mon", "Tue"]

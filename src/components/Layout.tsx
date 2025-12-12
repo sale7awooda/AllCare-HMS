@@ -27,7 +27,6 @@ import { canAccessRoute } from '../utils/rbac';
 import { Tooltip } from './UI';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
-import { AIAssistant } from './AIAssistant';
 
 // Define structure for grouped navigation
 type NavGroup = {
@@ -283,9 +282,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </div>
         </main>
       </div>
-      
-      {/* Floating AI Assistant */}
-      <AIAssistant />
     </div>
   );
 };

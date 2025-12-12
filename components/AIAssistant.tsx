@@ -67,7 +67,6 @@ export const AIAssistant = () => {
 
     try {
       // Initialize Gemini Client
-      // Note: We create a new instance to ensure we pick up the env var correctly in all contexts
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const contextPrompt = `
@@ -204,4 +203,51 @@ export const AIAssistant = () => {
                 className={`
                   max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm whitespace-pre-wrap
                   ${msg.role === 'user' 
-                    ? 'bg-primary-600 text-white rounded-tr
+                    ? 'bg-primary-600 text-white rounded-tr-none' 
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'
+                  }
+                `}
+              >
+                {msg.text}
+              </div>
+            </div>
+          ))}
+          {isThinking && (
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 flex items-center justify-center shrink-0">
+                <Bot size={14} />
+              </div>
+              <div className="bg-slate-100 dark:bg-slate-800 px-4 py-3 rounded-2xl rounded-tl-none flex items-center gap-2">
+                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-75"></div>
+                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-150"></div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input */}
+        <form onSubmit={handleSend} className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-b-2xl">
+          <div className="relative">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask anything..."
+              className="w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500 placeholder-slate-400 dark:text-white"
+              disabled={isThinking}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || isThinking}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white dark:bg-slate-700 text-primary-600 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {isThinking ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
+  );
+};

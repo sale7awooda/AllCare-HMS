@@ -56,6 +56,7 @@ router.put('/hr/leaves/:id', authorizeRoles(Permissions.MANAGE_HR), staffControl
 
 router.get('/hr/payroll', authorizeRoles(Permissions.MANAGE_HR), staffController.getPayroll);
 router.post('/hr/payroll/generate', authorizeRoles(Permissions.MANAGE_HR), staffController.generatePayroll);
+router.put('/hr/payroll/:id/status', authorizeRoles(Permissions.MANAGE_HR), staffController.updatePayrollStatus);
 
 router.get('/hr/financials', authorizeRoles(Permissions.MANAGE_HR), staffController.getFinancials);
 router.post('/hr/financials', authorizeRoles(Permissions.MANAGE_HR), staffController.addAdjustment);

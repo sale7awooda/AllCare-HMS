@@ -129,7 +129,7 @@ export const Staff = () => {
     // Ensure numbers are converted, empty string becomes 0
     const payload = {
         ...restOfForm,
-        address: restOfForm.address || null, // Explicitly handle empty address
+        address: restOfForm.address || null,
         baseSalary: parseFloat(restOfForm.baseSalary) || 0,
         consultationFee: parseFloat(restOfForm.consultationFee) || 0,
         consultationFeeFollowup: parseFloat(restOfForm.consultationFeeFollowup) || 0,
@@ -167,10 +167,9 @@ export const Staff = () => {
           }
       }
 
-      // Initialize form state
       const formState = s ? { 
           ...s, 
-          address: s.address || '', // Fix: Ensure address defaults to empty string if undefined to avoid uncontrolled input error
+          address: s.address || '',
           ...bankDetailsParsed,
       } : { 
           fullName: '', type: 'doctor', status: 'active', 
@@ -199,7 +198,6 @@ export const Staff = () => {
   
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newType = e.target.value;
-    // Reset department and specialization when role changes to prevent invalid selections
     setStaffForm(prev => ({
         ...prev,
         type: newType as any,
@@ -208,18 +206,13 @@ export const Staff = () => {
     }));
   };
   
-  // Filter Departments based on Role
   const filteredDepartments = useMemo(() => {
     if (!staffForm.type) return departments;
     const allowedDepts = roleDepartmentMap[staffForm.type];
-    
-    // If role has specific mappings, filter. Otherwise show all (fallback).
     if (!allowedDepts || allowedDepts.length === 0) return departments;
-    
     return departments.filter(d => allowedDepts.includes(d.name_en));
   }, [staffForm.type, departments]);
 
-  // Filter Specializations based on Role
   const filteredSpecializations = useMemo(() => {
     if (!staffForm.type) return specializations;
     return specializations.filter(s => !s.related_role || s.related_role === staffForm.type);
@@ -227,51 +220,71 @@ export const Staff = () => {
 
   // --- Attendance Actions ---
 
-  const handleCheckIn = async (staffMember: MedicalStaff) => {
-    const now = new Date();
-    const timeString = now.toTimeString().slice(0, 5); // HH:MM
-    
-    // Determine status (Present or Late)
-    let status: 'present' | 'late' = 'present';
-    if (staffMember.availableTimeStart) {
-        if (timeString > staffMember.availableTimeStart) {
-            status = 'late';
+  const handleCheckIn = (staffMember: MedicalStaff) => {
+    setConfirmState({
+        isOpen: true,
+        title: t('staff_attendance_confirm'),
+        message: `Check in ${staffMember.fullName} at ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}?`,
+        action: async () => {
+            setProcessStatus('processing');
+            setProcessMessage(t('processing'));
+            try {
+                const now = new Date();
+                const timeString = now.toTimeString().slice(0, 5);
+                let status: 'present' | 'late' = 'present';
+                if (staffMember.availableTimeStart && timeString > staffMember.availableTimeStart) {
+                    status = 'late';
+                }
+
+                await api.markAttendance({
+                    staffId: staffMember.id,
+                    date: selectedDate,
+                    status: status,
+                    checkIn: timeString
+                });
+                const data = await api.getAttendance(selectedDate);
+                setAttendance(data);
+                setProcessStatus('success');
+                setProcessMessage(t('success'));
+                setTimeout(() => setProcessStatus('idle'), 1000);
+            } catch (e: any) {
+                setProcessStatus('error');
+                setProcessMessage(e.message || 'Failed to check in');
+            }
         }
-    }
-
-    try {
-        await api.markAttendance({
-            staffId: staffMember.id,
-            date: selectedDate,
-            status: status,
-            checkIn: timeString
-        });
-        const data = await api.getAttendance(selectedDate);
-        setAttendance(data);
-    } catch (e: any) {
-        alert(e.message || 'Failed to check in');
-    }
+    });
   };
 
-  const handleCheckOut = async (record: Attendance) => {
-    const now = new Date();
-    const timeString = now.toTimeString().slice(0, 5); // HH:MM
-
-    try {
-        await api.markAttendance({
-            staffId: record.staffId,
-            date: record.date,
-            status: record.status, // Keep existing status (e.g. late remains late)
-            checkOut: timeString
-        });
-        const data = await api.getAttendance(selectedDate);
-        setAttendance(data);
-    } catch (e: any) {
-        alert(e.message || 'Failed to check out');
-    }
+  const handleCheckOut = (record: Attendance) => {
+    setConfirmState({
+        isOpen: true,
+        title: "Confirm Check Out",
+        message: `Check out ${record.staffName}?`,
+        action: async () => {
+            setProcessStatus('processing');
+            setProcessMessage(t('processing'));
+            try {
+                const now = new Date();
+                const timeString = now.toTimeString().slice(0, 5);
+                await api.markAttendance({
+                    staffId: record.staffId,
+                    date: record.date,
+                    status: record.status,
+                    checkOut: timeString
+                });
+                const data = await api.getAttendance(selectedDate);
+                setAttendance(data);
+                setProcessStatus('success');
+                setProcessMessage(t('success'));
+                setTimeout(() => setProcessStatus('idle'), 1000);
+            } catch (e: any) {
+                setProcessStatus('error');
+                setProcessMessage(e.message || 'Failed to check out');
+            }
+        }
+    });
   };
 
-  // Keep modal for manual edits
   const openAttendanceModal = (staffId: number, staffName: string, status: 'present' | 'late' | 'absent') => {
       const existingRecord = attendance.find(a => a.staffId === staffId);
       const now = new Date();
@@ -307,6 +320,7 @@ export const Staff = () => {
           setAttendance(data);
           
           setProcessStatus('success');
+          setProcessMessage(t('success'));
           setTimeout(() => {
               setProcessStatus('idle');
               setAttendanceModal(null);
@@ -319,16 +333,45 @@ export const Staff = () => {
 
   const handleLeaveRequest = async (e: React.FormEvent) => {
       e.preventDefault();
-      await api.requestLeave(leaveForm);
-      setIsLeaveModalOpen(false);
-      const data = await api.getLeaves();
-      setLeaves(data);
+      setProcessStatus('processing');
+      setProcessMessage(t('processing'));
+      try {
+        await api.requestLeave(leaveForm);
+        const data = await api.getLeaves();
+        setLeaves(data);
+        setProcessStatus('success');
+        setProcessMessage(t('success'));
+        setTimeout(() => {
+            setIsLeaveModalOpen(false);
+            setProcessStatus('idle');
+        }, 1000);
+      } catch (e: any) {
+        setProcessStatus('error');
+        setProcessMessage(e.message || 'Failed to request leave');
+      }
   };
 
-  const updateLeaveStatus = async (id: number, status: string) => {
-      await api.updateLeaveStatus(id, status);
-      const data = await api.getLeaves();
-      setLeaves(data);
+  const updateLeaveStatus = (id: number, status: string) => {
+      setConfirmState({
+        isOpen: true,
+        title: status === 'approved' ? t('hr_approve') : t('hr_reject'),
+        message: `Are you sure you want to ${status} this leave request?`,
+        action: async () => {
+            setProcessStatus('processing');
+            setProcessMessage(t('processing'));
+            try {
+                await api.updateLeaveStatus(id, status);
+                const data = await api.getLeaves();
+                setLeaves(data);
+                setProcessStatus('success');
+                setProcessMessage(t('success'));
+                setTimeout(() => setProcessStatus('idle'), 1000);
+            } catch (e: any) {
+                setProcessStatus('error');
+                setProcessMessage(e.message || 'Failed to update leave status');
+            }
+        }
+      });
   };
 
   const handleGeneratePayroll = () => {
@@ -337,19 +380,64 @@ export const Staff = () => {
           title: t('staff_tab_payroll'),
           message: t('staff_generate_payroll_confirm', {month: selectedMonth}),
           action: async () => {
-              await api.generatePayroll({ month: selectedMonth });
-              const data = await api.getPayroll(selectedMonth);
-              setPayroll(data);
+              setProcessStatus('processing');
+              setProcessMessage(t('processing'));
+              try {
+                  await api.generatePayroll({ month: selectedMonth });
+                  const data = await api.getPayroll(selectedMonth);
+                  setPayroll(data);
+                  setProcessStatus('success');
+                  setProcessMessage(t('success'));
+                  setTimeout(() => setProcessStatus('idle'), 1000);
+              } catch(e: any) {
+                  setProcessStatus('error');
+                  setProcessMessage(e.message || 'Failed to generate payroll');
+              }
+          }
+      });
+  };
+
+  const handleMarkPaid = (record: PayrollRecord) => {
+      setConfirmState({
+          isOpen: true,
+          title: "Confirm Payment",
+          message: `Mark payroll for ${record.staffName} as Paid?`,
+          action: async () => {
+              setProcessStatus('processing');
+              setProcessMessage(t('processing'));
+              try {
+                  await api.updatePayrollStatus(record.id, 'paid');
+                  const data = await api.getPayroll(selectedMonth);
+                  setPayroll(data);
+                  setProcessStatus('success');
+                  setProcessMessage(t('success'));
+                  setTimeout(() => setProcessStatus('idle'), 1000);
+              } catch(e: any) {
+                  setProcessStatus('error');
+                  setProcessMessage(e.message || 'Failed to update status');
+              }
           }
       });
   };
 
   const handleAdjustmentSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      await api.addAdjustment({ ...adjForm, amount: parseFloat(adjForm.amount) });
-      setIsAdjustmentModalOpen(false);
-      const data = await api.getFinancials('all');
-      setFinancials(data);
+      setProcessStatus('processing');
+      setProcessMessage(t('processing'));
+      try {
+        await api.addAdjustment({ ...adjForm, amount: parseFloat(adjForm.amount) });
+        const data = await api.getFinancials('all');
+        setFinancials(data);
+        setProcessStatus('success');
+        setProcessMessage(t('success'));
+        setTimeout(() => {
+            setIsAdjustmentModalOpen(false);
+            setProcessStatus('idle');
+        }, 1000);
+      } catch (e: any) {
+        setProcessStatus('error');
+        setProcessMessage(e.message || 'Failed to add entry');
+      }
   };
 
   const statusOrder: { [key in MedicalStaff['status']]: number } = {
@@ -515,7 +603,6 @@ export const Staff = () => {
                                       {canManageHR && (
                                           <td className="px-4 py-3 text-right">
                                               <div className="flex justify-end gap-2 items-center">
-                                                  {/* Button Logic */}
                                                   {!record && (
                                                       <>
                                                         <Button size="sm" onClick={() => handleCheckIn(s)} className="!bg-green-600 hover:!bg-green-700 text-white border-none" icon={LogIn}>Check In</Button>
@@ -593,16 +680,17 @@ export const Staff = () => {
                   <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium">
                           <tr>
-                              <th className="px-4 py-3">{t('staff_form_role_title')}</th>
+                              <th className="px-4 py-3">Staff</th>
                               <th className="px-4 py-3 text-right">{t('staff_form_salary')}</th>
                               <th className="px-4 py-3 text-right">{t('hr_adj_bonus')}</th>
                               <th className="px-4 py-3 text-right">{t('staff_tab_financials')}</th>
                               <th className="px-4 py-3 text-right font-bold">Net Salary</th>
                               <th className="px-4 py-3 text-center">{t('status')}</th>
+                              {canManageHR && <th className="px-4 py-3 text-right">{t('actions')}</th>}
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {payroll.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-slate-400">{t('no_data')}</td></tr> : payroll.map(p => (
+                          {payroll.length === 0 ? <tr><td colSpan={7} className="text-center py-8 text-slate-400">{t('no_data')}</td></tr> : payroll.map(p => (
                               <tr key={p.id}>
                                   <td className="px-4 py-3 font-medium">{p.staffName}</td>
                                   <td className="px-4 py-3 text-right">${p.baseSalary.toLocaleString()}</td>
@@ -610,6 +698,13 @@ export const Staff = () => {
                                   <td className="px-4 py-3 text-right text-red-600">-${p.totalFines.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">${p.netSalary.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-center"><Badge color={p.status === 'paid' ? 'green' : 'yellow'}>{p.status}</Badge></td>
+                                  {canManageHR && (
+                                      <td className="px-4 py-3 text-right">
+                                          {p.status === 'draft' && (
+                                              <Button size="sm" onClick={() => handleMarkPaid(p)}>Mark Paid</Button>
+                                          )}
+                                      </td>
+                                  )}
                               </tr>
                           ))}
                       </tbody>
@@ -727,7 +822,6 @@ export const Staff = () => {
                       <Input label={t('settings_profile_email')} type="email" value={staffForm.email || ''} onChange={e => setStaffForm({...staffForm, email: e.target.value})} />
                       <Input label={t('settings_profile_phone')} value={staffForm.phone || ''} onChange={e => setStaffForm({...staffForm, phone: e.target.value})} />
                   </div>
-                  {/* Address Input - Ensures value is never undefined */}
                   <Input label={t('patients_modal_form_address')} value={staffForm.address || ''} onChange={e => setStaffForm({...staffForm, address: e.target.value})} />
               </div>
 
@@ -744,7 +838,6 @@ export const Staff = () => {
                       </Select>
                   </div>
                   
-                  {/* Department Select - Filtered by Role */}
                   <Select 
                     label={t('staff_select_department')} 
                     value={staffForm.department || ''} 
@@ -754,7 +847,6 @@ export const Staff = () => {
                       {filteredDepartments.map(d => <option key={d.id} value={d.name_en}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
                   </Select>
                   
-                  {/* Specialization Select - Filtered by Role */}
                   {filteredSpecializations.length > 0 && (
                     <Select 
                         label={t('staff_select_specialization')} 

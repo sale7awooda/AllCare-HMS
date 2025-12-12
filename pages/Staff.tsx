@@ -5,7 +5,8 @@ import {
   Plus, Search, Briefcase, Clock, 
   Calendar, DollarSign, Wallet,
   AlertTriangle, CheckCircle, User, Phone, Mail,
-  Loader2, XCircle, Edit, Trash2, X, Check, MapPin
+  Loader2, XCircle, Edit, Trash2, X, Check, MapPin,
+  LogIn, LogOut
 } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment } from '../types';
@@ -16,15 +17,19 @@ import { useAuth } from '../context/AuthContext';
 const DAYS_OF_WEEK_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAYS_OF_WEEK_AR = ['إث', 'ثل', 'أر', 'خم', 'جم', 'سب', 'أح'];
 
+// Extended mapping for Role -> Departments
 const roleDepartmentMap: Record<string, string[]> = {
   doctor: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology', 'Dermatology', 'Radiology', 'Anesthesiology', 'Internal Medicine'],
-  nurse: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology'],
+  nurse: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology', 'Internal Medicine'],
   technician: ['Radiology', 'Laboratory'],
   anesthesiologist: ['Anesthesiology', 'General Surgery'],
   pharmacist: ['Pharmacy'],
-  hr_manager: ['Administration'],
+  hr_manager: ['Administration', 'HR'],
+  accountant: ['Finance', 'Administration'],
+  manager: ['Administration', 'Management'],
   staff: ['Administration', 'Maintenance', 'Security', 'Support Services', 'Finance', 'IT Support'],
-  medical_assistant: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology', 'Dermatology', 'Internal Medicine']
+  medical_assistant: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'General Surgery', 'Internal Medicine'],
+  receptionist: ['Administration', 'Front Desk']
 };
 
 export const Staff = () => {
@@ -124,6 +129,7 @@ export const Staff = () => {
     // Ensure numbers are converted, empty string becomes 0
     const payload = {
         ...restOfForm,
+        address: restOfForm.address || null,
         baseSalary: parseFloat(restOfForm.baseSalary) || 0,
         consultationFee: parseFloat(restOfForm.consultationFee) || 0,
         consultationFeeFollowup: parseFloat(restOfForm.consultationFeeFollowup) || 0,
@@ -161,9 +167,9 @@ export const Staff = () => {
           }
       }
 
-      // Initialize number fields as strings (or empty strings if 0 for new)
       const formState = s ? { 
           ...s, 
+          address: s.address || '',
           ...bankDetailsParsed,
       } : { 
           fullName: '', type: 'doctor', status: 'active', 
@@ -212,6 +218,73 @@ export const Staff = () => {
     return specializations.filter(s => !s.related_role || s.related_role === staffForm.type);
   }, [staffForm.type, specializations]);
 
+  // --- Attendance Actions ---
+
+  const handleCheckIn = (staffMember: MedicalStaff) => {
+    setConfirmState({
+        isOpen: true,
+        title: t('staff_attendance_confirm'),
+        message: `Check in ${staffMember.fullName} at ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}?`,
+        action: async () => {
+            setProcessStatus('processing');
+            setProcessMessage(t('processing'));
+            try {
+                const now = new Date();
+                const timeString = now.toTimeString().slice(0, 5);
+                let status: 'present' | 'late' = 'present';
+                if (staffMember.availableTimeStart && timeString > staffMember.availableTimeStart) {
+                    status = 'late';
+                }
+
+                await api.markAttendance({
+                    staffId: staffMember.id,
+                    date: selectedDate,
+                    status: status,
+                    checkIn: timeString
+                });
+                const data = await api.getAttendance(selectedDate);
+                setAttendance(data);
+                setProcessStatus('success');
+                setProcessMessage(t('success'));
+                setTimeout(() => setProcessStatus('idle'), 1000);
+            } catch (e: any) {
+                setProcessStatus('error');
+                setProcessMessage(e.message || 'Failed to check in');
+            }
+        }
+    });
+  };
+
+  const handleCheckOut = (record: Attendance) => {
+    setConfirmState({
+        isOpen: true,
+        title: "Confirm Check Out",
+        message: `Check out ${record.staffName}?`,
+        action: async () => {
+            setProcessStatus('processing');
+            setProcessMessage(t('processing'));
+            try {
+                const now = new Date();
+                const timeString = now.toTimeString().slice(0, 5);
+                await api.markAttendance({
+                    staffId: record.staffId,
+                    date: record.date,
+                    status: record.status,
+                    checkOut: timeString
+                });
+                const data = await api.getAttendance(selectedDate);
+                setAttendance(data);
+                setProcessStatus('success');
+                setProcessMessage(t('success'));
+                setTimeout(() => setProcessStatus('idle'), 1000);
+            } catch (e: any) {
+                setProcessStatus('error');
+                setProcessMessage(e.message || 'Failed to check out');
+            }
+        }
+    });
+  };
+
   const openAttendanceModal = (staffId: number, staffName: string, status: 'present' | 'late' | 'absent') => {
       const existingRecord = attendance.find(a => a.staffId === staffId);
       const now = new Date();
@@ -222,7 +295,7 @@ export const Staff = () => {
           staffId,
           staffName,
           status: existingRecord ? existingRecord.status : status,
-          checkIn: existingRecord?.checkIn || timeString,
+          checkIn: existingRecord?.checkIn || (status !== 'absent' ? timeString : ''),
           checkOut: existingRecord?.checkOut || '',
           isUpdate: !!existingRecord
       });
@@ -247,6 +320,7 @@ export const Staff = () => {
           setAttendance(data);
           
           setProcessStatus('success');
+          setProcessMessage(t('success'));
           setTimeout(() => {
               setProcessStatus('idle');
               setAttendanceModal(null);
@@ -259,16 +333,45 @@ export const Staff = () => {
 
   const handleLeaveRequest = async (e: React.FormEvent) => {
       e.preventDefault();
-      await api.requestLeave(leaveForm);
-      setIsLeaveModalOpen(false);
-      const data = await api.getLeaves();
-      setLeaves(data);
+      setProcessStatus('processing');
+      setProcessMessage(t('processing'));
+      try {
+        await api.requestLeave(leaveForm);
+        const data = await api.getLeaves();
+        setLeaves(data);
+        setProcessStatus('success');
+        setProcessMessage(t('success'));
+        setTimeout(() => {
+            setIsLeaveModalOpen(false);
+            setProcessStatus('idle');
+        }, 1000);
+      } catch (e: any) {
+        setProcessStatus('error');
+        setProcessMessage(e.message || 'Failed to request leave');
+      }
   };
 
-  const updateLeaveStatus = async (id: number, status: string) => {
-      await api.updateLeaveStatus(id, status);
-      const data = await api.getLeaves();
-      setLeaves(data);
+  const updateLeaveStatus = (id: number, status: string) => {
+      setConfirmState({
+        isOpen: true,
+        title: status === 'approved' ? t('hr_approve') : t('hr_reject'),
+        message: `Are you sure you want to ${status} this leave request?`,
+        action: async () => {
+            setProcessStatus('processing');
+            setProcessMessage(t('processing'));
+            try {
+                await api.updateLeaveStatus(id, status);
+                const data = await api.getLeaves();
+                setLeaves(data);
+                setProcessStatus('success');
+                setProcessMessage(t('success'));
+                setTimeout(() => setProcessStatus('idle'), 1000);
+            } catch (e: any) {
+                setProcessStatus('error');
+                setProcessMessage(e.message || 'Failed to update leave status');
+            }
+        }
+      });
   };
 
   const handleGeneratePayroll = () => {
@@ -277,19 +380,41 @@ export const Staff = () => {
           title: t('staff_tab_payroll'),
           message: t('staff_generate_payroll_confirm', {month: selectedMonth}),
           action: async () => {
-              await api.generatePayroll({ month: selectedMonth });
-              const data = await api.getPayroll(selectedMonth);
-              setPayroll(data);
+              setProcessStatus('processing');
+              setProcessMessage(t('processing'));
+              try {
+                  await api.generatePayroll({ month: selectedMonth });
+                  const data = await api.getPayroll(selectedMonth);
+                  setPayroll(data);
+                  setProcessStatus('success');
+                  setProcessMessage(t('success'));
+                  setTimeout(() => setProcessStatus('idle'), 1000);
+              } catch(e: any) {
+                  setProcessStatus('error');
+                  setProcessMessage(e.message || 'Failed to generate payroll');
+              }
           }
       });
   };
 
   const handleAdjustmentSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      await api.addAdjustment({ ...adjForm, amount: parseFloat(adjForm.amount) });
-      setIsAdjustmentModalOpen(false);
-      const data = await api.getFinancials('all');
-      setFinancials(data);
+      setProcessStatus('processing');
+      setProcessMessage(t('processing'));
+      try {
+        await api.addAdjustment({ ...adjForm, amount: parseFloat(adjForm.amount) });
+        const data = await api.getFinancials('all');
+        setFinancials(data);
+        setProcessStatus('success');
+        setProcessMessage(t('success'));
+        setTimeout(() => {
+            setIsAdjustmentModalOpen(false);
+            setProcessStatus('idle');
+        }, 1000);
+      } catch (e: any) {
+        setProcessStatus('error');
+        setProcessMessage(e.message || 'Failed to add entry');
+      }
   };
 
   const statusOrder: { [key in MedicalStaff['status']]: number } = {
@@ -405,6 +530,7 @@ export const Staff = () => {
                               <div className="flex items-center gap-2"><Briefcase size={14}/> {person.department || t('patients_modal_view_na')}</div>
                               <div className="flex items-center gap-2"><Phone size={14}/> {person.phone || t('patients_modal_view_na')}</div>
                               <div className="flex items-center gap-2 truncate"><Mail size={14}/> {person.email || t('patients_modal_view_na')}</div>
+                              {person.address && <div className="flex items-center gap-2 truncate"><MapPin size={14}/> {person.address}</div>}
                           </div>
 
                           {canManageHR && (
@@ -438,6 +564,9 @@ export const Staff = () => {
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {staff.filter(s => s.status === 'active').map(s => {
                               const record = attendance.find(a => a.staffId === s.id);
+                              const isCheckedIn = record && record.checkIn && !record.checkOut;
+                              const isAbsent = record && record.status === 'absent';
+                              
                               return (
                                   <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{s.fullName} <span className="text-xs text-slate-400 block">{t(`staff_role_${s.type}`)}</span></td>
@@ -450,10 +579,21 @@ export const Staff = () => {
                                       <td className="px-4 py-3">{record?.checkOut || '-'}</td>
                                       {canManageHR && (
                                           <td className="px-4 py-3 text-right">
-                                              <div className="flex justify-end gap-1">
-                                                  <button onClick={() => openAttendanceModal(s.id, s.fullName, 'present')} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Present"><CheckCircle size={16}/></button>
-                                                  <button onClick={() => openAttendanceModal(s.id, s.fullName, 'late')} className="p-1.5 text-orange-600 hover:bg-orange-50 rounded" title="Late"><Clock size={16}/></button>
-                                                  <button onClick={() => openAttendanceModal(s.id, s.fullName, 'absent')} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Absent"><XCircle size={16}/></button>
+                                              <div className="flex justify-end gap-2 items-center">
+                                                  {!record && (
+                                                      <>
+                                                        <Button size="sm" onClick={() => handleCheckIn(s)} className="!bg-green-600 hover:!bg-green-700 text-white border-none" icon={LogIn}>Check In</Button>
+                                                        <button onClick={() => openAttendanceModal(s.id, s.fullName, 'absent')} className="text-red-500 hover:bg-red-50 p-1.5 rounded" title="Mark Absent"><XCircle size={18}/></button>
+                                                      </>
+                                                  )}
+                                                  
+                                                  {isCheckedIn && (
+                                                      <Button size="sm" onClick={() => handleCheckOut(record)} variant="danger" icon={LogOut}>Check Out</Button>
+                                                  )}
+
+                                                  {(record?.checkOut || isAbsent) && (
+                                                      <button onClick={() => openAttendanceModal(s.id, s.fullName, record.status)} className="text-slate-400 hover:text-primary-600 p-1.5 rounded hover:bg-slate-100" title="Edit"><Edit size={16}/></button>
+                                                  )}
                                               </div>
                                           </td>
                                       )}
@@ -666,13 +806,22 @@ export const Staff = () => {
                           <option value="dismissed">{t('staff_status_dismissed')}</option>
                       </Select>
                   </div>
-                  <Select label={t('staff_select_department')} value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})}>
+                  
+                  <Select 
+                    label={t('staff_select_department')} 
+                    value={staffForm.department || ''} 
+                    onChange={e => setStaffForm({...staffForm, department: e.target.value})}
+                  >
                       <option value="">{t('staff_select_department')}</option>
                       {filteredDepartments.map(d => <option key={d.id} value={d.name_en}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
                   </Select>
                   
                   {filteredSpecializations.length > 0 && (
-                    <Select label={t('staff_select_specialization')} value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}>
+                    <Select 
+                        label={t('staff_select_specialization')} 
+                        value={staffForm.specialization || ''} 
+                        onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}
+                    >
                         <option value="">{t('staff_select_specialization')}</option>
                         {filteredSpecializations.map(s => <option key={s.id} value={s.name_en}>{language === 'ar' ? s.name_ar : s.name_en}</option>)}
                     </Select>

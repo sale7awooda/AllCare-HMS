@@ -1,7 +1,9 @@
 
 import axios from 'axios';
 
-// Create axios instance with relative URL to support both dev proxy and production
+// Use relative URL. 
+// In dev, Vite proxies /api to http://localhost:3000/api
+// In prod, Express serves the frontend and handles /api routes on the same domain.
 const client = axios.create({
   baseURL: '/api',
 });
@@ -21,8 +23,7 @@ client.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      // Optional: Redirect to login or handle session expiry
-      // window.location.href = '/login'; 
+      window.location.href = '/'; 
     }
     return Promise.reject(error);
   }
@@ -59,9 +60,10 @@ export const api = {
   
   getPayroll: (month) => client.get(`/hr/payroll?month=${month}`),
   generatePayroll: (data) => client.post('/hr/payroll/generate', data),
+  updatePayrollStatus: (id, status) => client.put(`/hr/payroll/${id}/status`, { status }),
   
-  getFinancials: (type) => client.get(`/hr/financials?type=${type}`), // bonus, fine, loan
-  addAdjustment: (data) => client.post('/hr/financials', data), // bonus, fine, loan
+  getFinancials: (type) => client.get(`/hr/financials?type=${type}`), 
+  addAdjustment: (data) => client.post('/hr/financials', data), 
 
   // --- Appointments ---
   getAppointments: () => client.get('/appointments'),
@@ -73,7 +75,7 @@ export const api = {
   getBills: () => client.get('/billing'),
   createBill: (data) => client.post('/billing', data),
   recordPayment: (id, data) => client.post(`/billing/${id}/pay`, data), 
-  processRefund: (id, data) => client.post(`/billing/${id}/refund`, data), // New Method
+  processRefund: (id, data) => client.post(`/billing/${id}/refund`, data), 
 
   // --- Treasury ---
   getTransactions: () => client.get('/treasury/transactions'),
@@ -135,8 +137,8 @@ export const api = {
   deleteSpecialization: (id) => client.delete(`/config/specializations/${id}`),
 
   // --- Configuration: Beds ---
-  getBeds: () => client.get('/config/beds'), // Public/Dashboard usage (mapped to config endpoint for simplicty if same data structure)
-  getConfigBeds: () => client.get('/config/beds'), // Admin usage
+  getBeds: () => client.get('/config/beds'), 
+  getConfigBeds: () => client.get('/config/beds'), 
   addBed: (data) => client.post('/config/beds', data),
   updateBed: (id, data) => client.put(`/config/beds/${id}`, data),
   deleteBed: (id) => client.delete(`/config/beds/${id}`),
@@ -181,7 +183,7 @@ export const api = {
 
   // --- Configuration: Data Management ---
   downloadBackup: () => {
-    // Direct open to trigger download
+    // Relative path for direct download from backend
     window.open('/api/config/backup', '_blank');
   },
   restoreDatabase: (file) => {

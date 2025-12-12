@@ -310,18 +310,32 @@ exports.generatePayroll = (req, res) => {
       const manualFines = adjustments.filter(a => a.type === 'fine' || a.type === 'loan').reduce((acc, a) => acc + a.amount, 0);
       
       // B. Calculate Attendance-based Fines
-      // Rules: 
-      // 1. Absent = 1 day salary deduction
-      // 2. Late = 2 lates equal 0.5 day salary deduction
+      // Fetch approved leaves for exclusion
+      const leaves = db.prepare("SELECT start_date, end_date FROM hr_leaves WHERE staff_id = ? AND status = 'approved'").all(s.id);
+      
+      const isExcused = (dateStr) => {
+          const d = new Date(dateStr);
+          return leaves.some(l => {
+              const start = new Date(l.start_date);
+              const end = new Date(l.end_date);
+              // Normalize times to avoid timezone issues during comparison
+              d.setHours(12,0,0,0);
+              start.setHours(12,0,0,0);
+              end.setHours(12,0,0,0);
+              return d >= start && d <= end;
+          });
+      };
+
       const attendance = db.prepare(`
-        SELECT status FROM hr_attendance 
+        SELECT status, date FROM hr_attendance 
         WHERE staff_id = ? AND strftime('%Y-%m', date) = ?
       `).all(s.id, month);
 
-      const absentCount = attendance.filter(a => a.status === 'absent').length;
+      // Only count absence if NOT excused
+      const unexcusedAbsences = attendance.filter(a => a.status === 'absent' && !isExcused(a.date)).length;
       const lateCount = attendance.filter(a => a.status === 'late').length;
 
-      const absentDeduction = absentCount * dailyRate; 
+      const absentDeduction = unexcusedAbsences * dailyRate; 
       // 2 Lates = 0.5 day deduction
       const latePairs = Math.floor(lateCount / 2);
       const lateDeduction = latePairs * (dailyRate * 0.5); 
@@ -331,7 +345,7 @@ exports.generatePayroll = (req, res) => {
       // C. Totals
       const totalFines = manualFines + attendanceFines;
       const totalBonuses = manualBonuses;
-      const netSalary = baseSalary + totalBonuses - totalFines;
+      const netSalary = Math.max(0, baseSalary + totalBonuses - totalFines);
       
       db.prepare(`
         INSERT INTO hr_payroll (staff_id, month, base_salary, total_bonuses, total_fines, net_salary, status)
@@ -342,9 +356,20 @@ exports.generatePayroll = (req, res) => {
 
   try {
     tx();
-    res.json({ success: true, message: 'Payroll generated successfully with attendance fines calculated.' });
+    res.json({ success: true, message: 'Payroll generated successfully with excused absences excluded.' });
   } catch(e) {
     console.error(e);
     res.status(500).json({ error: e.message });
   }
+};
+
+exports.updatePayrollStatus = (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    try {
+        db.prepare('UPDATE hr_payroll SET status = ? WHERE id = ?').run(status, id);
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
 };
