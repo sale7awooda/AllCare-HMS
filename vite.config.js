@@ -21,9 +21,10 @@ export default defineConfig(({ mode }) => {
       'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
     },
     server: {
+      host: true, // Listen on all local IPs
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          target: 'http://127.0.0.1:3000', // Use IPv4 loopback to avoid "Network Error"
           changeOrigin: true,
           secure: false,
         }

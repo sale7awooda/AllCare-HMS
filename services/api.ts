@@ -6,6 +6,10 @@ import axios from 'axios';
 // In prod, Express serves the frontend and handles /api routes on the same domain.
 const client = axios.create({
   baseURL: '/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 30000, // 30 second timeout
 });
 
 // Add token interceptor
@@ -24,6 +28,10 @@ client.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/'; 
+    }
+    // Handle Network Errors (no response received)
+    if (!error.response && error.code !== 'ERR_CANCELED') {
+      console.error('Network Error: Backend may be down or unreachable.', error);
     }
     return Promise.reject(error);
   }
