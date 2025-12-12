@@ -1,8 +1,23 @@
 
 import axios from 'axios';
 
+// Helper to determine the correct base URL based on the current environment
+const getBaseUrl = () => {
+  const { hostname } = window.location;
+  
+  // 1. Local Development (uses Vite proxy in vite.config.js)
+  // 2. Production Deployment (served by Express on same domain)
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('railway.app')) {
+    return '/api';
+  }
+
+  // 3. External Environments (e.g. Google AI Studio, StackBlitz, Local Network)
+  // Connect directly to the deployed Railway backend
+  return 'https://allcare.up.railway.app/api';
+};
+
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: getBaseUrl(),
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
 });
@@ -139,7 +154,7 @@ export const api = {
   updatePaymentMethod: (id, data) => client.put(`/config/payment-methods/${id}`, data),
   deletePaymentMethod: (id) => client.delete(`/config/payment-methods/${id}`),
 
-  downloadBackup: () => window.open('/api/config/backup', '_blank'),
+  downloadBackup: () => window.open(`${client.defaults.baseURL}/config/backup`, '_blank'),
   restoreDatabase: (file) => {
     const formData = new FormData();
     formData.append('backup', file);
