@@ -106,15 +106,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
     <div className="flex flex-col h-full bg-slate-900 dark:bg-slate-950 text-slate-300 border-r border-slate-800 dark:border-slate-900 shadow-xl transition-all duration-300">
-      <div className={`h-20 flex items-center justify-between ${isCollapsed && !mobile ? 'justify-center px-0' : 'px-6'} border-b border-slate-800 dark:border-slate-900 shrink-0 transition-all duration-300`}>
-        <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary-900/50 flex-shrink-0">
-            <Activity size={20} className="stroke-[2.5]" />
+      <div className={`h-28 flex items-center justify-between ${isCollapsed && !mobile ? 'justify-center px-0' : 'px-6'} border-b border-slate-800 dark:border-slate-900 shrink-0 transition-all duration-300`}>
+        <div className="flex items-center gap-4 overflow-hidden whitespace-nowrap">
+          <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary-900/50 flex-shrink-0">
+            <Activity size={28} className="stroke-[2.5]" />
           </div>
           {(!isCollapsed || mobile) && (
             <div className="flex flex-col animate-in fade-in duration-300">
-              <span className="font-bold text-lg text-white leading-none tracking-tight">AllCare</span>
-              <span className="text-xs font-medium text-primary-400 uppercase tracking-widest">Medical</span>
+              <span className="font-bold text-xl text-white leading-none tracking-tight">AllCare</span>
+              <span className="text-xs font-medium text-primary-400 uppercase tracking-widest mt-1">Medical</span>
             </div>
           )}
         </div>
@@ -208,11 +208,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </button>
         )}
 
-        <div className={`flex items-center gap-3 ${isCollapsed && !mobile ? 'justify-center p-0' : 'p-2'} rounded-xl bg-slate-800/50 dark:bg-slate-900/50 border border-slate-700/50 dark:border-slate-800/50 w-full`}>
-          <div className="w-9 h-9 rounded-lg bg-slate-700 dark:bg-slate-800 border border-slate-600 dark:border-slate-700 flex items-center justify-center text-white font-bold text-sm shadow-sm flex-shrink-0">
-            {user?.fullName?.charAt(0) || '?'}
-          </div>
-          
+        <div className={`flex items-center gap-3 ${isCollapsed && !mobile ? 'justify-center p-0 bg-transparent' : 'p-3'} rounded-xl ${!isCollapsed || mobile ? 'bg-slate-800/50 dark:bg-slate-900/50 border border-slate-700/50 dark:border-slate-800/50' : ''} w-full`}>
           {(!isCollapsed || mobile) && (
             <div className="flex-1 overflow-hidden animate-in fade-in duration-300">
               <p className="text-sm font-semibold text-slate-200 truncate">{user?.fullName}</p>
@@ -225,62 +221,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                <LogOut size={18} />
              </button>
            ) : (
-             <button onClick={onLogout} className="text-slate-400 hover:text-red-400 transition-colors p-1 ml-1">
+             <button onClick={onLogout} className="text-slate-400 hover:text-red-400 transition-colors p-2 rounded-lg hover:bg-slate-800">
                 <Tooltip content={t('tooltip_logout')} side={isRtl ? "left" : "right"}>
-                  <LogOut size={18} />
+                  <LogOut size={20} />
                 </Tooltip>
              </button>
            )}
         </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-200">
-      <div className={`fixed inset-0 z-50 md:hidden pointer-events-none ${isMobileOpen ? 'pointer-events-auto' : ''}`}>
-        <div 
-          className={`absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 ${isMobileOpen ? 'opacity-100' : 'opacity-0'}`}
-          onClick={() => setMobileOpen(false)}
-        />
-        <div className={`absolute top-0 bottom-0 w-64 bg-slate-900 transition-transform duration-300 ${isRtl ? 'right-0' : 'left-0'} ${isMobileOpen ? 'translate-x-0' : (isRtl ? 'translate-x-full' : '-translate-x-full')}`}>
-          <SidebarContent mobile={true} />
-        </div>
-      </div>
-
-      <aside className={`hidden md:block relative z-20 shrink-0 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-[200px]'}`}>
-        <SidebarContent />
-      </aside>
-
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
-        <header className="h-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 lg:px-8 shrink-0 z-10 sticky top-0 transition-colors duration-200">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setMobileOpen(true)} className="md:hidden p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
-              <Menu size={24} />
-            </button>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">
-              {getActiveLabel()}
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-4">
-             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/30 rounded-full border border-green-100 dark:border-green-800">
-               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-               <span className="text-xs font-medium text-green-700 dark:text-green-400">{t('header_system_online')}</span>
-             </div>
-             <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2 hidden md:block"></div>
-             <button className="relative p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-slate-800 rounded-full transition-colors">
-               <Bell size={20} />
-               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
-             </button>
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-auto p-4 lg:p-8 scroll-smooth bg-slate-50/50 dark:bg-slate-950/50">
-          <div className="max-w-7xl mx-auto space-y-8 pb-10">
-            {children}
-          </div>
-        </main>
       </div>
     </div>
   );

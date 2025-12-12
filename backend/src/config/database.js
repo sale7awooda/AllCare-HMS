@@ -4,20 +4,33 @@ const path = require('path');
 const fs = require('fs');
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
-const db = new Database(dbPath); // verbose: console.log for debugging
 
-// PERFORMANCE OPTIMIZATION: Enable Write-Ahead Logging (WAL)
-db.pragma('journal_mode = WAL');
+// Ensure the directory exists
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
+const db = new Database(dbPath);
+
+// STABILITY FIX: Use DELETE journal mode instead of WAL for containerized environments (Railway/Heroku).
+// WAL mode can cause file locking issues and 'database is locked' errors on ephemeral file systems.
+db.pragma('journal_mode = DELETE');
 db.pragma('synchronous = NORMAL'); 
-// ENABLE FOREIGN KEYS
 db.pragma('foreign_keys = ON');
 
 const initDB = (forceReset = false) => {
   if (forceReset) {
     console.log('Resetting database...');
-    const dbFile = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
-    if (fs.existsSync(dbFile)) {
-        fs.unlinkSync(dbFile);
+    if (fs.existsSync(dbPath)) {
+        try {
+          db.close();
+          fs.unlinkSync(dbPath);
+          // Re-open
+          return new Database(dbPath);
+        } catch (e) {
+          console.error("Failed to delete DB:", e);
+        }
     }
     // Re-instantiate after delete
     return initDB(false);
@@ -353,4 +366,3 @@ const seedData = () => {
 };
 
 module.exports = { db, initDB };
-    

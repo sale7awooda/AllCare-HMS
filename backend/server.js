@@ -6,7 +6,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
-const { initDB } = require('./src/config/database');
+const { initDB, db } = require('./src/config/database');
 const apiRoutes = require('./src/routes/api');
 
 const app = express();
@@ -88,7 +88,12 @@ app.use('/api', apiRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() });
+  const dbStatus = db.open ? 'connected' : 'disconnected';
+  if (db.open) {
+      res.json({ status: 'ok', timestamp: new Date(), database: dbStatus });
+  } else {
+      res.status(503).json({ status: 'error', timestamp: new Date(), database: dbStatus });
+  }
 });
 
 // Serve Static Frontend (Production)
@@ -104,6 +109,10 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   const isDev = process.env.NODE_ENV !== 'production';
   
+  if (res.headersSent) {
+    return next(err);
+  }
+
   res.status(500).json({ 
     error: 'Internal Server Error', 
     message: isDev ? err.message : 'An unexpected error occurred.',
@@ -112,6 +121,31 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// Graceful Shutdown
+const shutdown = () => {
+  console.log('Received kill signal, shutting down gracefully');
+  server.close(() => {
+    console.log('Closed remaining connections');
+    try {
+        if (db && db.open) {
+            db.close();
+            console.log('Database connection closed.');
+        }
+    } catch (e) {
+        console.error('Error closing database:', e);
+    }
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    console.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
