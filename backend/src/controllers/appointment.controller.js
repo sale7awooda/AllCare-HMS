@@ -68,6 +68,27 @@ exports.create = (req, res) => {
   }
 };
 
+exports.update = (req, res) => {
+  const { id } = req.params;
+  const { staffId, datetime, type, reason } = req.body;
+
+  try {
+    // Only update schedule details, preserve status and billing link
+    const result = db.prepare(`
+      UPDATE appointments 
+      SET medical_staff_id = ?, appointment_datetime = ?, type = ?, reason = ?
+      WHERE id = ?
+    `).run(staffId, datetime, type, reason || null, id);
+
+    if (result.changes === 0) return res.status(404).json({ error: 'Appointment not found' });
+    
+    res.json({ message: 'Appointment updated successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.updateStatus = (req, res) => {
   const { status } = req.body;
   const { id } = req.params;

@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -433,9 +435,8 @@ export const Appointments = () => {
     
     try {
       if (isEditing && editingAppointment) {
-        // Simple edit: cancel old, create new. More complex logic could be PUT request.
-        await api.cancelAppointment(editingAppointment.id);
-        await api.createAppointment(payload);
+        // Update existing appointment without recreating (prevents double billing)
+        await api.updateAppointment(editingAppointment.id, payload);
       } else {
         await api.createAppointment(payload);
       }

@@ -1,4 +1,5 @@
 
+
 import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
@@ -70,6 +71,7 @@ export const api = {
 
   getAppointments: () => client.get('/appointments'),
   createAppointment: (data) => client.post('/appointments', data),
+  updateAppointment: (id, data) => client.put(`/appointments/${id}`, data),
   updateAppointmentStatus: (id, status) => client.put(`/appointments/${id}/status`, { status }),
   cancelAppointment: (id) => client.put(`/appointments/${id}/cancel`),
 

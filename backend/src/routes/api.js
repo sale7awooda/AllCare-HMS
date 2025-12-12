@@ -1,4 +1,5 @@
 
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -64,6 +65,7 @@ router.post('/hr/financials', authorizeRoles(Permissions.MANAGE_HR), staffContro
 // Appointments
 router.get('/appointments', authorizeRoles(Permissions.VIEW_APPOINTMENTS), appointmentController.getAll);
 router.post('/appointments', authorizeRoles(Permissions.MANAGE_APPOINTMENTS), appointmentController.create);
+router.put('/appointments/:id', authorizeRoles(Permissions.MANAGE_APPOINTMENTS), appointmentController.update);
 router.put('/appointments/:id/status', authorizeRoles(Permissions.MANAGE_APPOINTMENTS), appointmentController.updateStatus);
 router.put('/appointments/:id/cancel', authorizeRoles(Permissions.MANAGE_APPOINTMENTS), appointmentController.cancel);
 
