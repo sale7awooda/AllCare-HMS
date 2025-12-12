@@ -7,9 +7,10 @@ const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
 const db = new Database(dbPath); // verbose: console.log for debugging
 
 // PERFORMANCE OPTIMIZATION: Enable Write-Ahead Logging (WAL)
-// This allows simultaneous readers and writers, preventing "database is locked" errors in production.
 db.pragma('journal_mode = WAL');
-db.pragma('synchronous = NORMAL'); // Faster writes with reasonable safety
+db.pragma('synchronous = NORMAL'); 
+// ENABLE FOREIGN KEYS
+db.pragma('foreign_keys = ON');
 
 const initDB = (forceReset = false) => {
   if (forceReset) {
@@ -45,7 +46,48 @@ const initDB = (forceReset = false) => {
     )
   `).run();
 
-  // --- 2. Patient & Clinical Records ---
+  // --- 2. Medical Staff (Moved UP before appointments/HR to satisfy FKs) ---
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS medical_staff (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id TEXT UNIQUE NOT NULL,
+      full_name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      department TEXT,
+      specialization TEXT,
+      consultation_fee REAL DEFAULT 0,
+      consultation_fee_followup REAL DEFAULT 0,
+      consultation_fee_emergency REAL DEFAULT 0,
+      status TEXT CHECK(status IN ('active', 'inactive', 'dismissed')) DEFAULT 'active',
+      is_available BOOLEAN DEFAULT 1,
+      available_days TEXT, -- JSON array
+      available_time_start TEXT,
+      available_time_end TEXT,
+      email TEXT,
+      phone TEXT,
+      address TEXT,
+      base_salary REAL DEFAULT 0,
+      join_date DATE,
+      bank_details TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  // MIGRATION: Ensure 'address' column exists in medical_staff for existing databases
+  try {
+    db.prepare('SELECT address FROM medical_staff LIMIT 1').get();
+  } catch (error) {
+    if (error.message.includes('no such column')) {
+        console.log('Migrating database: Adding missing address column to medical_staff table...');
+        try {
+          db.prepare('ALTER TABLE medical_staff ADD COLUMN address TEXT').run();
+        } catch (e) {
+          console.error('Migration failed:', e);
+        }
+    }
+  }
+
+  // --- 3. Patient & Clinical Records ---
   db.prepare(`
     CREATE TABLE IF NOT EXISTS patients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,49 +128,7 @@ const initDB = (forceReset = false) => {
     )
   `).run();
 
-  // --- 3. Human Resources (HR) ---
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS medical_staff (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      employee_id TEXT UNIQUE NOT NULL,
-      full_name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      department TEXT,
-      specialization TEXT,
-      consultation_fee REAL DEFAULT 0,
-      consultation_fee_followup REAL DEFAULT 0,
-      consultation_fee_emergency REAL DEFAULT 0,
-      status TEXT CHECK(status IN ('active', 'inactive', 'dismissed')) DEFAULT 'active',
-      is_available BOOLEAN DEFAULT 1,
-      available_days TEXT, -- JSON array
-      available_time_start TEXT,
-      available_time_end TEXT,
-      email TEXT,
-      phone TEXT,
-      address TEXT,
-      base_salary REAL DEFAULT 0,
-      join_date DATE,
-      bank_details TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run();
-
-  // MIGRATION: Ensure 'address' column exists in medical_staff for existing databases
-  try {
-    // Attempt to select the column. If it fails, the catch block runs.
-    db.prepare('SELECT address FROM medical_staff LIMIT 1').get();
-  } catch (error) {
-    if (error.message.includes('no such column')) {
-        console.log('Migrating database: Adding missing address column to medical_staff table...');
-        try {
-          db.prepare('ALTER TABLE medical_staff ADD COLUMN address TEXT').run();
-          console.log('Migration successful.');
-        } catch (e) {
-          console.error('Migration failed:', e);
-        }
-    }
-  }
-
+  // --- 4. Human Resources (HR) ---
   db.prepare(`
     CREATE TABLE IF NOT EXISTS hr_attendance (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,7 +182,7 @@ const initDB = (forceReset = false) => {
     )
   `).run();
 
-  // --- 4. Billing & Financials ---
+  // --- 5. Billing & Financials ---
   db.prepare(`
     CREATE TABLE IF NOT EXISTS billing (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -221,7 +221,7 @@ const initDB = (forceReset = false) => {
     )
   `).run();
 
-  // --- 5. Medical Services & Wards ---
+  // --- 6. Medical Services & Wards ---
   db.prepare(`CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, category_en TEXT, category_ar TEXT, cost REAL, normal_range TEXT)`).run();
   
   db.prepare(`CREATE TABLE IF NOT EXISTS lab_requests (id INTEGER PRIMARY KEY, patient_id INTEGER, test_ids TEXT, status TEXT, projected_cost REAL, bill_id INTEGER, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`).run();
@@ -240,18 +240,11 @@ const initDB = (forceReset = false) => {
   
   db.prepare(`CREATE TABLE IF NOT EXISTS inpatient_notes (id INTEGER PRIMARY KEY, admission_id INTEGER, doctor_id INTEGER, note TEXT, vitals TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(admission_id) REFERENCES admissions(id))`).run();
 
-  // --- 6. System Configuration ---
+  // --- 7. System Configuration ---
   db.prepare(`CREATE TABLE IF NOT EXISTS departments (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT)`).run();
   
-  db.prepare(`CREATE TABLE IF NOT EXISTS specializations (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT)`).run();
+  db.prepare(`CREATE TABLE IF NOT EXISTS specializations (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT, related_role TEXT)`).run();
   
-  // Add related_role column to specializations if it doesn't exist
-  try {
-    db.prepare('SELECT related_role FROM specializations LIMIT 1').get();
-  } catch (e) {
-    db.prepare('ALTER TABLE specializations ADD COLUMN related_role TEXT').run();
-  }
-
   db.prepare(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value TEXT)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS tax_rates (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, rate REAL, is_active BOOLEAN)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`).run();
@@ -285,14 +278,11 @@ const seedData = () => {
     console.log('Seeded banks.');
   }
 
-  // Seed Specializations with Role mappings
+  // Seed Specializations
   const specCount = db.prepare('SELECT count(*) as count FROM specializations').get().count;
-  // If specializations are missing or minimal, re-seed to include all roles
   if (specCount < 20) { 
     db.prepare('DELETE FROM specializations').run(); 
-
     const specs = [
-      // Doctors
       { en: 'Cardiology', ar: 'أمراض القلب', role: 'doctor' },
       { en: 'Neurology', ar: 'الأعصاب', role: 'doctor' },
       { en: 'Orthopedics', ar: 'العظام', role: 'doctor' },
@@ -308,8 +298,6 @@ const seedData = () => {
       { en: 'ENT', ar: 'أنف وأذن وحنجرة', role: 'doctor' },
       { en: 'Psychiatry', ar: 'الطب النفسي', role: 'doctor' },
       { en: 'Urology', ar: 'المسالك البولية', role: 'doctor' },
-
-      // Nurses
       { en: 'Critical Care Nursing', ar: 'تمريض العناية المركزة', role: 'nurse' },
       { en: 'Pediatric Nursing', ar: 'تمريض الأطفال', role: 'nurse' },
       { en: 'Surgical Nursing', ar: 'تمريض الجراحة', role: 'nurse' },
@@ -317,57 +305,38 @@ const seedData = () => {
       { en: 'General Nursing', ar: 'تمريض عام', role: 'nurse' },
       { en: 'Oncology Nursing', ar: 'تمريض الأورام', role: 'nurse' },
       { en: 'Maternity Nursing', ar: 'تمريض الأمومة', role: 'nurse' },
-
-      // Technicians
       { en: 'Laboratory Technician', ar: 'فني مختبر', role: 'technician' },
       { en: 'Radiology Technician', ar: 'فني أشعة', role: 'technician' },
       { en: 'Phlebotomist', ar: 'سحب دم', role: 'technician' },
       { en: 'Anesthesia Technician', ar: 'فني تخدير', role: 'technician' },
       { en: 'Dialysis Technician', ar: 'فني غسيل كلى', role: 'technician' },
-
-      // Pharmacists
       { en: 'Clinical Pharmacy', ar: 'صيدلة سريرية', role: 'pharmacist' },
       { en: 'Hospital Pharmacy', ar: 'صيدلة المستشفيات', role: 'pharmacist' },
       { en: 'Dispensing Pharmacy', ar: 'صيدلة الصرف', role: 'pharmacist' },
-
-      // Anesthesiologists
       { en: 'General Anesthesiology', ar: 'تخدير عام', role: 'anesthesiologist' },
       { en: 'Pediatric Anesthesiology', ar: 'تخدير أطفال', role: 'anesthesiologist' },
       { en: 'Cardiac Anesthesiology', ar: 'تخدير قلب', role: 'anesthesiologist' },
-
-      // HR/Staff (Mapped to hr_manager)
       { en: 'Human Resources', ar: 'الموارد البشرية', role: 'hr_manager' },
       { en: 'Recruitment', ar: 'التوظيف', role: 'hr_manager' },
       { en: 'Personnel Administration', ar: 'شؤون الموظفين', role: 'hr_manager' },
-
-      // General Staff
       { en: 'Administration', ar: 'الإدارة', role: 'staff' },
       { en: 'Maintenance', ar: 'الصيانة', role: 'staff' },
       { en: 'Security', ar: 'الأمن', role: 'staff' },
       { en: 'Housekeeping', ar: 'النظافة', role: 'staff' },
       { en: 'IT Support', ar: 'الدعم الفني', role: 'staff' },
       { en: 'Transport', ar: 'النقل', role: 'staff' },
-
-      // Medical Assistant
       { en: 'Clinical Assistance', ar: 'مساعدة سريرية', role: 'medical_assistant' },
       { en: 'Administrative Assistance', ar: 'مساعدة إدارية', role: 'medical_assistant' },
-
-      // Receptionist
       { en: 'Front Desk', ar: 'الاستقبال', role: 'receptionist' },
       { en: 'Patient Registration', ar: 'تسجيل المرضى', role: 'receptionist' },
       { en: 'Call Center', ar: 'مركز الاتصال', role: 'receptionist' },
-
-      // Accountant
       { en: 'General Accounting', ar: 'محاسبة عامة', role: 'accountant' },
       { en: 'Billing & Claims', ar: 'الفواتير والمطالبات', role: 'accountant' },
       { en: 'Financial Auditing', ar: 'تدقيق مالي', role: 'accountant' },
-
-      // Manager
       { en: 'Hospital Management', ar: 'إدارة المستشفيات', role: 'manager' },
       { en: 'Operations Management', ar: 'إدارة العمليات', role: 'manager' },
       { en: 'Department Head', ar: 'رئيس قسم', role: 'manager' }
     ];
-
     const insert = db.prepare('INSERT INTO specializations (name_en, name_ar, related_role) VALUES (?, ?, ?)');
     specs.forEach(s => insert.run(s.en, s.ar, s.role));
     console.log('Seeded specializations.');
@@ -384,3 +353,4 @@ const seedData = () => {
 };
 
 module.exports = { db, initDB };
+    
