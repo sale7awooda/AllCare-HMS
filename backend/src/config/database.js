@@ -238,6 +238,11 @@ const seedData = () => {
       { en: 'ESR', ar: 'سرعة الترسيب', cat: 'Hematology', cost: 5 },
       { en: 'Blood Grouping & Rh', ar: 'فصيلة الدم', cat: 'Hematology', cost: 5 },
       { en: 'Prothrombin Time (PT)', ar: 'زمن البروثرومبين', cat: 'Hematology', cost: 10 },
+      // Parasitology
+      { en: 'Malaria Blood Film', ar: 'فحص الملاريا (شريحة)', cat: 'Parasitology', cost: 8 },
+      { en: 'Malaria Rapid Test', ar: 'فحص الملاريا السريع', cat: 'Parasitology', cost: 12 },
+      { en: 'Stool General', ar: 'فحص براز عام', cat: 'Parasitology', cost: 5 },
+      { en: 'Urine General', ar: 'فحص بول عام', cat: 'Parasitology', cost: 5 },
       // Biochemistry
       { en: 'Fasting Blood Sugar (FBS)', ar: 'سكر صائم', cat: 'Biochemistry', cost: 5 },
       { en: 'HbA1c', ar: 'السكر التراكمي', cat: 'Biochemistry', cost: 20 },
@@ -251,15 +256,13 @@ const seedData = () => {
       { en: 'Vitamin D', ar: 'فيتامين د', cat: 'Hormones', cost: 50 },
       { en: 'Beta HCG (Pregnancy)', ar: 'اختبار الحمل الرقمي', cat: 'Hormones', cost: 15 },
       // Serology & Immunology
+      { en: 'Widal Test (Typhoid)', ar: 'تفاعل فيدال (تيفود)', cat: 'Serology', cost: 10 },
+      { en: 'Brucella Test', ar: 'فحص البروسيلا', cat: 'Serology', cost: 12 },
       { en: 'H. Pylori Ag (Stool)', ar: 'جرثومة المعدة (براز)', cat: 'Serology', cost: 15 },
-      { en: 'Widal Test', ar: 'تفاعل فيدال', cat: 'Serology', cost: 10 },
       { en: 'Hepatitis B Surface Ag', ar: 'فيروس بي', cat: 'Serology', cost: 15 },
       { en: 'Hepatitis C Ab', ar: 'فيروس سي', cat: 'Serology', cost: 15 },
       { en: 'HIV Combo', ar: 'فحص المناعة', cat: 'Serology', cost: 20 },
       { en: 'CRP', ar: 'بروتين سي التفاعلي', cat: 'Serology', cost: 10 },
-      // Clinical Pathology
-      { en: 'Urine Analysis', ar: 'تحليل بول كامل', cat: 'Clinical Pathology', cost: 5 },
-      { en: 'Stool Analysis', ar: 'تحليل براز كامل', cat: 'Clinical Pathology', cost: 5 },
       // Microbiology
       { en: 'Urine Culture & Sensitivity', ar: 'مزرعة بول', cat: 'Microbiology', cost: 25 },
       { en: 'Blood Culture', ar: 'مزرعة دم', cat: 'Microbiology', cost: 35 }
@@ -339,7 +342,7 @@ const seedData = () => {
     console.log('Seeded payment methods.');
   }
 
-  // 9. Insurance Providers (Sudan)
+  // 9. Insurance Providers (Sudan Context)
   const insCount = db.prepare('SELECT count(*) as count FROM insurance_providers').get().count;
   if (insCount === 0) {
       const providers = [
