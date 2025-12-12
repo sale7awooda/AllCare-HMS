@@ -391,24 +391,10 @@ exports.dischargePatient = (req, res) => {
     const admission = db.prepare('SELECT * FROM admissions WHERE id = ?').get(id);
     if (!admission || admission.status !== 'active') throw new Error('Active admission not found or not in a dischargeable state.');
 
-    // 2. Check for Outstanding Balance (Safety Check)
-    const unpaidBills = db.prepare(`
-        SELECT total_amount, paid_amount 
-        FROM billing 
-        WHERE patient_id = ? AND status != 'paid' AND status != 'cancelled'
-    `).all(admission.patient_id);
-    
-    // We allow discharge if only the current admission bill is pending (we will update it now),
-    // but if there are other unpaid bills, we should technically block or warn. 
-    // The requirement says "cannot be discharge if he has any un billed amounts".
-    // For this implementation, we assume the frontend blocks it, but here we can enforce logic.
-    // However, since we are calculating the final bill NOW, there WILL be an unpaid amount (the final bill).
-    // So we proceed to calculate final bill.
-
     const bed = db.prepare('SELECT cost_per_day FROM beds WHERE id = ?').get(admission.bed_id);
     if (!bed) throw new Error('Associated bed not found.');
 
-    // 3. Calculate final accommodation cost
+    // 2. Calculate final accommodation cost
     const entryDate = new Date(admission.entry_date);
     const dischargeDate = new Date(); // now
     const daysStayed = Math.ceil((dischargeDate.getTime() - entryDate.getTime()) / (1000 * 3600 * 24)) || 1;
@@ -416,10 +402,13 @@ exports.dischargePatient = (req, res) => {
 
     let totalFinalCost = accommodationCost;
     
-    // 4. Update the original Bill
+    // 3. Update the original Bill
     if (admission.bill_id) {
-        // Clear old bill items except deposit
-        db.prepare("DELETE FROM billing_items WHERE billing_id = ? AND description NOT LIKE 'Admission Deposit%'").run(admission.bill_id);
+        // FIX: Clear ALL old bill items. We are generating a complete final bill.
+        // If we keep "Deposit" item, the sum(items) will be Accommodation + Deposit + Extras,
+        // which double counts the deposit value in the total charge.
+        // The fact that the deposit was PAID is stored in `billing.paid_amount`, which is preserved.
+        db.prepare("DELETE FROM billing_items WHERE billing_id = ?").run(admission.bill_id);
 
         // Add accommodation charge
         db.prepare("INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)").run(admission.bill_id, `Accommodation (${daysStayed} days)`, accommodationCost);
@@ -435,36 +424,27 @@ exports.dischargePatient = (req, res) => {
             }
         }
         
-        // Update the main bill record
+        // Update the main bill record with the new TOTAL cost
         const bill = db.prepare("SELECT paid_amount FROM billing WHERE id = ?").get(admission.bill_id);
-        // Add the deposit (which acts as credit/payment made already? No, deposit is a line item usually paid).
-        // If deposit was paid, paid_amount has it. Total Amount should include everything.
-        // If the deposit item remains, totalFinalCost should include the deposit amount too if we wiped items.
-        // Wait, we didn't wipe deposit item. So we need to ADD deposit amount to totalFinalCost?
-        // Actually, accommodationCost + extras = New Charges.
-        // Existing Bill has Deposit Item + Deposit Payment.
-        // So Total Bill = Deposit Item (Value) + New Charges.
+        const paidAmount = bill ? bill.paid_amount : 0;
         
-        const depositItem = db.prepare("SELECT amount FROM billing_items WHERE billing_id = ? AND description LIKE 'Admission Deposit%'").get(admission.bill_id);
-        const depositAmount = depositItem ? depositItem.amount : 0;
-        
-        const finalBillTotal = depositAmount + totalFinalCost; // Total cost of stay
-        const newStatus = finalBillTotal > bill.paid_amount ? 'partial' : 'paid';
+        // Calculate new status based on Total vs Paid
+        const newStatus = paidAmount >= totalFinalCost ? 'paid' : 'partial';
 
-        db.prepare("UPDATE billing SET total_amount = ?, status = ? WHERE id = ?").run(finalBillTotal, newStatus, admission.bill_id);
+        db.prepare("UPDATE billing SET total_amount = ?, status = ? WHERE id = ?").run(totalFinalCost, newStatus, admission.bill_id);
     }
 
-    // 5. Update Admission record
+    // 4. Update Admission record
     db.prepare(`
       UPDATE admissions 
       SET status = 'discharged', actual_discharge_date = ?, discharge_notes = ?, discharge_status = ?
       WHERE id = ?
     `).run(dischargeDate.toISOString(), dischargeNotes, dischargeStatus, id);
 
-    // 6. Set Bed to Cleaning
+    // 5. Set Bed to Cleaning
     db.prepare("UPDATE beds SET status = 'cleaning' WHERE id = ?").run(admission.bed_id);
 
-    // 7. Update Patient Type
+    // 6. Update Patient Type
     db.prepare("UPDATE patients SET type = 'outpatient' WHERE id = ?").run(admission.patient_id);
   });
 

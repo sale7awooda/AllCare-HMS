@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 // Define a comprehensive set of roles as per requirements
@@ -10,7 +11,7 @@ export interface User {
   fullName: string;
   role: Role; 
   email: string;
-  phone?: string; // Added phone
+  phone?: string;
   is_active?: boolean;
 }
 
@@ -62,12 +63,12 @@ export interface MedicalStaff {
   department: string;
   specialization: string;
   consultationFee: number;
-  consultationFeeFollowup?: number; // Added
-  consultationFeeEmergency?: number; // Added
+  consultationFeeFollowup?: number;
+  consultationFeeEmergency?: number;
   status: 'active' | 'inactive' | 'dismissed';
   email?: string;
   phone?: string;
-  address?: string; // Added address field
+  address?: string;
   
   // Schedule
   availableDays?: string[]; // Array of days e.g. ["Mon", "Tue"]
@@ -151,7 +152,7 @@ export interface Bill {
   patientName: string;
   totalAmount: number;
   paidAmount: number;
-  status: 'pending' | 'partial' | 'paid' | 'overdue';
+  status: 'pending' | 'partial' | 'paid' | 'overdue' | 'refunded';
   date: string;
   items: BillItem[];
   serviceStatus?: string;
@@ -163,7 +164,19 @@ export interface BillItem {
   amount: number;
 }
 
-// Keep these types as the patient action menu still creates data for them
+export interface Transaction {
+  id: number;
+  type: 'income' | 'expense';
+  category: string;
+  amount: number;
+  method: string;
+  reference_id?: number;
+  details?: any;
+  date: string;
+  description?: string;
+}
+
+// Catalogs
 export interface LabTestCatalog {
   id: number;
   name_en: string;
@@ -187,7 +200,7 @@ export interface Bed {
   id: number;
   roomNumber: string;
   type: 'General' | 'Private' | 'ICU';
-  status: 'available' | 'occupied' | 'maintenance';
+  status: 'available' | 'occupied' | 'maintenance' | 'cleaning' | 'reserved';
   costPerDay: number;
 }
 
@@ -227,16 +240,4 @@ export interface PaymentMethod {
   name_en: string;
   name_ar: string;
   isActive: boolean;
-}
-
-export interface Transaction {
-  id: number;
-  type: 'income' | 'expense';
-  category: string;
-  amount: number;
-  method: string;
-  reference_id?: number;
-  details?: any;
-  date: string;
-  description?: string;
 }

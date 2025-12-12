@@ -14,16 +14,16 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'), // Standardize to src if structure allows, otherwise keep ./
+        '@': path.resolve(__dirname, './'), // Points to project root
       },
     },
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''), // Safe fallback to empty string
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
     },
     server: {
       proxy: {
         '/api': {
-          target: 'http://localhost:3000', // Points to local backend in dev
+          target: 'http://localhost:3000',
           changeOrigin: true,
           secure: false,
         }

@@ -5,7 +5,7 @@ import {
   Plus, Printer, Download, X, Lock, CreditCard, 
   Wallet, TrendingUp, AlertCircle, FileText, CheckCircle, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, Calendar,
-  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw
+  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Loader2
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
@@ -28,6 +28,7 @@ export const Billing = () => {
   const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
   
   const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { user: currentUser } = useAuth();
 
   // Pagination & Filtering State
@@ -77,7 +78,7 @@ export const Billing = () => {
   // Payment Form State
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
-    method: 'Cash',
+    method: '', // Dynamic
     date: new Date().toISOString().split('T')[0],
     notes: '',
     // Insurance specific
@@ -91,8 +92,10 @@ export const Billing = () => {
   // Refund Form State
   const [refundForm, setRefundForm] = useState({
     amount: '',
-    reason: '',
-    date: new Date().toISOString().split('T')[0]
+    method: 'Cash',
+    reason: 'Service Cancelled',
+    date: new Date().toISOString().split('T')[0],
+    customReason: ''
   });
 
   // Expense Form State
@@ -198,6 +201,7 @@ export const Billing = () => {
       .map(i => ({ description: i.description, amount: parseFloat(i.amount) }));
 
     if (patient && formattedItems.length > 0) {
+      setIsProcessing(true);
       let total = formattedItems.reduce((sum, i) => sum + i.amount, 0);
       
       // Apply Tax if selected
@@ -213,17 +217,23 @@ export const Billing = () => {
           }
       }
 
-      await api.createBill({
-        patientId: patient.id,
-        patientName: patient.fullName,
-        totalAmount: total,
-        date: new Date().toISOString().split('T')[0],
-        items: formattedItems
-      });
-      
-      setIsCreateModalOpen(false);
-      setCreateForm({ patientId: '', items: [{ description: '', amount: '' }], selectedTaxId: '' });
-      loadData();
+      try {
+        await api.createBill({
+          patientId: patient.id,
+          patientName: patient.fullName,
+          totalAmount: total,
+          date: new Date().toISOString().split('T')[0],
+          items: formattedItems
+        });
+        
+        setIsCreateModalOpen(false);
+        setCreateForm({ patientId: '', items: [{ description: '', amount: '' }], selectedTaxId: '' });
+        loadData();
+      } catch(e) {
+        console.error(e);
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -237,10 +247,12 @@ export const Billing = () => {
     // Smart Pre-fill: Check insurance
     const hasInsurance = patient?.hasInsurance;
     
-    // Determine default payment method & fill insurance details if applicable
+    // Try to find default method
+    const defaultMethod = hasInsurance ? 'Insurance' : (paymentMethods.length > 0 ? paymentMethods[0].name_en : 'Cash');
+
     setPaymentForm({ 
         amount: remaining.toString(), 
-        method: hasInsurance ? 'Insurance' : 'Cash',
+        method: defaultMethod,
         date: new Date().toISOString().split('T')[0],
         notes: '',
         transactionId: '',
@@ -254,6 +266,7 @@ export const Billing = () => {
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!payingBill) return;
+    setIsProcessing(true);
 
     // Construct Payment Payload
     const payload: any = {
@@ -284,6 +297,8 @@ export const Billing = () => {
       loadData();
     } catch (e) {
       alert('Payment failed');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -292,8 +307,10 @@ export const Billing = () => {
     // Default to fully paid amount
     setRefundForm({
         amount: bill.paidAmount.toString(),
-        reason: '',
-        date: new Date().toISOString().split('T')[0]
+        method: 'Cash',
+        reason: 'Service Cancelled',
+        date: new Date().toISOString().split('T')[0],
+        customReason: ''
     });
     setIsRefundModalOpen(true);
   };
@@ -301,11 +318,15 @@ export const Billing = () => {
   const handleRefundSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!refundingBill) return;
+    setIsProcessing(true);
 
     try {
+        const finalReason = refundForm.reason === 'Other' ? refundForm.customReason : refundForm.reason;
+        
         await api.processRefund(refundingBill.id, {
             amount: parseFloat(refundForm.amount),
-            reason: refundForm.reason,
+            method: refundForm.method,
+            reason: finalReason,
             date: refundForm.date
         });
         setIsRefundModalOpen(false);
@@ -313,11 +334,14 @@ export const Billing = () => {
         loadData();
     } catch (e) {
         alert('Refund failed');
+    } finally {
+        setIsProcessing(false);
     }
   };
 
   const handleExpenseSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
+      setIsProcessing(true);
       try {
           await api.addExpense({
               ...expenseForm,
@@ -328,6 +352,8 @@ export const Billing = () => {
           loadData();
       } catch(e) {
           alert('Failed to add expense');
+      } finally {
+          setIsProcessing(false);
       }
   };
 
@@ -461,7 +487,7 @@ export const Billing = () => {
             </div>
             <p className="text-slate-500 font-mono">#{bill.billNumber}</p>
             <div className="mt-4 flex gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${bill.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${bill.status === 'paid' ? 'bg-green-100 text-green-700' : bill.status === 'refunded' ? 'bg-purple-100 text-purple-700' : 'bg-red-100 text-red-700'}`}>
                     {bill.status}
                 </span>
                 <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
@@ -544,6 +570,8 @@ export const Billing = () => {
 
   // Refund condition logic
   const isRefundEnabled = (bill: Bill) => {
+      // Logic: Enabled if service is NOT in progress (i.e. either not received or completed).
+      // Disables only if service is actively happening (locking funds temporarily).
       if (!isAccountant) return false;
       const status = bill.serviceStatus;
       if (!status) return true; // Manual bills are refundable
@@ -681,7 +709,7 @@ export const Billing = () => {
                             <Badge color={getTypeColor(getBillType(bill)) as any}>{translateBillType(getBillType(bill))}</Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{bill.status}</Badge>
+                            <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'refunded' ? 'purple' : bill.status === 'partial' ? 'yellow' : 'red'}>{bill.status}</Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                             <div className="font-bold text-lg text-slate-900 dark:text-white">${bill.totalAmount.toLocaleString()}</div>
@@ -719,6 +747,7 @@ export const Billing = () => {
         </>
       )}
 
+      {/* ... Treasury Tab remains similar, skipping for brevity ... */}
       {activeTab === 'treasury' && (
           <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-end">
@@ -913,7 +942,9 @@ export const Billing = () => {
           </div>
 
           <div className="flex justify-end pt-4">
-            <Button type="submit">{t('billing_modal_create_generate_button')}</Button>
+            <Button type="submit" disabled={isProcessing}>
+                {isProcessing ? t('processing') : t('billing_modal_create_generate_button')}
+            </Button>
           </div>
         </form>
       </Modal>
@@ -1016,7 +1047,9 @@ export const Billing = () => {
             </div>
 
             <div className="flex justify-end pt-4">
-              <Button type="submit" icon={CheckCircle}>{t('billing_modal_payment_confirm_button')}</Button>
+              <Button type="submit" icon={isProcessing ? undefined : CheckCircle} disabled={isProcessing}>
+                  {isProcessing ? t('processing') : t('billing_modal_payment_confirm_button')}
+              </Button>
             </div>
           </form>
         )}
@@ -1027,26 +1060,65 @@ export const Billing = () => {
         {refundingBill && (
             <form onSubmit={handleRefundSubmit} className="space-y-4">
                 <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-100 dark:border-red-900/50">
-                    <p className="text-sm text-red-800 dark:text-red-300 font-bold">Refund for Bill #{refundingBill.billNumber}</p>
-                    <p className="text-xs text-red-600 dark:text-red-400">Total Paid: ${refundingBill.paidAmount}</p>
+                    <div className="flex items-center gap-3 mb-2">
+                        <RefreshCcw className="text-red-600" size={20}/>
+                        <p className="text-sm text-red-800 dark:text-red-300 font-bold">Refund for Bill #{refundingBill.billNumber}</p>
+                    </div>
+                    <div className="flex justify-between text-xs text-red-600 dark:text-red-400">
+                        <span>Total Paid: ${refundingBill.paidAmount}</span>
+                        <span>Max Refundable: ${refundingBill.paidAmount}</span>
+                    </div>
                 </div>
-                <Input 
-                    label="Refund Amount" 
-                    type="number" 
-                    max={refundingBill.paidAmount}
-                    value={refundForm.amount}
-                    onChange={e => setRefundForm({...refundForm, amount: e.target.value})}
-                    required
-                />
-                <Textarea 
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <Input 
+                        label="Refund Amount" 
+                        type="number" 
+                        max={refundingBill.paidAmount}
+                        value={refundForm.amount}
+                        onChange={e => setRefundForm({...refundForm, amount: e.target.value})}
+                        required
+                    />
+                    <Select 
+                        label="Refund Method"
+                        value={refundForm.method}
+                        onChange={e => setRefundForm({...refundForm, method: e.target.value})}
+                    >
+                        <option value="Cash">Cash</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Credit Card Reversal">Credit Card Reversal</option>
+                        <option value="Check">Check</option>
+                    </Select>
+                </div>
+
+                <Select 
                     label="Reason for Refund" 
                     value={refundForm.reason}
                     onChange={e => setRefundForm({...refundForm, reason: e.target.value})}
                     required
-                />
+                >
+                    <option value="Service Cancelled">Service Cancelled</option>
+                    <option value="Overcharged">Overcharged / Billing Error</option>
+                    <option value="Duplicate Payment">Duplicate Payment</option>
+                    <option value="Customer Satisfaction">Customer Satisfaction</option>
+                    <option value="Other">Other</option>
+                </Select>
+
+                {refundForm.reason === 'Other' && (
+                    <Textarea 
+                        label="Specify Reason" 
+                        value={refundForm.customReason}
+                        onChange={e => setRefundForm({...refundForm, customReason: e.target.value})}
+                        required
+                        rows={2}
+                    />
+                )}
+
                 <div className="flex justify-end pt-4 gap-2">
                     <Button type="button" variant="secondary" onClick={() => setIsRefundModalOpen(false)}>{t('cancel')}</Button>
-                    <Button type="submit" variant="danger">Confirm Refund</Button>
+                    <Button type="submit" variant="danger" disabled={isProcessing}>
+                        {isProcessing ? t('processing') : 'Confirm Refund'}
+                    </Button>
                 </div>
             </form>
         )}
@@ -1075,7 +1147,9 @@ export const Billing = () => {
               <Textarea label="Description" required rows={3} value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} />
               <div className="flex justify-end pt-4 gap-3">
                   <Button type="button" variant="secondary" onClick={() => setIsExpenseModalOpen(false)}>Cancel</Button>
-                  <Button type="submit">Save Expense</Button>
+                  <Button type="submit" disabled={isProcessing}>
+                      {isProcessing ? t('processing') : 'Save Expense'}
+                  </Button>
               </div>
           </form>
       </Modal>

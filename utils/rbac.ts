@@ -1,5 +1,5 @@
 
-import { User, Role } from './../types';
+import { User, Role } from '../types';
 
 // Define granular permissions for all modules and actions, including DELETE
 export const Permissions = {

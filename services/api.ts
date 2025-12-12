@@ -60,6 +60,7 @@ export const api = {
   
   getPayroll: (month) => client.get(`/hr/payroll?month=${month}`),
   generatePayroll: (data) => client.post('/hr/payroll/generate', data),
+  updatePayrollStatus: (id, status) => client.put(`/hr/payroll/${id}/status`, { status }),
   
   getFinancials: (type) => client.get(`/hr/financials?type=${type}`), 
   addAdjustment: (data) => client.post('/hr/financials', data), 

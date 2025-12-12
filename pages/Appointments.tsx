@@ -7,7 +7,7 @@ import {
   Loader2, XCircle
 } from 'lucide-react';
 import { api } from '../services/api';
-import { Patient, Appointment, MedicalStaff, User as UserType, NurseServiceCatalog } from '../types';
+import { Patient, Appointment, MedicalStaff, User as UserType, NurseServiceCatalog } from '@/types';
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';

@@ -102,7 +102,7 @@ exports.recordPayment = (req, res) => {
 
 exports.processRefund = (req, res) => {
   const { id } = req.params;
-  const { amount, reason, date } = req.body;
+  const { amount, reason, date, method } = req.body;
 
   const tx = db.transaction(() => {
     const bill = db.prepare('SELECT * FROM billing WHERE id = ?').get(id);
@@ -111,17 +111,21 @@ exports.processRefund = (req, res) => {
     if (amount > bill.paid_amount) throw new Error('Refund amount cannot exceed paid amount');
 
     const newPaid = bill.paid_amount - amount;
-    // Determine status: if paid becomes < total, it's partial. If 0, it's pending.
+    
+    // Determine status: 
+    // If full refund (paid becomes 0), status = 'refunded'.
+    // If partial refund but still active bill (paid < total), status = 'partial'.
+    // If bill was 'paid' but now is not, reverts to 'partial'.
     let newStatus = 'partial';
-    if (newPaid <= 0) newStatus = 'pending';
-    else if (newPaid >= bill.total_amount) newStatus = 'paid';
+    if (newPaid <= 0) newStatus = 'refunded'; 
+    else if (newPaid >= bill.total_amount) newStatus = 'paid'; // Unlikely in refund, but safety check
 
     db.prepare('UPDATE billing SET paid_amount = ?, status = ? WHERE id = ?').run(newPaid, newStatus, id);
 
     db.prepare(`
       INSERT INTO transactions (type, category, amount, method, reference_id, details, date, description)
-      VALUES ('expense', 'Refund', ?, 'Cash', ?, ?, ?, ?)
-    `).run(amount, id, JSON.stringify({ reason }), date || new Date().toISOString(), `Refund for Bill #${bill.bill_number}: ${reason}`);
+      VALUES ('expense', 'Refund', ?, ?, ?, ?, ?, ?)
+    `).run(amount, method || 'Cash', id, JSON.stringify({ reason }), date || new Date().toISOString(), `Refund for Bill #${bill.bill_number}: ${reason}`);
   });
 
   try {

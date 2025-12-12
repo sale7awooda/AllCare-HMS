@@ -397,6 +397,29 @@ export const Staff = () => {
       });
   };
 
+  const handleMarkPaid = (record: PayrollRecord) => {
+      setConfirmState({
+          isOpen: true,
+          title: "Confirm Payment",
+          message: `Mark payroll for ${record.staffName} as Paid?`,
+          action: async () => {
+              setProcessStatus('processing');
+              setProcessMessage(t('processing'));
+              try {
+                  await api.updatePayrollStatus(record.id, 'paid');
+                  const data = await api.getPayroll(selectedMonth);
+                  setPayroll(data);
+                  setProcessStatus('success');
+                  setProcessMessage(t('success'));
+                  setTimeout(() => setProcessStatus('idle'), 1000);
+              } catch(e: any) {
+                  setProcessStatus('error');
+                  setProcessMessage(e.message || 'Failed to update status');
+              }
+          }
+      });
+  };
+
   const handleAdjustmentSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       setProcessStatus('processing');
@@ -657,16 +680,17 @@ export const Staff = () => {
                   <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium">
                           <tr>
-                              <th className="px-4 py-3">{t('staff_form_role_title')}</th>
+                              <th className="px-4 py-3">Staff</th>
                               <th className="px-4 py-3 text-right">{t('staff_form_salary')}</th>
                               <th className="px-4 py-3 text-right">{t('hr_adj_bonus')}</th>
                               <th className="px-4 py-3 text-right">{t('staff_tab_financials')}</th>
                               <th className="px-4 py-3 text-right font-bold">Net Salary</th>
                               <th className="px-4 py-3 text-center">{t('status')}</th>
+                              {canManageHR && <th className="px-4 py-3 text-right">{t('actions')}</th>}
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {payroll.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-slate-400">{t('no_data')}</td></tr> : payroll.map(p => (
+                          {payroll.length === 0 ? <tr><td colSpan={7} className="text-center py-8 text-slate-400">{t('no_data')}</td></tr> : payroll.map(p => (
                               <tr key={p.id}>
                                   <td className="px-4 py-3 font-medium">{p.staffName}</td>
                                   <td className="px-4 py-3 text-right">${p.baseSalary.toLocaleString()}</td>
@@ -674,6 +698,13 @@ export const Staff = () => {
                                   <td className="px-4 py-3 text-right text-red-600">-${p.totalFines.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">${p.netSalary.toLocaleString()}</td>
                                   <td className="px-4 py-3 text-center"><Badge color={p.status === 'paid' ? 'green' : 'yellow'}>{p.status}</Badge></td>
+                                  {canManageHR && (
+                                      <td className="px-4 py-3 text-right">
+                                          {p.status === 'draft' && (
+                                              <Button size="sm" onClick={() => handleMarkPaid(p)}>Mark Paid</Button>
+                                          )}
+                                      </td>
+                                  )}
                               </tr>
                           ))}
                       </tbody>
