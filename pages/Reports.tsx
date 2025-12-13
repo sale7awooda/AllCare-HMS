@@ -59,16 +59,14 @@ export const Reports = () => {
 
   // --- Date Logic ---
   const dateRange = useMemo(() => {
-    const end = new Date(); // Today
-    const start = new Date();
-
     if (rangeType === 'custom') {
-        return {
-            start: customRange.start ? new Date(customRange.start) : new Date(0), // Default to epoch if empty
-            end: customRange.end ? new Date(customRange.end) : end
-        };
+        const startDate = customRange.start ? new Date(customRange.start + 'T00:00:00') : new Date(0); 
+        const endDate = customRange.end ? new Date(customRange.end + 'T23:59:59.999') : new Date();
+        return { start: startDate, end: endDate };
     }
 
+    const end = new Date(); // Today
+    const start = new Date();
     const days = parseInt(rangeType);
     start.setDate(end.getDate() - days);
     // Reset hours for accurate comparison
@@ -333,30 +331,36 @@ export const Reports = () => {
                value={rangeType}
                onChange={e => setRangeType(e.target.value)}
              >
-               <option value="7">Last 7 Days (Week)</option>
-               <option value="30">Last 30 Days (Month)</option>
-               <option value="90">Last 3 Months</option>
-               <option value="180">Last 6 Months</option>
-               <option value="365">Last Year</option>
-               <option value="custom">Custom Range</option>
+               <option value="7">{t('reports_time_week')}</option>
+               <option value="30">{t('reports_time_month')}</option>
+               <option value="90">{t('reports_time_3months')}</option>
+               <option value="180">{t('reports_time_6months')}</option>
+               <option value="365">{t('reports_time_year')}</option>
+               <option value="custom">{t('reports_time_custom')}</option>
              </select>
           </div>
 
           {rangeType === 'custom' && (
               <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
-                  <Input 
-                    type="date" 
-                    value={customRange.start} 
-                    onChange={e => setCustomRange({...customRange, start: e.target.value})} 
-                    className="!py-2 !text-sm w-36"
-                  />
+                  <div className="relative">
+                    <span className="absolute -top-2 left-2 bg-white dark:bg-slate-800 px-1 text-[10px] text-slate-400">Start</span>
+                    <Input 
+                      type="date" 
+                      value={customRange.start} 
+                      onChange={e => setCustomRange({...customRange, start: e.target.value})} 
+                      className="!py-2 !text-sm w-36"
+                    />
+                  </div>
                   <span className="text-slate-400">-</span>
-                  <Input 
-                    type="date" 
-                    value={customRange.end} 
-                    onChange={e => setCustomRange({...customRange, end: e.target.value})} 
-                    className="!py-2 !text-sm w-36"
-                  />
+                  <div className="relative">
+                    <span className="absolute -top-2 left-2 bg-white dark:bg-slate-800 px-1 text-[10px] text-slate-400">End</span>
+                    <Input 
+                      type="date" 
+                      value={customRange.end} 
+                      onChange={e => setCustomRange({...customRange, end: e.target.value})} 
+                      className="!py-2 !text-sm w-36"
+                    />
+                  </div>
               </div>
           )}
 

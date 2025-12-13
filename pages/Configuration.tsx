@@ -99,7 +99,7 @@ export const Configuration = () => {
         api.getSystemSettings(),
         api.getDepartments(),
         api.getSpecializations(),
-        api.getBeds(), // Corrected from getConfigBeds
+        api.getBeds(), 
         api.getLabTests(),
         api.getNurseServices(),
         api.getOperations(),
@@ -190,7 +190,8 @@ export const Configuration = () => {
   // Bed Handlers
   const openBedModal = (bed?: BedType) => {
     setEditingBedId(bed ? bed.id : null);
-    setBedForm(bed ? { ...bed } : { type: 'General', status: 'available', costPerDay: 0 });
+    // Ensure default values to prevent uncontrolled input issues
+    setBedForm(bed ? { ...bed } : { roomNumber: '', type: 'General', status: 'available', costPerDay: 0 });
     setIsBedModalOpen(true);
   };
   const handleBedSubmit = (e: React.FormEvent) => {
@@ -604,20 +605,43 @@ export const Configuration = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y dark:bg-slate-800">
-                      {beds.map(bed => (
-                        <tr key={bed.id}>
-                          <td className="px-4 py-3 font-medium">{bed.roomNumber}</td>
-                          <td className="px-4 py-3">{bed.type}</td>
-                          <td className="px-4 py-3 text-right font-mono">${bed.costPerDay}</td>
-                          <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : bed.status === 'cleaning' ? 'purple' : 'red'}>{t(`config_bed_status_${bed.status}`)}</Badge></td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex justify-end gap-2">
-                                <Button size="sm" variant="ghost" onClick={() => openBedModal(bed)} icon={Edit}>{t('edit')}</Button>
-                                <Button size="sm" variant="danger" onClick={() => handleDeleteBed(bed.id)} icon={Trash2}>{t('delete')}</Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {beds.map(bed => {
+                        const isLocked = ['occupied', 'reserved'].includes(bed.status);
+                        return (
+                          <tr key={bed.id}>
+                            <td className="px-4 py-3 font-medium">{bed.roomNumber}</td>
+                            <td className="px-4 py-3">{bed.type}</td>
+                            <td className="px-4 py-3 text-right font-mono">${bed.costPerDay}</td>
+                            <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : bed.status === 'cleaning' ? 'purple' : 'red'}>{t(`config_bed_status_${bed.status}`)}</Badge></td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex justify-end gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    onClick={() => openBedModal(bed)} 
+                                    icon={Edit} 
+                                    disabled={isLocked}
+                                    title={isLocked ? "Cannot edit occupied/reserved bed" : ""}
+                                    className={isLocked ? "opacity-50 cursor-not-allowed" : ""}
+                                  >
+                                    {t('edit')}
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="danger" 
+                                    onClick={() => handleDeleteBed(bed.id)} 
+                                    icon={Trash2} 
+                                    disabled={isLocked}
+                                    title={isLocked ? "Cannot delete occupied/reserved bed" : ""}
+                                    className={isLocked ? "opacity-50 cursor-not-allowed" : ""}
+                                  >
+                                    {t('delete')}
+                                  </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -780,11 +804,13 @@ export const Configuration = () => {
       <Modal isOpen={isBedModalOpen} onClose={() => setIsBedModalOpen(false)} title={editingBedId ? t('edit') : t('add')}>
          <form onSubmit={handleBedSubmit} className="space-y-4">
            <Input label={t('config_beds_header_room')} required value={bedForm.roomNumber || ''} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} />
-           <Select label={t('config_beds_header_type')} value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value as any})}>
-             <option>General</option><option>Private</option><option>ICU</option>
+           <Select label={t('config_beds_header_type')} value={bedForm.type || 'General'} onChange={e => setBedForm({...bedForm, type: e.target.value as any})}>
+             <option value="General">General</option>
+             <option value="Private">Private</option>
+             <option value="ICU">ICU</option>
            </Select>
            <Input label={t('config_beds_header_cost')} type="number" value={bedForm.costPerDay || 0} onChange={e => setBedForm({...bedForm, costPerDay: parseFloat(e.target.value)})} />
-           <Select label={t('status')} value={bedForm.status} onChange={e => setBedForm({...bedForm, status: e.target.value as any})}>
+           <Select label={t('status')} value={bedForm.status || 'available'} onChange={e => setBedForm({...bedForm, status: e.target.value as any})}>
              <option value="available">{t('config_bed_status_available')}</option>
              <option value="maintenance">{t('config_bed_status_maintenance')}</option>
              <option value="cleaning">{t('config_bed_status_cleaning')}</option>
