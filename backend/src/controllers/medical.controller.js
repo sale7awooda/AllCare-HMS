@@ -1,4 +1,3 @@
-
 const { db } = require('../config/database');
 
 // --- LAB ---
@@ -255,7 +254,6 @@ exports.getInpatientDetails = (req, res) => {
 
     if (!admission) return res.status(404).json({ error: 'Admission not found' });
 
-    // Fetch notes
     const notes = db.prepare(`
         SELECT n.*, m.full_name as doctorName
         FROM inpatient_notes n
@@ -264,28 +262,39 @@ exports.getInpatientDetails = (req, res) => {
         ORDER BY n.created_at DESC
     `).all(id);
 
-    // Calculate billing stats (Total Unpaid Bills)
+    // --- Corrected Financial Preview Logic ---
+    const daysStayed = Math.ceil((Date.now() - new Date(admission.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1;
+    const estimatedAccommodationCost = daysStayed * admission.costPerDay;
+
+    let depositPaid = 0;
+    if (admission.bill_id) {
+      const admissionBill = db.prepare("SELECT paid_amount FROM billing WHERE id = ?").get(admission.bill_id);
+      if (admissionBill) {
+        depositPaid = admissionBill.paid_amount || 0;
+      }
+    }
+
+    // Return the full list of unpaid bills for a detailed breakdown on the frontend.
     const unpaidBills = db.prepare(`
-        SELECT total_amount, paid_amount 
-        FROM billing 
-        WHERE patient_id = ? AND status != 'paid'
-    `).all(admission.patient_id);
+      SELECT id, bill_number, total_amount, paid_amount, bill_date
+      FROM billing 
+      WHERE patient_id = ? AND status IN ('pending', 'partial') AND id != ?
+    `).all(admission.patient_id, admission.bill_id || -1);
 
     const outstandingBalance = unpaidBills.reduce((acc, b) => acc + (b.total_amount - b.paid_amount), 0);
 
-    // Calculate estimated stay cost (current session)
-    const daysStayed = Math.ceil((Date.now() - new Date(admission.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1;
-    const estimatedBill = daysStayed * admission.costPerDay;
-
     res.json({
-        ...admission,
-        notes: notes.map(n => ({...n, vitals: JSON.parse(n.vitals || '{}')})),
-        daysStayed,
-        estimatedBill,
-        outstandingBalance
+      ...admission,
+      notes: notes.map(n => ({...n, vitals: JSON.parse(n.vitals || '{}')})),
+      daysStayed,
+      estimatedBill: estimatedAccommodationCost,
+      depositPaid: depositPaid,
+      outstandingBalance: outstandingBalance,
+      unpaidBills: unpaidBills, // NEW: Pass the detailed list
     });
+    
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to fetch inpatient details' });
   }
 };
 
@@ -382,69 +391,87 @@ exports.addInpatientNote = (req, res) => {
     }
 };
 
+exports.generateSettlementBill = (req, res) => {
+    const { id } = req.params; // admissionId
+
+    const tx = db.transaction(() => {
+        const admission = db.prepare('SELECT * FROM admissions WHERE id = ?').get(id);
+        if (!admission || admission.status !== 'active') throw new Error('Active admission not found.');
+
+        const patientId = admission.patient_id;
+        const patient = db.prepare("SELECT full_name FROM patients WHERE id = ?").get(patientId);
+        if (!patient) throw new Error('Patient not found');
+
+        const bed = db.prepare('SELECT cost_per_day FROM beds WHERE id = ?').get(admission.bed_id);
+        const entryDate = new Date(admission.entry_date);
+        const now = new Date();
+        const daysStayed = Math.ceil((now.getTime() - entryDate.getTime()) / (1000 * 3600 * 24)) || 1;
+        const accommodationCost = daysStayed * bed.cost_per_day;
+
+        if (admission.bill_id) {
+            db.prepare("DELETE FROM billing_items WHERE billing_id = ? AND description LIKE 'Admission Deposit%'").run(admission.bill_id);
+            db.prepare("INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)").run(admission.bill_id, `Accommodation (${daysStayed} days)`, accommodationCost);
+            
+            const items = db.prepare("SELECT SUM(amount) as total FROM billing_items WHERE billing_id = ?").get(admission.bill_id);
+            db.prepare("UPDATE billing SET total_amount = ? WHERE id = ?").run(items.total, admission.bill_id);
+        }
+
+        const allBills = db.prepare("SELECT total_amount, paid_amount FROM billing WHERE patient_id = ? AND status IN ('pending', 'partial')").all(patientId);
+        const totalDebt = allBills.reduce((sum, bill) => sum + (bill.total_amount - bill.paid_amount), 0);
+
+        if (totalDebt <= 0.01) {
+            return { success: false, message: 'No outstanding balance found. Proceed with direct discharge.' };
+        }
+
+        const billNumber = `SETTLE-${Math.floor(10000 + Math.random() * 90000)}`;
+        const billInfo = db.prepare(`
+            INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date, is_settlement_bill, settlement_for_patient_id)
+            VALUES (?, ?, ?, 'pending', ?, 1, ?)
+        `).run(billNumber, patientId, totalDebt, new Date().toISOString(), patientId);
+        const billId = billInfo.lastInsertRowid;
+
+        db.prepare("INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)").run(billId, 'Settlement of all outstanding dues', totalDebt);
+
+        return { success: true, message: 'Settlement bill generated successfully.' };
+    });
+
+    try {
+        const result = tx();
+        if (!result.success) {
+            return res.status(400).json({ error: result.message });
+        }
+        res.json(result);
+    } catch (err) {
+        console.error('Error generating settlement bill:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
 exports.dischargePatient = (req, res) => {
   const { id } = req.params;
-  const { dischargeNotes, dischargeStatus, finalBillItems } = req.body;
+  const { dischargeNotes, dischargeStatus } = req.body;
   
   const tx = db.transaction(() => {
-    // 1. Get Admission & Bed Info
     const admission = db.prepare('SELECT * FROM admissions WHERE id = ?').get(id);
     if (!admission || admission.status !== 'active') throw new Error('Active admission not found or not in a dischargeable state.');
 
-    const bed = db.prepare('SELECT cost_per_day FROM beds WHERE id = ?').get(admission.bed_id);
-    if (!bed) throw new Error('Associated bed not found.');
-
-    // 2. Calculate final accommodation cost
-    const entryDate = new Date(admission.entry_date);
-    const dischargeDate = new Date(); // now
-    const daysStayed = Math.ceil((dischargeDate.getTime() - entryDate.getTime()) / (1000 * 3600 * 24)) || 1;
-    const accommodationCost = daysStayed * bed.cost_per_day;
-
-    let totalFinalCost = accommodationCost;
+    const balanceInfo = db.prepare(`
+        SELECT SUM(total_amount - paid_amount) as due 
+        FROM billing 
+        WHERE patient_id = ? AND status IN ('pending', 'partial')
+    `).get(admission.patient_id);
     
-    // 3. Update the original Bill
-    if (admission.bill_id) {
-        // FIX: Clear ALL old bill items. We are generating a complete final bill.
-        // If we keep "Deposit" item, the sum(items) will be Accommodation + Deposit + Extras,
-        // which double counts the deposit value in the total charge.
-        // The fact that the deposit was PAID is stored in `billing.paid_amount`, which is preserved.
-        db.prepare("DELETE FROM billing_items WHERE billing_id = ?").run(admission.bill_id);
-
-        // Add accommodation charge
-        db.prepare("INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)").run(admission.bill_id, `Accommodation (${daysStayed} days)`, accommodationCost);
-        
-        // Add extra items if any
-        if (finalBillItems && Array.isArray(finalBillItems)) {
-            const insertItem = db.prepare("INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)");
-            for (const item of finalBillItems) {
-                if (item.description && item.amount > 0) {
-                    insertItem.run(admission.bill_id, item.description, item.amount);
-                    totalFinalCost += item.amount;
-                }
-            }
-        }
-        
-        // Update the main bill record with the new TOTAL cost
-        const bill = db.prepare("SELECT paid_amount FROM billing WHERE id = ?").get(admission.bill_id);
-        const paidAmount = bill ? bill.paid_amount : 0;
-        
-        // Calculate new status based on Total vs Paid
-        const newStatus = paidAmount >= totalFinalCost ? 'paid' : 'partial';
-
-        db.prepare("UPDATE billing SET total_amount = ?, status = ? WHERE id = ?").run(totalFinalCost, newStatus, admission.bill_id);
+    if (balanceInfo && balanceInfo.due > 0.01) {
+        throw new Error(`Cannot discharge patient with an outstanding balance of $${balanceInfo.due.toFixed(2)}.`);
     }
-
-    // 4. Update Admission record
+    
     db.prepare(`
       UPDATE admissions 
       SET status = 'discharged', actual_discharge_date = ?, discharge_notes = ?, discharge_status = ?
       WHERE id = ?
-    `).run(dischargeDate.toISOString(), dischargeNotes, dischargeStatus, id);
+    `).run(new Date().toISOString(), dischargeNotes, dischargeStatus, id);
 
-    // 5. Set Bed to Cleaning
     db.prepare("UPDATE beds SET status = 'cleaning' WHERE id = ?").run(admission.bed_id);
-
-    // 6. Update Patient Type
     db.prepare("UPDATE patients SET type = 'outpatient' WHERE id = ?").run(admission.patient_id);
   });
 
@@ -452,9 +479,31 @@ exports.dischargePatient = (req, res) => {
     tx();
     res.json({ success: true, message: 'Patient discharged. Bed set to cleaning.' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 };
+
+exports.settleAndDischarge = (req, res) => {
+    const { id } = req.params; // admissionId
+    const { paymentData, dischargeData } = req.body;
+
+    const tx = db.transaction(() => {
+        // This function is now deprecated in favor of the two-step process.
+        // Keeping it to prevent crashes but it should not be used.
+        // For a robust implementation, this would either be removed or refactored
+        // to call the new logic, but for now we'll throw an error.
+        throw new Error('This endpoint is deprecated. Please use the new generate-settlement workflow.');
+    });
+
+    try {
+        tx();
+        res.json({ success: true, message: 'Patient debts settled and discharged successfully.' });
+    } catch (err) {
+        console.error('Settle & Discharge Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
 
 exports.markBedClean = (req, res) => {
     const { id } = req.params;

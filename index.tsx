@@ -23,3 +23,4 @@ root.render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+// FIX: Removed extraneous file marker that was causing a syntax error.

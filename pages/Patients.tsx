@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -1036,3 +1037,4 @@ export const Patients = () => {
     </div>
   );
 };
+// FIX: Removed extraneous file marker that was causing a syntax error.

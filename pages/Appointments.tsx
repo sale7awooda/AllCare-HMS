@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -204,7 +205,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
   );
 };
 
-const ListView = ({ appointments, onEdit, onCancel, canManage }: any) => {
+const ListView = ({ appointments, onEdit, onCancel, canManage }: { appointments: Appointment[], onEdit: (apt: Appointment) => void, onCancel: (id: number) => void, canManage: boolean }) => {
     const { t } = useTranslation();
     return (
         <div className="overflow-x-auto">
@@ -212,122 +213,83 @@ const ListView = ({ appointments, onEdit, onCancel, canManage }: any) => {
             <thead className="bg-slate-50 dark:bg-slate-900/50">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">No.</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_token')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_patient')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_staff')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_type')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_status')}</th>
-                {canManage && <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_actions')}</th>}
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Patient</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Doctor</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Time</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-              {appointments.length === 0 ? (
-                  <tr><td colSpan={canManage ? 7 : 6} className="py-10 text-center text-slate-400">{t('appointments_list_empty')}</td></tr>
-              ) : (
-                appointments.map((apt: Appointment, index: number) => (
-                  <tr key={apt.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                        {index + 1}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-mono text-sm font-bold text-slate-800 dark:text-white">
-                        #{apt.dailyToken}
-                      </div>
-                      <div className="text-xs text-slate-500">{apt.datetime && new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-slate-800 dark:text-white">{apt.patientName}</div>
-                      <div className="text-xs text-slate-400">{apt.patientId}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{apt.staffName}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{apt.type}</td>
-                    <td className="px-6 py-4"><StatusBadge status={apt.status} /></td>
+            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+              {appointments.map((apt: Appointment) => (
+                <tr key={apt.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">#{apt.dailyToken || apt.id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-800 dark:text-white">{apt.patientName}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{apt.staffName}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(apt.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{apt.type}</td>
+                  <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={apt.status} /></td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     {canManage && (
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
-                           <Button 
-                             size="sm" 
-                             variant="outline" 
-                             icon={Edit} 
-                             onClick={() => onEdit(apt)}
-                             disabled={apt.status === 'completed' || apt.status === 'cancelled'}
-                           >
-                            {t('edit')}
-                           </Button>
-                           {apt.status !== 'cancelled' && apt.status !== 'completed' && <Button size="sm" variant="danger" icon={X} onClick={() => onCancel(apt.id)}>{t('cancel')}</Button>}
-                        </td>
+                      <div className="flex gap-2 justify-end">
+                        <Button size="sm" variant="outline" icon={Edit} onClick={() => onEdit(apt)}>Edit</Button>
+                        {apt.status !== 'completed' && apt.status !== 'cancelled' && (
+                          <Button size="sm" variant="danger" icon={X} onClick={() => onCancel(apt.id)}>Cancel</Button>
+                        )}
+                      </div>
                     )}
-                  </tr>
-                ))
-              )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-    )
-}
+    );
+};
 
 export const Appointments = () => {
-  const [viewMode, setViewMode] = useState<'queue' | 'list'>('queue');
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([]);
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
-  const { user: currentUser } = useAuth();
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterDept, setFilterDept] = useState('all');
-  const { t } = useTranslation();
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Process State
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [formData, setFormData] = useState({
+    patientId: '',
+    staffId: '',
+    date: formatDate(new Date()),
+    time: '09:00',
+    type: 'Consultation',
+    reason: ''
+  });
+  const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', action: () => {} });
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
 
-  // Modals
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
-  const [appointmentToCancel, setAppointmentToCancel] = useState<number | null>(null);
-  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingForm, setEditingForm] = useState({
-    patientId: '',
-    staffId: '',
-    date: formatDate(selectedDate),
-    time: '09:00',
-    type: 'Consultation',
-    reason: '',
-  });
+  const { t } = useTranslation();
+  const { user: currentUser } = useAuth();
+  const canManage = hasPermission(currentUser, Permissions.MANAGE_APPOINTMENTS);
 
-  const checkAvailability = (doc: MedicalStaff, dateStr: string) => {
-    if (doc.status !== 'active') return false;
-    if (!doc.availableDays || doc.availableDays.length === 0) return true; // Assume available if not specified
+  const loadData = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
-        const scheduleDays = doc.availableDays.map((d: string) => d.toLowerCase());
-        // To get weekday correctly across timezones, add T00:00:00 to parse as local time.
-        const appointmentDate = new Date(dateStr + 'T00:00:00');
-        const weekday = appointmentDate.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-        return scheduleDays.includes(weekday);
-    } catch (e) {
-        console.error("Date parsing error for availability check:", e);
-        return true; // Default to available on error
-    }
-  };
-
-  const loadData = async (isBackground = false) => {
-    if (!isBackground) setLoading(true);
-    try {
-      const [apts, pts, stf, depts] = await Promise.all([
+      const [apts, stf, pts] = await Promise.all([
         api.getAppointments(),
-        api.getPatients(),
         api.getStaff(),
-        api.getDepartments(),
+        api.getPatients()
       ]);
       setAppointments(Array.isArray(apts) ? apts : []);
-      setPatients(Array.isArray(pts) ? pts : []);
       setStaff(Array.isArray(stf) ? stf : []);
-      setDepartments(Array.isArray(depts) ? depts : []);
+      setPatients(Array.isArray(pts) ? pts : []);
     } catch (e) {
       console.error("Failed to load appointment data", e);
     } finally {
-      if (!isBackground) setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -335,79 +297,81 @@ export const Appointments = () => {
     loadData();
   }, []);
 
-
+  // Filter and group appointments for the selected date
   const dailyAppointments = useMemo(() => {
-    // 1. Filter appointments for the day
-    const appointmentsForDay = appointments.filter(apt => {
-        if (!apt || !apt.datetime) return false;
-        return isSameDay(new Date(apt.datetime), selectedDate);
-    });
+    return appointments
+      .filter(apt => isSameDay(new Date(apt.datetime), selectedDate))
+      .sort((a, b) => {
+        // Sort logic: paid > unpaid, then by time
+        const aIsPaid = a.billingStatus === 'paid' || (a.totalAmount !== undefined && a.paidAmount !== undefined && a.paidAmount >= a.totalAmount);
+        const bIsPaid = b.billingStatus === 'paid' || (b.totalAmount !== undefined && b.paidAmount !== undefined && b.paidAmount >= b.totalAmount);
+        if (aIsPaid && !bIsPaid) return -1;
+        if (!aIsPaid && bIsPaid) return 1;
+        return new Date(a.datetime).getTime() - new Date(b.datetime).getTime();
+      });
+  }, [appointments, selectedDate]);
 
-    // 2. Filter by Department if needed
-    const filteredByDept = appointmentsForDay.filter(apt => {
-        return filterDept === 'all' || staff.find(s => s.id === apt.staffId)?.department === filterDept;
-    });
+  const appointmentsByDoctor = useMemo(() => {
+    const doctorsWithAppointments = staff.filter(s =>
+      (s.type === 'doctor' || s.type === 'nurse') && dailyAppointments.some(a => a.staffId === s.id)
+    );
 
-    // 3. Group by Staff ID
-    const groupedByStaff: Record<string, Appointment[]> = {};
-    filteredByDept.forEach(apt => {
-        if (!groupedByStaff[apt.staffId]) groupedByStaff[apt.staffId] = [];
-        groupedByStaff[apt.staffId].push(apt);
-    });
-
-    // 4. Sort and Assign Token Per Staff
-    const statusPriority: Record<string, number> = {
-      'in_progress': 0, 'confirmed': 1, 'checked_in': 2, 'waiting': 3, 'pending': 4,
-      'completed': 6, 'cancelled': 7
-    };
-
-    const finalGrouped: Record<string, Appointment[]> = {};
-
-    Object.keys(groupedByStaff).forEach(staffId => {
-        const staffAppts = groupedByStaff[staffId];
-        
-        // Sort for token assignment: Time based
-        const sortedForToken = [...staffAppts].sort((a,b) => (a.datetime && b.datetime) ? new Date(a.datetime).getTime() - new Date(b.datetime).getTime() : 0);
-        
-        // Assign Token (1...N)
-        const withTokens = sortedForToken.map((apt, index) => ({
-            ...apt,
-            dailyToken: index + 1
-        }));
-
-        // Sort for display (Priority)
-        const sortedForDisplay = [...withTokens].sort((a, b) => {
-            if (!a || !b) return 0;
-            
-            // Derive effective status for sorting: Treat PAID pending appointments as confirmed
-            const getEffectiveStatus = (item: Appointment) => {
-                const isItemPaid = item.billingStatus === 'paid' || (item.totalAmount !== undefined && (item.paidAmount || 0) >= item.totalAmount);
-                if (item.status === 'pending' && isItemPaid) return 'confirmed'; // Treat as confirmed if paid
-                return item.status;
-            };
-
-            const statusA = statusPriority[getEffectiveStatus(a)] ?? 99;
-            const statusB = statusPriority[getEffectiveStatus(b)] ?? 99;
-            if (statusA !== statusB) return statusA - statusB;
-            // Then by time 
-            return (a.datetime && b.datetime) ? new Date(a.datetime).getTime() - new Date(b.datetime).getTime() : 0;
-        });
-
-        finalGrouped[staffId] = sortedForDisplay;
-    });
-
-    return finalGrouped;
-  }, [appointments, selectedDate, filterDept, staff]);
-
-  const activeStaff = useMemo(() => {
-    const activeStaffIds = new Set(Object.keys(dailyAppointments));
-    return staff.filter(s => activeStaffIds.has(s.id.toString()));
+    return doctorsWithAppointments.map(doc => ({
+      doctor: doc,
+      appointments: dailyAppointments.filter(a => a.staffId === doc.id)
+    }));
   }, [dailyAppointments, staff]);
 
-  const openModal = () => {
-    setIsEditing(false);
+  // Handlers
+  const handleStatusUpdate = async (id: number, status: string, patientName: string) => {
+    setProcessStatus('processing');
+    setProcessMessage(`Updating status for ${patientName}...`);
+    try {
+      if (status === 'in_progress') {
+        const apt = appointments.find(a => a.id === id);
+        if (apt) {
+          const otherInProgress = appointments.find(a => a.staffId === apt.staffId && a.status === 'in_progress');
+          if (otherInProgress) {
+             await api.updateAppointmentStatus(otherInProgress.id, 'checked_in');
+          }
+        }
+      }
+      await api.updateAppointmentStatus(id, { status });
+      await loadData(true);
+      setProcessStatus('idle');
+    } catch (e: any) {
+      setProcessStatus('error');
+      setProcessMessage(e.message || 'Failed to update status');
+      setTimeout(() => setProcessStatus('idle'), 2000);
+    }
+  };
+  
+  const handleCancel = (id: number) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Cancel Appointment',
+      message: 'Are you sure you want to cancel this appointment? This may affect billing.',
+      action: async () => {
+        setProcessStatus('processing');
+        setProcessMessage('Cancelling appointment...');
+        try {
+          await api.cancelAppointment(id);
+          await loadData(true);
+          setProcessStatus('success');
+          setProcessMessage('Appointment cancelled.');
+          setTimeout(() => setProcessStatus('idle'), 1500);
+        } catch (e: any) {
+          setProcessStatus('error');
+          setProcessMessage(e.message || 'Failed to cancel.');
+          setTimeout(() => setProcessStatus('idle'), 2000);
+        }
+      }
+    });
+  };
+
+  const openCreateModal = () => {
     setEditingAppointment(null);
-    setEditingForm({
+    setFormData({
       patientId: '',
       staffId: '',
       date: formatDate(selectedDate),
@@ -419,86 +383,46 @@ export const Appointments = () => {
   };
   
   const openEditModal = (apt: Appointment) => {
-    if (!apt) return;
     setEditingAppointment(apt);
-    setIsEditing(true);
-    setEditingForm({
-      patientId: apt?.patientId.toString() || '',
-      staffId: apt?.staffId.toString() || '',
-      date: apt && apt.datetime ? formatDate(new Date(apt.datetime)) : formatDate(selectedDate),
-      time: apt && apt.datetime ? new Date(apt.datetime).toTimeString().slice(0, 5) : '09:00',
+    setFormData({
+      patientId: apt.patientId.toString(),
+      staffId: apt.staffId.toString(),
+      date: apt.datetime.split('T')[0],
+      time: apt.datetime.split('T')[1].slice(0, 5),
       type: apt.type,
-      reason: apt.reason || '',
+      reason: apt.reason || ''
     });
     setIsModalOpen(true);
   };
 
-  const handleCreateAppointment = async (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
-    setProcessMessage(isEditing ? t('appointments_process_updating') : t('appointments_process_creating'));
-
-    const payload = {
-      ...editingForm,
-      datetime: `${editingForm.date}T${editingForm.time}`,
-      patientId: parseInt(editingForm.patientId),
-      staffId: parseInt(editingForm.staffId),
-    };
-    
+    setProcessMessage(editingAppointment ? 'Updating...' : 'Creating...');
     try {
-      if (isEditing && editingAppointment) {
-        // Update existing appointment without recreating (prevents double billing)
+      const payload = {
+        ...formData,
+        patientId: parseInt(formData.patientId),
+        staffId: parseInt(formData.staffId),
+        datetime: `${formData.date}T${formData.time}`
+      };
+
+      if (editingAppointment) {
         await api.updateAppointment(editingAppointment.id, payload);
       } else {
         await api.createAppointment(payload);
       }
-
-      setProcessStatus('success');
-      setProcessMessage(isEditing ? t('appointments_process_update_success') : t('appointments_process_create_success'));
-      
-      setIsModalOpen(false);
       await loadData(true);
-
+      setProcessStatus('success');
+      setProcessMessage(editingAppointment ? 'Updated successfully!' : 'Created successfully!');
       setTimeout(() => {
+        setIsModalOpen(false);
         setProcessStatus('idle');
       }, 1500);
-
     } catch (e: any) {
       setProcessStatus('error');
-      setProcessMessage(e.response?.data?.error || t('appointments_process_save_fail'));
-    }
-  };
-
-  const handleStatusUpdate = async (id: number, status: string) => {
-    await api.updateAppointmentStatus(id, status);
-    await loadData(true);
-  };
-
-  const confirmCancel = (id: number) => {
-    setAppointmentToCancel(id);
-    setIsCancelConfirmOpen(true);
-  };
-
-  const handleCancel = async () => {
-    if (!appointmentToCancel) return;
-    
-    setProcessStatus('processing');
-    setProcessMessage(t('appointments_process_cancelling'));
-
-    try {
-      await api.cancelAppointment(appointmentToCancel);
-
-      setProcessStatus('success');
-      setProcessMessage(t('appointments_process_cancel_success'));
-      
-      await loadData(true);
-    } catch (e: any) {
-      setProcessStatus('error');
-      setProcessMessage(e.response?.data?.error || t('appointments_process_cancel_fail'));
-    } finally {
-      setIsCancelConfirmOpen(false);
-      setAppointmentToCancel(null);
-      setTimeout(() => setProcessStatus('idle'), 1500);
+      setProcessMessage(e.message || 'Failed to save appointment.');
+      setTimeout(() => setProcessStatus('idle'), 2000);
     }
   };
 
@@ -510,144 +434,113 @@ export const Appointments = () => {
     });
   };
 
-  const canManage = hasPermission(currentUser, Permissions.MANAGE_APPOINTMENTS);
-  
-  // Sort overall list by time only, ignoring doctor groups, for the ListView
-  const listAllAppointments = Object.values(dailyAppointments).flat().sort((a: Appointment, b: Appointment) => 
-    (a.datetime && b.datetime) ? new Date(a.datetime).getTime() - new Date(b.datetime).getTime() : 0
-  );
-
   return (
     <div className="space-y-6">
-
-      {/* Process Status Overlay */}
+      {/* Loading Overlay */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
-                {processStatus === 'processing' && <Loader2 className="w-12 h-12 text-primary-600 animate-spin mb-4" />}
-                {processStatus === 'success' && <CheckCircle className="w-12 h-12 text-green-600 mb-4" />}
-                {processStatus === 'error' && <XCircle className="w-12 h-12 text-red-600 mb-4" />}
-                <p className="font-medium text-slate-700 dark:text-slate-200 mb-4">{processMessage}</p>
-                {processStatus === 'error' && (
-                  <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">{t('close')}</Button>
-                )}
-            </div>
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
+            {processStatus === 'processing' && <Loader2 className="w-12 h-12 text-primary-600 animate-spin mb-4" />}
+            {processStatus === 'success' && <CheckCircle className="w-12 h-12 text-green-600 mb-4" />}
+            {processStatus === 'error' && <XCircle className="w-12 h-12 text-red-600 mb-4" />}
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{processStatus === 'processing' ? t('processing') : processStatus === 'success' ? t('success') : 'Failed'}</h3>
+            <p className="text-slate-500 dark:text-slate-400 mb-6">{processMessage}</p>
+            {processStatus === 'error' && <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">{t('close')}</Button>}
+          </div>
         </div>
       )}
 
-      {/* Header & Controls */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('appointments_title')}</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">{t('appointments_subtitle')}</p>
         </div>
-        <div className="flex gap-3">
-          {canManage && <Button onClick={openModal} icon={Plus}>{t('appointments_new_walkin_button')}</Button>}
-        </div>
+        {canManage && <Button onClick={openCreateModal} icon={Plus}>{t('appointments_new_button')}</Button>}
       </div>
 
-      {/* Toolbar */}
-      <Card className="!p-3 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
+      {/* Controls */}
+      <Card className="!p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => changeDate(-1)} icon={ChevronLeft} className="!p-2 h-10 w-10" />
-          <div className="text-center">
-            <h3 className="font-bold text-lg text-slate-800 dark:text-white">{selectedDate.toLocaleDateString([], { weekday: 'long' })}</h3>
-            <p className="text-sm text-slate-500">{selectedDate.toLocaleDateString()}</p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={() => changeDate(1)} icon={ChevronRight} className="!p-2 h-10 w-10" />
-          <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())} className="ml-2">{t('dashboard_today')}</Button>
+          <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => changeDate(-1)} />
+          <Input type="date" value={formatDate(selectedDate)} onChange={e => setSelectedDate(new Date(e.target.value))} className="w-auto" />
+          <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => changeDate(1)} />
+          <Button size="sm" variant="secondary" onClick={() => setSelectedDate(new Date())}>{t('today')}</Button>
         </div>
-        
-        <div className="flex items-center gap-2">
-           <Select value={filterDept} onChange={e => setFilterDept(e.target.value)}>
-             <option value="all">{t('appointments_filter_all_depts')}</option>
-             {departments.map(d => <option key={d.id} value={d.name_en}>{d.name_en}</option>)}
-           </Select>
-           <div className="p-1 bg-slate-100 dark:bg-slate-800 rounded-lg flex gap-1">
-             <Button variant={viewMode === 'queue' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('queue')} icon={LayoutGrid} className={viewMode === 'queue' ? 'bg-white dark:bg-slate-700 shadow-sm' : ''}>{t('appointments_view_queue')}</Button>
-             <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('list')} icon={ListIcon} className={viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm' : ''}>{t('appointments_view_list')}</Button>
-           </div>
+        <div className="flex items-center bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+          <Button size="sm" variant={viewMode === 'grid' ? 'secondary' : 'ghost'} icon={LayoutGrid} onClick={() => setViewMode('grid')}>{t('appointments_view_queue')}</Button>
+          <Button size="sm" variant={viewMode === 'list' ? 'secondary' : 'ghost'} icon={ListIcon} onClick={() => setViewMode('list')}>{t('appointments_view_list')}</Button>
         </div>
       </Card>
-      
-      {/* Main Content */}
-      {viewMode === 'queue' ? (
-        <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar -mx-8 px-8">
-          {loading ? <p>{t('loading')}</p> :
-           activeStaff.length === 0 ? <p className="text-slate-400 mx-auto py-10">{t('appointments_queue_no_staff')}</p> :
-           activeStaff.map(doc => (
-            <DoctorQueueColumn 
-              key={doc.id} 
-              doctor={doc} 
-              appointments={dailyAppointments[doc.id] || []}
-              onStatusUpdate={handleStatusUpdate}
-              onCancel={confirmCancel}
-              canManage={canManage}
-            />
-          ))}
+
+      {/* Content */}
+      {loading ? (
+        <div className="text-center py-20 text-slate-400">{t('appointments_loading')}</div>
+      ) : viewMode === 'grid' ? (
+        <div className="flex gap-6 overflow-x-auto pb-4 custom-scrollbar -mx-6 px-6">
+          {appointmentsByDoctor.length === 0 ? (
+            <div className="flex-1 text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl w-full">
+              <p className="text-slate-500">{t('appointments_empty')}</p>
+            </div>
+          ) : (
+            appointmentsByDoctor.map(({ doctor, appointments }) => (
+              <DoctorQueueColumn 
+                key={doctor.id} 
+                doctor={doctor} 
+                appointments={appointments} 
+                onStatusUpdate={handleStatusUpdate}
+                onCancel={handleCancel}
+                canManage={canManage}
+              />
+            ))
+          )}
         </div>
       ) : (
-        <Card className="!p-0 animate-in fade-in">
-           <ListView appointments={listAllAppointments} onEdit={openEditModal} onCancel={confirmCancel} canManage={canManage} />
+        <Card className="!p-0">
+          <ListView 
+            appointments={dailyAppointments} 
+            onEdit={openEditModal} 
+            onCancel={handleCancel}
+            canManage={canManage}
+          />
         </Card>
       )}
 
-      {/* Appointment Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditing ? t('appointments_modal_edit_title') : t('appointments_modal_title')}>
-        <form onSubmit={handleCreateAppointment} className="space-y-4">
-          <Select 
-            label={t('appointments_form_select_patient')} 
-            required 
-            value={editingForm.patientId} 
-            onChange={e => setEditingForm({...editingForm, patientId: e.target.value})}
-            disabled={isEditing}
-          >
+      {/* Modals */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingAppointment ? t('appointments_modal_edit_title') : t('appointments_modal_new_title')}>
+        <form onSubmit={handleFormSubmit} className="space-y-4">
+          <Select label={t('appointments_form_select_patient')} required value={formData.patientId} onChange={e => setFormData({...formData, patientId: e.target.value})}>
             <option value="">{t('appointments_form_select_patient')}</option>
-            {patients.map(p => <option key={p.id} value={p.id}>{p.fullName} ({p.patientId})</option>)}
+            {patients.map(p => <option key={p.id} value={p.id}>{p.fullName}</option>)}
           </Select>
-
-          <Select 
-            label={t('appointments_form_select_staff')} 
-            required 
-            value={editingForm.staffId} 
-            onChange={e => setEditingForm({...editingForm, staffId: e.target.value})}
-          >
+          <Select label={t('appointments_form_select_staff')} required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})}>
             <option value="">{t('appointments_form_select_staff')}</option>
-            {staff
-              .filter(s => (s.type === 'doctor' || s.type === 'nurse') && checkAvailability(s, editingForm.date))
-              .map(s => (
-                <option key={s.id} value={s.id}>{s.fullName} - {s.type === 'nurse' ? t('appointments_form_select_nurse') : s.specialization}</option>
-            ))}
+            {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
           </Select>
-          
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Date" type="date" required value={editingForm.date} onChange={e => setEditingForm({...editingForm, date: e.target.value})} />
-            <Input label={t('appointments_form_time')} type="time" required value={editingForm.time} onChange={e => setEditingForm({...editingForm, time: e.target.value})} />
+            <Input label={t('date')} type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+            <Input label={t('time')} type="time" required value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
           </div>
-
-          <Select label={t('appointments_form_type')} value={editingForm.type} onChange={e => setEditingForm({...editingForm, type: e.target.value})}>
+          <Select label={t('appointments_form_type')} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
             <option>Consultation</option>
             <option>Follow-up</option>
             <option>Emergency</option>
-            <option>Procedure</option>
           </Select>
-
-          <Textarea label={t('appointments_form_reason')} value={editingForm.reason} onChange={e => setEditingForm({...editingForm, reason: e.target.value})} />
-          
-          <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700">
+          <Textarea label={t('reason')} value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
+          <div className="flex justify-end pt-4 gap-3">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit">{isEditing ? t('appointments_form_update_button') : t('appointments_form_create_button')}</Button>
+            <Button type="submit">{t('save')}</Button>
           </div>
         </form>
       </Modal>
-
-      {/* Cancel Confirmation */}
-      <ConfirmationDialog 
-        isOpen={isCancelConfirmOpen}
-        onClose={() => setIsCancelConfirmOpen(false)}
-        onConfirm={handleCancel}
-        title={t('appointments_cancel_dialog_title')}
-        message={<p>{t('appointments_cancel_dialog_message')}</p>}
+      
+      <ConfirmationDialog
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState({...confirmState, isOpen: false})}
+        onConfirm={confirmState.action}
+        title={confirmState.title}
+        message={confirmState.message}
+        type="danger"
       />
     </div>
   );

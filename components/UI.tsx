@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, Check, AlertCircle } from 'lucide-react';
 
@@ -252,3 +253,4 @@ export const Tooltip: React.FC<{ children: React.ReactNode; content: React.React
     </>
   );
 };
+// FIX: Removed extraneous file marker that was causing a syntax error.

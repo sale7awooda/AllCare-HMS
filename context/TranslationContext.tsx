@@ -1,6 +1,5 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { translations } from '../locales/dictionary';
 
 type Language = 'en' | 'ar';
 
@@ -14,6 +13,8 @@ const TranslationContext = createContext<TranslationContextType | undefined>(und
 
 export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>(() => (localStorage.getItem('language') as Language) || 'en');
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
@@ -23,18 +24,39 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+
+    // Fetch the translation file dynamically
+    setIsLoading(true);
+    fetch(`/locales/${language}.json`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to load translation file for ${language}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        setTranslations(data);
+      })
+      .catch(error => {
+        console.error(error);
+        setTranslations({}); // Fallback to empty on error
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+
   }, [language]);
 
   const t = useCallback((key: string, options?: Record<string, string | number>): string => {
-    // @ts-ignore
-    let text = translations[language][key] || key;
+    // Return key if translations are still loading or not found
+    const text = translations[key] || key;
     if (options && typeof text === 'string') {
-      for (const [k, v] of Object.entries(options)) {
-        text = text.replace(new RegExp(`{${k}}`, 'g'), String(v));
-      }
+      return Object.entries(options).reduce((acc, [k, v]) => {
+        return acc.replace(new RegExp(`{${k}}`, 'g'), String(v));
+      }, text);
     }
     return text;
-  }, [language]);
+  }, [language, translations, isLoading]);
 
   return (
     <TranslationContext.Provider value={{ language, setLanguage, t }}>

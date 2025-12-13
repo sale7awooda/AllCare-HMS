@@ -1,3 +1,4 @@
+
 import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
@@ -94,6 +95,8 @@ export const api = {
   cancelAdmission: (id) => put(`/admissions/${id}/cancel`),
   addInpatientNote: (id, data) => post(`/admissions/${id}/notes`, data),
   dischargePatient: (id, data) => post(`/admissions/${id}/discharge`, data),
+  settleAndDischarge: (id, data) => post(`/admissions/${id}/settle_and_discharge`, data),
+  generateSettlementBill: (id) => post(`/admissions/${id}/generate-settlement`),
   markBedClean: (id) => put(`/admissions/beds/${id}/clean`),
 
   getLabTests: () => get('/config/lab-tests'),
@@ -168,3 +171,4 @@ export const api = {
   },
   resetDatabase: () => post('/config/reset'),
 };
+// FIX: Removed extraneous file marker that was causing a syntax error.

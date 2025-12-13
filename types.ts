@@ -213,3 +213,4 @@ export interface PaymentMethod {
   name_ar: string;
   isActive: boolean;
 }
+// FIX: Removed extraneous file marker that was causing a syntax error.

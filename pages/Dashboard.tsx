@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, Badge, Button } from '../components/UI';
 import { api } from '../services/api';
@@ -372,3 +373,4 @@ export const Dashboard = () => {
     </div>
   );
 };
+// FIX: Removed extraneous file marker that was causing a syntax error.

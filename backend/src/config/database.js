@@ -1,4 +1,3 @@
-
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
@@ -141,7 +140,32 @@ const initDB = (forceReset = false) => {
   db.prepare(`CREATE TABLE IF NOT EXISTS hr_financials (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, type TEXT, amount REAL, reason TEXT, date DATE, status TEXT, FOREIGN KEY(staff_id) REFERENCES medical_staff(id))`).run();
 
   // --- 5. Billing ---
-  db.prepare(`CREATE TABLE IF NOT EXISTS billing (id INTEGER PRIMARY KEY AUTOINCREMENT, bill_number TEXT UNIQUE, patient_id INTEGER, total_amount REAL, paid_amount REAL DEFAULT 0, status TEXT, bill_date DATETIME, FOREIGN KEY(patient_id) REFERENCES patients(id))`).run();
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS billing (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bill_number TEXT UNIQUE,
+      patient_id INTEGER,
+      total_amount REAL,
+      paid_amount REAL DEFAULT 0,
+      status TEXT,
+      bill_date DATETIME,
+      is_settlement_bill BOOLEAN DEFAULT 0,
+      settlement_for_patient_id INTEGER,
+      FOREIGN KEY(patient_id) REFERENCES patients(id)
+    )
+  `).run();
+  
+  // Migration for new billing columns
+  try {
+    db.prepare('SELECT is_settlement_bill FROM billing LIMIT 1').get();
+  } catch (e) {
+    if (e.message.includes('no such column')) {
+      try { db.prepare('ALTER TABLE billing ADD COLUMN is_settlement_bill BOOLEAN DEFAULT 0').run(); } catch(err){}
+      try { db.prepare('ALTER TABLE billing ADD COLUMN settlement_for_patient_id INTEGER').run(); } catch(err){}
+    }
+  }
+
+
   db.prepare(`CREATE TABLE IF NOT EXISTS billing_items (id INTEGER PRIMARY KEY AUTOINCREMENT, billing_id INTEGER, description TEXT, amount REAL, FOREIGN KEY(billing_id) REFERENCES billing(id))`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, category TEXT, amount REAL, method TEXT, reference_id INTEGER, details TEXT, date DATETIME, description TEXT)`).run();
 

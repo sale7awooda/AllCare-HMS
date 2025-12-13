@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -104,6 +103,8 @@ router.post('/admissions/:id/confirm', authorizeRoles(Permissions.MANAGE_ADMISSI
 router.put('/admissions/:id/cancel', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.cancelAdmission);
 router.post('/admissions/:id/notes', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.addInpatientNote);
 router.post('/admissions/:id/discharge', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.dischargePatient);
+router.post('/admissions/:id/settle_and_discharge', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.settleAndDischarge); // Kept for now, but new flow is preferred
+router.post('/admissions/:id/generate-settlement', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.generateSettlementBill);
 router.put('/admissions/beds/:id/clean', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.markBedClean);
 
 // Configuration: General

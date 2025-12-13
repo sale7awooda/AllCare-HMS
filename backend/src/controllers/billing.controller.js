@@ -1,4 +1,3 @@
-
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
@@ -93,6 +92,18 @@ exports.recordPayment = (req, res) => {
         db.prepare("UPDATE admissions SET status = 'active' WHERE id = ?").run(adm.id);
         db.prepare("UPDATE beds SET status = 'occupied' WHERE id = ?").run(adm.bed_id);
         db.prepare("UPDATE patients SET type = 'inpatient' WHERE id = ?").run(adm.patient_id);
+      }
+      
+      // NEW: Check if this is a settlement bill
+      const paidBillDetails = db.prepare("SELECT is_settlement_bill, settlement_for_patient_id FROM billing WHERE id = ?").get(id);
+      if (paidBillDetails && paidBillDetails.is_settlement_bill) {
+          const patientId = paidBillDetails.settlement_for_patient_id;
+          // Mark all other pending/partial bills for this patient as paid
+          db.prepare(`
+              UPDATE billing 
+              SET status = 'paid', paid_amount = total_amount
+              WHERE patient_id = ? AND id != ? AND status IN ('pending', 'partial')
+          `).run(patientId, id);
       }
     }
   });

@@ -1,4 +1,3 @@
-
 {
   "app_loading": "Loading application...",
   "nav_dashboard": "Dashboard",
@@ -494,8 +493,8 @@
   "billing_stat_paid": "Paid Invoices",
   "billing_search_placeholder": "Search invoice # or patient name...",
   "billing_table_header_info": "Invoice Info",
-  "billing_table_header_patient": "Patient",
-  "billing_table_header_status": "Status",
+  "billing_table_header_status": "Status & Type",
+  "billing_table_header_paid_progress": "Paid Progress",
   "billing_table_header_amount": "Amount",
   "billing_table_header_actions": "Actions",
   "billing_table_loading": "Loading billing data...",

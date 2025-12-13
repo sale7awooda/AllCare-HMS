@@ -1,4 +1,3 @@
-
 {
   "app_loading": "جاري تحميل التطبيق...",
   "nav_dashboard": "لوحة التحكم",
@@ -494,8 +493,8 @@
   "billing_stat_paid": "الفواتير المدفوعة",
   "billing_search_placeholder": "ابحث برقم الفاتورة أو اسم المريض...",
   "billing_table_header_info": "معلومات الفاتورة",
-  "billing_table_header_patient": "المريض",
-  "billing_table_header_status": "الحالة",
+  "billing_table_header_status": "الحالة والنوع",
+  "billing_table_header_paid_progress": "تقدم الدفع",
   "billing_table_header_amount": "المبلغ",
   "billing_table_header_actions": "الإجراءات",
   "billing_table_loading": "جاري تحميل بيانات الفواتير...",
