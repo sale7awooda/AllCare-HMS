@@ -388,8 +388,14 @@ exports.deletePaymentMethod = (req, res) => {
 // --- DATA MANAGEMENT ---
 exports.downloadBackup = (req, res) => {
   const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
-  if (fs.existsSync(dbPath)) res.download(dbPath, `allcare-backup-${new Date().toISOString().split('T')[0]}.db`);
-  else res.status(404).json({ error: 'Database file not found' });
+  if (fs.existsSync(dbPath)) {
+    // Explicitly set headers to force binary download and avoid .txt extension
+    res.setHeader('Content-Type', 'application/x-sqlite3');
+    res.setHeader('Content-Disposition', `attachment; filename="allcare-backup-${new Date().toISOString().split('T')[0]}.db"`);
+    res.download(dbPath);
+  } else {
+    res.status(404).json({ error: 'Database file not found' });
+  }
 };
 
 exports.restoreBackup = (req, res) => {

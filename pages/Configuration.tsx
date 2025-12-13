@@ -14,16 +14,16 @@ import { useTranslation } from '../context/TranslationContext';
 type CatalogType = 'dept' | 'spec' | 'lab' | 'nurse' | 'ops' | 'insurance' | 'banks';
 
 const permissionGroups: Record<string, string[]> = {
-  'General': ['VIEW_DASHBOARD'],
-  'Patients': ['VIEW_PATIENTS', 'MANAGE_PATIENTS', 'DELETE_PATIENTS'],
-  'Appointments': ['VIEW_APPOINTMENTS', 'MANAGE_APPOINTMENTS', 'DELETE_APPOINTMENTS'],
-  'Billing': ['VIEW_BILLING', 'MANAGE_BILLING', 'DELETE_BILLING'],
-  'HR': ['VIEW_HR', 'MANAGE_HR', 'DELETE_HR'],
-  'Admissions': ['VIEW_ADMISSIONS', 'MANAGE_ADMISSIONS', 'DELETE_ADMISSIONS'],
-  'Laboratory': ['VIEW_LABORATORY', 'MANAGE_LABORATORY', 'DELETE_LABORATORY'],
-  'Operations': ['VIEW_OPERATIONS', 'MANAGE_OPERATIONS', 'DELETE_OPERATIONS'],
-  'Reports & Records': ['VIEW_REPORTS', 'MANAGE_REPORTS', 'VIEW_RECORDS'],
-  'System': ['VIEW_SETTINGS', 'MANAGE_SETTINGS', 'MANAGE_CONFIGURATION'],
+  'permission_group_general': ['VIEW_DASHBOARD'],
+  'permission_group_patients': ['VIEW_PATIENTS', 'MANAGE_PATIENTS', 'DELETE_PATIENTS'],
+  'permission_group_appointments': ['VIEW_APPOINTMENTS', 'MANAGE_APPOINTMENTS', 'DELETE_APPOINTMENTS'],
+  'permission_group_billing': ['VIEW_BILLING', 'MANAGE_BILLING', 'DELETE_BILLING'],
+  'permission_group_hr': ['VIEW_HR', 'MANAGE_HR', 'DELETE_HR'],
+  'permission_group_admissions': ['VIEW_ADMISSIONS', 'MANAGE_ADMISSIONS', 'DELETE_ADMISSIONS'],
+  'permission_group_laboratory': ['VIEW_LABORATORY', 'MANAGE_LABORATORY', 'DELETE_LABORATORY'],
+  'permission_group_operations': ['VIEW_OPERATIONS', 'MANAGE_OPERATIONS', 'DELETE_OPERATIONS'],
+  'permission_group_reports': ['VIEW_REPORTS', 'MANAGE_REPORTS', 'VIEW_RECORDS'],
+  'permission_group_system': ['VIEW_SETTINGS', 'MANAGE_SETTINGS', 'MANAGE_CONFIGURATION'],
 };
 
 const DiagnosticStat = ({ title, value, icon: Icon }: any) => (
@@ -154,7 +154,7 @@ export const Configuration = () => {
     handleAction(async () => {
       await api.updateSystemSettings(settings);
       if (settings.hospitalName) localStorage.setItem('hospital_name', settings.hospitalName);
-    }, 'Settings saved successfully');
+    }, t('config_toast_settings_saved'));
   };
 
   // User Handlers
@@ -169,12 +169,12 @@ export const Configuration = () => {
       if (editingUserId) await api.updateSystemUser(editingUserId, userForm);
       else await api.addSystemUser(userForm);
       setIsUserModalOpen(false);
-    }, editingUserId ? 'User updated' : 'User created');
+    }, editingUserId ? t('config_toast_user_updated') : t('config_toast_user_created'));
   };
   const handleDeleteUser = (id: number) => {
     setConfirmState({
-      isOpen: true, title: 'Delete User', message: 'Are you sure? This will remove the user permanently.',
-      action: () => handleAction(async () => await api.deleteSystemUser(id), 'User deleted')
+      isOpen: true, title: t('config_dialog_delete_user_title'), message: t('config_dialog_delete_user_msg'),
+      action: () => handleAction(async () => await api.deleteSystemUser(id), t('config_toast_user_deleted'))
     });
   };
   const togglePermission = (role: string, permission: string) => {
@@ -184,7 +184,7 @@ export const Configuration = () => {
     setRolePermissions(prev => ({ ...prev, [role]: updatedPerms }));
   };
   const savePermissions = (role: string) => {
-    handleAction(async () => await api.updateRolePermissions(role, rolePermissions[role] || []), `Permissions updated for ${role}`);
+    handleAction(async () => await api.updateRolePermissions(role, rolePermissions[role] || []), t('config_toast_perms_updated', {role}));
   };
 
   // Bed Handlers
@@ -199,12 +199,12 @@ export const Configuration = () => {
       if (editingBedId) await api.updateBed(editingBedId, bedForm);
       else await api.addBed(bedForm);
       setIsBedModalOpen(false);
-    }, editingBedId ? 'Room updated' : 'Room added');
+    }, editingBedId ? t('config_toast_room_updated') : t('config_toast_room_added'));
   };
   const handleDeleteBed = (id: number) => {
     setConfirmState({
-      isOpen: true, title: 'Delete Room', message: 'Are you sure?',
-      action: () => handleAction(async () => await api.deleteBed(id), 'Room deleted')
+      isOpen: true, title: t('config_dialog_delete_room_title'), message: t('config_dialog_delete_room_msg'),
+      action: () => handleAction(async () => await api.deleteBed(id), t('config_toast_room_deleted'))
     });
   };
 
@@ -221,13 +221,13 @@ export const Configuration = () => {
       if (editingItemId) await apiUpdate(editingItemId, itemFormData);
       else await apiAdd(itemFormData);
       setIsItemModalOpen(false);
-    }, editingItemId ? 'Item updated' : 'Item added');
+    }, editingItemId ? t('config_toast_item_updated') : t('config_toast_item_added'));
   };
   const handleDeleteItem = (id: number) => {
     const { apiDelete } = catalogMetadata[catalogTab];
     setConfirmState({
-      isOpen: true, title: 'Delete Item', message: 'This will be permanently removed.',
-      action: () => handleAction(async () => await apiDelete(id), 'Item deleted')
+      isOpen: true, title: t('config_dialog_delete_item_title'), message: t('config_dialog_delete_item_msg'),
+      action: () => handleAction(async () => await apiDelete(id), t('config_toast_item_deleted'))
     });
   };
 
@@ -249,15 +249,15 @@ export const Configuration = () => {
         else await api.addPaymentMethod(financeForm);
       }
       setIsFinanceModalOpen(false);
-    }, editingFinanceId ? 'Updated' : 'Created');
+    }, editingFinanceId ? t('config_toast_item_updated') : t('config_toast_item_added'));
   };
   const handleDeleteFinance = (id: number, type: 'tax' | 'payment') => {
     setConfirmState({
-      isOpen: true, title: 'Delete Item', message: 'Are you sure?',
+      isOpen: true, title: t('config_dialog_delete_item_title'), message: t('config_dialog_delete_item_msg'),
       action: () => handleAction(async () => {
         if (type === 'tax') await api.deleteTaxRate(id);
         else await api.deletePaymentMethod(id);
-      }, 'Deleted')
+      }, t('config_toast_item_deleted'))
     });
   };
 
@@ -267,44 +267,44 @@ export const Configuration = () => {
     e.preventDefault();
     if (!restoreFile) return;
     setConfirmState({
-      isOpen: true, title: 'Overwrite Database', message: 'This will completely OVERWRITE the current database. All recent data will be lost. Are you sure?', type: 'danger',
+      isOpen: true, title: t('config_dialog_overwrite_db_title'), message: t('config_dialog_overwrite_db_msg'), type: 'danger',
       action: () => handleAction(async () => {
         await api.restoreDatabase(restoreFile);
         setTimeout(() => window.location.reload(), 1500);
-      }, 'Database restored. Reloading...')
+      }, t('config_toast_db_restored'))
     });
   };
   const handleResetDatabase = () => {
     setConfirmState({
-      isOpen: true, title: 'Factory Reset', message: 'DANGER: This will wipe ALL data and reset the system to its initial state. This action CANNOT be undone.', type: 'danger',
+      isOpen: true, title: t('config_dialog_factory_reset_title'), message: t('config_dialog_factory_reset_msg'), type: 'danger',
       action: () => handleAction(async () => {
           await api.resetDatabase();
           setTimeout(() => window.location.reload(), 2000);
-      }, 'Database reset. Reloading...')
+      }, t('config_toast_db_reset'))
     });
   };
   
   // Diagnostics
   const runDiagnostics = async () => {
     setIsTesting(true);
-    setTestLogs(['Starting diagnostics...']);
+    setTestLogs([t('config_diag_start')]);
     try {
       const addLog = (msg: string) => setTestLogs(prev => [...prev, msg]);
       await new Promise(res => setTimeout(res, 300));
       
-      addLog('Checking API server connectivity...');
+      addLog(t('config_diag_check_api'));
       const health = await api.checkSystemHealth();
       setHealthData(health);
-      addLog(`✅ Server operational. Uptime: ${(health.uptime / 60).toFixed(1)} mins.`);
+      addLog(t('config_diag_server_ok', {uptime: (health.uptime / 60).toFixed(1)}));
       
       await new Promise(res => setTimeout(res, 500));
-      addLog('Verifying database connection...');
-      addLog(`✅ Database connected. Latency: ${health.database.latency}.`);
+      addLog(t('config_diag_verify_db'));
+      addLog(t('config_diag_db_ok', {latency: health.database.latency}));
       
       await new Promise(res => setTimeout(res, 300));
-      addLog('All tests passed.');
+      addLog(t('config_diag_all_ok'));
     } catch (e: any) {
-      setTestLogs(prev => [...prev, `❌ Test failed: ${e.message}`]);
+      setTestLogs(prev => [...prev, t('config_diag_failed', {error: e.message})]);
       setHealthData({ status: 'error' });
     } finally {
       setIsTesting(false);
@@ -314,80 +314,80 @@ export const Configuration = () => {
   // --- DYNAMIC CATALOG CONFIGURATION ---
   const catalogMetadata: Record<CatalogType, any> = {
     dept: {
-      label: 'Departments',
+      label: t('config_catalog_dept'),
       data: departments,
       fields: [
-        { name: 'name_en', label: 'Name (EN)', type: 'text', required: true },
-        { name: 'name_ar', label: 'Name (AR)', type: 'text', required: true },
-        { name: 'description_en', label: 'Description (EN)', type: 'textarea' },
-        { name: 'description_ar', label: 'Description (AR)', type: 'textarea' },
+        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
+        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
+        { name: 'description_en', label: t('config_field_desc_en'), type: 'textarea' },
+        { name: 'description_ar', label: t('config_field_desc_ar'), type: 'textarea' },
       ],
       apiAdd: api.addDepartment, apiUpdate: api.updateDepartment, apiDelete: api.deleteDepartment
     },
     spec: {
-      label: 'Specializations',
+      label: t('config_catalog_spec'),
       data: specializations,
       fields: [
-        { name: 'name_en', label: 'Name (EN)', type: 'text', required: true },
-        { name: 'name_ar', label: 'Name (AR)', type: 'text', required: true },
-        { name: 'related_role', label: 'Related Role', type: 'select', options: availableRoles },
-        { name: 'description_en', label: 'Description (EN)', type: 'textarea' },
-        { name: 'description_ar', label: 'Description (AR)', type: 'textarea' },
+        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
+        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
+        { name: 'related_role', label: t('config_field_related_role'), type: 'select', options: availableRoles },
+        { name: 'description_en', label: t('config_field_desc_en'), type: 'textarea' },
+        { name: 'description_ar', label: t('config_field_desc_ar'), type: 'textarea' },
       ],
       apiAdd: api.addSpecialization, apiUpdate: api.updateSpecialization, apiDelete: api.deleteSpecialization
     },
     lab: {
-      label: 'Lab Tests',
+      label: t('config_catalog_lab'),
       data: labTests,
       fields: [
-        { name: 'name_en', label: 'Name (EN)', type: 'text', required: true },
-        { name: 'name_ar', label: 'Name (AR)', type: 'text', required: true },
-        { name: 'category_en', label: 'Category (EN)', type: 'text' },
-        { name: 'category_ar', label: 'Category (AR)', type: 'text' },
-        { name: 'cost', label: 'Cost', type: 'number', prefix: '$' },
-        { name: 'normal_range', label: 'Normal Range', type: 'text' },
+        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
+        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
+        { name: 'category_en', label: t('config_field_category_en'), type: 'text' },
+        { name: 'category_ar', label: t('config_field_category_ar'), type: 'text' },
+        { name: 'cost', label: t('config_field_cost'), type: 'number', prefix: '$' },
+        { name: 'normal_range', label: t('config_field_normal_range'), type: 'text' },
       ],
       apiAdd: api.addLabTest, apiUpdate: api.updateLabTest, apiDelete: api.deleteLabTest
     },
     nurse: {
-      label: 'Nurse Services',
+      label: t('config_catalog_nurse'),
       data: nurseServices,
       fields: [
-        { name: 'name_en', label: 'Name (EN)', type: 'text', required: true },
-        { name: 'name_ar', label: 'Name (AR)', type: 'text', required: true },
-        { name: 'description_en', label: 'Description (EN)', type: 'textarea' },
-        { name: 'description_ar', label: 'Description (AR)', type: 'textarea' },
-        { name: 'cost', label: 'Cost', type: 'number', prefix: '$' },
+        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
+        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
+        { name: 'description_en', label: t('config_field_desc_en'), type: 'textarea' },
+        { name: 'description_ar', label: t('config_field_desc_ar'), type: 'textarea' },
+        { name: 'cost', label: t('config_field_cost'), type: 'number', prefix: '$' },
       ],
       apiAdd: api.addNurseService, apiUpdate: api.updateNurseService, apiDelete: api.deleteNurseService
     },
     ops: {
-      label: 'Operations',
+      label: t('config_catalog_ops'),
       data: operations,
       fields: [
-        { name: 'name_en', label: 'Name (EN)', type: 'text', required: true },
-        { name: 'name_ar', label: 'Name (AR)', type: 'text', required: true },
-        { name: 'base_cost', label: 'Base Cost', type: 'number', prefix: '$' },
+        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
+        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
+        { name: 'base_cost', label: t('config_field_base_cost'), type: 'number', prefix: '$' },
       ],
       apiAdd: api.addOperationCatalog, apiUpdate: api.updateOperationCatalog, apiDelete: api.deleteOperationCatalog
     },
     insurance: {
-      label: 'Insurance',
+      label: t('config_catalog_insurance'),
       data: insuranceProviders,
       fields: [
-        { name: 'name_en', label: 'Name (EN)', type: 'text', required: true },
-        { name: 'name_ar', label: 'Name (AR)', type: 'text', required: true },
-        { name: 'is_active', label: 'Status', type: 'toggle' },
+        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
+        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
+        { name: 'is_active', label: t('config_field_status'), type: 'toggle' },
       ],
       apiAdd: api.addInsuranceProvider, apiUpdate: api.updateInsuranceProvider, apiDelete: api.deleteInsuranceProvider
     },
     banks: {
-      label: 'Banks',
+      label: t('config_catalog_banks'),
       data: banks,
       fields: [
-        { name: 'name_en', label: 'Name (EN)', type: 'text', required: true },
-        { name: 'name_ar', label: 'Name (AR)', type: 'text', required: true },
-        { name: 'is_active', label: 'Status', type: 'toggle' },
+        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
+        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
+        { name: 'is_active', label: t('config_field_status'), type: 'toggle' },
       ],
       apiAdd: api.addBank, apiUpdate: api.updateBank, apiDelete: api.deleteBank
     }
@@ -465,7 +465,7 @@ export const Configuration = () => {
                             <tr key={user.id}>
                               <td className="px-4 py-3"><div className="font-medium">{user.fullName}</div><div className="text-xs text-slate-500">{user.username}</div></td>
                               <td className="px-4 py-3 capitalize"><Badge color="blue">{user.role}</Badge></td>
-                              <td className="px-4 py-3 text-center"><Badge color={user.isActive ? 'green' : 'gray'}>{user.isActive ? 'Active' : 'Inactive'}</Badge></td>
+                              <td className="px-4 py-3 text-center"><Badge color={user.isActive ? 'green' : 'gray'}>{user.isActive ? t('config_users_active') : t('config_users_inactive')}</Badge></td>
                               <td className="px-4 py-3 text-right">
                                 <button onClick={() => openUserModal(user)} className="p-1 text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
                                 <button onClick={() => handleDeleteUser(user.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
@@ -482,7 +482,7 @@ export const Configuration = () => {
                       <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-1/4">
-                            Feature
+                            {t('config_users_feature_column')}
                           </th>
                           {availableRoles.map(role => (
                             <th key={role} className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -499,11 +499,11 @@ export const Configuration = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white dark:bg-slate-800">
-                        {Object.entries(permissionGroups).map(([groupName, perms]) => (
-                          <React.Fragment key={groupName}>
+                        {Object.entries(permissionGroups).map(([groupKey, perms]) => (
+                          <React.Fragment key={groupKey}>
                             <tr className="bg-slate-50/50 dark:bg-slate-900/50">
                               <td colSpan={availableRoles.length + 1} className="px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300">
-                                {groupName}
+                                {t(groupKey)}
                               </td>
                             </tr>
                             {perms.map(p => (
@@ -573,7 +573,7 @@ export const Configuration = () => {
                           <td className="px-4 py-3 font-medium">{bed.roomNumber}</td>
                           <td className="px-4 py-3">{bed.type}</td>
                           <td className="px-4 py-3 text-right font-mono">${bed.costPerDay}</td>
-                          <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : bed.status === 'cleaning' ? 'purple' : 'red'}>{bed.status}</Badge></td>
+                          <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : bed.status === 'cleaning' ? 'purple' : 'red'}>{t(`config_bed_status_${bed.status}`)}</Badge></td>
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => openBedModal(bed)} className="p-1 text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
                             <button onClick={() => handleDeleteBed(bed.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
@@ -623,7 +623,7 @@ export const Configuration = () => {
                             {item.base_cost !== undefined && `$${item.base_cost}`}
                             {item.rate !== undefined && `${item.rate}%`}
                             {item.related_role && <span className="mr-2 text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">{item.related_role}</span>}
-                            {item.isActive !== undefined && <Badge color={item.isActive ? 'green' : 'gray'}>{item.isActive ? 'Active' : 'Inactive'}</Badge>}
+                            {item.isActive !== undefined && <Badge color={item.isActive ? 'green' : 'gray'}>{item.isActive ? t('config_users_active') : t('config_users_inactive')}</Badge>}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => openItemModal(item)} className="p-1 text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
@@ -667,10 +667,10 @@ export const Configuration = () => {
                 </Button>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <DiagnosticStat title={t('config_health_stat_status')} value={healthData?.status || 'Unknown'} icon={healthData?.status === 'operational' ? CheckCircle : AlertTriangle} />
-                  <DiagnosticStat title={t('config_health_stat_latency')} value={healthData?.database?.latency || 'N/A'} icon={Database} />
-                  <DiagnosticStat title={t('config_health_stat_uptime')} value={healthData?.uptime ? `${(healthData.uptime / 60).toFixed(1)} mins` : 'N/A'} icon={Activity} />
-                  <DiagnosticStat title={t('config_health_stat_memory')} value={healthData?.memory?.rss || 'N/A'} icon={Server} />
+                  <DiagnosticStat title={t('config_health_stat_status')} value={healthData?.status || t('none')} icon={healthData?.status === 'operational' ? CheckCircle : AlertTriangle} />
+                  <DiagnosticStat title={t('config_health_stat_latency')} value={healthData?.database?.latency || t('none')} icon={Database} />
+                  <DiagnosticStat title={t('config_health_stat_uptime')} value={healthData?.uptime ? `${(healthData.uptime / 60).toFixed(1)} mins` : t('none')} icon={Activity} />
+                  <DiagnosticStat title={t('config_health_stat_memory')} value={healthData?.memory?.rss || t('none')} icon={Server} />
                 </div>
 
                 {testLogs.length > 0 && (
@@ -699,7 +699,7 @@ export const Configuration = () => {
             if (field.type === 'select') {
                 return (
                     <Select key={field.name} label={field.label} value={itemFormData[field.name] || ''} onChange={e => setItemFormData({...itemFormData, [field.name]: e.target.value})}>
-                        <option value="">Select Role...</option>
+                        <option value="">{t('config_field_related_role')}...</option>
                         {field.options.map((opt: string) => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
                     </Select>
                 )
@@ -725,7 +725,7 @@ export const Configuration = () => {
         <form onSubmit={handleUserSubmit} className="space-y-4">
           <Input label={t('patients_modal_form_fullName')} required value={userForm.fullName || ''} onChange={e => setUserForm({...userForm, fullName: e.target.value})} />
           <Input label={t('settings_profile_username')} required value={userForm.username || ''} onChange={e => setUserForm({...userForm, username: e.target.value})} />
-          <Input label={t('login_password_label')} type="password" placeholder={editingUserId ? 'Leave blank to keep unchanged' : ''} value={userForm.password || ''} onChange={e => setUserForm({...userForm, password: e.target.value})} required={!editingUserId} />
+          <Input label={t('login_password_label')} type="password" placeholder={editingUserId ? t('settings_security_new_password') : ''} value={userForm.password || ''} onChange={e => setUserForm({...userForm, password: e.target.value})} required={!editingUserId} />
           <Input label={t('settings_profile_email')} type="email" value={userForm.email || ''} onChange={e => setUserForm({...userForm, email: e.target.value})} />
           <Select label={t('config_users_header_role')} value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value})}>
             {availableRoles.map(r => <option key={r} value={r} className="capitalize">{r}</option>)}
@@ -745,11 +745,11 @@ export const Configuration = () => {
            </Select>
            <Input label={t('config_beds_header_cost')} type="number" value={bedForm.costPerDay || 0} onChange={e => setBedForm({...bedForm, costPerDay: parseFloat(e.target.value)})} />
            <Select label={t('status')} value={bedForm.status} onChange={e => setBedForm({...bedForm, status: e.target.value as any})}>
-             <option value="available">Available</option>
-             <option value="maintenance">Maintenance</option>
-             <option value="cleaning">Cleaning</option>
-             <option value="reserved">Reserved</option>
-             <option value="occupied">Occupied</option>
+             <option value="available">{t('config_bed_status_available')}</option>
+             <option value="maintenance">{t('config_bed_status_maintenance')}</option>
+             <option value="cleaning">{t('config_bed_status_cleaning')}</option>
+             <option value="reserved">{t('config_bed_status_reserved')}</option>
+             <option value="occupied">{t('config_bed_status_occupied')}</option>
            </Select>
            <div className="flex justify-end pt-4 gap-3">
              <Button type="button" variant="secondary" onClick={() => setIsBedModalOpen(false)}>{t('cancel')}</Button>
@@ -760,12 +760,12 @@ export const Configuration = () => {
 
       <Modal isOpen={isFinanceModalOpen} onClose={() => setIsFinanceModalOpen(false)} title={`${editingFinanceId ? t('edit') : t('add')} ${financeTab === 'tax' ? t('config_financial_tax_tab') : t('config_financial_payment_tab')}`}>
         <form onSubmit={handleFinanceSubmit} className="space-y-4">
-           <Input label="Name (EN)" required value={financeForm.name_en || ''} onChange={e => setFinanceForm({...financeForm, name_en: e.target.value})} />
-           <Input label="Name (AR)" required value={financeForm.name_ar || ''} onChange={e => setFinanceForm({...financeForm, name_ar: e.target.value})} />
+           <Input label={t('config_field_name_en')} required value={financeForm.name_en || ''} onChange={e => setFinanceForm({...financeForm, name_en: e.target.value})} />
+           <Input label={t('config_field_name_ar')} required value={financeForm.name_ar || ''} onChange={e => setFinanceForm({...financeForm, name_ar: e.target.value})} />
            {financeTab === 'tax' && (
-             <Input label="Rate (%)" type="number" required value={financeForm.rate || ''} onChange={e => setFinanceForm({...financeForm, rate: e.target.value})} />
+             <Input label={t('config_field_rate')} type="number" required value={financeForm.rate || ''} onChange={e => setFinanceForm({...financeForm, rate: e.target.value})} />
            )}
-           <div className="flex items-center gap-2"><input type="checkbox" checked={financeForm.isActive !== false} onChange={e => setFinanceForm({...financeForm, isActive: e.target.checked})} /> Active</div>
+           <div className="flex items-center gap-2"><input type="checkbox" checked={financeForm.isActive !== false} onChange={e => setFinanceForm({...financeForm, isActive: e.target.checked})} /> {t('config_users_active')}</div>
            <div className="flex justify-end pt-2 gap-3">
              <Button type="button" variant="secondary" onClick={() => setIsFinanceModalOpen(false)}>{t('cancel')}</Button>
              <Button type="submit">{t('save')}</Button>

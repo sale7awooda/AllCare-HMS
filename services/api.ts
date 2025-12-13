@@ -163,7 +163,24 @@ export const api = {
   updatePaymentMethod: (id, data) => put(`/config/payment-methods/${id}`, data),
   deletePaymentMethod: (id) => del(`/config/payment-methods/${id}`),
 
-  downloadBackup: () => window.open(`${client.defaults.baseURL}/config/backup`, '_blank'),
+  downloadBackup: async () => {
+    try {
+        const response = await client.get('/config/backup', { responseType: 'blob' });
+        // Enforce binary type so the browser respects the .db extension
+        const blob = new Blob([response], { type: 'application/x-sqlite3' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `allcare-backup-${new Date().toISOString().split('T')[0]}.db`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    } catch (e) {
+        console.error("Backup download error:", e);
+        throw e;
+    }
+  },
   restoreDatabase: (file) => {
     const formData = new FormData();
     formData.append('backup', file);
