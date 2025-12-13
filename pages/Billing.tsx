@@ -4,7 +4,7 @@ import {
   Plus, Printer, Lock, CreditCard, 
   Wallet, FileText, CheckCircle, Trash2,
   ChevronLeft, ChevronRight, Search, Filter, Calendar,
-  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Coins, PieChart as PieChartIcon, MoreVertical
+  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Coins, PieChart as PieChartIcon
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell

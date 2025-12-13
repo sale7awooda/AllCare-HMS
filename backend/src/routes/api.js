@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -53,11 +54,11 @@ router.get('/hr/leaves', authorizeRoles(Permissions.VIEW_HR), staffController.ge
 router.post('/hr/leaves', authorizeRoles(Permissions.VIEW_HR), staffController.requestLeave); // Allow viewing permission to request own leave
 router.put('/hr/leaves/:id', authorizeRoles(Permissions.MANAGE_HR), staffController.updateLeaveStatus);
 
-router.get('/hr/payroll', authorizeRoles(Permissions.MANAGE_HR), staffController.getPayroll);
+router.get('/hr/payroll', authorizeRoles(Permissions.VIEW_HR), staffController.getPayroll);
 router.post('/hr/payroll/generate', authorizeRoles(Permissions.MANAGE_HR), staffController.generatePayroll);
 router.put('/hr/payroll/:id/status', authorizeRoles(Permissions.MANAGE_HR), staffController.updatePayrollStatus);
 
-router.get('/hr/financials', authorizeRoles(Permissions.MANAGE_HR), staffController.getFinancials);
+router.get('/hr/financials', authorizeRoles(Permissions.VIEW_HR), staffController.getFinancials);
 router.post('/hr/financials', authorizeRoles(Permissions.MANAGE_HR), staffController.addAdjustment);
 
 // Appointments

@@ -102,7 +102,7 @@ export const api = {
   getLabTests: () => get('/config/lab-tests'),
   getPendingLabRequests: () => get('/lab/requests'),
   createLabRequest: (data) => post('/lab/requests', data),
-  completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`, data),
+  completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`),
 
   getNurseServices: () => get('/config/nurse-services'),
   createNurseRequest: (data) => post('/nurse/requests', data),
@@ -171,4 +171,3 @@ export const api = {
   },
   resetDatabase: () => post('/config/reset'),
 };
-// FIX: Removed extraneous file marker that was causing a syntax error.
