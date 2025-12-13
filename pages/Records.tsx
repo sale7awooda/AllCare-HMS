@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Modal, Badge } from '../components/UI';
 import { 
   Search, Calendar, Filter, Database, FileText, User, Users, 
-  DollarSign, Bed, Activity, Download, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  DollarSign, Bed, Activity, Download, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  FileSpreadsheet, Printer, ChevronDown
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
@@ -38,6 +40,10 @@ export const Records = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Export Menu State
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -130,6 +136,15 @@ export const Records = () => {
       }
     };
     fetchData();
+
+    // Close export menu on outside click
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // --- Filtering Logic ---
@@ -184,7 +199,7 @@ export const Records = () => {
     setIsModalOpen(true);
   };
 
-  const handleExport = () => {
+  const handleExportExcel = () => {
     const headers = ['ID', 'Type', 'Date', 'Reference', 'Primary Entity', 'Associate', 'Status', 'Value'];
     const rows = filteredRecords.map(r => [
       r.id,
@@ -206,6 +221,12 @@ export const Records = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setShowExportMenu(false);
+  };
+
+  const handleExportPDF = () => {
+    window.print();
+    setShowExportMenu(false);
   };
 
   const getTypeColor = (type: string) => {
@@ -237,7 +258,31 @@ export const Records = () => {
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">{t('records_subtitle')}</p>
         </div>
-        <Button variant="outline" icon={Download} onClick={handleExport}>{t('records_export_button')}</Button>
+        
+        {/* Export Dropdown */}
+        <div className="relative" ref={exportMenuRef}>
+          <Button variant="outline" icon={Download} onClick={() => setShowExportMenu(!showExportMenu)}>
+            {t('records_export_button')} <ChevronDown size={14} className={`ml-2 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+          </Button>
+          {showExportMenu && (
+            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+              <button 
+                onClick={handleExportPDF}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-left transition-colors"
+              >
+                <Printer size={16} className="text-slate-400" />
+                <span>Export to PDF</span>
+              </button>
+              <button 
+                onClick={handleExportExcel}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-left transition-colors border-t border-slate-100 dark:border-slate-700"
+              >
+                <FileSpreadsheet size={16} className="text-green-600" />
+                <span>Export to Excel</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-visible z-10">
@@ -270,21 +315,25 @@ export const Records = () => {
              </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 md:col-span-2">
-             <input 
-               type="date" 
-               className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 dark:text-slate-300"
-               value={dateRange.start}
-               onChange={e => { setDateRange({ ...dateRange, start: e.target.value }); setCurrentPage(1); }}
-               placeholder="Start Date"
-             />
-             <input 
-               type="date" 
-               className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 dark:text-slate-300"
-               value={dateRange.end}
-               onChange={e => { setDateRange({ ...dateRange, end: e.target.value }); setCurrentPage(1); }}
-               placeholder="End Date"
-             />
+          <div className="grid grid-cols-2 gap-4 md:col-span-2">
+             <div className="flex items-center gap-2">
+               <span className="text-xs font-bold text-slate-500 uppercase">From</span>
+               <input 
+                 type="date" 
+                 className="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 dark:text-slate-300"
+                 value={dateRange.start}
+                 onChange={e => { setDateRange({ ...dateRange, start: e.target.value }); setCurrentPage(1); }}
+               />
+             </div>
+             <div className="flex items-center gap-2">
+               <span className="text-xs font-bold text-slate-500 uppercase">To</span>
+               <input 
+                 type="date" 
+                 className="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 dark:text-slate-300"
+                 value={dateRange.end}
+                 onChange={e => { setDateRange({ ...dateRange, end: e.target.value }); setCurrentPage(1); }}
+               />
+             </div>
           </div>
         </div>
 
@@ -338,12 +387,14 @@ export const Records = () => {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button 
+                        <Button 
+                          size="sm"
+                          variant="ghost"
                           onClick={() => handleViewDetails(r)}
-                          className="text-slate-400 hover:text-primary-600 p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                          icon={Eye}
                         >
-                          <Eye size={18} />
-                        </button>
+                          View
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -369,9 +420,10 @@ export const Records = () => {
                     onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                   >
                     <option value={10}>10</option>
+                    <option value={15}>15</option>
+                    <option value={20}>20</option>
                     <option value={25}>25</option>
                     <option value={50}>50</option>
-                    <option value={100}>100</option>
                   </select>
                 </div>
              </div>

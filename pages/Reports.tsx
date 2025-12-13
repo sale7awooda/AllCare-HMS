@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Button, Select } from '../components/UI';
+import { Card, Button, Select, Input } from '../components/UI';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, PieChart, Pie, Cell, Legend, LineChart, Line
@@ -8,16 +8,20 @@ import {
 import { 
   TrendingUp, Users, Calendar, DollarSign, Download, 
   Activity, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Filter, CheckCircle,
-  FilePlus, ClipboardList
+  FilePlus, ClipboardList, Briefcase, Clock, CreditCard, Shield
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1'];
 
 export const Reports = () => {
   const [activeTab, setActiveTab] = useState<'financial' | 'operational' | 'demographics' | 'records'>('financial');
-  const [timeRange, setTimeRange] = useState('30');
+  
+  // Date State
+  const [rangeType, setRangeType] = useState('30'); // '7', '30', '90', '180', '365', 'custom'
+  const [customRange, setCustomRange] = useState({ start: '', end: '' });
+  
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
   
@@ -25,19 +29,25 @@ export const Reports = () => {
   const [bills, setBills] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [patients, setPatients] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [staff, setStaff] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [b, a, p] = await Promise.all([
+        const [b, a, p, t, s] = await Promise.all([
           api.getBills(),
           api.getAppointments(),
-          api.getPatients()
+          api.getPatients(),
+          api.getTransactions(),
+          api.getStaff()
         ]);
         setBills(Array.isArray(b) ? b : []);
         setAppointments(Array.isArray(a) ? a : []);
         setPatients(Array.isArray(p) ? p : []);
+        setTransactions(Array.isArray(t) ? t : []);
+        setStaff(Array.isArray(s) ? s : []);
       } catch (e) {
         console.error("Failed to load report data", e);
       } finally {
@@ -47,65 +57,158 @@ export const Reports = () => {
     fetchData();
   }, []);
 
+  // --- Date Logic ---
+  const dateRange = useMemo(() => {
+    const end = new Date(); // Today
+    const start = new Date();
+
+    if (rangeType === 'custom') {
+        return {
+            start: customRange.start ? new Date(customRange.start) : new Date(0), // Default to epoch if empty
+            end: customRange.end ? new Date(customRange.end) : end
+        };
+    }
+
+    const days = parseInt(rangeType);
+    start.setDate(end.getDate() - days);
+    // Reset hours for accurate comparison
+    start.setHours(0,0,0,0);
+    end.setHours(23,59,59,999);
+    
+    return { start, end };
+  }, [rangeType, customRange]);
+
+  const filterByDate = (data: any[], dateField: string) => {
+    return data.filter(item => {
+        if (!item[dateField]) return false;
+        const d = new Date(item[dateField]);
+        return d >= dateRange.start && d <= dateRange.end;
+    });
+  };
+
   // --- Aggregation Logic ---
 
   const financialStats = useMemo(() => {
-    const totalRevenue = bills.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
-    const pendingAmount = bills.reduce((sum, b) => sum + ((b.totalAmount || 0) - (b.paidAmount || 0)), 0);
-    const totalInvoices = bills.length;
+    const filteredBills = filterByDate(bills, 'date');
+    const filteredTrans = filterByDate(transactions, 'date');
+
+    const totalRevenue = filteredBills.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
+    const totalBilled = filteredBills.reduce((sum, b) => sum + (b.totalAmount || 0), 0);
+    const pendingAmount = Math.max(0, totalBilled - totalRevenue);
+    const totalInvoices = filteredBills.length;
     
     // Revenue Trend (Daily)
     const trendMap = new Map();
-    bills.forEach(b => {
-      const date = new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      trendMap.set(date, (trendMap.get(date) || 0) + (b.paidAmount || 0));
+    // Fill in dates for the range (up to 30 points to avoid clutter, or aggregate if large range)
+    const daySpan = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 3600 * 24));
+    const isLargeRange = daySpan > 60;
+
+    filteredBills.forEach(b => {
+      const d = new Date(b.date);
+      // Group by Month if range > 60 days, else Day
+      const key = isLargeRange 
+        ? d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      
+      trendMap.set(key, (trendMap.get(key) || 0) + (b.paidAmount || 0));
     });
-    const revenueTrend = Array.from(trendMap).map(([name, value]) => ({ name, value })).slice(-parseInt(timeRange));
+    
+    // Convert map to array and sort by date would be ideal, but for now relies on map insertion order roughly or sort keys
+    const revenueTrend = Array.from(trendMap).map(([name, value]) => ({ name, value }));
 
     // Status Distribution
-    const statusCounts = bills.reduce((acc: any, b) => {
+    const statusCounts = filteredBills.reduce((acc: any, b) => {
       acc[b.status] = (acc[b.status] || 0) + 1;
       return acc;
     }, {});
     const statusDist = Object.keys(statusCounts).map(key => ({ name: key, value: statusCounts[key] }));
 
-    return { totalRevenue, pendingAmount, totalInvoices, revenueTrend, statusDist };
-  }, [bills, timeRange]);
+    // Payment Methods Breakdown (from Transactions)
+    const methodCounts = filteredTrans.filter((t: any) => t.type === 'income').reduce((acc: any, t: any) => {
+        const m = t.method || 'Unknown';
+        acc[m] = (acc[m] || 0) + t.amount;
+        return acc;
+    }, {});
+    const methodDist = Object.keys(methodCounts).map(key => ({ name: key, value: methodCounts[key] }));
+
+    // Top Services (from Bill Items)
+    // We need to parse bill items. Since bills state already has items attached from controller:
+    const serviceCounts: Record<string, number> = {};
+    filteredBills.forEach(b => {
+        b.items?.forEach((item: any) => {
+            // Simple grouping by first 2 words to aggregate similar services
+            const name = item.description.split(':').pop()?.trim() || item.description;
+            serviceCounts[name] = (serviceCounts[name] || 0) + item.amount;
+        });
+    });
+    const topServices = Object.entries(serviceCounts)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a,b) => b.value - a.value)
+        .slice(0, 5);
+
+    return { totalRevenue, pendingAmount, totalInvoices, revenueTrend, statusDist, methodDist, topServices };
+  }, [bills, transactions, dateRange]);
 
   const operationalStats = useMemo(() => {
-    const totalAppts = appointments.length;
-    const completedAppts = appointments.filter(a => a && a.status === 'completed').length;
+    const filteredAppts = filterByDate(appointments, 'datetime');
+    const totalAppts = filteredAppts.length;
+    const completedAppts = filteredAppts.filter(a => a && a.status === 'completed').length;
     
     // Appointments by Doctor
-    const doctorCounts = appointments.reduce((acc: any, a) => {
+    const doctorCounts = filteredAppts.reduce((acc: any, a) => {
       if(a && a.staffName) {
         acc[a.staffName] = (acc[a.staffName] || 0) + 1;
       }
       return acc;
     }, {});
     const doctorPerformance = Object.keys(doctorCounts)
-      .map(key => ({ name: key.split(' ')[1] || key, value: doctorCounts[key] })) // Last name only for chart
+      .map(key => ({ name: key.split(' ')[1] || key, value: doctorCounts[key] })) 
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
 
-    // Appointments by Status
-    const statusCounts = appointments.reduce((acc: any, a) => {
-      if(a && a.status) {
-        const status = a.status === 'in_progress' ? 'active' : a.status;
-        acc[status] = (acc[status] || 0) + 1;
-      }
-      return acc;
-    }, {});
-    const statusDist = Object.keys(statusCounts).map(key => ({ name: key, value: statusCounts[key] }));
+    // Department Workload
+    const deptCounts: Record<string, number> = {};
+    filteredAppts.forEach(a => {
+        // Find staff to get dept
+        const doc = staff.find(s => s.id === a.staffId);
+        const dept = doc?.department || 'General';
+        deptCounts[dept] = (deptCounts[dept] || 0) + 1;
+    });
+    const deptData = Object.entries(deptCounts).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
 
-    return { totalAppts, completedAppts, doctorPerformance, statusDist };
-  }, [appointments]);
+    // Peak Hours
+    const hourCounts = Array(24).fill(0);
+    filteredAppts.forEach(a => {
+        const h = new Date(a.datetime).getHours();
+        hourCounts[h]++;
+    });
+    // Filter to working hours (e.g., 7am to 8pm) to remove empty night slots
+    const peakHoursData = hourCounts.map((count, hour) => ({
+        name: `${hour}:00`,
+        value: count
+    })).filter((d, i) => i >= 7 && i <= 20);
+
+    return { totalAppts, completedAppts, doctorPerformance, deptData, peakHoursData };
+  }, [appointments, staff, dateRange]);
 
   const demographicStats = useMemo(() => {
-    const totalPatients = patients.length;
+    // Patients created in range (for registration stats)
+    // BUT for demographics usually we look at ALL patients or Active patients in range.
+    // Let's filter by creation date for "New Registrations" but use ALL for demographics snapshot?
+    // User requested "enrich tabs", so usually Demographics reflects the current patient base or those active in period.
+    // Let's use Patients Active in Period (Visits or Created)
+    
+    // Find patient IDs active in this period
+    const activePatientIds = new Set([
+        ...filterByDate(appointments, 'datetime').map(a => a.patientId),
+        ...filterByDate(patients, 'createdAt').map(p => p.id)
+    ]);
+
+    const activePatients = patients.filter(p => activePatientIds.has(p.id));
+    const totalPatients = activePatients.length;
     
     // Gender
-    const genderCounts = patients.reduce((acc: any, p) => {
+    const genderCounts = activePatients.reduce((acc: any, p) => {
       const g = p.gender ? p.gender.charAt(0).toUpperCase() + p.gender.slice(1) : 'Unknown';
       acc[g] = (acc[g] || 0) + 1;
       return acc;
@@ -114,7 +217,7 @@ export const Reports = () => {
 
     // Age Groups
     const ageGroups = { '0-12': 0, '13-18': 0, '19-35': 0, '36-60': 0, '60+': 0 };
-    patients.forEach(p => {
+    activePatients.forEach(p => {
       if (p.age <= 12) ageGroups['0-12']++;
       else if (p.age <= 18) ageGroups['13-18']++;
       else if (p.age <= 35) ageGroups['19-35']++;
@@ -123,55 +226,30 @@ export const Reports = () => {
     });
     const ageDist = Object.keys(ageGroups).map(key => ({ name: key, value: ageGroups[key as keyof typeof ageGroups] }));
 
-    return { totalPatients, genderDist, ageDist };
-  }, [patients]);
+    // Insurance Distribution
+    const insuranceCounts = activePatients.reduce((acc: any, p) => {
+        if (p.hasInsurance && p.insuranceDetails?.provider) {
+            acc[p.insuranceDetails.provider] = (acc[p.insuranceDetails.provider] || 0) + 1;
+        } else {
+            acc['Self Pay'] = (acc['Self Pay'] || 0) + 1;
+        }
+        return acc;
+    }, {});
+    const insuranceDist = Object.entries(insuranceCounts)
+        .map(([name, value]) => ({ name, value: value as number }))
+        .sort((a,b) => b.value - a.value);
+
+    return { totalPatients, genderDist, ageDist, insuranceDist };
+  }, [patients, appointments, dateRange]);
 
   const recordsStats = useMemo(() => {
-    const now = new Date();
-    const days = parseInt(timeRange);
-    const startDate = new Date(now);
-    startDate.setDate(now.getDate() - days);
-
-    // Filter data by date range
-    const filteredPatients = patients.filter(p => p && p.createdAt && new Date(p.createdAt) >= startDate);
-    const filteredAppts = appointments.filter(a => a && a.datetime && new Date(a.datetime) >= startDate);
-    const filteredBills = bills.filter(b => b && b.date && new Date(b.date) >= startDate);
-
-    // Daily Trend Compilation
-    const dailyData: Record<string, any> = {};
-    
-    // Initialize days to ensure continuous chart
-    for(let i = days - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        dailyData[key] = { name: key, patients: 0, appointments: 0, bills: 0, dateObj: d };
-    }
-
-    filteredPatients.forEach(p => {
-      if (p && p.createdAt) {
-        const key = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        if(dailyData[key]) dailyData[key].patients++;
-      }
-    });
-    filteredAppts.forEach(a => {
-      if (a && a.datetime) {
-        const key = new Date(a.datetime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        if(dailyData[key]) dailyData[key].appointments++;
-      }
-    });
-    filteredBills.forEach(b => {
-      if (b && b.date) {
-        const key = new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        if(dailyData[key]) dailyData[key].bills++;
-      }
-    });
-
-    const chartData = Object.values(dailyData).sort((a: any, b: any) => a.dateObj.getTime() - b.dateObj.getTime());
+    const filteredPatients = filterByDate(patients, 'createdAt');
+    const filteredAppts = filterByDate(appointments, 'datetime');
+    const filteredBills = filterByDate(bills, 'date');
 
     // Recent Activity Feed
     const activity = [
-        ...filteredPatients.filter(p => p && p.createdAt).map(p => ({ 
+        ...filteredPatients.map(p => ({ 
             type: 'Patient', 
             text: t('report_activity_patient_new', {name: p.fullName}), 
             subtext: `ID: ${p.patientId}`,
@@ -180,7 +258,7 @@ export const Reports = () => {
             icon: Users, 
             color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400' 
         })),
-        ...filteredAppts.filter(a => a && a.datetime).map(a => ({ 
+        ...filteredAppts.map(a => ({ 
             type: 'Appointment', 
             text: t('report_activity_appt_new', {patient: a.patientName}), 
             subtext: `Dr. ${a.staffName} (${a.type})`,
@@ -189,7 +267,7 @@ export const Reports = () => {
             icon: Calendar, 
             color: 'text-violet-600 bg-violet-50 dark:bg-violet-900/20 dark:text-violet-400' 
         })),
-        ...filteredBills.filter(b => b && b.date).map(b => ({ 
+        ...filteredBills.map(b => ({ 
             type: 'Bill', 
             text: t('report_activity_bill_new', {number: b.billNumber}), 
             subtext: `$${b.totalAmount.toLocaleString()} (${b.status})`,
@@ -198,7 +276,7 @@ export const Reports = () => {
             icon: DollarSign, 
             color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400' 
         }))
-    ].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 20);
+    ].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 50);
 
     return {
         counts: {
@@ -206,15 +284,13 @@ export const Reports = () => {
             appointments: filteredAppts.length,
             bills: filteredBills.length
         },
-        chartData,
         activity
     };
-  }, [patients, appointments, bills, timeRange, t]);
+  }, [patients, appointments, bills, dateRange, t]);
 
   const handleExport = () => {
-    // Simple CSV Export Mock
-    const headers = ['Report', 'Date', 'Total Revenue', 'Total Patients'];
-    const row = [activeTab, new Date().toLocaleDateString(), financialStats.totalRevenue, demographicStats.totalPatients];
+    const headers = ['Report', 'Start Date', 'End Date', 'Total Revenue', 'Total Patients'];
+    const row = [activeTab, dateRange.start.toLocaleDateString(), dateRange.end.toLocaleDateString(), financialStats.totalRevenue, demographicStats.totalPatients];
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), row.join(',')].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -228,7 +304,7 @@ export const Reports = () => {
   if (loading) return <div className="flex justify-center items-center h-96 text-slate-400">{t('loading')}</div>;
 
   const StatCard = ({ title, value, icon: Icon, color, subtext }: any) => (
-    <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-start justify-between">
+    <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-start justify-between hover:shadow-md transition-shadow">
       <div>
         <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{title}</p>
         <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{value}</h3>
@@ -243,24 +319,47 @@ export const Reports = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('reports_title')}</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">{t('reports_subtitle')}</p>
         </div>
-        <div className="flex gap-2">
+        
+        <div className="flex flex-wrap gap-2 items-center">
           <div className="relative">
              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
              <select 
                className="pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium focus:ring-2 focus:ring-primary-500 outline-none appearance-none text-slate-700 dark:text-slate-200"
-               value={timeRange}
-               onChange={e => setTimeRange(e.target.value)}
+               value={rangeType}
+               onChange={e => setRangeType(e.target.value)}
              >
-               <option value="7">{t('reports_time_7')}</option>
-               <option value="30">{t('reports_time_30')}</option>
-               <option value="90">{t('reports_time_90')}</option>
+               <option value="7">Last 7 Days (Week)</option>
+               <option value="30">Last 30 Days (Month)</option>
+               <option value="90">Last 3 Months</option>
+               <option value="180">Last 6 Months</option>
+               <option value="365">Last Year</option>
+               <option value="custom">Custom Range</option>
              </select>
           </div>
+
+          {rangeType === 'custom' && (
+              <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
+                  <Input 
+                    type="date" 
+                    value={customRange.start} 
+                    onChange={e => setCustomRange({...customRange, start: e.target.value})} 
+                    className="!py-2 !text-sm w-36"
+                  />
+                  <span className="text-slate-400">-</span>
+                  <Input 
+                    type="date" 
+                    value={customRange.end} 
+                    onChange={e => setCustomRange({...customRange, end: e.target.value})} 
+                    className="!py-2 !text-sm w-36"
+                  />
+              </div>
+          )}
+
           <Button variant="outline" icon={Download} onClick={handleExport}>{t('reports_export_button')}</Button>
         </div>
       </div>
@@ -297,7 +396,7 @@ export const Reports = () => {
                 value={`$${financialStats.totalRevenue.toLocaleString()}`} 
                 icon={DollarSign} 
                 color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-                subtext={<span className="text-emerald-600 font-bold flex items-center gap-1"><ArrowUpRight size={12}/> +12.5% vs last period</span>}
+                subtext={<span className="text-emerald-600 font-bold flex items-center gap-1"><ArrowUpRight size={12}/> Collected</span>}
               />
               <StatCard 
                 title={t('reports_card_outstanding')} 
@@ -311,12 +410,14 @@ export const Reports = () => {
                 value={`$${Math.round(financialStats.totalRevenue / (financialStats.totalInvoices || 1)).toLocaleString()}`} 
                 icon={PieChartIcon} 
                 color="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                subtext={<span className="text-slate-400">Per patient visit</span>}
               />
             </div>
 
+            {/* Charts Row 1: Trend & Distribution */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_revenue_trend')}</h3>
+                <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><Activity size={18} className="text-primary-500"/> {t('reports_chart_revenue_trend')}</h3>
                 <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={financialStats.revenueTrend}>
@@ -327,7 +428,7 @@ export const Reports = () => {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} minTickGap={30} />
                       <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                       <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }} />
                       <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
@@ -337,27 +438,43 @@ export const Reports = () => {
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_invoice_status')}</h3>
+                <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><CreditCard size={18} className="text-primary-500"/> Income by Method</h3>
                 <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700 flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={financialStats.statusDist}
+                        data={financialStats.methodDist}
                         innerRadius={60}
                         outerRadius={80}
                         paddingAngle={5}
                         dataKey="value"
                       >
-                        {financialStats.statusDist.map((entry: any, index: number) => (
+                        {financialStats.methodDist.map((entry: any, index: number) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
-                      <Legend verticalAlign="bottom" height={36}/>
+                      <Tooltip formatter={(val: number) => `$${val.toLocaleString()}`} />
+                      <Legend verticalAlign="bottom" height={36} iconType="circle"/>
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
               </div>
+            </div>
+
+            {/* Charts Row 2: Top Services */}
+            <div className="space-y-4">
+                <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><Briefcase size={18} className="text-primary-500"/> Top Services by Revenue</h3>
+                <div className="h-64 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={financialStats.topServices} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
+                            <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                            <YAxis dataKey="name" type="category" width={150} tick={{fill: '#64748b', fontSize: 12, fontWeight: 500}} />
+                            <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(val: number) => `$${val.toLocaleString()}`} />
+                            <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
           </div>
         )}
@@ -383,39 +500,31 @@ export const Reports = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_doctor_workload')}</h3>
+                <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><Clock size={18} className="text-primary-500"/> Peak Appointment Hours</h3>
                 <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={operationalStats.doctorPerformance} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" width={100} tick={{fill: '#64748b', fontSize: 12}} />
-                      <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+                    <BarChart data={operationalStats.peakHoursData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                      <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                      <Bar dataKey="value" fill="#ec4899" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_appointment_status')}</h3>
+                <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><Briefcase size={18} className="text-primary-500"/> {t('reports_chart_doctor_workload')}</h3>
                 <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
-                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={operationalStats.statusDist}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {operationalStats.statusDist.map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={operationalStats.deptData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" width={100} tick={{fill: '#64748b', fontSize: 12}} />
+                      <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -428,7 +537,7 @@ export const Reports = () => {
           <div className="space-y-8 animate-in fade-in">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <StatCard 
-                  title={t('reports_card_registered_patients')} 
+                  title="Active Patients (In Period)" 
                   value={demographicStats.totalPatients} 
                   icon={Users} 
                   color="bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400"
@@ -458,19 +567,19 @@ export const Reports = () => {
                </div>
 
                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-800 dark:text-white">{t('reports_chart_gender_split')}</h3>
+                  <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><Shield size={18} className="text-primary-500"/> Insurance Providers</h3>
                   <div className="h-80 w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={demographicStats.genderDist}
+                          data={demographicStats.insuranceDist}
                           innerRadius={60}
                           outerRadius={80}
                           dataKey="value"
                           paddingAngle={5}
                         >
-                          {demographicStats.genderDist.map((entry: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={index === 0 ? '#3b82f6' : '#ec4899'} />
+                          {demographicStats.insuranceDist.map((entry: any, index: number) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
                         <Tooltip />
@@ -517,7 +626,7 @@ export const Reports = () => {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={recordsStats.chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} minTickGap={30} />
                       <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                       <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }} />
                       <Legend verticalAlign="top" height={36}/>
