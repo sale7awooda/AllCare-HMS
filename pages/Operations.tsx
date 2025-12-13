@@ -437,12 +437,12 @@ export const Operations = () => {
           <div className="bg-red-50 dark:bg-red-900/10 p-3 rounded-lg border border-red-100 dark:border-red-900/30 flex items-start gap-3">
              <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18}/>
              <div className="text-sm">
-                <p className="font-bold text-red-800 dark:text-red-300">{t('operations_modal_safety_title')}</p>
+                <p className="font-bold text-red-800 dark:text-red-300">{t('ops_safety_title')}</p>
                 <div className="flex gap-4 mt-1 text-red-700 dark:text-red-400">
-                    <span>{t('operations_modal_safety_blood')}</span>
-                    <span>{t('operations_modal_safety_allergies')}</span>
+                    <span>{t('ops_safety_blood')}</span>
+                    <span>{t('ops_safety_allergies')}</span>
                 </div>
-                <p className="text-xs mt-1 opacity-80">{t('operations_modal_safety_note')}</p>
+                <p className="text-xs mt-1 opacity-80">{t('ops_safety_note')}</p>
              </div>
           </div>
 
@@ -453,7 +453,7 @@ export const Operations = () => {
               <p className="text-xs text-slate-400">Dr. {selectedOp?.doctorName}</p>
             </div>
             <div className="text-right">
-              <span className="block text-xs uppercase text-slate-400 font-bold">{t('operations_modal_total_estimate')}</span>
+              <span className="block text-xs uppercase text-slate-400 font-bold">{t('ops_total_estimate')}</span>
               <span className="text-2xl font-bold text-green-400">${calculateTotal().toLocaleString()}</span>
             </div>
           </div>

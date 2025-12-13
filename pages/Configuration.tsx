@@ -400,6 +400,20 @@ export const Configuration = () => {
 
   return (
     <div className="space-y-6">
+      {/* STATUS OVERLAY */}
+      {processStatus !== 'idle' && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
+            {processStatus === 'processing' && <Loader2 className="w-12 h-12 text-primary-600 animate-spin mb-4" />}
+            {processStatus === 'success' && <CheckCircle className="w-12 h-12 text-green-600 mb-4" />}
+            {processStatus === 'error' && <XCircle className="w-12 h-12 text-red-600 mb-4" />}
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{processStatus === 'processing' ? t('patients_process_title_processing') : processStatus === 'success' ? t('patients_process_title_success') : t('patients_process_title_failed')}</h3>
+            <p className="text-slate-500 dark:text-slate-400 mb-6">{processMessage}</p>
+            {processStatus === 'error' && <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">{t('patients_process_close_button')}</Button>}
+          </div>
+        </div>
+      )}
+
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('config_title')}</h1>
 
       <div className="flex border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-t-xl px-4 pt-2 overflow-x-auto">
@@ -434,6 +448,7 @@ export const Configuration = () => {
               <form onSubmit={handleSaveSettings} className="max-w-xl space-y-6 animate-in fade-in">
                 <Input label={t('config_general_hospital_name')} value={settings.hospitalName} onChange={e => setSettings({...settings, hospitalName: e.target.value})} />
                 <Input label={t('config_general_address')} value={settings.hospitalAddress} onChange={e => setSettings({...settings, hospitalAddress: e.target.value})} />
+                <Input label={t('settings_profile_phone')} value={settings.hospitalPhone} onChange={e => setSettings({...settings, hospitalPhone: e.target.value})} />
                 <div className="pt-4 border-t dark:border-slate-700">
                   <Button type="submit" icon={Save}>{t('config_general_save_button')}</Button>
                 </div>
@@ -457,7 +472,7 @@ export const Configuration = () => {
                             <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_users_header_user')}</th>
                             <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_users_header_role')}</th>
                             <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">{t('config_users_header_status')}</th>
-                            <th className="px-4 py-3"></th>
+                            <th className="px-4 py-3 text-right">{t('actions')}</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y dark:bg-slate-800">
@@ -467,8 +482,10 @@ export const Configuration = () => {
                               <td className="px-4 py-3 capitalize"><Badge color="blue">{user.role}</Badge></td>
                               <td className="px-4 py-3 text-center"><Badge color={user.isActive ? 'green' : 'gray'}>{user.isActive ? t('config_users_active') : t('config_users_inactive')}</Badge></td>
                               <td className="px-4 py-3 text-right">
-                                <button onClick={() => openUserModal(user)} className="p-1 text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
-                                <button onClick={() => handleDeleteUser(user.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
+                                <div className="flex justify-end gap-2">
+                                    <Button size="sm" variant="outline" onClick={() => openUserModal(user)} icon={Edit}>{t('edit')}</Button>
+                                    <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user.id)} icon={Trash2}>{t('delete')}</Button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -542,12 +559,31 @@ export const Configuration = () => {
                 {financeTab === 'tax' ? (
                   <div>
                     <div className="flex justify-end mb-4"><Button size="sm" icon={Plus} onClick={() => openFinanceModal('tax')}>{t('add')}</Button></div>
-                    {taxes.map(t => <div key={t.id} className="flex justify-between items-center py-2 border-b last:border-0"><span>{t.name_en} ({t.rate}%)</span><div><button onClick={() => openFinanceModal('tax', t)} className="p-1"><Edit size={14}/></button><button onClick={() => handleDeleteFinance(t.id, 'tax')} className="p-1 text-red-500"><Trash2 size={14}/></button></div></div>)}
+                    {taxes.map(t => (
+                        <div key={t.id} className="flex justify-between items-center py-2 border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-2 rounded transition-colors">
+                            <span>{t.name_en} ({t.rate}%)</span>
+                            <div className="flex gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => openFinanceModal('tax', t)} icon={Edit}>{t('edit')}</Button>
+                                <Button size="sm" variant="danger" onClick={() => handleDeleteFinance(t.id, 'tax')} icon={Trash2}>{t('delete')}</Button>
+                            </div>
+                        </div>
+                    ))}
                   </div>
                 ) : (
                   <div>
                     <div className="flex justify-end mb-4"><Button size="sm" icon={Plus} onClick={() => openFinanceModal('payment')}>{t('add')}</Button></div>
-                    {paymentMethods.map(p => <div key={p.id} className="flex justify-between items-center py-2 border-b last:border-0"><span>{p.name_en}</span><div><button onClick={() => openFinanceModal('payment', p)} className="p-1"><Edit size={14}/></button><button onClick={() => handleDeleteFinance(p.id, 'payment')} className="p-1 text-red-500"><Trash2 size={14}/></button></div></div>)}
+                    {paymentMethods.map(p => (
+                        <div key={p.id} className="flex justify-between items-center py-2 border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-2 rounded transition-colors">
+                            <div className="flex items-center gap-2">
+                                <span>{p.name_en}</span>
+                                {p.isActive ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
+                            </div>
+                            <div className="flex gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => openFinanceModal('payment', p)} icon={Edit}>{t('edit')}</Button>
+                                <Button size="sm" variant="danger" onClick={() => handleDeleteFinance(p.id, 'payment')} icon={Trash2}>{t('delete')}</Button>
+                            </div>
+                        </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -564,7 +600,7 @@ export const Configuration = () => {
                         <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_type')}</th>
                         <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_cost')}</th>
                         <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_status')}</th>
-                        <th className="px-4 py-3"></th>
+                        <th className="px-4 py-3 text-right">{t('actions')}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y dark:bg-slate-800">
@@ -575,8 +611,10 @@ export const Configuration = () => {
                           <td className="px-4 py-3 text-right font-mono">${bed.costPerDay}</td>
                           <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : bed.status === 'cleaning' ? 'purple' : 'red'}>{t(`config_bed_status_${bed.status}`)}</Badge></td>
                           <td className="px-4 py-3 text-right">
-                            <button onClick={() => openBedModal(bed)} className="p-1 text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
-                            <button onClick={() => handleDeleteBed(bed.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
+                            <div className="flex justify-end gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => openBedModal(bed)} icon={Edit}>{t('edit')}</Button>
+                                <Button size="sm" variant="danger" onClick={() => handleDeleteBed(bed.id)} icon={Trash2}>{t('delete')}</Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -610,7 +648,7 @@ export const Configuration = () => {
                         <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_catalogs_header_name_en')}</th>
                         <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_catalogs_header_name_ar')}</th>
                         <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{t('config_catalogs_header_details')}</th>
-                        <th className="px-4 py-3 text-right"></th>
+                        <th className="px-4 py-3 text-right">{t('actions')}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
@@ -626,8 +664,10 @@ export const Configuration = () => {
                             {item.isActive !== undefined && <Badge color={item.isActive ? 'green' : 'gray'}>{item.isActive ? t('config_users_active') : t('config_users_inactive')}</Badge>}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <button onClick={() => openItemModal(item)} className="p-1 text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
-                            <button onClick={() => handleDeleteItem(item.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
+                            <div className="flex justify-end gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => openItemModal(item)} icon={Edit}>{t('edit')}</Button>
+                                <Button size="sm" variant="danger" onClick={() => handleDeleteItem(item.id)} icon={Trash2}>{t('delete')}</Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -765,7 +805,15 @@ export const Configuration = () => {
            {financeTab === 'tax' && (
              <Input label={t('config_field_rate')} type="number" required value={financeForm.rate || ''} onChange={e => setFinanceForm({...financeForm, rate: e.target.value})} />
            )}
-           <div className="flex items-center gap-2"><input type="checkbox" checked={financeForm.isActive !== false} onChange={e => setFinanceForm({...financeForm, isActive: e.target.checked})} /> {t('config_users_active')}</div>
+           <div className="flex items-center gap-2">
+               <input 
+                   type="checkbox" 
+                   id="financeActive"
+                   checked={financeForm.isActive !== false} // Default true
+                   onChange={e => setFinanceForm({...financeForm, isActive: e.target.checked})} 
+               /> 
+               <label htmlFor="financeActive">{t('config_users_active')}</label>
+           </div>
            <div className="flex justify-end pt-2 gap-3">
              <Button type="button" variant="secondary" onClick={() => setIsFinanceModalOpen(false)}>{t('cancel')}</Button>
              <Button type="submit">{t('save')}</Button>

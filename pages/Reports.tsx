@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Select } from '../components/UI';
 import { 
@@ -172,7 +173,7 @@ export const Reports = () => {
     const activity = [
         ...filteredPatients.filter(p => p && p.createdAt).map(p => ({ 
             type: 'Patient', 
-            text: `New Patient: ${p.fullName}`, 
+            text: t('report_activity_patient_new', {name: p.fullName}), 
             subtext: `ID: ${p.patientId}`,
             date: p.createdAt, 
             id: `p-${p.id}`, 
@@ -181,7 +182,7 @@ export const Reports = () => {
         })),
         ...filteredAppts.filter(a => a && a.datetime).map(a => ({ 
             type: 'Appointment', 
-            text: `Appointment: ${a.patientName}`, 
+            text: t('report_activity_appt_new', {patient: a.patientName}), 
             subtext: `Dr. ${a.staffName} (${a.type})`,
             date: a.datetime, 
             id: `a-${a.id}`, 
@@ -190,7 +191,7 @@ export const Reports = () => {
         })),
         ...filteredBills.filter(b => b && b.date).map(b => ({ 
             type: 'Bill', 
-            text: `Invoice #${b.billNumber}`, 
+            text: t('report_activity_bill_new', {number: b.billNumber}), 
             subtext: `$${b.totalAmount.toLocaleString()} (${b.status})`,
             date: b.date, 
             id: `b-${b.id}`, 
@@ -208,7 +209,7 @@ export const Reports = () => {
         chartData,
         activity
     };
-  }, [patients, appointments, bills, timeRange]);
+  }, [patients, appointments, bills, timeRange, t]);
 
   const handleExport = () => {
     // Simple CSV Export Mock

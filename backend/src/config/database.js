@@ -1,3 +1,4 @@
+
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
@@ -208,35 +209,35 @@ const seedData = () => {
   // 2. Seed Users
   const userCount = db.prepare('SELECT count(*) as count FROM users').get().count;
   if (userCount === 0) {
-    // Admin
-    const hash = bcrypt.hashSync('admin123', 10);
-    db.prepare("INSERT INTO users (username, password, full_name, role) VALUES ('admin', ?, 'System Administrator', 'admin')").run(hash);
-    
-    // Demo Accounts
-    const demos = [
+    const defaultUsers = [
+      { u: 'admin', p: 'admin123', n: 'System Administrator', r: 'admin' },
       { u: 'manager', p: 'manager123', n: 'Sarah Manager', r: 'manager' },
       { u: 'receptionist', p: 'receptionist123', n: 'Pam Receptionist', r: 'receptionist' },
-      { u: 'technician', p: 'technician123', n: 'Tom Technician', r: 'technician' }, // maps to labtech in frontend login
-      { u: 'labtech', p: 'labtech123', n: 'Tom Technician', r: 'technician' }, // Duplicate for safety if frontend hardcodes 'labtech'
       { u: 'accountant', p: 'accountant123', n: 'Angela Accountant', r: 'accountant' },
-      { u: 'hr', p: 'hr123', n: 'Toby HR', r: 'hr' },
-      { u: 'pharmacist', p: 'pharmacist123', n: 'Phil Pharmacist', r: 'pharmacist' },
+      { u: 'labtech', p: 'labtech123', n: 'Tom Technician', r: 'technician' },
       { u: 'doctor', p: 'doctor123', n: 'Dr. John Doe', r: 'doctor' },
-      { u: 'nurse', p: 'nurse123', n: 'Nurse Mary', r: 'nurse' }
+      { u: 'nurse', p: 'nurse123', n: 'Nurse Mary', r: 'nurse' },
+      { u: 'pharmacist', p: 'pharmacist123', n: 'Phil Pharmacist', r: 'pharmacist' },
+      { u: 'hr', p: 'hr123', n: 'Toby HR', r: 'hr' },
     ];
 
     const stmt = db.prepare("INSERT OR IGNORE INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)");
-    demos.forEach(d => {
+    defaultUsers.forEach(d => {
         const h = bcrypt.hashSync(d.p, 10);
         stmt.run(d.u, h, d.n, d.r);
     });
-    console.log('Seeded demo users.');
+    console.log('Seeded default users.');
   }
 
-  // 3. Departments
+  // 3. Departments - Expanded to cover all roles
   const deptCount = db.prepare('SELECT count(*) as count FROM departments').get().count;
   if (deptCount === 0) {
     const depts = [
+      { en: 'Administration', ar: 'الإدارة' },
+      { en: 'Human Resources', ar: 'الموارد البشرية' },
+      { en: 'Finance', ar: 'المالية' },
+      { en: 'Information Technology', ar: 'تقنية المعلومات' },
+      { en: 'Reception', ar: 'الاستقبال' },
       { en: 'Cardiology', ar: 'أمراض القلب' },
       { en: 'Neurology', ar: 'الأعصاب' },
       { en: 'Orthopedics', ar: 'العظام' },
@@ -246,14 +247,17 @@ const seedData = () => {
       { en: 'Emergency', ar: 'الطوارئ' },
       { en: 'Radiology', ar: 'الأشعة' },
       { en: 'Laboratory', ar: 'المختبر' },
-      { en: 'Pharmacy', ar: 'الصيدلية' }
+      { en: 'Pharmacy', ar: 'الصيدلية' },
+      { en: 'Nursing', ar: 'التمريض' },
+      { en: 'Security', ar: 'الأمن' },
+      { en: 'Maintenance', ar: 'الصيانة' }
     ];
     const stmt = db.prepare('INSERT INTO departments (name_en, name_ar) VALUES (?, ?)');
     depts.forEach(d => stmt.run(d.en, d.ar));
     console.log('Seeded departments.');
   }
 
-  // 4. Lab Tests (Expanded)
+  // 4. Lab Tests (Common Tests)
   const labCount = db.prepare('SELECT count(*) as count FROM lab_tests').get().count;
   if (labCount === 0) {
     const tests = [
@@ -264,7 +268,6 @@ const seedData = () => {
       { en: 'Prothrombin Time (PT)', ar: 'زمن البروثرومبين', cat: 'Hematology', cost: 10 },
       // Parasitology
       { en: 'Malaria Blood Film', ar: 'فحص الملاريا (شريحة)', cat: 'Parasitology', cost: 8 },
-      { en: 'Malaria Rapid Test', ar: 'فحص الملاريا السريع', cat: 'Parasitology', cost: 12 },
       { en: 'Stool General', ar: 'فحص براز عام', cat: 'Parasitology', cost: 5 },
       { en: 'Urine General', ar: 'فحص بول عام', cat: 'Parasitology', cost: 5 },
       // Biochemistry
@@ -274,21 +277,15 @@ const seedData = () => {
       { en: 'Liver Function Test (LFT)', ar: 'وظائف كبد كاملة', cat: 'Biochemistry', cost: 30 },
       { en: 'Renal Function Test (RFT)', ar: 'وظائف كلى كاملة', cat: 'Biochemistry', cost: 30 },
       { en: 'Uric Acid', ar: 'حمض اليوريك', cat: 'Biochemistry', cost: 10 },
-      { en: 'Serum Electrolytes (Na, K, Cl)', ar: 'شوارد الدم', cat: 'Biochemistry', cost: 25 },
+      { en: 'Serum Electrolytes', ar: 'شوارد الدم', cat: 'Biochemistry', cost: 25 },
       // Hormones
       { en: 'Thyroid Profile (T3, T4, TSH)', ar: 'وظائف الغدة الدرقية', cat: 'Hormones', cost: 40 },
       { en: 'Vitamin D', ar: 'فيتامين د', cat: 'Hormones', cost: 50 },
-      { en: 'Beta HCG (Pregnancy)', ar: 'اختبار الحمل الرقمي', cat: 'Hormones', cost: 15 },
-      // Serology & Immunology
-      { en: 'Widal Test (Typhoid)', ar: 'تفاعل فيدال (تيفود)', cat: 'Serology', cost: 10 },
-      { en: 'Brucella Test', ar: 'فحص البروسيلا', cat: 'Serology', cost: 12 },
-      { en: 'H. Pylori Ag (Stool)', ar: 'جرثومة المعدة (براز)', cat: 'Serology', cost: 15 },
-      { en: 'Hepatitis B Surface Ag', ar: 'فيروس بي', cat: 'Serology', cost: 15 },
-      { en: 'Hepatitis C Ab', ar: 'فيروس سي', cat: 'Serology', cost: 15 },
-      { en: 'HIV Combo', ar: 'فحص المناعة', cat: 'Serology', cost: 20 },
-      { en: 'CRP', ar: 'بروتين سي التفاعلي', cat: 'Serology', cost: 10 },
+      // Serology
+      { en: 'H. Pylori', ar: 'جرثومة المعدة', cat: 'Serology', cost: 15 },
+      { en: 'Hepatitis B & C', ar: 'التهاب الكبد ب و سي', cat: 'Serology', cost: 25 },
       // Microbiology
-      { en: 'Urine Culture & Sensitivity', ar: 'مزرعة بول', cat: 'Microbiology', cost: 25 },
+      { en: 'Urine Culture', ar: 'مزرعة بول', cat: 'Microbiology', cost: 25 },
       { en: 'Blood Culture', ar: 'مزرعة دم', cat: 'Microbiology', cost: 35 }
     ];
     const stmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost) VALUES (?, ?, ?, ?, ?)');
@@ -304,7 +301,8 @@ const seedData = () => {
       { en: 'Cannula Insertion', ar: 'تركيب كانيولا', cost: 10 },
       { en: 'Wound Dressing', ar: 'غيار على جرح', cost: 15 },
       { en: 'Nebulizer', ar: 'جلسة بخار', cost: 10 },
-      { en: 'ECG', ar: 'رسم قلب', cost: 20 }
+      { en: 'ECG', ar: 'رسم قلب', cost: 20 },
+      { en: 'Vital Signs Check', ar: 'قياس العلامات الحيوية', cost: 3 }
     ];
     const stmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, cost) VALUES (?, ?, ?)');
     services.forEach(s => stmt.run(s.en, s.ar, s.cost));
@@ -317,24 +315,21 @@ const seedData = () => {
     const ops = [
       // General Surgery
       { en: 'Appendectomy', ar: 'استئصال الزائدة الدودية', cost: 800 },
-      { en: 'Laparoscopic Cholecystectomy', ar: 'استئصال المرارة بالمنظار', cost: 1500 },
-      { en: 'Inguinal Hernia Repair', ar: 'إصلاح فتق إربي', cost: 900 },
+      { en: 'Cholecystectomy', ar: 'استئصال المرارة', cost: 1500 },
+      { en: 'Hernia Repair', ar: 'إصلاح فتق', cost: 900 },
       { en: 'Hemorrhoidectomy', ar: 'استئصال البواسير', cost: 700 },
-      { en: 'Thyroidectomy', ar: 'استئصال الغدة الدرقية', cost: 1200 },
       // OB/GYN
       { en: 'Cesarean Section', ar: 'ولادة قيصرية', cost: 1200 },
       { en: 'Normal Delivery', ar: 'ولادة طبيعية', cost: 500 },
       { en: 'Hysterectomy', ar: 'استئصال الرحم', cost: 1800 },
-      { en: 'Dilation and Curettage (D&C)', ar: 'توسيع وكحت', cost: 400 },
       // Orthopedics
       { en: 'Knee Arthroscopy', ar: 'منظار ركبة', cost: 1100 },
-      { en: 'Total Hip Replacement', ar: 'استبدال مفصل الورك', cost: 3500 },
-      { en: 'Fracture Fixation (ORIF)', ar: 'تثبيت كسور', cost: 1300 },
+      { en: 'Hip Replacement', ar: 'استبدال مفصل الورك', cost: 3500 },
+      { en: 'Fracture Fixation', ar: 'تثبيت كسور', cost: 1300 },
       // ENT
       { en: 'Tonsillectomy', ar: 'استئصال اللوزتين', cost: 600 },
-      { en: 'Septoplasty', ar: 'تجميل الحاجز الأنفي', cost: 900 },
       // Ophthalmology
-      { en: 'Cataract Surgery (Phaco)', ar: 'إزالة المياه البيضاء (فاكو)', cost: 1000 },
+      { en: 'Cataract Surgery', ar: 'إزالة المياه البيضاء', cost: 1000 },
       { en: 'LASIK', ar: 'ليزك', cost: 800 }
     ];
     const stmt = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
@@ -352,21 +347,24 @@ const seedData = () => {
     console.log('Seeded beds.');
   }
 
-  // 8. Payment Methods
+  // 8. Payment Methods (Specific)
   const pmCount = db.prepare('SELECT count(*) as count FROM payment_methods').get().count;
   if (pmCount === 0) {
     const pms = [
       { en: 'Cash', ar: 'نقدي' },
+      { en: 'Bankak', ar: 'بنكك' },
+      { en: 'Fawry', ar: 'فوري' },
+      { en: 'Ocash', ar: 'أوكاش' },
+      { en: 'Insurance', ar: 'تأمين' },
       { en: 'Credit Card', ar: 'بطاقة ائتمان' },
-      { en: 'Bank Transfer', ar: 'تحويل بنكي' },
-      { en: 'Insurance', ar: 'تأمين' }
+      { en: 'Bank Transfer', ar: 'تحويل بنكي' }
     ];
     const stmt = db.prepare('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, 1)');
     pms.forEach(p => stmt.run(p.en, p.ar));
     console.log('Seeded payment methods.');
   }
 
-  // 9. Insurance Providers (Sudan Context)
+  // 9. Insurance Providers
   const insCount = db.prepare('SELECT count(*) as count FROM insurance_providers').get().count;
   if (insCount === 0) {
       const providers = [
@@ -393,11 +391,8 @@ const seedData = () => {
           { name: 'Dr. Meredith Grey', type: 'doctor', dept: 'General Surgery', spec: 'General Surgery', fee: 180 },
           { name: 'Dr. Gregory House', type: 'doctor', dept: 'Internal Medicine', spec: 'Diagnostic Medicine', fee: 300 },
           { name: 'Dr. Derek Shepherd', type: 'doctor', dept: 'Neurology', spec: 'Neurosurgery', fee: 250 },
-          { name: 'Dr. Doug Ross', type: 'doctor', dept: 'Pediatrics', spec: 'Pediatrics', fee: 150 },
-          { name: 'Dr. Lisa Cuddy', type: 'doctor', dept: 'Administration', spec: 'Endocrinology', fee: 220 },
           { name: 'Nurse Carla Espinosa', type: 'nurse', dept: 'General Surgery', spec: 'Head Nurse', fee: 0 },
-          { name: 'Nurse Jackie', type: 'nurse', dept: 'Emergency', spec: 'ER Nurse', fee: 0 },
-          { name: 'John Dorian', type: 'doctor', dept: 'Internal Medicine', spec: 'Internal Medicine', fee: 120 }
+          { name: 'Nurse Jackie', type: 'nurse', dept: 'Emergency', spec: 'ER Nurse', fee: 0 }
       ];
 
       const stmt = db.prepare(`

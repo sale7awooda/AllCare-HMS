@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -222,7 +223,7 @@ export const Staff = () => {
     setConfirmState({
         isOpen: true,
         title: t('staff_attendance_confirm'),
-        message: `Check in ${staffMember.fullName} at ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}?`,
+        message: t('staff_attendance_checkin_confirm', {name: staffMember.fullName, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}),
         action: async () => {
             setProcessStatus('processing');
             setProcessMessage(t('processing'));
@@ -247,7 +248,7 @@ export const Staff = () => {
                 setTimeout(() => setProcessStatus('idle'), 1000);
             } catch (e: any) {
                 setProcessStatus('error');
-                setProcessMessage(e.message || 'Failed to check in');
+                setProcessMessage(e.message || t('staff_attendance_mark_fail'));
             }
         }
     });
@@ -256,8 +257,8 @@ export const Staff = () => {
   const handleCheckOut = (record: Attendance) => {
     setConfirmState({
         isOpen: true,
-        title: "Confirm Check Out",
-        message: `Check out ${record.staffName}?`,
+        title: t('staff_attendance_confirm'),
+        message: t('staff_attendance_checkout_confirm', {name: record.staffName}),
         action: async () => {
             setProcessStatus('processing');
             setProcessMessage(t('processing'));
@@ -277,7 +278,7 @@ export const Staff = () => {
                 setTimeout(() => setProcessStatus('idle'), 1000);
             } catch (e: any) {
                 setProcessStatus('error');
-                setProcessMessage(e.message || 'Failed to check out');
+                setProcessMessage(e.message || t('staff_attendance_mark_fail'));
             }
         }
     });
@@ -325,7 +326,7 @@ export const Staff = () => {
           }, 500);
       } catch (err: any) {
           setProcessStatus('error');
-          setProcessMessage(err.message || 'Failed to mark attendance');
+          setProcessMessage(err.message || t('staff_attendance_mark_fail'));
       }
   };
 
@@ -353,7 +354,7 @@ export const Staff = () => {
       setConfirmState({
         isOpen: true,
         title: status === 'approved' ? t('hr_approve') : t('hr_reject'),
-        message: `Are you sure you want to ${status} this leave request?`,
+        message: t('confirm'),
         action: async () => {
             setProcessStatus('processing');
             setProcessMessage(t('processing'));
@@ -398,8 +399,8 @@ export const Staff = () => {
   const handleMarkPaid = (record: PayrollRecord) => {
       setConfirmState({
           isOpen: true,
-          title: "Confirm Payment",
-          message: `Mark payroll for ${record.staffName} as Paid?`,
+          title: t('confirm'),
+          message: t('staff_payroll_paid_confirm', {name: record.staffName}),
           action: async () => {
               setProcessStatus('processing');
               setProcessMessage(t('processing'));
@@ -592,7 +593,7 @@ export const Staff = () => {
                                   <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                                       <td className="px-4 py-3">
                                           <div className="font-bold text-slate-700 dark:text-slate-200">{s.fullName}</div>
-                                          <div className="text-xs text-slate-400 capitalize">{s.type}</div>
+                                          <div className="text-xs text-slate-400 capitalize">{t(`staff_role_${s.type}`)}</div>
                                       </td>
                                       <td className="px-4 py-3">
                                           {record ? (
@@ -610,8 +611,8 @@ export const Staff = () => {
                                       {canManageHR && (
                                           <td className="px-4 py-3 text-right">
                                               <div className="flex justify-end gap-2">
-                                                  {!isCheckedIn && !isAbsent && <Button size="sm" icon={LogIn} onClick={() => handleCheckIn(s)}>Check In</Button>}
-                                                  {isCheckedIn && <Button size="sm" variant="secondary" icon={LogOut} onClick={() => handleCheckOut(record!)}>Check Out</Button>}
+                                                  {!isCheckedIn && !isAbsent && <Button size="sm" icon={LogIn} onClick={() => handleCheckIn(s)}>In</Button>}
+                                                  {isCheckedIn && <Button size="sm" variant="secondary" icon={LogOut} onClick={() => handleCheckOut(record!)}>Out</Button>}
                                                   <Button size="sm" variant="ghost" onClick={() => openAttendanceModal(s.id, s.fullName, record ? record.status : 'present')}><Edit size={14}/></Button>
                                               </div>
                                           </td>
@@ -689,7 +690,7 @@ export const Staff = () => {
                                   <td className="px-4 py-3 text-center"><Badge color={p.status === 'paid' ? 'green' : 'yellow'}>{p.status}</Badge></td>
                                   {canManageHR && (
                                       <td className="px-4 py-3 text-right">
-                                          {p.status === 'draft' && <Button size="sm" onClick={() => handleMarkPaid(p)}>Mark Paid</Button>}
+                                          {p.status === 'draft' && <Button size="sm" onClick={() => handleMarkPaid(p)}>{t('staff_payroll_paid_confirm', {name: ''}).replace('?', '')}</Button>}
                                       </td>
                                   )}
                               </tr>
@@ -743,26 +744,26 @@ export const Staff = () => {
           <div className="grid grid-cols-2 gap-4">
               <Input label={t('patients_modal_form_fullName')} required value={staffForm.fullName} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} />
               <Select label={t('staff_form_role')} value={staffForm.type} onChange={handleTypeChange}>
-                  <option value="doctor">Doctor</option>
-                  <option value="nurse">Nurse</option>
-                  <option value="technician">Technician</option>
-                  <option value="pharmacist">Pharmacist</option>
-                  <option value="receptionist">Receptionist</option>
-                  <option value="accountant">Accountant</option>
-                  <option value="hr_manager">HR Manager</option>
-                  <option value="manager">Manager</option>
-                  <option value="staff">Support Staff</option>
+                  <option value="doctor">{t('staff_role_doctor')}</option>
+                  <option value="nurse">{t('staff_role_nurse')}</option>
+                  <option value="technician">{t('staff_role_technician')}</option>
+                  <option value="pharmacist">{t('staff_role_pharmacist')}</option>
+                  <option value="receptionist">{t('staff_role_receptionist')}</option>
+                  <option value="accountant">{t('staff_role_accountant')}</option>
+                  <option value="hr_manager">{t('staff_role_hr_manager')}</option>
+                  <option value="manager">{t('staff_role_manager')}</option>
+                  <option value="staff">{t('staff_role_staff')}</option>
               </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
               <Select label={t('staff_form_department')} value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})}>
-                  <option value="">Select Department</option>
-                  {filteredDepartments.map((d: any) => <option key={d.id} value={d.name_en}>{d.name_en}</option>)}
+                  <option value="">{t('config_field_related_role')}...</option>
+                  {filteredDepartments.map((d: any) => <option key={d.id} value={d.name_en}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
               </Select>
               <Select label={t('staff_form_specialization')} value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}>
-                  <option value="">Select Specialization</option>
-                  {filteredSpecializations.map((s: any) => <option key={s.id} value={s.name_en}>{s.name_en}</option>)}
+                  <option value="">{t('config_field_related_role')}...</option>
+                  {filteredSpecializations.map((s: any) => <option key={s.id} value={s.name_en}>{language === 'ar' ? s.name_ar : s.name_en}</option>)}
               </Select>
           </div>
 
@@ -783,7 +784,7 @@ export const Staff = () => {
               
               <div className="grid grid-cols-2 gap-4 mt-2">
                   <Select label={t('staff_form_bank_name')} value={staffForm.bankName || ''} onChange={e => setStaffForm({...staffForm, bankName: e.target.value})}>
-                      <option value="">Select Bank</option>
+                      <option value="">{t('config_field_related_role')}...</option>
                       {banks.map((b: any) => <option key={b.id} value={b.name_en}>{language === 'ar' ? b.name_ar : b.name_en}</option>)}
                   </Select>
                   <Input label={t('staff_form_account_number')} value={staffForm.bankAccount || ''} onChange={e => setStaffForm({...staffForm, bankAccount: e.target.value})} />
@@ -856,7 +857,7 @@ export const Staff = () => {
       <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title={t('staff_leave_request')}>
           <form onSubmit={handleLeaveRequest} className="space-y-4">
               <Select label={t('staff_form_role_title')} required value={leaveForm.staffId} onChange={e => setLeaveForm({...leaveForm, staffId: e.target.value})}>
-                  <option value="">Select Employee</option>
+                  <option value="">{t('staff_search_placeholder')}</option>
                   {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
               </Select>
               <Select label={t('appointments_form_type')} value={leaveForm.type} onChange={e => setLeaveForm({...leaveForm, type: e.target.value})}>
@@ -866,10 +867,10 @@ export const Staff = () => {
                   <option value="unpaid">Unpaid Leave</option>
               </Select>
               <div className="grid grid-cols-2 gap-4">
-                  <Input label={t('start_date')} type="date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} />
-                  <Input label={t('end_date')} type="date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} />
+                  <Input label={t('date')} type="date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} />
+                  <Input label={t('date')} type="date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} />
               </div>
-              <Textarea label={t('reason')} required value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
+              <Textarea label={t('appointments_form_reason')} required value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
               <div className="flex justify-end pt-4 gap-3">
                   <Button type="button" variant="secondary" onClick={() => setIsLeaveModalOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit">{t('submit')}</Button>
@@ -881,7 +882,7 @@ export const Staff = () => {
       <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={t('staff_financial_add_entry')}>
           <form onSubmit={handleAdjustmentSubmit} className="space-y-4">
               <Select label={t('staff_form_role_title')} required value={adjForm.staffId} onChange={e => setAdjForm({...adjForm, staffId: e.target.value})}>
-                  <option value="">Select Employee</option>
+                  <option value="">{t('staff_search_placeholder')}</option>
                   {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
               </Select>
               <Select label={t('appointments_form_type')} value={adjForm.type} onChange={e => setAdjForm({...adjForm, type: e.target.value})}>
@@ -891,7 +892,7 @@ export const Staff = () => {
               </Select>
               <Input label={t('billing_table_header_amount')} type="number" required value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} />
               <Input label={t('date')} type="date" required value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
-              <Textarea label={t('reason')} required value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
+              <Textarea label={t('appointments_form_reason')} required value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
               <div className="flex justify-end pt-4 gap-3">
                   <Button type="button" variant="secondary" onClick={() => setIsAdjustmentModalOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit">{t('save')}</Button>

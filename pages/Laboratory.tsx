@@ -55,7 +55,7 @@ export const Laboratory = () => {
       }, 1000);
     } catch (error) {
       console.error(error);
-      alert('Failed to save results.');
+      alert(t('lab_save_error'));
       setProcessStatus('idle');
     }
   };
@@ -117,7 +117,7 @@ export const Laboratory = () => {
         ) : filteredRequests.length === 0 ? (
             <div className="text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
                 <FlaskConical size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-600" />
-                <p className="text-slate-500 dark:text-slate-400 font-medium">{t('lab_empty', {tab: activeTab})}</p>
+                <p className="text-slate-500 dark:text-slate-400 font-medium">{t('lab_empty', {tab: activeTab === 'queue' ? t('lab_tab_queue') : t('lab_tab_history')})}</p>
             </div>
         ) : (
             filteredRequests.map(req => (
@@ -147,7 +147,7 @@ export const Laboratory = () => {
 
                     {/* Cost */}
                     <div className="text-right">
-                        <span className="text-xs text-slate-400">Cost</span>
+                        <span className="text-xs text-slate-400">{t('config_field_cost')}</span>
                         <p className="text-xl font-bold text-slate-800 dark:text-white">${req.projected_cost.toLocaleString()}</p>
                     </div>
 
@@ -166,7 +166,7 @@ export const Laboratory = () => {
                         )}
                         {req.status === 'completed' && (
                             <Button variant="secondary" icon={FileText} onClick={() => openProcessModal(req)}>
-                                View Results
+                                {t('lab_view_results')}
                             </Button>
                         )}
                     </div>

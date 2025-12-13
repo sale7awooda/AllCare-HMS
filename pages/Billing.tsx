@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -571,6 +572,11 @@ export const Billing = () => {
     const subtotal = bill.items.filter(i => !i.description.toLowerCase().startsWith('tax')).reduce((sum, i) => sum + i.amount, 0);
     const taxAmount = taxItem ? taxItem.amount : 0;
     const hospitalName = localStorage.getItem('hospital_name') || 'AllCare Hospital';
+    const [hospitalInfo, setHospitalInfo] = useState<any>({});
+
+    useEffect(() => {
+        api.getPublicSettings().then(setHospitalInfo);
+    }, []);
 
     return (
         <div className="p-10 bg-white min-h-[600px] text-slate-800 font-sans" id="invoice-print">
@@ -598,9 +604,9 @@ export const Billing = () => {
             <div className="text-right">
                 <h2 className="text-xl font-bold text-primary-600">{hospitalName}</h2>
                 <div className="text-sm text-slate-500 mt-2 space-y-1">
-                    <p>123 Health Ave, Med City</p>
+                    <p>{hospitalInfo.hospitalAddress || '123 Health Ave, Med City'}</p>
                     <p>contact@allcare.com</p>
-                    <p>+1 (555) 012-3456</p>
+                    <p>{hospitalInfo.hospitalPhone || '+1 (555) 012-3456'}</p>
                 </div>
             </div>
         </div>
