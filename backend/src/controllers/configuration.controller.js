@@ -362,9 +362,18 @@ exports.deleteTaxRate = (req, res) => {
 };
 
 exports.getPaymentMethods = (req, res) => {
-  try { res.json(db.prepare('SELECT id, name_en, name_ar, is_active as isActive FROM payment_methods').all().map(p => ({...p, isActive: !!p.isActive}))); } 
+  try { 
+    const rows = db.prepare('SELECT id, name_en, name_ar, is_active FROM payment_methods').all();
+    res.json(rows.map(p => ({
+      id: p.id,
+      name_en: p.name_en,
+      name_ar: p.name_ar,
+      isActive: !!p.is_active
+    }))); 
+  } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
+
 exports.addPaymentMethod = (req, res) => {
   const { name_en, name_ar, is_active } = req.body;
   try {

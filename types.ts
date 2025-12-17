@@ -1,4 +1,5 @@
 
+
 export type Role = 'admin' | 'receptionist' | 'manager' | 'technician' | 'accountant' | 'doctor' | 'nurse' | 'pharmacist' | 'hr'; 
 
 export interface User {
@@ -213,4 +214,3 @@ export interface PaymentMethod {
   name_ar: string;
   isActive: boolean;
 }
-// FIX: Removed extraneous file marker that was causing a syntax error.

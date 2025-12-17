@@ -186,7 +186,17 @@ const initDB = (forceReset = false) => {
   db.prepare(`CREATE TABLE IF NOT EXISTS specializations (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT, related_role TEXT)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value TEXT)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS tax_rates (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, rate REAL, is_active BOOLEAN)`).run();
-  db.prepare(`CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`).run();
+  db.prepare(`CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`).run();
+  
+  // Migration for payment_methods is_active
+  try {
+    db.prepare('SELECT is_active FROM payment_methods LIMIT 1').get();
+  } catch (e) {
+    if (e.message.includes('no such column')) {
+      try { db.prepare('ALTER TABLE payment_methods ADD COLUMN is_active BOOLEAN DEFAULT 1').run(); } catch(err){}
+    }
+  }
+
   db.prepare(`CREATE TABLE IF NOT EXISTS insurance_providers (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS banks (id INTEGER PRIMARY KEY AUTOINCREMENT, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`).run();
 
@@ -266,27 +276,12 @@ const seedData = () => {
       { en: 'ESR', ar: 'سرعة الترسيب', cat: 'Hematology', cost: 5 },
       { en: 'Blood Grouping & Rh', ar: 'فصيلة الدم', cat: 'Hematology', cost: 5 },
       { en: 'Prothrombin Time (PT)', ar: 'زمن البروثرومبين', cat: 'Hematology', cost: 10 },
-      // Parasitology
-      { en: 'Malaria Blood Film', ar: 'فحص الملاريا (شريحة)', cat: 'Parasitology', cost: 8 },
-      { en: 'Stool General', ar: 'فحص براز عام', cat: 'Parasitology', cost: 5 },
-      { en: 'Urine General', ar: 'فحص بول عام', cat: 'Parasitology', cost: 5 },
       // Biochemistry
       { en: 'Fasting Blood Sugar (FBS)', ar: 'سكر صائم', cat: 'Biochemistry', cost: 5 },
       { en: 'HbA1c', ar: 'السكر التراكمي', cat: 'Biochemistry', cost: 20 },
       { en: 'Lipid Profile', ar: 'دهون الدم', cat: 'Biochemistry', cost: 25 },
       { en: 'Liver Function Test (LFT)', ar: 'وظائف كبد كاملة', cat: 'Biochemistry', cost: 30 },
-      { en: 'Renal Function Test (RFT)', ar: 'وظائف كلى كاملة', cat: 'Biochemistry', cost: 30 },
-      { en: 'Uric Acid', ar: 'حمض اليوريك', cat: 'Biochemistry', cost: 10 },
-      { en: 'Serum Electrolytes', ar: 'شوارد الدم', cat: 'Biochemistry', cost: 25 },
-      // Hormones
-      { en: 'Thyroid Profile (T3, T4, TSH)', ar: 'وظائف الغدة الدرقية', cat: 'Hormones', cost: 40 },
-      { en: 'Vitamin D', ar: 'فيتامين د', cat: 'Hormones', cost: 50 },
-      // Serology
-      { en: 'H. Pylori', ar: 'جرثومة المعدة', cat: 'Serology', cost: 15 },
-      { en: 'Hepatitis B & C', ar: 'التهاب الكبد ب و سي', cat: 'Serology', cost: 25 },
-      // Microbiology
-      { en: 'Urine Culture', ar: 'مزرعة بول', cat: 'Microbiology', cost: 25 },
-      { en: 'Blood Culture', ar: 'مزرعة دم', cat: 'Microbiology', cost: 35 }
+      { en: 'Renal Function Test (RFT)', ar: 'وظائف كلى كاملة', cat: 'Biochemistry', cost: 30 }
     ];
     const stmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost) VALUES (?, ?, ?, ?, ?)');
     tests.forEach(t => stmt.run(t.en, t.ar, t.cat, t.cat, t.cost));
@@ -301,8 +296,7 @@ const seedData = () => {
       { en: 'Cannula Insertion', ar: 'تركيب كانيولا', cost: 10 },
       { en: 'Wound Dressing', ar: 'غيار على جرح', cost: 15 },
       { en: 'Nebulizer', ar: 'جلسة بخار', cost: 10 },
-      { en: 'ECG', ar: 'رسم قلب', cost: 20 },
-      { en: 'Vital Signs Check', ar: 'قياس العلامات الحيوية', cost: 3 }
+      { en: 'ECG', ar: 'رسم قلب', cost: 20 }
     ];
     const stmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, cost) VALUES (?, ?, ?)');
     services.forEach(s => stmt.run(s.en, s.ar, s.cost));
@@ -313,24 +307,10 @@ const seedData = () => {
   const opCount = db.prepare('SELECT count(*) as count FROM operations_catalog').get().count;
   if (opCount === 0) {
     const ops = [
-      // General Surgery
       { en: 'Appendectomy', ar: 'استئصال الزائدة الدودية', cost: 800 },
       { en: 'Cholecystectomy', ar: 'استئصال المرارة', cost: 1500 },
-      { en: 'Hernia Repair', ar: 'إصلاح فتق', cost: 900 },
-      { en: 'Hemorrhoidectomy', ar: 'استئصال البواسير', cost: 700 },
-      // OB/GYN
       { en: 'Cesarean Section', ar: 'ولادة قيصرية', cost: 1200 },
-      { en: 'Normal Delivery', ar: 'ولادة طبيعية', cost: 500 },
-      { en: 'Hysterectomy', ar: 'استئصال الرحم', cost: 1800 },
-      // Orthopedics
-      { en: 'Knee Arthroscopy', ar: 'منظار ركبة', cost: 1100 },
-      { en: 'Hip Replacement', ar: 'استبدال مفصل الورك', cost: 3500 },
-      { en: 'Fracture Fixation', ar: 'تثبيت كسور', cost: 1300 },
-      // ENT
-      { en: 'Tonsillectomy', ar: 'استئصال اللوزتين', cost: 600 },
-      // Ophthalmology
-      { en: 'Cataract Surgery', ar: 'إزالة المياه البيضاء', cost: 1000 },
-      { en: 'LASIK', ar: 'ليزك', cost: 800 }
+      { en: 'Cataract Surgery', ar: 'إزالة المياه البيضاء', cost: 1000 }
     ];
     const stmt = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
     ops.forEach(o => stmt.run(o.en, o.ar, o.cost));
@@ -347,17 +327,15 @@ const seedData = () => {
     console.log('Seeded beds.');
   }
 
-  // 8. Payment Methods (Specific)
+  // 8. Payment Methods
   const pmCount = db.prepare('SELECT count(*) as count FROM payment_methods').get().count;
   if (pmCount === 0) {
     const pms = [
       { en: 'Cash', ar: 'نقدي' },
       { en: 'Bankak', ar: 'بنكك' },
       { en: 'Fawry', ar: 'فوري' },
-      { en: 'Ocash', ar: 'أوكاش' },
       { en: 'Insurance', ar: 'تأمين' },
-      { en: 'Credit Card', ar: 'بطاقة ائتمان' },
-      { en: 'Bank Transfer', ar: 'تحويل بنكي' }
+      { en: 'Credit Card', ar: 'بطاقة ائتمان' }
     ];
     const stmt = db.prepare('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, 1)');
     pms.forEach(p => stmt.run(p.en, p.ar));
@@ -369,14 +347,7 @@ const seedData = () => {
   if (insCount === 0) {
       const providers = [
           { en: 'National Health Insurance Fund', ar: 'الصندوق القومي للتأمين الصحي' },
-          { en: 'Shiekan Insurance', ar: 'شيكان للتأمين وإعادة التأمين' },
-          { en: 'Blue Nile Insurance', ar: 'النيل الأزرق للتأمين' },
-          { en: 'United Insurance', ar: 'المتحدة للتأمين' },
-          { en: 'Al-Salama Insurance', ar: 'شركة السلامة للتأمين' },
-          { en: 'Juba Insurance', ar: 'جوبا للتأمين' },
-          { en: 'General Insurance', ar: 'العامة للتأمين' },
-          { en: 'Savanna Insurance', ar: 'سافانا للتأمين' },
-          { en: 'Africa Reinsurance', ar: 'الشركة الأفريقية لإعادة التأمين' }
+          { en: 'Shiekan Insurance', ar: 'شيكان للتأمين وإعادة التأمين' }
       ];
       const stmt = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)');
       providers.forEach(p => stmt.run(p.en, p.ar));
@@ -390,9 +361,7 @@ const seedData = () => {
           { name: 'Dr. Shaun Murphy', type: 'doctor', dept: 'General Surgery', spec: 'General Surgery', fee: 200 },
           { name: 'Dr. Meredith Grey', type: 'doctor', dept: 'General Surgery', spec: 'General Surgery', fee: 180 },
           { name: 'Dr. Gregory House', type: 'doctor', dept: 'Internal Medicine', spec: 'Diagnostic Medicine', fee: 300 },
-          { name: 'Dr. Derek Shepherd', type: 'doctor', dept: 'Neurology', spec: 'Neurosurgery', fee: 250 },
-          { name: 'Nurse Carla Espinosa', type: 'nurse', dept: 'General Surgery', spec: 'Head Nurse', fee: 0 },
-          { name: 'Nurse Jackie', type: 'nurse', dept: 'Emergency', spec: 'ER Nurse', fee: 0 }
+          { name: 'Nurse Carla Espinosa', type: 'nurse', dept: 'General Surgery', spec: 'Head Nurse', fee: 0 }
       ];
 
       const stmt = db.prepare(`

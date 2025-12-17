@@ -110,7 +110,7 @@ export const Configuration = () => {
         api.getPaymentMethods(),
         api.getRolePermissions()
       ]);
-      if (s) setSettings(s);
+      if (s) setSettings(prev => ({ ...prev, hospitalName: s.hospitalName || '', hospitalAddress: s.hospitalAddress || '', hospitalPhone: s.hospitalPhone || '', currency: s.currency || '$' }));
       setDepartments(Array.isArray(d) ? d : []);
       setSpecializations(Array.isArray(sp) ? sp : []);
       setBeds(Array.isArray(b) ? b : []);
@@ -577,7 +577,6 @@ export const Configuration = () => {
                         <div key={p.id} className="flex justify-between items-center py-2 border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-2 rounded transition-colors">
                             <div className="flex items-center gap-2">
                                 <span>{p.name_en}</span>
-                                {p.isActive ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
                             </div>
                             <div className="flex gap-2">
                                 <Button size="sm" variant="ghost" onClick={() => openFinanceModal('payment', p)} icon={Edit}>{t('edit')}</Button>
@@ -605,43 +604,20 @@ export const Configuration = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y dark:bg-slate-800">
-                      {beds.map(bed => {
-                        const isLocked = ['occupied', 'reserved'].includes(bed.status);
-                        return (
-                          <tr key={bed.id}>
-                            <td className="px-4 py-3 font-medium">{bed.roomNumber}</td>
-                            <td className="px-4 py-3">{bed.type}</td>
-                            <td className="px-4 py-3 text-right font-mono">${bed.costPerDay}</td>
-                            <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : bed.status === 'cleaning' ? 'purple' : 'red'}>{t(`config_bed_status_${bed.status}`)}</Badge></td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="flex justify-end gap-2">
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    onClick={() => openBedModal(bed)} 
-                                    icon={Edit} 
-                                    disabled={isLocked}
-                                    title={isLocked ? "Cannot edit occupied/reserved bed" : ""}
-                                    className={isLocked ? "opacity-50 cursor-not-allowed" : ""}
-                                  >
-                                    {t('edit')}
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="danger" 
-                                    onClick={() => handleDeleteBed(bed.id)} 
-                                    icon={Trash2} 
-                                    disabled={isLocked}
-                                    title={isLocked ? "Cannot delete occupied/reserved bed" : ""}
-                                    className={isLocked ? "opacity-50 cursor-not-allowed" : ""}
-                                  >
-                                    {t('delete')}
-                                  </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {beds.map(bed => (
+                        <tr key={bed.id}>
+                          <td className="px-4 py-3 font-medium">{bed.roomNumber}</td>
+                          <td className="px-4 py-3">{bed.type}</td>
+                          <td className="px-4 py-3 text-right font-mono">${bed.costPerDay}</td>
+                          <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : bed.status === 'cleaning' ? 'purple' : 'red'}>{t(`config_bed_status_${bed.status}`)}</Badge></td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex justify-end gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => openBedModal(bed)} icon={Edit}>{t('edit')}</Button>
+                                <Button size="sm" variant="danger" onClick={() => handleDeleteBed(bed.id)} icon={Trash2}>{t('delete')}</Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -828,18 +804,20 @@ export const Configuration = () => {
         <form onSubmit={handleFinanceSubmit} className="space-y-4">
            <Input label={t('config_field_name_en')} required value={financeForm.name_en || ''} onChange={e => setFinanceForm({...financeForm, name_en: e.target.value})} />
            <Input label={t('config_field_name_ar')} required value={financeForm.name_ar || ''} onChange={e => setFinanceForm({...financeForm, name_ar: e.target.value})} />
-           {financeTab === 'tax' && (
-             <Input label={t('config_field_rate')} type="number" required value={financeForm.rate || ''} onChange={e => setFinanceForm({...financeForm, rate: e.target.value})} />
-           )}
-           <div className="flex items-center gap-2">
-               <input 
-                   type="checkbox" 
-                   id="financeActive"
-                   checked={financeForm.isActive !== false} // Default true
-                   onChange={e => setFinanceForm({...financeForm, isActive: e.target.checked})} 
-               /> 
-               <label htmlFor="financeActive">{t('config_users_active')}</label>
-           </div>
+           {financeTab === 'tax' ? (
+             <>
+               <Input label={t('config_field_rate')} type="number" required value={financeForm.rate || ''} onChange={e => setFinanceForm({...financeForm, rate: e.target.value})} />
+               <div className="flex items-center gap-2">
+                   <input 
+                       type="checkbox" 
+                       id="financeActive"
+                       checked={financeForm.isActive !== false} // Default true
+                       onChange={e => setFinanceForm({...financeForm, isActive: e.target.checked})} 
+                   /> 
+                   <label htmlFor="financeActive">{t('config_users_active')}</label>
+               </div>
+             </>
+           ) : null}
            <div className="flex justify-end pt-2 gap-3">
              <Button type="button" variant="secondary" onClick={() => setIsFinanceModalOpen(false)}>{t('cancel')}</Button>
              <Button type="submit">{t('save')}</Button>

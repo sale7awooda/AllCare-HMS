@@ -295,12 +295,10 @@ export const Billing = () => {
     const hasInsurance = patient?.hasInsurance;
     
     // Try to find default method
-    // If paymentMethods is loaded, use logic. If fallback (empty), default to Cash or Insurance.
     let defaultMethod = 'Cash';
     if (paymentMethods.length > 0) {
-        defaultMethod = hasInsurance ? 'Insurance' : paymentMethods[0].name_en;
-    } else {
-        defaultMethod = hasInsurance ? 'Insurance' : 'Cash';
+        const found = hasInsurance ? paymentMethods.find(p => p.name_en === 'Insurance') : paymentMethods.find(p => p.name_en === 'Cash');
+        defaultMethod = found ? found.name_en : paymentMethods[0].name_en;
     }
 
     setPaymentForm({ 
@@ -1160,10 +1158,14 @@ export const Billing = () => {
               onChange={e => setPaymentForm({...paymentForm, method: e.target.value})}
               required
             >
+              {/* Always include Cash as a first option even if methods fail to load */}
               {paymentMethods.length > 0 ? (
-                  paymentMethods.filter(p => p.isActive).map(p => (
-                      <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>
-                  ))
+                  <>
+                    {paymentMethods.filter(p => p.isActive).map(p => (
+                        <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>
+                    ))}
+                    {!paymentMethods.some(p => p.name_en === 'Cash') && <option value="Cash">Cash</option>}
+                  </>
               ) : (
                   <>
                     <option value="Cash">Cash</option>
