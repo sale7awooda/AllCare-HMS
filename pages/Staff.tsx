@@ -107,6 +107,7 @@ export const Staff = () => {
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
+    setProcessMessage('Creating employee record...');
     const { bankName, bankAccount, ...restOfForm } = staffForm;
     const payload = { ...restOfForm, bankDetails: { bankName, bankAccount } };
     try {
@@ -115,7 +116,10 @@ export const Staff = () => {
       setProcessStatus('success');
       await loadData(true);
       setTimeout(() => { setIsModalOpen(false); setProcessStatus('idle'); }, 500);
-    } catch (err: any) { setProcessStatus('error'); setProcessMessage(err.response?.data?.error || t('staff_save_fail')); }
+    } catch (err: any) { 
+      setProcessStatus('error'); 
+      setProcessMessage(err.response?.data?.error || t('staff_save_fail')); 
+    }
   };
 
   const openStaffModal = (s?: MedicalStaff) => {
@@ -175,6 +179,7 @@ export const Staff = () => {
         isOpen: true, title: t('staff_attendance_confirm'), message: t('staff_attendance_checkin_confirm', {name: staffMember.fullName, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}),
         action: async () => {
             setProcessStatus('processing');
+            setProcessMessage('Recording check-in time...');
             try {
                 const now = new Date();
                 const timeString = now.toTimeString().slice(0, 5);
@@ -182,7 +187,10 @@ export const Staff = () => {
                 const updated = await api.getAttendance(selectedDate);
                 setAttendance(updated);
                 setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
-            } catch (e: any) { setProcessStatus('error'); setProcessMessage(e.message || t('staff_attendance_mark_fail')); }
+            } catch (e: any) { 
+              setProcessStatus('error'); 
+              setProcessMessage(e.response?.data?.error || e.message || t('staff_attendance_mark_fail')); 
+            }
         }
     });
   };
@@ -192,12 +200,16 @@ export const Staff = () => {
         isOpen: true, title: t('staff_attendance_confirm'), message: t('staff_attendance_checkout_confirm', {name: record.staffName}),
         action: async () => {
             setProcessStatus('processing');
+            setProcessMessage('Recording check-out time...');
             try {
                 await api.markAttendance({ staffId: record.staffId, date: record.date, status: record.status, checkOut: new Date().toTimeString().slice(0, 5) });
                 const updated = await api.getAttendance(selectedDate);
                 setAttendance(updated);
                 setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
-            } catch (e: any) { setProcessStatus('error'); }
+            } catch (e: any) { 
+              setProcessStatus('error'); 
+              setProcessMessage(e.response?.data?.error || e.message || 'Failed');
+            }
         }
     });
   };
@@ -210,12 +222,16 @@ export const Staff = () => {
   const handleAttendanceSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       setProcessStatus('processing');
+      setProcessMessage('Updating attendance record...');
       try {
           await api.markAttendance({ staffId: attendanceModal.staffId, date: selectedDate, status: attendanceModal.status, checkIn: attendanceModal.checkIn || null, checkOut: attendanceModal.checkOut || null });
           const updated = await api.getAttendance(selectedDate);
           setAttendance(updated);
           setProcessStatus('success'); setTimeout(() => { setProcessStatus('idle'); setAttendanceModal(null); }, 500);
-      } catch (err: any) { setProcessStatus('error'); }
+      } catch (err: any) { 
+        setProcessStatus('error'); 
+        setProcessMessage(err.response?.data?.error || err.message || 'Failed');
+      }
   };
 
   const handleLeaveRequest = async (e: React.FormEvent) => {
@@ -226,11 +242,15 @@ export const Staff = () => {
           return;
       }
       setProcessStatus('processing');
+      setProcessMessage('Filing leave request...');
       try {
         await api.requestLeave(leaveForm);
         setLeaves(await api.getLeaves());
         setProcessStatus('success'); setTimeout(() => { setIsLeaveModalOpen(false); setProcessStatus('idle'); }, 1000);
-      } catch (e: any) { setProcessStatus('error'); }
+      } catch (e: any) { 
+        setProcessStatus('error'); 
+        setProcessMessage(e.response?.data?.error || e.message || 'Failed');
+      }
   };
 
   const updateLeaveStatus = (id: number, status: string) => {
@@ -238,11 +258,15 @@ export const Staff = () => {
         isOpen: true, title: status === 'approved' ? t('hr_approve') : t('hr_reject'), message: t('confirm'),
         action: async () => {
             setProcessStatus('processing');
+            setProcessMessage('Updating leave status...');
             try {
                 await api.updateLeaveStatus(id, status);
                 setLeaves(await api.getLeaves());
                 setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
-            } catch (e: any) { setProcessStatus('error'); }
+            } catch (e: any) { 
+              setProcessStatus('error'); 
+              setProcessMessage(e.response?.data?.error || e.message || 'Failed');
+            }
         }
       });
   };
@@ -252,11 +276,15 @@ export const Staff = () => {
           isOpen: true, title: t('staff_tab_payroll'), message: t('staff_generate_payroll_confirm', {month: selectedMonth}),
           action: async () => {
               setProcessStatus('processing');
+              setProcessMessage('Calculating salaries and generating ledger...');
               try {
                   await api.generatePayroll({ month: selectedMonth });
                   setPayroll(await api.getPayroll(selectedMonth));
                   setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
-              } catch(e: any) { setProcessStatus('error'); }
+              } catch(e: any) { 
+                setProcessStatus('error'); 
+                setProcessMessage(e.response?.data?.error || e.message || 'Failed');
+              }
           }
       });
   };
@@ -266,11 +294,15 @@ export const Staff = () => {
           isOpen: true, title: t('confirm'), message: t('staff_payroll_paid_confirm', {name: record.staffName}),
           action: async () => {
               setProcessStatus('processing');
+              setProcessMessage('Recording payroll disbursement...');
               try {
                   await api.updatePayrollStatus(record.id, 'paid');
                   setPayroll(await api.getPayroll(selectedMonth));
                   setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
-              } catch(e: any) { setProcessStatus('error'); }
+              } catch(e: any) { 
+                setProcessStatus('error'); 
+                setProcessMessage(e.response?.data?.error || e.message || 'Failed');
+              }
           }
       });
   };
@@ -283,11 +315,15 @@ export const Staff = () => {
         return;
       }
       setProcessStatus('processing');
+      setProcessMessage('Saving financial adjustment...');
       try {
         await api.addAdjustment({ ...adjForm, amount: parseFloat(adjForm.amount) });
         setFinancials(await api.getFinancials('all'));
         setProcessStatus('success'); setTimeout(() => { setIsAdjustmentModalOpen(false); setProcessStatus('idle'); }, 1000);
-      } catch (e: any) { setProcessStatus('error'); }
+      } catch (e: any) { 
+        setProcessStatus('error'); 
+        setProcessMessage(e.response?.data?.error || e.message || 'Failed');
+      }
   };
 
   const openPayrollDetails = (p: PayrollRecord) => {

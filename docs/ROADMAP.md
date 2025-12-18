@@ -1,49 +1,33 @@
 # AllCare HMS - Development Roadmap
 
-## Phase 1: Core Foundation & Patient Management (Completed)
-*   **Goal:** Establish the project structure, user access, and core patient registry.
-*   **Status:** ✅ **Done**
-*   **Key Features Implemented:**
-    *   **Project Setup:** Vite (React) and Express (Node.js) boilerplate.
-    *   **Database:** SQLite setup with `better-sqlite3`.
-    *   **Authentication:** JWT-based login system.
-    *   **RBAC:** Granular permission system.
-    *   **Patient Module:** Full CRUD functionality.
+## Phase 1: Foundation (Completed)
+*   ✅ Project scaffolding (Vite + Express).
+*   ✅ JWT Authentication system.
+*   ✅ Granular RBAC Permission system.
+*   ✅ Base UI Component Library (Tailwind).
 
-## Phase 2: Clinical Workflow Implementation (Completed)
-*   **Goal:** Build out the primary clinical modules for day-to-day operations.
-*   **Status:** ✅ **Done**
-*   **Key Features Implemented:**
-    *   **Appointment Module:** Real-time queues and list views.
-    *   **Billing Module:** Invoice creation, payment processing.
-    *   **Admissions Module:** Visual ward dashboard, admission/discharge workflow.
-    *   **Medical Services:** Laboratory, Nurse Services, and Operations workflows.
+## Phase 2: Core Clinical Modules (Completed)
+*   ✅ **Patient Registry:** Searchable database & 360° patient view.
+*   ✅ **Appointments:** Kanban queue with token system.
+*   ✅ **Billing:** Automated invoice generation and payment processing.
+*   ✅ **Admissions:** Ward management with visual bed dashboard.
 
-## Phase 3: Administrative & Management Modules (Completed)
-*   **Goal:** Add modules for hospital administration and staff management.
-*   **Status:** ✅ **Done**
-*   **Key Features Implemented:**
-    *   **HR Module:** Staff directory, attendance, leaves, payroll generation, and financial adjustments (loans/fines).
-    *   **Configuration Panel:** Comprehensive admin section for users, permissions, catalogs (Lab, Ops, Beds, etc.), and system settings.
-    *   **Settings Page:** User profile, password management, and interface customization.
+## Phase 3: Specialized Services (Completed)
+*   ✅ **Laboratory:** Request-to-Result workflow.
+*   ✅ **Operations:** Cost estimation builder and theater scheduling.
+*   ✅ **HR & Payroll:** Attendance, Leave tracking, and automated Salary calculation.
+*   ✅ **Treasury:** Tracking hospital expenses and cash flow by method.
 
-## Phase 4: Analytics, UI Polish & Internationalization (Completed)
-*   **Goal:** Enhance user experience, provide data insights, and make the application globally accessible.
-*   **Status:** ✅ **Done**
-*   **Key Features Implemented:**
-    *   **Dashboard:** Dynamic KPIs, charts, and activity feeds.
-    *   **Reports Module:** Financial, Operational, and Demographic analytics with charts (Recharts).
-    *   **Records Module:** Unified system-wide record log.
-    *   **Theming:** Dark/Light mode, accent colors, density control.
-    *   **Internationalization (i18n):** Full English/Arabic support with RTL.
-    *   **System Health:** Diagnostics tool for server/DB status.
+## Phase 4: System Intelligence & UX (Completed)
+*   ✅ **Analytics:** Financial, Operational, and Demographic reports.
+*   ✅ **Audit Log:** Unified "Records" module for system-wide event tracking.
+*   ✅ **Customization:** Advanced theming (Dark/Light/Accent colors).
+*   ✅ **i18n:** Full English/Arabic support with RTL.
+*   ✅ **Data Tools:** Database Backup/Restore/Reset capabilities.
 
-## Phase 5: Advanced Features & Future Enhancements (Planned)
-*   **Goal:** Integrate advanced technologies and expand module capabilities.
-*   **Status:** 📝 **In Planning**
-*   **Potential Features:**
-    *   **AI Assistant:** Conversational AI for data summarization.
-    *   **Pharmacy & Inventory Module:** Medication stock and dispensary management.
-    *   **Real-time Notifications:** WebSocket implementation for live updates.
-    *   **Patient Portal:** External access for patients.
-    *   **Telemedicine:** Video consultation integration.
+## Phase 5: Future Enhancements (Planned)
+*   **Pharmacy Module:** Inventory management and prescription dispensing.
+*   **Real-time Notifications:** WebSockets for instant queue updates.
+*   **Telemedicine:** Integrated video consultation for outpatients.
+*   **Mobile App:** Dedicated PWA or React Native mobile interface for staff.
+*   **Imaging Integration:** Support for uploading and viewing X-Rays/Scans.

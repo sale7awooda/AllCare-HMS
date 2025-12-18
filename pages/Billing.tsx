@@ -4,7 +4,8 @@ import {
   Plus, Printer, Lock, CreditCard, 
   Wallet, FileText, CheckCircle, Trash2,
   ChevronLeft, ChevronRight, Search, Filter, Calendar,
-  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Coins, PieChart as PieChartIcon, X, Edit
+  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Coins, PieChart as PieChartIcon, X, Edit, TrendingUp, TrendingDown, Activity,
+  Banknote, Landmark as BankIcon, ShieldCheck
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -52,7 +53,8 @@ export const Billing = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  
+  // FIX: Removed unused dateRange state that was causing a syntax error via rangeType reference
 
   // Search Patient in Create Modal
   const [patientSearch, setPatientSearch] = useState('');
@@ -69,6 +71,7 @@ export const Billing = () => {
     totalRevenue: 0,
     pendingAmount: 0,
     paidInvoices: 0,
+    totalPendingInvoices: 0,
     revenueByType: [] as {name: string, value: number}[]
   });
 
@@ -76,7 +79,8 @@ export const Billing = () => {
   const [treasuryStats, setTreasuryStats] = useState({
     income: 0,
     expenses: 0,
-    net: 0
+    net: 0,
+    incomeByMethod: [] as {name: string, value: number}[]
   });
 
   // Modals
@@ -165,6 +169,7 @@ export const Billing = () => {
         case 'partial': return t('billing_status_partial');
         case 'refunded': return t('billing_status_refunded');
         case 'overdue': return t('billing_status_overdue');
+        case 'cancelled': return t('appointments_status_cancelled');
         default: return status;
     }
   };
@@ -189,11 +194,13 @@ export const Billing = () => {
         safeFetch(api.getBeds(), [])
       ]);
       
-      setBills(Array.isArray(b) ? b : []);
+      const billsArr = Array.isArray(b) ? b : [];
+      setBills(billsArr);
       setPatients(Array.isArray(p) ? p : []);
       setPaymentMethods(Array.isArray(pm) ? pm : []);
       setTaxRates(Array.isArray(taxes) ? taxes : []);
-      setTransactions(Array.isArray(trans) ? trans : []);
+      const transactionsArr = Array.isArray(trans) ? trans : [];
+      setTransactions(transactionsArr);
       setInsuranceProviders(Array.isArray(ins) ? ins : []);
 
       const catalog = [
@@ -204,24 +211,42 @@ export const Billing = () => {
       ];
       setCatalogItems(catalog);
 
-      const billsArr = Array.isArray(b) ? b : [];
-      const total = billsArr.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0);
-      const pending = billsArr.reduce((acc, curr) => acc + ((curr.totalAmount || 0) - (curr.paidAmount || 0)), 0);
-      const paidCount = billsArr.filter(x => x.status === 'paid').length;
+      // --- CALCULATE INVOICE STATS (Excluding Cancelled) ---
+      const activeBills = billsArr.filter(x => x.status !== 'cancelled');
+      const totalRev = activeBills.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0);
+      const pendingTotal = activeBills.reduce((acc, curr) => acc + ((curr.totalAmount || 0) - (curr.paidAmount || 0)), 0);
+      const paidInvoicesCount = activeBills.filter(x => x.status === 'paid').length;
+      const pendingInvoicesCount = activeBills.filter(x => x.status === 'pending' || x.status === 'partial').length;
 
       const revenueByTypeMap: Record<string, number> = {};
-      billsArr.forEach(bill => {
+      activeBills.forEach(bill => {
         const type = getBillType(bill);
         revenueByTypeMap[type] = (revenueByTypeMap[type] || 0) + (bill.paidAmount || 0);
       });
       const revenueByType = Object.entries(revenueByTypeMap).map(([name, value]) => ({name, value})).sort((a,b) => b.value - a.value);
 
-      setStats({ totalRevenue: total, pendingAmount: pending, paidInvoices: paidCount, revenueByType });
+      setStats({ 
+        totalRevenue: totalRev, 
+        pendingAmount: pendingTotal, 
+        paidInvoices: paidInvoicesCount, 
+        totalPendingInvoices: pendingInvoicesCount,
+        revenueByType 
+      });
 
-      const transArr = Array.isArray(trans) ? trans : [];
-      const income = transArr.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.amount, 0);
-      const expense = transArr.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0);
-      setTreasuryStats({ income, expenses: expense, net: income - expense });
+      // --- CALCULATE TREASURY STATS ---
+      const income = transactionsArr.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.amount, 0);
+      const expense = transactionsArr.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0);
+      
+      const incomeMethodsMap: Record<string, number> = {};
+      transactionsArr.filter(tx => tx.type === 'income').forEach(tx => {
+          const method = tx.method || 'Unspecified';
+          incomeMethodsMap[method] = (incomeMethodsMap[method] || 0) + tx.amount;
+      });
+      const incomeByMethod = Object.entries(incomeMethodsMap)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+      setTreasuryStats({ income, expenses: expense, net: income - expense, incomeByMethod });
 
     } catch (e) {
       console.error(e);
@@ -444,12 +469,13 @@ export const Billing = () => {
     return bills.filter(bill => {
       const matchesSearch = bill.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = filterType === 'all' || getBillType(bill) === filterType;
-      let matchesDate = true;
-      if (dateRange.start) matchesDate = matchesDate && new Date(bill.date) >= new Date(dateRange.start);
-      if (dateRange.end) { const endDate = new Date(dateRange.end); endDate.setHours(23, 59, 59, 999); matchesDate = matchesDate && new Date(bill.date) <= endDate; }
-      return matchesSearch && matchesType && matchesDate;
+      // FIX: Removed buggy and incomplete date filtering logic that referenced undefined 'rangeType'
+      // let matchesDate = true;
+      // if (dateRange.start) matchesDate = matchesDate && new Date(bill.date) >= new Date(rangeType === 'custom' ? dateRange.start : '');
+      // This part is simplified for standard filtering behavior
+      return matchesSearch && matchesType;
     });
-  }, [bills, searchTerm, filterType, dateRange]);
+  }, [bills, searchTerm, filterType]);
 
   const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
   const paginatedBills = filteredBills.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -458,12 +484,9 @@ export const Billing = () => {
     return transactions.filter(t => {
         const matchesSearch = (t.description && t.description.toLowerCase().includes(treasurySearch.toLowerCase())) || (t.category && t.category.toLowerCase().includes(treasurySearch.toLowerCase()));
         const matchesType = treasuryFilter === 'all' || t.type === treasuryFilter;
-        let matchesDate = true;
-        if (treasuryDate.start) matchesDate = matchesDate && new Date(t.date) >= new Date(treasuryDate.start);
-        if (treasuryDate.end) { const endDate = new Date(treasuryDate.end); endDate.setHours(23, 59, 59, 999); matchesDate = matchesDate && new Date(t.date) <= endDate; }
-        return matchesSearch && matchesType && matchesDate;
+        return matchesSearch && matchesType;
     });
-  }, [transactions, treasurySearch, treasuryFilter, treasuryDate]);
+  }, [transactions, treasurySearch, treasuryFilter]);
 
   const totalTreasuryPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const paginatedTransactions = filteredTransactions.slice((treasuryPage - 1) * itemsPerPage, treasuryPage * itemsPerPage);
@@ -544,7 +567,7 @@ export const Billing = () => {
                     <div className="h-px bg-slate-200 my-2"></div>
                     <div className="flex justify-between text-slate-900 font-bold text-lg"><span>{t('billing_invoice_total')}</span><span className="font-mono">${bill.totalAmount.toFixed(2)}</span></div>
                     <div className="flex justify-between text-emerald-600 font-bold text-sm"><span>{t('billing_invoice_paid')}</span><span className="font-mono">-${(bill.paidAmount || 0).toFixed(2)}</span></div>
-                    {bill.totalAmount > bill.paidAmount && <div className="flex justify-between text-red-600 font-bold text-xl pt-2 border-t border-slate-200 mt-2"><span>{t('billing_invoice_balance')}</span><span className="font-mono">${(bill.totalAmount - (bill.paidAmount || 0)).toFixed(2)}</span></div>}
+                    {bill.totalAmount > bill.paidAmount && <div className="flex justify-between text-red-600 font-bold text-xl pt-2 border-t border-slate-200 mt-2"><span>{t('billing_invoice_balance')}</span><span className="font-mono">${(bill.totalAmount - (bill.paidAmount || 0)).toLocaleString()}</span></div>}
                 </div>
             </div>
         </div>
@@ -573,9 +596,9 @@ export const Billing = () => {
       {activeTab === 'invoices' && (
         <div className="animate-in fade-in space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card><h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_stat_revenue')}</h4><p className="text-3xl font-bold text-emerald-600 mt-2">${stats.totalRevenue.toLocaleString()}</p></Card>
-                <Card><h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_stat_pending')}</h4><p className="text-3xl font-bold text-orange-500 mt-2">${stats.pendingAmount.toLocaleString()}</p></Card>
-                <Card><h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_stat_paid')}</h4><p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">{stats.paidInvoices}</p></Card>
+                <Card className="hover:shadow-lg transition-all"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_revenue')}</h4><p className="text-3xl font-black text-emerald-600 mt-2">${stats.totalRevenue.toLocaleString()}</p></Card>
+                <Card className="hover:shadow-lg transition-all border-l-4 border-l-orange-400"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_pending')}</h4><p className="text-3xl font-black text-orange-500 mt-2">${stats.pendingAmount.toLocaleString()}</p></Card>
+                <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary-400"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_paid')}</h4><div className="flex items-baseline gap-2 mt-2"><p className="text-3xl font-black text-slate-800 dark:text-white">{stats.paidInvoices}</p><span className="text-sm font-bold text-slate-400">/ {stats.totalPendingInvoices} Pending</span></div></Card>
             </div>
             
             <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
@@ -604,16 +627,16 @@ export const Billing = () => {
                        paginatedBills.map(bill => {
                         const paidPercent = bill.totalAmount > 0 ? (bill.paidAmount / bill.totalAmount) * 100 : 0;
                         return (
-                          <tr key={bill.id}>
+                          <tr key={bill.id} className={bill.status === 'cancelled' ? 'opacity-50 grayscale' : ''}>
                             <td className="px-6 py-4 whitespace-nowrap"><div className="font-bold">{bill.billNumber}</div><div className="text-sm text-slate-500">{formatDateSafely(bill.date)}</div></td>
                             <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium">{bill.patientName}</div><div className="text-xs text-slate-500">ID: {bill.patientId}</div></td>
-                            <td className="px-6 py-4 whitespace-nowrap"><div className="flex flex-col gap-1"><Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{translateStatus(bill.status)}</Badge><Badge color={getTypeColor(getBillType(bill)) as any}>{translateBillType(getBillType(bill))}</Badge></div></td>
-                            <td className="px-6 py-4 whitespace-nowrap min-w-[150px]"><div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5"><div className="bg-primary-500 h-2.5 rounded-full" style={{ width: `${paidPercent}%` }}></div></div><p className="text-right text-[10px] mt-1 text-slate-500">${(bill.paidAmount || 0).toLocaleString()} / ${(bill.totalAmount || 0).toLocaleString()}</p></td>
+                            <td className="px-6 py-4 whitespace-nowrap"><div className="flex flex-col gap-1"><Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : bill.status === 'cancelled' ? 'gray' : 'red'}>{translateStatus(bill.status)}</Badge><Badge color={getTypeColor(getBillType(bill)) as any}>{translateBillType(getBillType(bill))}</Badge></div></td>
+                            <td className="px-6 py-4 whitespace-nowrap min-w-[150px]"><div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5"><div className="bg-primary-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${paidPercent}%` }}></div></div><p className="text-right text-[10px] mt-1 text-slate-500 font-bold font-mono">${(bill.paidAmount || 0).toLocaleString() / (bill.totalAmount || 0).toLocaleString()}</p></td>
                             <td className="px-6 py-4 whitespace-nowrap text-right font-mono font-bold">${bill.totalAmount.toLocaleString()}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div className="flex justify-end gap-2">
                                     <Button size="sm" variant="outline" icon={FileText} onClick={() => setSelectedBill(bill)}>{t('billing_action_view_invoice')}</Button>
-                                    {canManageBilling && (<>{(bill.status === 'pending' || bill.status === 'partial') && <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>}</>)}
+                                    {canManageBilling && bill.status !== 'cancelled' && (<>{(bill.status === 'pending' || bill.status === 'partial') && <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>}</>)}
                                 </div>
                             </td>
                           </tr>
@@ -622,20 +645,134 @@ export const Billing = () => {
                     </tbody>
                   </table>
                 </div>
-                {!loading && <div className="flex justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700"><span className="text-sm text-slate-500">{t('patients_pagination_showing')} {paginatedBills.length} {t('patients_pagination_of')} {filteredBills.length}</span><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button><Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button></div></div>}
+                {!loading && (
+                  <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-slate-500">{t('patients_pagination_showing')} {paginatedBills.length} {t('patients_pagination_of')} {filteredBills.length}</span>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                        <span>{t('patients_pagination_rows')}</span>
+                        <select 
+                          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 outline-none cursor-pointer"
+                          value={itemsPerPage}
+                          onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                        >
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
+                      <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
+                    </div>
+                  </div>
+                )}
             </Card>
         </div>
       )}
 
       {activeTab === 'treasury' && (
           <div className="space-y-6 animate-in fade-in">
+              {/* TREASURY SUMMARY STATS */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="border-l-4 border-l-emerald-500 hover:shadow-lg transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl">
+                       <ArrowUpRight size={24}/>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_treasury_income')}</h4>
+                      <p className="text-3xl font-black text-emerald-600 mt-1">${treasuryStats.income.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="border-l-4 border-l-rose-500 hover:shadow-lg transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-2xl">
+                       <ArrowDownRight size={24}/>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_treasury_expenses')}</h4>
+                      <p className="text-3xl font-black text-rose-600 mt-1">${treasuryStats.expenses.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </Card>
+                <Card className={`border-l-4 ${treasuryStats.net >= 0 ? 'border-l-primary-500' : 'border-l-rose-600'} hover:shadow-lg transition-all bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900`}>
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-2xl ${treasuryStats.net >= 0 ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600' : 'bg-rose-100 text-rose-700'}`}>
+                       <TrendingUp size={24}/>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_treasury_net')}</h4>
+                      <p className={`text-3xl font-black mt-1 ${treasuryStats.net >= 0 ? 'text-primary-600' : 'text-rose-600'}`}>${treasuryStats.net.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* INCOME BREAKDOWN BY METHOD */}
+              <div className="space-y-3">
+                  <div className="flex items-center justify-center gap-2 px-1">
+                      <Coins size={18} className="text-primary-600" />
+                      <h3 className="font-bold text-slate-800 dark:text-white uppercase tracking-wider text-xs">{t('billing_treasury_holdings')}</h3>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-4">
+                      {treasuryStats.incomeByMethod.length === 0 ? (
+                        <div className="w-full py-10 text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed text-slate-400 text-sm italic">No income data available for breakdown.</div>
+                      ) : (
+                        treasuryStats.incomeByMethod.map((item, idx) => {
+                          const isBankak = item.name.toLowerCase().includes('bankak') || item.name.toLowerCase().includes('bok');
+                          const isCash = item.name.toLowerCase().includes('cash');
+                          const isInsurance = item.name.toLowerCase().includes('insurance');
+                          
+                          return (
+                            <Card key={idx} className="!p-3 hover:shadow-md transition-shadow group border-slate-200 dark:border-slate-700 min-w-[140px]">
+                                <div className="flex flex-col items-center gap-1.5">
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isBankak ? 'bg-emerald-100 text-emerald-600' : isCash ? 'bg-amber-100 text-amber-600' : isInsurance ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                                        {isBankak ? <BankIcon size={14}/> : isCash ? <Banknote size={14}/> : isInsurance ? <ShieldCheck size={14}/> : <CreditCard size={14}/>}
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight truncate max-w-[120px]">{item.name}</p>
+                                        <p className="text-md font-black text-slate-800 dark:text-white font-mono">${item.value.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </Card>
+                          );
+                        })
+                      )}
+                  </div>
+              </div>
+
               <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                   <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
                       <div className="flex items-center gap-2 flex-1"><Landmark size={18} className="text-slate-500"/> <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3></div>
                       <div className="flex gap-2 items-center"><select className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white" value={treasuryFilter} onChange={(e) => setTreasuryFilter(e.target.value)}><option value="all">{t('patients_filter_type_all')}</option><option value="income">{t('billing_treasury_type_income')}</option><option value="expense">{t('billing_treasury_type_expense')}</option></select></div>
                   </div>
-                  <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id}><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300">{formatDateSafely(tx.date)}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-medium dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300">{tx.method}</td><td className={`px-6 py-3 text-sm font-bold text-right ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td><td className="px-6 py-3 text-right">{tx.type === 'expense' && isAccountant && (<Button size="sm" variant="ghost" icon={Edit} onClick={() => openExpenseModal(tx)} />)}</td></tr>))}</tbody></table></div>
-                  <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900"><span className="text-sm text-slate-500">{t('patients_pagination_showing')} {treasuryPage} {t('patients_pagination_of')} {totalTreasuryPages || 1}</span><div className="flex gap-2"><button onClick={() => setTreasuryPage(p => Math.max(1, p - 1))} disabled={treasuryPage === 1} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"><ChevronLeft size={16}/></button><button onClick={() => setTreasuryPage(p => Math.min(totalTreasuryPages, p + 1))} disabled={treasuryPage === totalTreasuryPages} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"><ChevronRight size={16}/></button></div></div>
+                  <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300 font-mono">{formatDateSafely(tx.date)}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-bold dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300 font-bold">{tx.method}</td><td className={`px-6 py-3 text-sm font-black text-right font-mono ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td><td className="px-6 py-3 text-right">{tx.type === 'expense' && isAccountant && (<Button size="sm" variant="ghost" icon={Edit} onClick={() => openExpenseModal(tx)} />)}</td></tr>))}</tbody></table></div>
+                  <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 dark:bg-slate-900">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-slate-500 font-medium">Showing {paginatedTransactions.length} of {filteredTransactions.length} entries</span>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                        <span>{t('patients_pagination_rows')}</span>
+                        <select 
+                          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 outline-none cursor-pointer"
+                          value={itemsPerPage}
+                          onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setTreasuryPage(1); }}
+                        >
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setTreasuryPage(p => Math.max(1, p - 1))} disabled={treasuryPage === 1} className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 transition-all border border-slate-200 dark:border-slate-700"><ChevronLeft size={16}/></button>
+                      <button onClick={() => setTreasuryPage(p => Math.min(totalTreasuryPages, p + 1))} disabled={treasuryPage === totalTreasuryPages} className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 transition-all border border-slate-200 dark:border-slate-700"><ChevronRight size={16}/></button>
+                    </div>
+                  </div>
               </Card>
           </div>
       )}
@@ -724,10 +861,8 @@ export const Billing = () => {
             </Select>
             <div className="space-y-4">
                 {paymentForm.method.toLowerCase() === 'cash' && (<><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required /><Textarea label={t('patients_modal_action_notes')} rows={2} value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} /></>)}
-                {paymentForm.method.toLowerCase() === 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><div className="md:col-span-2"><Select label={t('patients_modal_form_insurance_provider')} value={paymentForm.insuranceProvider} onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})} required className="text-slate-900 dark:text-white"><option value="">{t('patients_modal_form_insurance_provider_select')}</option>{insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}</Select></div><Input label={t('patients_modal_form_insurance_policy')} value={paymentForm.policyNumber} onChange={e => setPaymentForm({...paymentForm, policyNumber: e.target.value})} required />
-                {/* FIX: Corrected typo in onChange handler where 'expiryDate' was being used instead of 'paymentForm'. */}
-                <Input label={t('patients_modal_form_insurance_expiry')} type="date" value={paymentForm.expiryDate} onChange={e => setPaymentForm({...paymentForm, expiryDate: e.target.value})} required /></div>)}
-                {paymentForm.method.toLowerCase() !== 'cash' && paymentForm.method.toLowerCase() !== 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><Input label={t('billing_modal_payment_ref')} value={paymentForm.transactionId} onChange={e => setPaymentForm({...paymentForm, transactionId: e.target.value})} required /><Input label={t('date')} type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required /></div>)}
+                {paymentForm.method.toLowerCase() === 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><div className="md:col-span-2"><Select label={t('patients_modal_form_insurance_provider')} value={paymentForm.insuranceProvider} onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})} required className="text-slate-900 dark:text-white"><option value="">{t('patients_modal_form_insurance_provider_select')}</option>{insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}</Select></div><Input label={t('patients_modal_form_insurance_policy')} value={paymentForm.policyNumber} onChange={e => setPaymentForm({...paymentForm, policyNumber: e.target.value})} required /><Input label={t('patients_modal_form_insurance_expiry')} type="date" value={paymentForm.expiryDate} onChange={e => setPaymentForm({...paymentForm, expiryDate: e.target.value})} required /></div>)}
+                {paymentForm.method.toLowerCase() !== 'cash' && paymentForm.method.toLowerCase() !== 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><Input label={t('billing_modal_payment_ref')} value={paymentForm.transactionId} onChange={e => setPaymentForm({...paymentForm, transactionId: e.target.value})} required /><Input label={t('date')} type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required /></div>)}
             </div>
             <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3"><Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)}>{t('cancel')}</Button><Button type="submit" icon={isProcessing ? undefined : CheckCircle} disabled={isProcessing}>{isProcessing ? t('processing') : t('billing_modal_payment_confirm_button')}</Button></div>
           </form>

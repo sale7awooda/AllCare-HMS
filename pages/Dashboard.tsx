@@ -140,24 +140,24 @@ export const Dashboard = () => {
   }, [t]);
 
   const StatCard = ({ title, value, subtext, icon: Icon, colorClass, trend }: any) => (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
-      <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${colorClass} opacity-5 dark:opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
-      <div className="flex flex-col h-full justify-between relative z-10">
-        <div className="flex justify-between items-start">
-            <div className={`p-3 rounded-xl bg-gradient-to-br ${colorClass} text-white shadow-md`}>
-                <Icon className="w-6 h-6" />
-            </div>
-            {trend && (
-                <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-full">
-                    <TrendingUp size={12} />
-                    {trend}
-                </div>
-            )}
+    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-card border border-slate-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+      <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-br ${colorClass} opacity-5 dark:opacity-10 rounded-bl-full -mr-2 -mt-2 transition-transform group-hover:scale-110`}></div>
+      <div className="flex items-center gap-4 relative z-10">
+        <div className={`p-3 rounded-xl bg-gradient-to-br ${colorClass} text-white shadow-md shrink-0`}>
+          <Icon className="w-5 h-5" />
         </div>
-        <div className="mt-4">
-          <h3 className="text-3xl font-bold text-slate-800 dark:text-white">{value}</h3>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">{title}</p>
-          {subtext && <p className="text-xs text-slate-400 mt-2">{subtext}</p>}
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate">{title}</p>
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <h3 className="text-xl font-black text-slate-800 dark:text-white truncate tracking-tight">{value}</h3>
+            {trend && (
+              <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-md">
+                <TrendingUp size={10} />
+                {trend}
+              </span>
+            )}
+          </div>
+          {subtext && <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate mt-0.5 font-medium">{subtext}</p>}
         </div>
       </div>
     </div>
@@ -167,14 +167,14 @@ export const Dashboard = () => {
     <button 
       onClick={onClick}
       className={`
-        flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all duration-200
-        bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-${color}-300 dark:hover:border-${color}-700 hover:bg-${color}-50 dark:hover:bg-${color}-900/20 group
+        flex flex-col items-center justify-center gap-2.5 p-3.5 rounded-2xl border transition-all duration-300
+        bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl hover:border-${color}-400 dark:hover:border-${color}-500 hover:-translate-y-1 group
       `}
     >
-      <div className={`p-2 rounded-full bg-${color}-100 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400 group-hover:scale-110 transition-transform`}>
-        <Icon size={20} />
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center bg-${color}-50 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400 group-hover:bg-${color}-600 group-hover:text-white transition-all duration-300 shadow-sm`}>
+        <Icon size={22} />
       </div>
-      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white text-center">{label}</span>
+      <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider group-hover:text-slate-900 dark:group-hover:text-white text-center">{label}</span>
     </button>
   );
 
@@ -187,7 +187,8 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      {/* Refined Quick Actions Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <ActionButton icon={Plus} label={t('dashboard_action_admission')} color="blue" onClick={() => navigate('/admissions')} />
         <ActionButton icon={Calendar} label={t('dashboard_action_visit')} color="violet" onClick={() => navigate('/appointments')} />
         <ActionButton icon={Users} label={t('dashboard_action_register')} color="emerald" onClick={() => navigate('/patients')} />
@@ -196,7 +197,8 @@ export const Dashboard = () => {
         <ActionButton icon={Activity} label={t('dashboard_action_schedule')} color="cyan" onClick={() => navigate('/operations')} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Compact Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title={t('dashboard_stat_total_patients')} 
           value={stats.patients.toLocaleString()} 

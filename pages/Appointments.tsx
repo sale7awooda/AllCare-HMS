@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Play, LayoutGrid, List as ListIcon, Edit,
   Loader2, XCircle, CheckCircle, X, ChevronLeft, ChevronRight,
-  CalendarDays
+  CalendarDays, Search, Filter, User, Hash
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, MedicalStaff } from '../types';
@@ -143,41 +144,91 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
 
 const ListView = ({ appointments, onEdit, onCancel, canManage }: { appointments: Appointment[], onEdit: (apt: Appointment) => void, onCancel: (id: number) => void, canManage: boolean }) => {
     const { t } = useTranslation();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All');
+
+    const filtered = useMemo(() => {
+        return appointments.filter(a => {
+            const matchesSearch = 
+                a.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                a.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (a.dailyToken && a.dailyToken.toString().includes(searchTerm));
+            const matchesStatus = statusFilter === 'All' || a.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        });
+    }, [appointments, searchTerm, statusFilter]);
+
     return (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-900/50">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">No.</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Patient</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Doctor</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Time</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-              {appointments.map((apt: Appointment) => (
-                <tr key={apt.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">#{apt.dailyToken || apt.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-800 dark:text-white">{apt.patientName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{apt.staffName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(apt.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{apt.type}</td>
-                  <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={apt.status} /></td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {canManage && (
-                      <div className="flex gap-2 justify-end">
-                        <Button size="sm" variant="outline" icon={Edit} onClick={() => onEdit(apt)}>Edit</Button>
-                        {apt.status !== 'completed' && apt.status !== 'cancelled' && (<Button size="sm" variant="danger" icon={X} onClick={() => onCancel(apt.id)}>Cancel</Button>)}
-                      </div>
-                    )}
-                  </td>
+        <div className="flex flex-col">
+          {/* List Filters */}
+          <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input 
+                    type="text" 
+                    placeholder={t('patients_search_placeholder')}
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shrink-0">
+              <Filter size={14} className="text-slate-400" />
+              <select 
+                className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer" 
+                value={statusFilter} 
+                onChange={e => setStatusFilter(e.target.value)}
+              >
+                <option value="All">{t('records_filter_all')}</option>
+                <option value="pending">{t('appointments_status_unpaid')}</option>
+                <option value="confirmed">{t('appointments_status_in_queue')}</option>
+                <option value="checked_in">{t('appointments_status_ready')}</option>
+                <option value="in_progress">{t('appointments_status_in_consultation')}</option>
+                <option value="completed">{t('appointments_status_completed')}</option>
+                <option value="cancelled">{t('appointments_status_cancelled')}</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-900/50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">No.</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Patient</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Doctor</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Time</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center py-10 text-slate-400">{t('no_data')}</td></tr>
+                ) : (
+                  filtered.map((apt: Appointment) => (
+                    <tr key={apt.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">#{apt.dailyToken || apt.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-800 dark:text-white">{apt.patientName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{apt.staffName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(apt.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{apt.type}</td>
+                      <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={apt.status} /></td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {canManage && (
+                          <div className="flex gap-2 justify-end">
+                            <Button size="sm" variant="outline" icon={Edit} onClick={() => onEdit(apt)}>Edit</Button>
+                            {apt.status !== 'completed' && apt.status !== 'cancelled' && (<Button size="sm" variant="danger" icon={X} onClick={() => onCancel(apt.id)}>Cancel</Button>)}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
     );
 };
@@ -193,6 +244,12 @@ export const Appointments = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [formData, setFormData] = useState({ patientId: '', staffId: '', date: formatDate(new Date()), time: '09:00', type: 'Consultation', reason: '' });
+  
+  // Searchable Patient Modal State
+  const [patientSearch, setPatientSearch] = useState('');
+  const [showPatientResults, setShowPatientResults] = useState(false);
+  const patientSearchRef = useRef<HTMLDivElement>(null);
+
   const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', action: () => {} });
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
@@ -205,7 +262,7 @@ export const Appointments = () => {
   useHeader(
     t('appointments_title'),
     t('appointments_subtitle'),
-    canManage ? <Button onClick={() => { setEditingAppointment(null); setIsModalOpen(true); }} icon={Plus}>{t('appointments_new_button')}</Button> : null
+    canManage ? <Button onClick={() => { setEditingAppointment(null); setFormData({ patientId: '', staffId: '', date: formatDate(selectedDate), time: '09:00', type: 'Consultation', reason: '' }); setPatientSearch(''); setIsModalOpen(true); }} icon={Plus}>{t('appointments_new_button')}</Button> : null
   );
 
   const loadData = async (isSilent = false) => {
@@ -219,6 +276,17 @@ export const Appointments = () => {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  // Handle outside click for patient search results
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (patientSearchRef.current && !patientSearchRef.current.contains(e.target as Node)) {
+        setShowPatientResults(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const dailyAppointments = useMemo(() => {
     return appointments
@@ -248,10 +316,14 @@ export const Appointments = () => {
           if (otherInProgress) await api.updateAppointmentStatus(otherInProgress.id, 'checked_in');
         }
       }
-      await api.updateAppointmentStatus(id, { status });
+      await api.updateAppointmentStatus(id, status);
       await loadData(true);
       setProcessStatus('idle');
-    } catch (e: any) { setProcessStatus('error'); setProcessMessage(e.message || 'Failed'); setTimeout(() => setProcessStatus('idle'), 2000); }
+    } catch (e: any) { 
+      setProcessStatus('error'); 
+      setProcessMessage(e.response?.data?.error || e.message || 'Failed'); 
+      setTimeout(() => setProcessStatus('idle'), 2000); 
+    }
   };
   
   const handleCancel = (id: number) => {
@@ -259,15 +331,28 @@ export const Appointments = () => {
       isOpen: true, title: 'Cancel Appointment', message: 'Are you sure?',
       action: async () => {
         setProcessStatus('processing');
-        try { await api.cancelAppointment(id); await loadData(true); setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1500); } 
-        catch (e: any) { setProcessStatus('error'); setTimeout(() => setProcessStatus('idle'), 2000); }
+        setProcessMessage('Requesting cancellation...');
+        try { 
+          await api.cancelAppointment(id); 
+          await loadData(true); 
+          setProcessStatus('success'); 
+          setTimeout(() => setProcessStatus('idle'), 1500); 
+        } 
+        catch (e: any) { 
+          setProcessStatus('error'); 
+          setProcessMessage(e.response?.data?.error || e.message || 'Failed'); 
+          setTimeout(() => setProcessStatus('idle'), 2000); 
+        }
       }
     });
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.patientId || !formData.staffId) return;
+    
     setProcessStatus('processing');
+    setProcessMessage('Creating appointment record...');
     try {
       const payload = { ...formData, patientId: parseInt(formData.patientId), staffId: parseInt(formData.staffId), datetime: `${formData.date}T${formData.time}` };
       if (editingAppointment) await api.updateAppointment(editingAppointment.id, payload);
@@ -275,11 +360,46 @@ export const Appointments = () => {
       await loadData(true);
       setProcessStatus('success');
       setTimeout(() => { setIsModalOpen(false); setProcessStatus('idle'); }, 1500);
-    } catch (e: any) { setProcessStatus('error'); setTimeout(() => setProcessStatus('idle'), 2000); }
+    } catch (e: any) { 
+      setProcessStatus('error'); 
+      setProcessMessage(e.response?.data?.error || e.message || 'Failed'); 
+      setTimeout(() => setProcessStatus('idle'), 2000); 
+    }
+  };
+
+  const selectedDoctorForFee = useMemo(() => {
+    return staff.find(s => s.id.toString() === formData.staffId);
+  }, [formData.staffId, staff]);
+
+  const filteredPatientsForModal = useMemo(() => {
+    if (!patientSearch) return patients.slice(0, 5);
+    return patients.filter(p => 
+      p.fullName.toLowerCase().includes(patientSearch.toLowerCase()) || 
+      p.patientId.toLowerCase().includes(patientSearch.toLowerCase())
+    ).slice(0, 5);
+  }, [patients, patientSearch]);
+
+  const selectedPatientData = useMemo(() => {
+    return patients.find(p => p.id.toString() === formData.patientId);
+  }, [formData.patientId, patients]);
+
+  const openEditModal = (apt: Appointment) => {
+    setEditingAppointment(apt);
+    setFormData({
+        patientId: apt.patientId.toString(),
+        staffId: apt.staffId.toString(),
+        date: apt.datetime.split('T')[0],
+        time: apt.datetime.split('T')[1].slice(0, 5),
+        type: apt.type,
+        reason: apt.reason || ''
+    });
+    setPatientSearch(apt.patientName);
+    setIsModalOpen(true);
   };
 
   return (
     <div className="space-y-6">
+      {/* STANDARD SIZE PROCESS HUD */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
@@ -293,34 +413,35 @@ export const Appointments = () => {
         </div>
       )}
 
-      <Card className="!p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))} />
-          <div className="relative group">
-            {/* FIX: Corrected missing import for CalendarDays by adding it to the top level imports from 'lucide-react' */}
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-primary-500"><CalendarDays size={16}/></div>
-            <Input type="date" value={formatDate(selectedDate)} onChange={e => setSelectedDate(new Date(e.target.value))} className="w-auto pl-10 pr-4 font-bold border-slate-200" />
+      <Card className="!p-4 flex flex-col lg:flex-row justify-between items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))} />
+            <div className="relative group">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-primary-500"><CalendarDays size={16}/></div>
+              <Input type="date" value={formatDate(selectedDate)} onChange={e => setSelectedDate(new Date(e.target.value))} className="w-auto pl-10 pr-4 font-bold border-slate-200" />
+            </div>
+            <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))} />
           </div>
-          <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))} />
           <Button size="sm" variant="secondary" onClick={() => setSelectedDate(new Date())}>{t('today')}</Button>
-        </div>
-        
-        {/* IMPROVED VISIBILITY: Segmented Tab Style Toggle */}
-        <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl shadow-inner border border-slate-200 dark:border-slate-800 shrink-0">
-          <button 
-            onClick={() => setViewMode('grid')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/30' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
-          >
-            <LayoutGrid size={16} />
-            {t('appointments_view_queue')}
-          </button>
-          <button 
-            onClick={() => setViewMode('list')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/30' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
-          >
-            <ListIcon size={16} />
-            {t('appointments_view_list')}
-          </button>
+          
+          {/* VIEW TOGGLES INTEGRATED INTO SAME ROW */}
+          <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl shadow-inner border border-slate-200 dark:border-slate-800 shrink-0 ml-auto lg:ml-2">
+            <button 
+                onClick={() => setViewMode('grid')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+            >
+                <LayoutGrid size={16} />
+                <span className="hidden sm:inline">{t('appointments_view_queue')}</span>
+            </button>
+            <button 
+                onClick={() => setViewMode('list')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+            >
+                <ListIcon size={16} />
+                <span className="hidden sm:inline">{t('appointments_view_list')}</span>
+            </button>
+          </div>
         </div>
       </Card>
 
@@ -332,28 +453,97 @@ export const Appointments = () => {
            appointmentsByDoctor.map(({ doctor, appointments }) => (<DoctorQueueColumn key={doctor.id} doctor={doctor} appointments={appointments} onStatusUpdate={handleStatusUpdate} onCancel={handleCancel} canManage={canManage} />))}
         </div>
       ) : (
-        <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={(apt) => { setEditingAppointment(apt); setIsModalOpen(true); }} onCancel={handleCancel} canManage={canManage} /></Card>
+        <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={openEditModal} onCancel={handleCancel} canManage={canManage} /></Card>
       )}
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingAppointment ? t('appointments_modal_edit_title') : t('appointments_modal_new_title')}>
-        <form onSubmit={handleFormSubmit} className="space-y-4">
-          <Select label={t('appointments_form_select_patient')} required value={formData.patientId} onChange={e => setFormData({...formData, patientId: e.target.value})}>
-            <option value="">{t('appointments_form_select_patient')}</option>
-            {patients.map(p => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-          </Select>
+        <form onSubmit={handleFormSubmit} className="space-y-5">
+          
+          {/* SEARCHABLE PATIENT SELECT */}
+          <div className="space-y-1.5" ref={patientSearchRef}>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
+              {t('appointments_form_select_patient')}
+            </label>
+            {selectedPatientData && !showPatientResults ? (
+              <div className="flex items-center justify-between p-3.5 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-2xl transition-all">
+                 <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center text-primary-600 font-bold text-sm">
+                      {selectedPatientData.fullName.charAt(0)}
+                   </div>
+                   <div className="flex flex-col">
+                     <span className="font-black text-primary-900 dark:text-primary-100 leading-none mb-1">{selectedPatientData.fullName}</span>
+                     <span className="text-[10px] text-primary-600 dark:text-primary-400 font-black tracking-widest uppercase">ID: {selectedPatientData.patientId}</span>
+                   </div>
+                 </div>
+                 {!editingAppointment && (
+                    <button type="button" onClick={() => { setFormData({...formData, patientId: ''}); setPatientSearch(''); setShowPatientResults(true); }} className="p-1.5 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-full transition-colors">
+                      <X size={16} className="text-primary-600" />
+                    </button>
+                 )}
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input 
+                  type="text"
+                  placeholder={t('patients_search_placeholder')}
+                  className="pl-9 pr-4 py-3 w-full rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+                  value={patientSearch}
+                  onChange={(e) => { setPatientSearch(e.target.value); setShowPatientResults(true); }}
+                  onFocus={() => setShowPatientResults(true)}
+                  disabled={!!editingAppointment}
+                />
+                {showPatientResults && (
+                  <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-56 overflow-y-auto">
+                    {filteredPatientsForModal.length > 0 ? (
+                      filteredPatientsForModal.map(p => (
+                        <button key={p.id} type="button" className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b last:border-0 border-slate-100 dark:border-slate-700 flex justify-between items-center transition-colors" onClick={() => { setFormData({ ...formData, patientId: p.id.toString() }); setPatientSearch(p.fullName); setShowPatientResults(false); }}>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 dark:text-white text-sm">{p.fullName}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">ID: {p.patientId}</span>
+                          </div>
+                          <ChevronRight size={14} className="text-slate-300" />
+                        </button>
+                      ))
+                    ) : (
+                        <div className="p-4 text-center text-slate-400 text-xs italic">No patients found.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <Select label={t('appointments_form_select_staff')} required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})}>
             <option value="">{t('appointments_form_select_staff')}</option>
-            {staff.filter(s => s.type === 'doctor').map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+            {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(s => <option key={s.id} value={s.id}>{s.fullName} ({s.specialization})</option>)}
           </Select>
+
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('date')} type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
             <Input label={t('time')} type="time" required value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
           </div>
+
           <Select label={t('appointments_form_type')} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
-            <option>Consultation</option><option>Follow-up</option><option>Emergency</option>
+            <option value="Consultation">
+              Consultation {selectedDoctorForFee ? ` ($${selectedDoctorForFee.consultationFee})` : ''}
+            </option>
+            <option value="Follow-up">
+              Follow-up {selectedDoctorForFee ? ` ($${selectedDoctorForFee.consultationFeeFollowup || 0})` : ''}
+            </option>
+            <option value="Emergency">
+              Emergency {selectedDoctorForFee ? ` ($${selectedDoctorForFee.consultationFeeEmergency || 0})` : ''}
+            </option>
           </Select>
-          <Textarea label={t('reason')} value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
-          <div className="flex justify-end pt-4 gap-3 border-t"><Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button><Button type="submit">{t('save')}</Button></div>
+
+          <Textarea label={t('reason')} rows={3} value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
+          
+          <div className="flex justify-end pt-4 gap-3 border-t">
+            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button>
+            <Button type="submit" disabled={!formData.patientId || !formData.staffId} icon={CheckCircle}>
+                {editingAppointment ? t('save') : t('appointments_form_create_button')}
+            </Button>
+          </div>
         </form>
       </Modal>
       

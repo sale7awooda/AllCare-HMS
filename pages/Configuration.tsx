@@ -110,6 +110,7 @@ export const Configuration = () => {
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
+    setProcessMessage('Saving hospital profile settings...');
     localStorage.setItem('h_name', settings.hospitalName);
     localStorage.setItem('h_address', settings.hospitalAddress);
     localStorage.setItem('h_phone', settings.hospitalPhone);
@@ -145,6 +146,7 @@ export const Configuration = () => {
   const handleCatalogSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
+    setProcessMessage('Updating system catalog...');
     try {
       const payload = { ...catalogForm };
       if (payload.cost) payload.cost = parseFloat(payload.cost);
@@ -186,6 +188,7 @@ export const Configuration = () => {
       isOpen: true, title: t('config_dialog_delete_item_title'), message: t('config_dialog_delete_item_msg'),
       action: async () => {
         setProcessStatus('processing');
+        setProcessMessage('Removing item from catalog...');
         try {
           switch(activeCatalog) {
             case 'departments': await api.deleteDepartment(id); break;
@@ -197,7 +200,10 @@ export const Configuration = () => {
             case 'banks': await api.deleteBank(id); break;
           }
           setProcessStatus('success'); loadCatalog(activeCatalog); setTimeout(() => setProcessStatus('idle'), 1000);
-        } catch (e) { setProcessStatus('error'); setProcessMessage("Failed to delete item."); }
+        } catch (e: any) { 
+          setProcessStatus('error'); 
+          setProcessMessage(e.response?.data?.error || "Failed to delete item."); 
+        }
       }
     });
   };
@@ -218,11 +224,15 @@ export const Configuration = () => {
   const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
+    setProcessMessage('Saving user account details...');
     try {
       if (selectedItem) await api.updateSystemUser(selectedItem.id, userForm);
       else await api.addSystemUser(userForm);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
-    } catch (err: any) { setProcessStatus('error'); setProcessMessage(err.response?.data?.error || "Failed to save user."); }
+    } catch (err: any) { 
+      setProcessStatus('error'); 
+      setProcessMessage(err.response?.data?.error || "Failed to save user."); 
+    }
   };
 
   const deleteUserAccount = (id: number, username: string) => {
@@ -230,8 +240,17 @@ export const Configuration = () => {
       isOpen: true, title: "Delete Account", message: `Remove system account @${username}? This cannot be undone.`,
       action: async () => {
         setProcessStatus('processing');
-        try { await api.deleteSystemUser(id); setProcessStatus('success'); loadData(); setTimeout(() => setProcessStatus('idle'), 1000); }
-        catch (e) { setProcessStatus('error'); }
+        setProcessMessage('Terminating user account...');
+        try { 
+          await api.deleteSystemUser(id); 
+          setProcessStatus('success'); 
+          loadData(); 
+          setTimeout(() => setProcessStatus('idle'), 1000); 
+        }
+        catch (e: any) { 
+          setProcessStatus('error'); 
+          setProcessMessage(e.response?.data?.error || "Failed to delete user.");
+        }
       }
     });
   };
@@ -252,12 +271,16 @@ export const Configuration = () => {
   const handleTaxSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
+    setProcessMessage('Updating tax configurations...');
     const payload = { ...taxForm, rate: parseFloat(taxForm.rate) };
     try {
       if (selectedItem) await api.updateTaxRate(selectedItem.id, payload);
       else await api.addTaxRate(payload);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
-    } catch (e) { setProcessStatus('error'); setProcessMessage("Failed to save tax."); }
+    } catch (e: any) { 
+      setProcessStatus('error'); 
+      setProcessMessage(e.response?.data?.error || "Failed to save tax."); 
+    }
   };
 
   const deleteTaxRateEntry = (id: number) => {
@@ -283,11 +306,15 @@ export const Configuration = () => {
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
+    setProcessMessage('Updating accepted payment methods...');
     try {
       if (selectedItem) await api.updatePaymentMethod(selectedItem.id, paymentForm);
       else await api.addPaymentMethod(paymentForm);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
-    } catch (e) { setProcessStatus('error'); setProcessMessage("Failed to save payment method."); }
+    } catch (e: any) { 
+      setProcessStatus('error'); 
+      setProcessMessage(e.response?.data?.error || "Failed to save payment method."); 
+    }
   };
 
   const deletePaymentMethodEntry = (id: number) => {
@@ -317,12 +344,16 @@ export const Configuration = () => {
   const handleBedSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
+    setProcessMessage('Updating ward and bed data...');
     const payload = { ...bedForm, costPerDay: parseFloat(bedForm.costPerDay) };
     try {
       if (selectedItem) await api.updateBed(selectedItem.id, payload);
       else await api.addBed(payload);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
-    } catch (e) { setProcessStatus('error'); setProcessMessage("Failed to save bed."); }
+    } catch (e: any) { 
+      setProcessStatus('error'); 
+      setProcessMessage(e.response?.data?.error || "Failed to save bed."); 
+    }
   };
 
   const deleteBedEntry = (id: number) => {
@@ -347,7 +378,10 @@ export const Configuration = () => {
     try {
       const data = await api.checkSystemHealth();
       setHealthData(data); setProcessStatus('idle');
-    } catch (e) { setProcessStatus('error'); setProcessMessage("Health check failed."); }
+    } catch (e: any) { 
+      setProcessStatus('error'); 
+      setProcessMessage(e.response?.data?.error || "Health check failed."); 
+    }
   };
 
   const handleBackup = async () => {
@@ -358,9 +392,9 @@ export const Configuration = () => {
       setProcessStatus('success');
       setProcessMessage("Backup downloaded successfully.");
       setTimeout(() => setProcessStatus('idle'), 2000);
-    } catch (e) {
+    } catch (e: any) {
       setProcessStatus('error');
-      setProcessMessage("Failed to download backup.");
+      setProcessMessage(e.response?.data?.error || "Failed to download backup.");
     }
   };
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -77,6 +78,12 @@ export const Patients = () => {
   const [formData, setFormData] = useState(initialFormState);
 
   const hasPermissionToCreate = hasPermission(currentUser, Permissions.MANAGE_PATIENTS);
+
+  // Currency Formatter Helper
+  const formatMoney = (val: number | string) => {
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    return new Intl.NumberFormat().format(num || 0);
+  };
 
   // Sync Header
   useHeader(
@@ -170,9 +177,9 @@ export const Patients = () => {
       setIsEditing(true);
       setProcessStatus('idle');
       setIsFormModalOpen(true);
-    } catch (err) {
+    } catch (err: any) {
       setProcessStatus('error');
-      setProcessMessage(t('patients_process_error_load'));
+      setProcessMessage(err.response?.data?.error || t('patients_process_error_load'));
       setTimeout(() => setProcessStatus('idle'), 1500);
     }
   };
@@ -358,7 +365,7 @@ export const Patients = () => {
       }, 1000);
     } catch (err: any) {
       setProcessStatus('error');
-      setProcessMessage(t('patients_process_error_save'));
+      setProcessMessage(err.response?.data?.error || t('patients_process_error_save'));
     }
   };
 
@@ -411,13 +418,14 @@ export const Patients = () => {
   return (
     <div className="space-y-6">
       
+      {/* STANDARD SIZE PROCESS HUD */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
             {processStatus === 'processing' && <Loader2 className="w-12 h-12 text-primary-600 animate-spin mb-4" />}
             {processStatus === 'success' && <CheckCircle className="w-12 h-12 text-green-600 mb-4" />}
             {processStatus === 'error' && <XCircle className="w-12 h-12 text-red-600 mb-4" />}
-            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{processStatus === 'processing' ? t('patients_process_title_processing') : processStatus === 'success' ? t('patients_process_title_success') : t('patients_process_title_failed')}</h3>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{processStatus === 'processing' ? t('processing') : processStatus === 'success' ? t('success') : t('patients_process_title_failed')}</h3>
             <p className="text-slate-500 dark:text-slate-400 mb-6">{processMessage}</p>
             {processStatus === 'error' && <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">{t('patients_process_close_button')}</Button>}
           </div>
@@ -700,7 +708,6 @@ export const Patients = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                      {/* ENHANCED: Show price in the Type selection list */}
                       <Select 
                         label={t('appointments_form_type')} 
                         value={actionFormData.subtype} 
@@ -708,15 +715,15 @@ export const Patients = () => {
                       >
                           <option value="Consultation">
                             {t('patients_modal_action_consultation')} 
-                            {selectedDocForFee ? ` ($${selectedDocForFee.consultationFee})` : ''}
+                            {selectedDocForFee ? ` ($${formatMoney(selectedDocForFee.consultationFee)})` : ''}
                           </option>
                           <option value="Follow-up">
                             {t('patients_modal_action_followUp')} 
-                            {selectedDocForFee ? ` ($${selectedDocForFee.consultationFeeFollowup || 0})` : ''}
+                            {selectedDocForFee ? ` ($${formatMoney(selectedDocForFee.consultationFeeFollowup || 0)})` : ''}
                           </option>
                           <option value="Emergency">
                             {t('patients_modal_action_emergency')} 
-                            {selectedDocForFee ? ` ($${selectedDocForFee.consultationFeeEmergency || 0})` : ''}
+                            {selectedDocForFee ? ` ($${formatMoney(selectedDocForFee.consultationFeeEmergency || 0)})` : ''}
                           </option>
                       </Select>
                       <Input type="time" label={t('time')} value={actionFormData.time} onChange={e => setActionFormData({...actionFormData, time: e.target.value})} />
@@ -743,7 +750,7 @@ export const Patients = () => {
                                             <p className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">{test.category_en}</p>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <span className="font-mono font-bold text-sm text-primary-600">${test.cost}</span>
+                                            <span className="font-mono font-bold text-sm text-primary-600">${formatMoney(test.cost)}</span>
                                             <button 
                                               type="button" 
                                               onClick={() => inCart ? setSelectedTests(prev => prev.filter(t => t.id !== test.id)) : setSelectedTests(prev => [...prev, test])}
@@ -770,7 +777,7 @@ export const Patients = () => {
                                     <div key={test.id} className="flex justify-between items-center bg-white dark:bg-slate-800 p-2.5 rounded-lg shadow-sm animate-in zoom-in-95">
                                         <span className="text-xs font-medium truncate max-w-[120px]">{language === 'ar' ? test.name_ar : test.name_en}</span>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-bold font-mono">${test.cost}</span>
+                                            <span className="text-xs font-bold font-mono">${formatMoney(test.cost)}</span>
                                             <button type="button" onClick={() => setSelectedTests(prev => prev.filter(t => t.id !== test.id))} className="text-slate-300 hover:text-red-500"><XCircle size={14}/></button>
                                         </div>
                                     </div>
@@ -778,8 +785,8 @@ export const Patients = () => {
                             )}
                         </div>
                         <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                            <div className="flex justify-between text-sm mb-1"><span className="text-slate-500">Subtotal</span> <span className="font-mono">${selectedTests.reduce((a,b)=>a+b.cost, 0)}</span></div>
-                            <div className="flex justify-between font-black text-xl"><span className="text-slate-800 dark:text-white">Total</span> <span className="text-primary-600">${selectedTests.reduce((a,b)=>a+b.cost, 0)}</span></div>
+                            <div className="flex justify-between text-sm mb-1"><span className="text-slate-500">Subtotal</span> <span className="font-mono">${formatMoney(selectedTests.reduce((a,b)=>a+b.cost, 0))}</span></div>
+                            <div className="flex justify-between font-black text-xl"><span className="text-slate-800 dark:text-white">Total</span> <span className="text-primary-600">${formatMoney(selectedTests.reduce((a,b)=>a+b.cost, 0))}</span></div>
                         </div>
                     </div>
                 </div>
@@ -798,7 +805,7 @@ export const Patients = () => {
                                             <p className="font-bold text-sm">{language === 'ar' ? s.name_ar : s.name_en}</p>
                                             <p className="text-[10px] text-slate-400 line-clamp-1">{language === 'ar' ? s.description_ar : s.description_en}</p>
                                         </div>
-                                        <Badge color="blue" className="font-mono">${s.cost}</Badge>
+                                        <Badge color="blue" className="font-mono">${formatMoney(s.cost)}</Badge>
                                     </div>
                                 ))}
                             </div>
@@ -807,13 +814,22 @@ export const Patients = () => {
                             <div className="space-y-3">
                                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><User size={16} className="text-primary-500"/> {t('patients_modal_action_select_nurse')}</label>
                                 <div className="grid grid-cols-1 gap-2">
-                                    {staff.filter(s => s.type === 'nurse').map(nurse => (
-                                        <div key={nurse.id} onClick={() => setActionFormData({...actionFormData, staffId: nurse.id.toString()})} className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${actionFormData.staffId === nurse.id.toString() ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500' : 'border-slate-100 hover:border-slate-200'}`}>
-                                            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-xs">{nurse.fullName.charAt(0)}</div>
-                                            <span className="text-xs font-bold">{nurse.fullName}</span>
-                                            {actionFormData.staffId === nurse.id.toString() && <CheckCircle size={14} className="ml-auto text-primary-600" />}
-                                        </div>
-                                    ))}
+                                    {staff.filter(s => s.type === 'nurse').map(nurse => {
+                                        const isSelected = actionFormData.staffId === nurse.id.toString();
+                                        return (
+                                            <div 
+                                              key={nurse.id} 
+                                              onClick={() => setActionFormData({...actionFormData, staffId: nurse.id.toString()})} 
+                                              className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${isSelected ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500/20' : 'border-slate-100 hover:border-slate-200 bg-white dark:bg-slate-800'}`}
+                                            >
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="text-sm font-bold text-slate-800 dark:text-white">{nurse.fullName}</span>
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{nurse.department || 'Nursing Unit'}</span>
+                                                </div>
+                                                {isSelected ? <CheckCircle size={18} className="text-primary-600 animate-in zoom-in-50" /> : <div className="w-5 h-5 rounded-full border-2 border-slate-200" />}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                             <Textarea label={t('patients_modal_action_notes')} placeholder="Instructions for nurse..." rows={4} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
@@ -842,7 +858,7 @@ export const Patients = () => {
                                                 >
                                                     <Bed size={20} className={isSelected ? 'text-primary-600' : 'text-slate-400'} />
                                                     <span className="text-xs font-black">{bed.roomNumber}</span>
-                                                    <span className="text-[10px] font-mono text-slate-500">${bed.costPerDay}/d</span>
+                                                    <span className="text-[10px] font-mono text-slate-500">${formatMoney(bed.costPerDay)}/d</span>
                                                 </div>
                                             );
                                         })}
@@ -863,7 +879,7 @@ export const Patients = () => {
                                 {selectedBed ? (
                                     <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-lg shadow-sm border border-primary-100">
                                         <span className="text-sm font-bold">Room {selectedBed.roomNumber}</span>
-                                        <Badge color="blue">${selectedBed.costPerDay}/d</Badge>
+                                        <Badge color="blue">${formatMoney(selectedBed.costPerDay)} / day</Badge>
                                     </div>
                                 ) : <p className="text-xs text-red-500 italic">No bed selected</p>}
                             </div>
@@ -887,7 +903,7 @@ export const Patients = () => {
                         <div className="space-y-4">
                             <Select label={t('patients_modal_action_op_type')} value={actionFormData.subtype} onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})}>
                                 <option value="">{t('patients_modal_action_select_procedure')}</option>
-                                {operations.map(o => <option key={o.id} value={o.name_en}>{language === 'ar' ? o.name_ar : o.name_en} (${o.baseCost})</option>)}
+                                {operations.map(o => <option key={o.id} value={o.name_en}>{language === 'ar' ? o.name_ar : o.name_en} (${formatMoney(o.baseCost)})</option>)}
                             </Select>
                             <Select label={t('patients_modal_action_request_surgeon')} value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                                 <option value="">{t('patients_modal_action_select_surgeon')}</option>
@@ -904,7 +920,7 @@ export const Patients = () => {
                             <div className="flex justify-between items-center">
                                 <span className="text-sm font-medium text-slate-600">Base Surgical Fee</span>
                                 <span className="text-2xl font-black text-slate-900 dark:text-white">
-                                    ${operations.find(o => o.name_en === actionFormData.subtype)?.baseCost || 0}
+                                    ${formatMoney(operations.find(o => o.name_en === actionFormData.subtype)?.baseCost || 0)}
                                 </span>
                             </div>
                             <p className="text-[10px] text-slate-500 mt-2">Team and theater fees will be finalized in the Operations module.</p>
@@ -1079,7 +1095,7 @@ export const Patients = () => {
                                 </div>
                                 <div className="flex flex-col items-end">
                                     <Badge color={lab.status === 'completed' ? 'green' : 'yellow'}>{lab.status}</Badge>
-                                    <span className="text-xs font-mono font-bold mt-1">${lab.projected_cost}</span>
+                                    <span className="text-xs font-mono font-bold mt-1">${formatMoney(lab.projected_cost)}</span>
                                 </div>
                             </div>
                         ))
@@ -1106,11 +1122,11 @@ export const Patients = () => {
                                 </div>
                                 <div className="flex justify-between text-sm border-t border-slate-100 dark:border-slate-800 pt-2 mt-2">
                                     <span className="text-slate-500">{t('patients_modal_view_billing_amount')}</span>
-                                    <span className="font-bold font-mono">${bill.totalAmount.toLocaleString()}</span>
+                                    <span className="font-bold font-mono">${formatMoney(bill.totalAmount)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-slate-500">{t('billing_table_paid_amount')}</span>
-                                    <span className="font-bold font-mono text-emerald-600">${bill.paidAmount.toLocaleString()}</span>
+                                    <span className="font-bold font-mono text-emerald-600">${formatMoney(bill.paidAmount)}</span>
                                 </div>
                             </div>
                         ))

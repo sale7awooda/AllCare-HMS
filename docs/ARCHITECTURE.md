@@ -1,80 +1,60 @@
-
 # System Architecture
 
 ## 1. Tech Stack
 
 ### Frontend
-*   **Framework:** React 18+
+*   **Framework:** React 18+ (Functional components with Hooks)
 *   **Build Tool:** Vite
-*   **Routing:** React Router v6
-*   **State Management:** React Context API
-*   **Styling:** Tailwind CSS + CSS Variables for dynamic theming
-*   **HTTP Client:** Axios (with interceptors)
-*   **Charts:** Recharts
-*   **Icons:** Lucide React
-*   **Internationalization:** Custom Context-based i18n (JSON)
+*   **Routing:** React Router v6 (HashRouter)
+*   **State Management:** React Context API (Auth, Theme, Translation, Header)
+*   **Styling:** Tailwind CSS + Dynamic CSS Variable Injection for theming
+*   **Data Fetching:** Axios with interceptors for JWT injection and 401 handling
+*   **Visualizations:** Recharts for analytics and dashboard KPIs
+*   **Internationalization:** Custom JSON-based i18n engine with RTL support
 
 ### Backend
 *   **Runtime:** Node.js
 *   **Framework:** Express.js
-*   **Database:** `better-sqlite3` (Synchronous, high-performance SQLite driver)
-*   **Authentication:** JWT (JSON Web Tokens)
-*   **Security:** `helmet` (Headers), `cors`, `bcryptjs` (Password hashing), `express-rate-limit`
-*   **Validation:** `zod` schema validation
-*   **File Handling:** `multer` (for backup restoration)
+*   **Database:** `better-sqlite3` (High-performance synchronous SQLite driver)
+*   **Security:** `helmet` (CSP), `cors`, `bcryptjs` (Hashing), `express-rate-limit`
+*   **Validation:** `zod` for robust request schema enforcement
+*   **File Handling:** `multer` for secure database restoration
 
 ## 2. Project Structure
 
 ```text
 /
 ├── backend/
-│   ├── public/              # Static frontend assets (post-build)
 │   ├── src/
-│   │   ├── config/          # DB connection (database.js)
-│   │   ├── controllers/     # Business logic (auth, patient, staff, etc.)
-│   │   ├── middleware/      # Auth, Validation, Rate Limiting
+│   │   ├── config/          # Database connection & init logic
+│   │   ├── controllers/     # Business logic split by module
+│   │   ├── middleware/      # Auth, RBAC, and Zod Validation
 │   │   ├── routes/          # API route definitions
-│   │   └── utils/           # RBAC permission mirror
-│   ├── server.js            # Entry point
-│   ├── package.json         # Backend dependencies
-│   └── .env                 # Backend environment variables
+│   │   └── utils/           # Shared constants (RBAC mirror)
+│   ├── server.js            # Express server entry point
+│   └── allcare.db           # SQLite database file
 │
-├── docs/                    # Documentation
-├── locales/                 # Translation files (en.json, ar.json)
-│
-├── components/              # UI Components (Card, Button, Modal, etc.)
-├── context/                 # Global Contexts (Auth, Theme, Translation)
-├── pages/                   # Route Pages (Dashboard, Patients, HR, etc.)
-├── services/                # API Client (api.ts)
-├── utils/                   # Helpers (rbac.ts)
-├── types.ts                 # TypeScript Interfaces
-├── App.tsx                  # Root Component
-├── index.tsx                # Entry Point
-│
-├── index.html
-├── vite.config.js           # Vite Configuration (Proxy setup)
-├── tailwind.config.js
-└── package.json             # Root/Frontend dependencies
+├── context/                 # Global React Contexts
+├── components/              # Shared UI & Layout components
+├── pages/                   # Main module views
+├── services/                # API Client (Axios wrapper)
+├── locales/                 # i18n Translation dictionaries (EN/AR)
+├── utils/                   # Frontend helpers (RBAC logic)
+├── types.ts                 # Global TypeScript interfaces
+├── App.tsx                  # Root component & Routing
+└── index.tsx                # Client-side entry point
 ```
 
-## 3. Data & Control Flow
+## 3. Core Architectural Patterns
 
-1.  **Frontend Request:**
-    *   User interacts with UI (e.g., submits "Add Staff" form).
-    *   `api.ts` method is called.
-    *   Axios attaches `Authorization` header with JWT from localStorage.
-    *   Request is proxied by Vite (dev) or served directly (prod) to `http://localhost:3000/api/...`.
+1.  **Centralized Header Management:**
+    Pages use a `useHeader` hook to dynamically update the layout's header title, subtitle, and action buttons, ensuring a consistent UI while keeping page components focused.
 
-2.  **Backend Processing:**
-    *   `server.js` receives request, passes through security middleware (`helmet`, `cors`, `rateLimit`).
-    *   `api.js` router directs to specific sub-route.
-    *   `auth.js` middleware verifies JWT and attaches `req.user`.
-    *   `auth.js` (RBAC) checks if `req.user.role` has required permission (e.g., `MANAGE_HR`).
-    *   `validation.js` middleware validates request body against Zod schema.
-    *   Controller (e.g., `staff.controller.js`) executes business logic.
-    *   `better-sqlite3` executes synchronous SQL query against `allcare.db`.
+2.  **RBAC Mirroring:**
+    Permissions are defined once and mirrored between frontend (`utils/rbac.ts`) and backend (`backend/utils/rbac_backend_mirror.js`). The frontend hides UI elements, while the backend middleware (`authorizeRoles`) enforces access at the API level.
 
-3.  **Response:**
-    *   Controller sends JSON response.
-    *   Frontend component receives data, updates React state.
-    *   UI re-renders to reflect changes (e.g., new staff member appears in list).
+3.  **Synchronous Database Access:**
+    The system utilizes `better-sqlite3`'s synchronous nature to simplify backend logic and improve performance by avoiding the overhead of async/await for standard CRUD operations in a single-threaded SQLite context.
+
+4.  **Transaction-Based Consistency:**
+    Critical operations (like creating an appointment with an associated bill) are wrapped in SQLite transactions (`db.transaction`) to ensure atomic updates and data integrity.
