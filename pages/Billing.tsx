@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Printer, Lock, CreditCard, 
   Wallet, FileText, CheckCircle, Trash2,
   ChevronLeft, ChevronRight, Search, Filter, Calendar,
-  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Coins, PieChart as PieChartIcon, X
+  Landmark, ArrowUpRight, ArrowDownRight, RefreshCcw, Coins, PieChart as PieChartIcon, X, Edit
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -83,6 +84,7 @@ export const Billing = () => {
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
   const [refundingBill, setRefundingBill] = useState<Bill | null>(null);
+  const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
 
   // Create Invoice Form
   const [createForm, setCreateForm] = useState({
@@ -161,7 +163,7 @@ export const Billing = () => {
     };
 
     try {
-      const [b, p, pm, taxes, labs, services, trans, ins] = await Promise.all([
+      const [b, p, pm, taxes, labs, services, trans, ins, ops, beds] = await Promise.all([
         safeFetch(api.getBills(), []), 
         safeFetch(api.getPatients(), []),
         safeFetch(api.getPaymentMethods(), []),
@@ -169,7 +171,9 @@ export const Billing = () => {
         safeFetch(api.getLabTests(), []),
         safeFetch(api.getNurseServices(), []),
         safeFetch(api.getTransactions(), []),
-        safeFetch(api.getInsuranceProviders(), [])
+        safeFetch(api.getInsuranceProviders(), []),
+        safeFetch(api.getOperations(), []),
+        safeFetch(api.getBeds(), [])
       ]);
       
       const billList: Bill[] = Array.isArray(b) ? b : [];
@@ -184,7 +188,9 @@ export const Billing = () => {
 
       const catalog = [
         ...(Array.isArray(labs) ? labs.map((l: any) => ({ label: `${t('nav_laboratory')}: ${language === 'ar' ? l.name_ar : l.name_en}`, cost: l.cost })) : []),
-        ...(Array.isArray(services) ? services.map((s: any) => ({ label: `${t('billing_type_procedure')}: ${language === 'ar' ? s.name_ar : s.name_en}`, cost: s.cost })) : [])
+        ...(Array.isArray(services) ? services.map((s: any) => ({ label: `${t('billing_type_procedure')}: ${language === 'ar' ? s.name_ar : s.name_en}`, cost: s.cost })) : []),
+        ...(Array.isArray(ops) ? ops.map((o: any) => ({ label: `${t('nav_operations')}: ${language === 'ar' ? o.name_ar : o.name_en}`, cost: o.base_cost })) : []),
+        ...(Array.isArray(beds) ? beds.map((bd: any) => ({ label: `${t('admissions_care_daily_rate')}: ${bd.roomNumber} (${bd.type})`, cost: bd.costPerDay })) : [])
       ];
       setCatalogItems(catalog);
 
@@ -351,11 +357,34 @@ export const Billing = () => {
       e.preventDefault();
       setIsProcessing(true);
       try {
-          await api.addExpense({ ...expenseForm, amount: parseFloat(expenseForm.amount) });
+          const payload = { ...expenseForm, amount: parseFloat(expenseForm.amount) };
+          if (editingExpenseId) {
+            await api.updateExpense(editingExpenseId, payload);
+          } else {
+            await api.addExpense(payload);
+          }
           setIsExpenseModalOpen(false);
+          setEditingExpenseId(null);
           setExpenseForm({ category: 'General', amount: '', method: 'Cash', date: new Date().toISOString().split('T')[0], description: '' });
           loadData();
       } catch(e) { alert(t('billing_expense_failed')); } finally { setIsProcessing(false); }
+  };
+
+  const openExpenseModal = (tx?: Transaction) => {
+      if (tx) {
+        setEditingExpenseId(tx.id);
+        setExpenseForm({
+            category: tx.category || 'General',
+            amount: tx.amount.toString(),
+            method: tx.method || 'Cash',
+            date: tx.date ? tx.date.split('T')[0] : new Date().toISOString().split('T')[0],
+            description: tx.description || ''
+        });
+      } else {
+        setEditingExpenseId(null);
+        setExpenseForm({ category: 'General', amount: '', method: 'Cash', date: new Date().toISOString().split('T')[0], description: '' });
+      }
+      setIsExpenseModalOpen(true);
   };
 
   const getTypeColor = (type: string) => {
@@ -367,6 +396,16 @@ export const Billing = () => {
       case 'Procedure': return 'cyan';
       default: return 'gray';
     }
+  };
+
+  const formatDateSafely = (dateStr: any) => {
+      if (!dateStr) return 'N/A';
+      const d = new Date(dateStr);
+      // SQLite TIMESTAMP strings usually parse fine. If epoch is returned (1970), something is wrong.
+      if (isNaN(d.getTime())) return 'N/A';
+      // Robust check against EPOCH 0 if it's arriving as null converted to number
+      if (d.getFullYear() <= 1970 && d.getMonth() === 0 && d.getDate() === 1) return 'N/A';
+      return d.toLocaleDateString();
   };
 
   const filteredBills = useMemo(() => {
@@ -409,7 +448,6 @@ export const Billing = () => {
   const methodStats = useMemo(() => {
     const stats: Record<string, { income: number; expense: number; balance: number, name_en: string, name_ar: string }> = {};
     paymentMethods.forEach(pm => { stats[pm.name_en] = { income: 0, expense: 0, balance: 0, name_en: pm.name_en, name_ar: pm.name_ar }; });
-    if (!stats['Cash']) stats['Cash'] = { income: 0, expense: 0, balance: 0, name_en: 'Cash', name_ar: 'نقدي' };
     filteredTransactions.forEach(tx => {
         const methodKey = tx.method || 'Unknown';
         if (!stats[methodKey]) stats[methodKey] = { income: 0, expense: 0, balance: 0, name_en: methodKey, name_ar: methodKey };
@@ -430,7 +468,6 @@ export const Billing = () => {
   const totalTreasuryPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const paginatedTransactions = filteredTransactions.slice((treasuryPage - 1) * itemsPerPage, treasuryPage * itemsPerPage);
 
-  // Search logic for Create Modal
   const filteredPatientsForInvoice = useMemo(() => {
     if (!patientSearch) return [];
     return patients.filter(p => 
@@ -481,7 +518,7 @@ export const Billing = () => {
                 </div>
                 <div className="text-right">
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">{t('billing_invoice_date')}</p>
-                    <p className="font-bold text-lg text-slate-900">{bill.date && bill.date !== '1/1/1970' ? new Date(bill.date).toLocaleDateString() : 'N/A'}</p>
+                    <p className="font-bold text-lg text-slate-900">{formatDateSafely(bill.date)}</p>
                 </div>
             </div>
             <table className="w-full mb-8">
@@ -523,6 +560,12 @@ export const Billing = () => {
       } else {
           return <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white border-none" disabled={!isAccountant} icon={RefreshCcw} onClick={() => isAccountant && openRefundModal(bill)}>{t('billing_action_refund')}</Button>;
       }
+  };
+
+  const getFilteredPaymentMethods = () => {
+      // Prompt requested "Payment Methods wherever are used should allways be loaded from database"
+      // Filter strictly for active ones.
+      return paymentMethods.filter(p => p.isActive);
   };
 
   return (
@@ -616,7 +659,7 @@ export const Billing = () => {
                        paginatedBills.length === 0 ? <tr><td colSpan={6} className="text-center py-10 text-slate-400">{t('billing_table_empty')}</td></tr> : 
                        paginatedBills.map(bill => {
                         const paidPercent = bill.totalAmount > 0 ? (bill.paidAmount / bill.totalAmount) * 100 : 0;
-                        const formattedDate = bill.date && bill.date !== '1/1/1970' ? new Date(bill.date).toLocaleDateString() : 'N/A';
+                        const formattedDate = formatDateSafely(bill.date);
                         return (
                           <tr key={bill.id}>
                             <td className="px-6 py-4 whitespace-nowrap"><div className="font-bold">{bill.billNumber}</div><div className="text-sm text-slate-500">{formattedDate}</div></td>
@@ -643,7 +686,7 @@ export const Billing = () => {
 
       {activeTab === 'treasury' && (
           <div className="space-y-6 animate-in fade-in">
-              <div className="flex justify-end"><Button onClick={() => setIsExpenseModalOpen(true)} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button></div>
+              <div className="flex justify-end"><Button onClick={() => openExpenseModal()} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button></div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <Card><h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_income')}</h4><p className="text-3xl font-bold text-green-600 mt-2 flex items-center gap-2"><ArrowUpRight size={24}/> ${treasuryStats.income.toLocaleString()}</p></Card>
                   <Card><h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_expenses')}</h4><p className="text-3xl font-bold text-red-500 mt-2 flex items-center gap-2"><ArrowDownRight size={24}/> ${treasuryStats.expenses.toLocaleString()}</p></Card>
@@ -660,7 +703,7 @@ export const Billing = () => {
                       <div className="flex items-center gap-2 flex-1"><Landmark size={18} className="text-slate-500"/> <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3></div>
                       <div className="flex gap-2 items-center"><div className="flex items-center gap-1 text-xs text-slate-500"><span>{t('billing_treasury_from')}</span><input type="date" className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none" value={treasuryDate.start} onChange={(e) => setTreasuryDate({...treasuryDate, start: e.target.value})}/></div><div className="flex items-center gap-1 text-xs text-slate-500"><span>{t('billing_treasury_to')}</span><input type="date" className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none" value={treasuryDate.end} onChange={(e) => setTreasuryDate({...treasuryDate, end: e.target.value})}/></div><select className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white" value={treasuryFilter} onChange={(e) => setTreasuryFilter(e.target.value)}><option value="all">{t('patients_filter_type_all')}</option><option value="income">{t('billing_treasury_type_income')}</option><option value="expense">{t('billing_treasury_type_expense')}</option></select></div>
                   </div>
-                  <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id}><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300">{new Date(tx.date).toLocaleDateString()}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-medium dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300">{tx.method}</td><td className={`px-6 py-3 text-sm font-bold text-right ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td></tr>))}</tbody></table></div>
+                  <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id}><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300">{formatDateSafely(tx.date)}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-medium dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300">{tx.method}</td><td className={`px-6 py-3 text-sm font-bold text-right ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td><td className="px-6 py-3 text-right">{tx.type === 'expense' && isAccountant && (<Button size="sm" variant="ghost" icon={Edit} onClick={() => openExpenseModal(tx)} />)}</td></tr>))}</tbody></table></div>
                   <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900"><span className="text-sm text-slate-500">{t('patients_pagination_showing')} {treasuryPage} {t('patients_pagination_of')} {totalTreasuryPages || 1}</span><div className="flex gap-2"><button onClick={() => setTreasuryPage(p => Math.max(1, p - 1))} disabled={treasuryPage === 1} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"><ChevronLeft size={16}/></button><button onClick={() => setTreasuryPage(p => Math.min(totalTreasuryPages, p + 1))} disabled={treasuryPage === totalTreasuryPages} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"><ChevronRight size={16}/></button></div></div>
               </Card>
           </div>
@@ -767,7 +810,9 @@ export const Billing = () => {
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{t('billing_modal_payment_balance_due')}</p>
                 <p className="text-5xl font-black text-slate-900 dark:text-white font-mono tracking-tighter">${(payingBill.totalAmount - (payingBill.paidAmount || 0)).toLocaleString()}</p>
             </div>
-            <Select label={t('billing_modal_payment_method')} value={paymentForm.method} onChange={e => setPaymentForm({...paymentForm, method: e.target.value})} required className="text-slate-900 dark:text-white">{paymentMethods.filter(p => p.isActive).map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}{!paymentMethods.some(p => p.name_en === 'Cash') && <option value="Cash">{t('billing_method_cash')}</option>}</Select>
+            <Select label={t('billing_modal_payment_method')} value={paymentForm.method} onChange={e => setPaymentForm({...paymentForm, method: e.target.value})} required className="text-slate-900 dark:text-white">
+                {getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}
+            </Select>
             <div className="space-y-4">
                 {paymentForm.method === 'Cash' && (<><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required /><Textarea label={t('patients_modal_action_notes')} rows={2} value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} /></>)}
                 {paymentForm.method === 'Insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><div className="md:col-span-2"><Select label={t('patients_modal_form_insurance_provider')} value={paymentForm.insuranceProvider} onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})} required className="text-slate-900 dark:text-white"><option value="">{t('patients_modal_form_insurance_provider_select')}</option>{insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}</Select></div><Input label={t('patients_modal_form_insurance_policy')} value={paymentForm.policyNumber} onChange={e => setPaymentForm({...paymentForm, policyNumber: e.target.value})} required /><Input label={t('patients_modal_form_insurance_expiry')} type="date" value={paymentForm.expiryDate} onChange={e => setPaymentForm({...paymentForm, expiryDate: e.target.value})} required /></div>)}
@@ -778,7 +823,7 @@ export const Billing = () => {
         )}
       </Modal>
 
-      <Modal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} title={t('billing_modal_expense_title')}>
+      <Modal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} title={editingExpenseId ? "Update Expense Entry" : t('billing_modal_expense_title')}>
         <form onSubmit={handleExpenseSubmit} className="space-y-4">
           <Select 
             label={t('billing_modal_expense_category')} 
@@ -826,8 +871,7 @@ export const Billing = () => {
             required
             className="text-slate-900 dark:text-white"
           >
-            {paymentMethods.filter(p => p.isActive).map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}
-            <option value="Cash">{t('billing_method_cash')}</option>
+            {getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}
           </Select>
 
           <Textarea 
@@ -840,12 +884,14 @@ export const Billing = () => {
 
           <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700">
             <Button type="button" variant="secondary" onClick={() => setIsExpenseModalOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit" disabled={isProcessing}>{isProcessing ? t('processing') : t('billing_modal_expense_save')}</Button>
+            <Button type="submit" disabled={isProcessing}>{isProcessing ? t('processing') : (editingExpenseId ? t('save') : t('billing_modal_expense_save'))}</Button>
           </div>
         </form>
       </Modal>
 
-      <Modal isOpen={!!selectedBill} onClose={() => setSelectedBill(null)} title={t('billing_modal_preview_title')}>{selectedBill && (<div><InvoiceView bill={selectedBill} /><div className="mt-6 flex justify-end gap-3"><Button variant="secondary" onClick={() => setSelectedBill(null)}>{t('close')}</Button><Button icon={Printer} onClick={() => window.print()}>{t('billing_modal_preview_print_button')}</Button></div></div>)}</Modal>
+      <Modal isOpen={!!selectedBill} onClose={() => setSelectedBill(null)} title={t('billing_modal_preview_title')}>
+        {selectedBill && (<div><InvoiceView bill={selectedBill} /><div className="mt-6 flex justify-end gap-3 no-print"><Button variant="secondary" onClick={() => setSelectedBill(null)}>{t('close')}</Button><Button icon={Printer} onClick={() => window.print()}>{t('billing_modal_preview_print_button')}</Button></div></div>)}
+      </Modal>
       <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({ ...confirmState, isOpen: false })} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message} />
     </div>
   );

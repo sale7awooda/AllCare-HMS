@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -78,6 +77,7 @@ router.post('/billing/:id/cancel-service', authorizeRoles(Permissions.MANAGE_BIL
 // Treasury
 router.get('/treasury/transactions', authorizeRoles(Permissions.VIEW_BILLING), billingController.getTransactions);
 router.post('/treasury/expenses', authorizeRoles(Permissions.MANAGE_BILLING), billingController.addExpense);
+router.put('/treasury/expenses/:id', authorizeRoles(Permissions.MANAGE_BILLING), billingController.updateExpense);
 
 // Medical: Laboratory
 router.get('/lab/requests', authorizeRoles(Permissions.VIEW_LABORATORY), medicalController.getLabRequests);

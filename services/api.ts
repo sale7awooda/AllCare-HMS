@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
@@ -87,6 +86,7 @@ export const api = {
   cancelService: (id) => post(`/billing/${id}/cancel-service`), 
   getTransactions: () => get('/treasury/transactions'),
   addExpense: (data) => post('/treasury/expenses', data),
+  updateExpense: (id, data) => put(`/treasury/expenses/${id}`, data),
 
   getActiveAdmissions: () => get('/admissions'),
   getInpatientDetails: (id) => get(`/admissions/${id}`),

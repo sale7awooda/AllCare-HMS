@@ -149,7 +149,7 @@ const initDB = (forceReset = false) => {
       total_amount REAL,
       paid_amount REAL DEFAULT 0,
       status TEXT,
-      bill_date DATETIME,
+      bill_date DATETIME DEFAULT CURRENT_TIMESTAMP,
       is_settlement_bill BOOLEAN DEFAULT 0,
       settlement_for_patient_id INTEGER,
       FOREIGN KEY(patient_id) REFERENCES patients(id)
@@ -168,7 +168,7 @@ const initDB = (forceReset = false) => {
 
 
   db.prepare(`CREATE TABLE IF NOT EXISTS billing_items (id INTEGER PRIMARY KEY AUTOINCREMENT, billing_id INTEGER, description TEXT, amount REAL, FOREIGN KEY(billing_id) REFERENCES billing(id))`).run();
-  db.prepare(`CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, category TEXT, amount REAL, method TEXT, reference_id INTEGER, details TEXT, date DATETIME, description TEXT)`).run();
+  db.prepare(`CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, category TEXT, amount REAL, method TEXT, reference_id INTEGER, details TEXT, date DATETIME DEFAULT CURRENT_TIMESTAMP, description TEXT)`).run();
 
   // --- 6. Medical Services ---
   db.prepare(`CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, category_en TEXT, category_ar TEXT, cost REAL, normal_range TEXT)`).run();
