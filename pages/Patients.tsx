@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -12,6 +13,7 @@ import { Patient, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedT
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
+import { useHeader } from '../context/HeaderContext';
 
 export const Patients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -74,6 +76,19 @@ export const Patients = () => {
     insProvider: '', insPolicy: '', insExpiry: '', insNotes: ''
   };
   const [formData, setFormData] = useState(initialFormState);
+
+  const hasPermissionToCreate = hasPermission(currentUser, Permissions.MANAGE_PATIENTS);
+
+  // Sync Header
+  useHeader(
+    t('patients_title'), 
+    t('patients_subtitle'), 
+    hasPermissionToCreate ? (
+      <Button onClick={() => setIsFormModalOpen(true)} icon={Plus}>{t('patients_register_button')}</Button>
+    ) : (
+      <Button disabled variant="secondary" icon={Lock}>{t('patients_register_button_locked')}</Button>
+    )
+  );
 
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
@@ -360,15 +375,12 @@ export const Patients = () => {
   }, [patients, searchTerm, filterType]);
 
   const paginatedPatients = filteredPatients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  // FIX: Changed 'filteredRecords' to 'filteredPatients' to correctly reference the memoized variable.
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
 
   const getFilteredDoctors = () => {
     if (selectedSpecialty) return staff.filter(s => s.type === 'doctor' && s.specialization === selectedSpecialty);
     return staff.filter(s => s.type === 'doctor');
   };
-
-  const hasPermissionToCreate = hasPermission(currentUser, Permissions.MANAGE_PATIENTS);
 
   const patientVisits = useMemo(() => selectedPatient ? appointments.filter(a => a.patientId === selectedPatient.id).sort((a,b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime()) : [], [selectedPatient, appointments]);
   const patientFinancials = useMemo(() => selectedPatient ? bills.filter(b => b.patientId === selectedPatient.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [], [selectedPatient, bills]);
@@ -407,18 +419,6 @@ export const Patients = () => {
           </div>
         </div>
       )}
-
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('patients_title')}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t('patients_subtitle')}</p>
-        </div>
-        {hasPermissionToCreate ? (
-          <Button onClick={openCreateModal} icon={Plus}>{t('patients_register_button')}</Button>
-        ) : (
-          <Button disabled variant="secondary" icon={Lock}>{t('patients_register_button_locked')}</Button>
-        )}
-      </div>
 
       <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-visible z-10">
         <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
@@ -592,7 +592,7 @@ export const Patients = () => {
         </div>
       </Modal>
 
-      {/* DETAILED ACTION MODAL (Overhauled UI/UX) */}
+      {/* DETAILED ACTION MODAL */}
       <Modal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} title={currentAction ? t(`patients_modal_action_specific_title_${currentAction}`) : 'Action'}>
         <div className="flex flex-col h-full max-h-[85vh]">
           <div className="mb-4">
@@ -664,7 +664,7 @@ export const Patients = () => {
                 </>
               )}
 
-              {/* --- 2. LAB TEST FLOW (Basket Interface) --- */}
+              {/* --- 2. LAB TEST FLOW --- */}
               {currentAction === 'lab' && (
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 h-full min-h-[400px]">
                     <div className="lg:col-span-3 space-y-4 flex flex-col">
@@ -761,7 +761,7 @@ export const Patients = () => {
                 </div>
               )}
 
-              {/* --- 4. ADMISSION FLOW (Grouped Beds) --- */}
+              {/* --- 4. ADMISSION FLOW --- */}
               {currentAction === 'admission' && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -796,7 +796,6 @@ export const Patients = () => {
                                 {staff.filter(s => s.type === 'doctor').map(doc => <option key={doc.id} value={doc.id}>{doc.fullName}</option>)}
                             </Select>
                             <Input label={t('patients_modal_action_admission_date')} type="date" value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
-                            {/* FIX: Corrected 'locus' to 'deposit' in the setActionFormData update function. */}
                             <Input label={t('patients_modal_action_required_deposit')} type="number" value={actionFormData.deposit} onChange={e => setActionFormData({...actionFormData, deposit: parseFloat(e.target.value)})} />
                             <div className="pt-2 border-t border-slate-200 dark:border-slate-700 mt-2">
                                 <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Selected Accommodation</p>

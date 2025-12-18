@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, Badge, Button } from '../components/UI';
 import { api } from '../services/api';
@@ -11,6 +12,7 @@ import {
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../context/TranslationContext';
+import { useHeader } from '../context/HeaderContext';
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -29,6 +31,13 @@ export const Dashboard = () => {
   const [revenueTrend, setRevenueTrend] = useState<any[]>([]);
   const [pendingTasks, setPendingTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Sync Header
+  useHeader(
+    t('dashboard_title'), 
+    t('dashboard_subtitle'),
+    <Button variant="secondary" size="sm" icon={Clock} className="cursor-default pointer-events-none">{new Date().toLocaleDateString()}</Button>
+  );
 
   useEffect(() => {
     const loadData = async () => {
@@ -51,7 +60,6 @@ export const Dashboard = () => {
           safeFetch(api.getStaff())
         ]);
 
-        // --- 1. Top Level Stats ---
         const totalRev = bills.reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
         const outstanding = bills.reduce((sum: number, b: any) => sum + ((b.totalAmount || 0) - (b.paidAmount || 0)), 0);
         
@@ -71,7 +79,6 @@ export const Dashboard = () => {
           activeAdmissions: occupiedBeds
         });
 
-        // --- 2. Department Workload (Appointments per Dept) ---
         const deptCounts: Record<string, number> = {};
         apts.forEach((apt: any) => {
            const doctor = staff.find((s: any) => s.id === apt.staffId);
@@ -82,15 +89,10 @@ export const Dashboard = () => {
         const deptChartData = Object.keys(deptCounts).map(dept => ({
           name: dept,
           count: deptCounts[dept]
-        })).sort((a,b) => b.count - a.count).slice(0, 5); // Top 5
+        })).sort((a,b) => b.count - a.count).slice(0, 5);
         setDepartmentData(deptChartData);
 
-        // --- 3. Bed Availability Breakdown ---
-        const bedStats = { 
-            general: { total: 0, free: 0 }, 
-            private: { total: 0, free: 0 }, 
-            icu: { total: 0, free: 0 } 
-        };
+        const bedStats = { general: { total: 0, free: 0 }, private: { total: 0, free: 0 }, icu: { total: 0, free: 0 } };
         beds.forEach((b: any) => {
             const type = b.type.toLowerCase() as keyof typeof bedStats;
             if (bedStats[type]) {
@@ -100,52 +102,30 @@ export const Dashboard = () => {
         });
         setBedDetails(bedStats);
 
-        // --- 4. Real Revenue Trend (Last 7 Days) ---
         const normalizeDate = (dateStr: string) => {
-            try {
-                return new Date(dateStr).toISOString().split('T')[0];
-            } catch (e) {
-                return '';
-            }
+            try { return new Date(dateStr).toISOString().split('T')[0]; } catch (e) { return ''; }
         };
 
         const last7Days = Array.from({ length: 7 }, (_, i) => {
             const d = new Date();
             d.setDate(d.getDate() - (6 - i));
-            return {
-                label: d.toLocaleDateString('en-US', { weekday: 'short' }),
-                key: d.toISOString().split('T')[0]
-            };
+            return { label: d.toLocaleDateString('en-US', { weekday: 'short' }), key: d.toISOString().split('T')[0] };
         });
 
         const trendData = last7Days.map(day => {
             const dayIncome = bills
                 .filter((b: any) => normalizeDate(b.date) === day.key)
                 .reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
-            
-            return {
-                name: day.label,
-                income: dayIncome
-            };
+            return { name: day.label, income: dayIncome };
         });
-        
         setRevenueTrend(trendData);
 
-        // --- 5. "Needs Attention" Feed (Pending Labs + Unpaid Recent Bills) ---
         const recentPendingLabs = labs.filter((l: any) => l.status === 'pending').slice(0, 3).map((l: any) => ({
-            type: 'lab',
-            title: t('dashboard_feed_lab_title'),
-            subtitle: `${l.patientName} - $${l.projected_cost}`,
-            id: l.id,
-            time: l.created_at
+            type: 'lab', title: t('dashboard_feed_lab_title'), subtitle: `${l.patientName} - $${l.projected_cost}`, id: l.id, time: l.created_at
         }));
 
         const unpaidBills = bills.filter((b: any) => b.status === 'pending').slice(0, 3).map((b: any) => ({
-            type: 'bill',
-            title: t('dashboard_feed_bill_title'),
-            subtitle: `${b.patientName} - $${b.totalAmount}`,
-            id: b.id,
-            time: b.date
+            type: 'bill', title: t('dashboard_feed_bill_title'), subtitle: `${b.patientName} - $${b.totalAmount}`, id: b.id, time: b.date
         }));
 
         setPendingTasks([...recentPendingLabs, ...unpaidBills].sort((a,b) => new Date(b.time).getTime() - new Date(a.time).getTime()));
@@ -207,29 +187,15 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('dashboard_title')}</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">{t('dashboard_subtitle')}</p>
-        </div>
-        <div className="flex gap-3">
-             <Button variant="secondary" size="sm" icon={Clock}>{new Date().toLocaleDateString()}</Button>
-        </div>
-      </div>
-
-      {/* Quick Actions Toolbar */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         <ActionButton icon={Plus} label={t('dashboard_action_admission')} color="blue" onClick={() => navigate('/admissions')} />
         <ActionButton icon={Calendar} label={t('dashboard_action_visit')} color="violet" onClick={() => navigate('/appointments')} />
         <ActionButton icon={Users} label={t('dashboard_action_register')} color="emerald" onClick={() => navigate('/patients')} />
         <ActionButton icon={FlaskConical} label={t('dashboard_action_lab')} color="orange" onClick={() => navigate('/laboratory')} />
         <ActionButton icon={Wallet} label={t('dashboard_action_invoice')} color="pink" onClick={() => navigate('/billing')} />
-        {/* UPDATED: Changed from HR to Operations Schedule */}
         <ActionButton icon={Activity} label={t('dashboard_action_schedule')} color="cyan" onClick={() => navigate('/operations')} />
       </div>
 
-      {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title={t('dashboard_stat_total_patients')} 
@@ -262,10 +228,7 @@ export const Dashboard = () => {
         />
       </div>
 
-      {/* Analytics & Operational Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Department Workload (Bar Chart) */}
         <div className="lg:col-span-2">
           <Card title={t('dashboard_chart_workload')} action={<Button size="sm" variant="ghost" onClick={() => navigate('/appointments')}>{t('dashboard_chart_workload_action')}</Button>}>
             <div className="h-80 w-full mt-2">
@@ -274,10 +237,7 @@ export const Dashboard = () => {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-700" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                  <Tooltip 
-                    cursor={{fill: 'transparent'}}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }}
-                  />
+                  <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.1)', backgroundColor: '#fff', color: '#1e293b' }} />
                   <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40}>
                     {departmentData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'][index % 5]} />
@@ -289,7 +249,6 @@ export const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Needs Attention Feed */}
         <div className="lg:col-span-1">
           <Card title={t('dashboard_feed_title')}>
             <div className="h-80 overflow-y-auto custom-scrollbar pr-2 space-y-3 mt-2">
@@ -306,7 +265,7 @@ export const Dashboard = () => {
                                 {task.type === 'lab' ? <FlaskConical size={16} /> : <AlertCircle size={16} />}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{task.title}</h4>
+                                <h4 className="text-sm font-bold text-slate-800 dark:text-white truncate">{task.title}</h4>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{task.subtitle}</p>
                             </div>
                             <ArrowRight size={14} className="text-slate-300 self-center" />
@@ -318,9 +277,7 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Bottom Section: Bed Availability & Financial Trend */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Bed Availability Widget */}
           <div className="lg:col-span-1">
              <Card title={t('dashboard_widget_beds')} action={<Button size="sm" variant="ghost" onClick={() => navigate('/admissions')}>{t('dashboard_widget_beds_action')}</Button>}>
                 <div className="space-y-4 mt-2">
@@ -335,10 +292,7 @@ export const Dashboard = () => {
                                 <span className="font-bold text-slate-900 dark:text-white">{type.stats.free} <span className="text-slate-400 font-normal">/ {type.stats.total} {t('dashboard_widget_beds_free')}</span></span>
                             </div>
                             <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                <div 
-                                    className={`h-full bg-${type.color}-500 transition-all duration-500`} 
-                                    style={{ width: `${type.stats.total ? ((type.stats.total - type.stats.free) / type.stats.total) * 100 : 0}%` }}
-                                />
+                                <div className={`h-full bg-${type.color}-500 transition-all duration-500`} style={{ width: `${type.stats.total ? ((type.stats.total - type.stats.free) / type.stats.total) * 100 : 0}%` }} />
                             </div>
                         </div>
                     ))}
@@ -346,7 +300,6 @@ export const Dashboard = () => {
              </Card>
           </div>
 
-          {/* Financial Trend */}
           <div className="lg:col-span-2">
             <Card title={t('dashboard_chart_revenue')}>
                 <div className="h-48 w-full">

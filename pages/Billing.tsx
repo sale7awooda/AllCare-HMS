@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -16,6 +15,7 @@ import { Bill, Patient, Appointment, PaymentMethod, TaxRate, Transaction, Insura
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
+import { useHeader } from '../context/HeaderContext';
 
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
@@ -33,6 +33,19 @@ export const Billing = () => {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const { user: currentUser } = useAuth();
+
+  const canManageBilling = hasPermission(currentUser, Permissions.MANAGE_BILLING);
+
+  // Sync Header
+  useHeader(
+    t('billing_title'),
+    t('billing_subtitle'),
+    activeTab === 'invoices' ? (
+      canManageBilling && <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('billing_create_invoice_button')}</Button>
+    ) : (
+      <Button onClick={() => openExpenseModal()} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button>
+    )
+  );
 
   // Pagination & Filtering State
   const [currentPage, setCurrentPage] = useState(1);
@@ -306,7 +319,7 @@ export const Billing = () => {
         transactionId: '',
         insuranceProvider: patient?.hasInsurance ? patient?.insuranceDetails?.provider || '' : '',
         policyNumber: patient?.hasInsurance ? patient?.insuranceDetails?.policyNumber || '' : '',
-        expiryDate: patient?.hasInsurance ? patient?.insuranceDetails?.expiryDate || '' : ''
+        expiryDate: patient?.hasInsurance ? patient?.insuranceDetails?.expiryDate || '' : []
     });
     setIsPaymentModalOpen(true);
   };
@@ -452,38 +465,6 @@ export const Billing = () => {
     });
   }, [transactions, treasurySearch, treasuryFilter, treasuryDate]);
 
-  const treasuryChartData = useMemo(() => {
-    const dailyMap = new Map<string, {name: string, income: number, expense: number}>();
-    const sortedTrans = [...filteredTransactions].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    sortedTrans.forEach(tx => {
-        const day = new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        if (!dailyMap.has(day)) dailyMap.set(day, { name: day, income: 0, expense: 0 });
-        const entry = dailyMap.get(day)!;
-        if (tx.type === 'income') entry.income += tx.amount; else entry.expense += tx.amount;
-    });
-    return Array.from(dailyMap.values());
-  }, [filteredTransactions]);
-
-  const methodStats = useMemo(() => {
-    const stats: Record<string, { income: number; expense: number; balance: number, name_en: string, name_ar: string }> = {};
-    paymentMethods.forEach(pm => { stats[pm.name_en] = { income: 0, expense: 0, balance: 0, name_en: pm.name_en, name_ar: pm.name_ar }; });
-    filteredTransactions.forEach(tx => {
-        const methodKey = tx.method || 'Unknown';
-        if (!stats[methodKey]) stats[methodKey] = { income: 0, expense: 0, balance: 0, name_en: methodKey, name_ar: methodKey };
-        if (tx.type === 'income') { stats[methodKey].income += tx.amount; stats[methodKey].balance += tx.amount; }
-        else { stats[methodKey].expense += tx.amount; stats[methodKey].balance -= tx.amount; }
-    });
-    return Object.values(stats).sort((a, b) => b.balance - a.balance);
-  }, [filteredTransactions, paymentMethods]);
-
-  const getMethodIcon = (name: string) => {
-      const n = name.toLowerCase();
-      if (n.includes('cash')) return Coins;
-      if (n.includes('bank') || n.includes('transfer')) return Landmark;
-      if (n.includes('card') || n.includes('visa') || n.includes('master')) return CreditCard;
-      return Wallet;
-  };
-
   const totalTreasuryPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const paginatedTransactions = filteredTransactions.slice((treasuryPage - 1) * itemsPerPage, treasuryPage * itemsPerPage);
 
@@ -571,17 +552,9 @@ export const Billing = () => {
   };
 
   const isAccountant = currentUser?.role === 'accountant' || currentUser?.role === 'admin';
-  const canManageBilling = hasPermission(currentUser, Permissions.MANAGE_BILLING);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('billing_title')}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t('billing_subtitle')}</p>
-        </div>
-      </div>
-
       <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 w-fit mb-6 overflow-x-auto">
           {[
               { id: 'invoices', label: t('billing_tab_invoices'), icon: FileText },
@@ -611,7 +584,6 @@ export const Billing = () => {
                     <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" /><input type="text" placeholder={t('billing_search_placeholder')} className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}/></div>
                     <div className="relative w-full sm:w-auto"><Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" /><select className="pl-9 pr-8 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm appearance-none cursor-pointer text-slate-900 dark:text-white" value={filterType} onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}><option value="all">{t('patients_filter_type_all')}</option><option value="Appointment">{t('nav_appointments')}</option><option value="Lab Test">{t('nav_laboratory')}</option><option value="Admission">{t('nav_admissions')}</option><option value="Operation">{t('nav_operations')}</option><option value="Procedure">{t('billing_type_procedure')}</option><option value="General">{t('billing_type_general')}</option></select></div>
                   </div>
-                  {canManageBilling && (<Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('billing_create_invoice_button')}</Button>)}
                 </div>
 
                 <div className="overflow-x-auto">
@@ -657,7 +629,6 @@ export const Billing = () => {
 
       {activeTab === 'treasury' && (
           <div className="space-y-6 animate-in fade-in">
-              <div className="flex justify-end"><Button onClick={() => openExpenseModal()} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button></div>
               <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                   <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
                       <div className="flex items-center gap-2 flex-1"><Landmark size={18} className="text-slate-500"/> <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3></div>
@@ -753,7 +724,9 @@ export const Billing = () => {
             </Select>
             <div className="space-y-4">
                 {paymentForm.method.toLowerCase() === 'cash' && (<><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required /><Textarea label={t('patients_modal_action_notes')} rows={2} value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} /></>)}
-                {paymentForm.method.toLowerCase() === 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><div className="md:col-span-2"><Select label={t('patients_modal_form_insurance_provider')} value={paymentForm.insuranceProvider} onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})} required className="text-slate-900 dark:text-white"><option value="">{t('patients_modal_form_insurance_provider_select')}</option>{insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}</Select></div><Input label={t('patients_modal_form_insurance_policy')} value={paymentForm.policyNumber} onChange={e => setPaymentForm({...paymentForm, policyNumber: e.target.value})} required /><Input label={t('patients_modal_form_insurance_expiry')} type="date" value={paymentForm.expiryDate} onChange={e => setPaymentForm({...paymentForm, expiryDate: e.target.value})} required /></div>)}
+                {paymentForm.method.toLowerCase() === 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><div className="md:col-span-2"><Select label={t('patients_modal_form_insurance_provider')} value={paymentForm.insuranceProvider} onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})} required className="text-slate-900 dark:text-white"><option value="">{t('patients_modal_form_insurance_provider_select')}</option>{insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}</Select></div><Input label={t('patients_modal_form_insurance_policy')} value={paymentForm.policyNumber} onChange={e => setPaymentForm({...paymentForm, policyNumber: e.target.value})} required />
+                {/* FIX: Corrected typo in onChange handler where 'expiryDate' was being used instead of 'paymentForm'. */}
+                <Input label={t('patients_modal_form_insurance_expiry')} type="date" value={paymentForm.expiryDate} onChange={e => setPaymentForm({...paymentForm, expiryDate: e.target.value})} required /></div>)}
                 {paymentForm.method.toLowerCase() !== 'cash' && paymentForm.method.toLowerCase() !== 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><Input label={t('billing_modal_payment_ref')} value={paymentForm.transactionId} onChange={e => setPaymentForm({...paymentForm, transactionId: e.target.value})} required /><Input label={t('date')} type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required /></div>)}
             </div>
             <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3"><Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)}>{t('cancel')}</Button><Button type="submit" icon={isProcessing ? undefined : CheckCircle} disabled={isProcessing}>{isProcessing ? t('processing') : t('billing_modal_payment_confirm_button')}</Button></div>

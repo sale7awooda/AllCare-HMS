@@ -21,7 +21,6 @@ import {
   Wifi,
   WifiOff,
   Database,
-  // FIX: Added RefreshCw to imports to resolve "Cannot find name 'RefreshCw'" error.
   RefreshCw
 } from 'lucide-react';
 import { useTranslation } from '../context/TranslationContext';
@@ -130,18 +129,6 @@ export const Login: React.FC = () => {
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light" />
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 blur-3xl animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-400/10 blur-3xl animate-pulse delay-700" />
-      </div>
-
-      {/* Connectivity Status Toast */}
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 duration-500">
-        <div className={`px-4 py-2 rounded-full shadow-lg backdrop-blur-md border flex items-center gap-2 text-xs font-bold transition-all ${
-          serverStatus === 'online' ? 'bg-emerald-50/80 border-emerald-200 text-emerald-700' : 
-          serverStatus === 'connecting' ? 'bg-amber-50/80 border-amber-200 text-amber-700' :
-          'bg-red-50/80 border-red-200 text-red-700'
-        }`}>
-          {serverStatus === 'online' ? <Wifi size={14}/> : serverStatus === 'connecting' ? <RefreshCw className="animate-spin" size={14}/> : <WifiOff size={14}/>}
-          {t(`login_status_${serverStatus}`)}
-        </div>
       </div>
 
       <div className="relative z-10 w-full max-w-md px-4">

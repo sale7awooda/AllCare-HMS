@@ -197,6 +197,88 @@ const seedData = () => {
       stmt.run(d.u, h, d.n, d.r);
   });
 
+  // --- SUDANESE BANKS ---
+  const bankCount = db.prepare('SELECT count(*) as count FROM banks').get().count;
+  if (bankCount === 0) {
+    const banks = [
+      { en: 'Bank of Khartoum (BOK)', ar: 'بنك الخرطوم' },
+      { en: 'Faisal Islamic Bank', ar: 'بنك فيصل الإسلامي' },
+      { en: 'Omdurman National Bank', ar: 'بنك أمدرمان الوطني' },
+      { en: 'Al Baraka Bank', ar: 'بنك البركة' },
+      { en: 'Sudanese Egyptian Bank', ar: 'البنك السوداني المصري' },
+      { en: 'Blue Nile Mashreq Bank', ar: 'بنك النيل الأزرق المشرق' }
+    ];
+    const bStmt = db.prepare('INSERT INTO banks (name_en, name_ar, is_active) VALUES (?, ?, 1)');
+    banks.forEach(b => bStmt.run(b.en, b.ar));
+  }
+
+  // --- INSURANCE PROVIDERS ---
+  const insCount = db.prepare('SELECT count(*) as count FROM insurance_providers').get().count;
+  if (insCount === 0) {
+    const providers = [
+      { en: 'Shiekan Insurance', ar: 'شيكان للتأمين' },
+      { en: 'United Insurance', ar: 'المتحدة للتأمين' },
+      { en: 'Islamic Insurance', ar: 'التأمين الإسلامية' },
+      { en: 'National Health Insurance Fund', ar: 'الصندوق القومي للتأمين الصحي' }
+    ];
+    const iStmt = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)');
+    providers.forEach(p => iStmt.run(p.en, p.ar));
+  }
+
+  // --- DEPARTMENTS ---
+  const deptCount = db.prepare('SELECT count(*) as count FROM departments').get().count;
+  if (deptCount === 0) {
+    const depts = [
+      { en: 'Emergency', ar: 'الطوارئ' },
+      { en: 'General Medicine', ar: 'الطب العام' },
+      { en: 'Surgery', ar: 'الجراحة' },
+      { en: 'Pediatrics', ar: 'الأطفال' },
+      { en: 'Obstetrics and Gynecology', ar: 'النساء والتوليد' },
+      { en: 'Cardiology', ar: 'القلب' }
+    ];
+    const dStmt = db.prepare('INSERT INTO departments (name_en, name_ar) VALUES (?, ?)');
+    depts.forEach(d => dStmt.run(d.en, d.ar));
+  }
+
+  // --- LAB TESTS ---
+  const labCount = db.prepare('SELECT count(*) as count FROM lab_tests').get().count;
+  if (labCount === 0) {
+    const tests = [
+      { en: 'Malaria Parasite (MP)', ar: 'فحص الملاريا', catEn: 'Hematology', catAr: 'أمراض الدم', cost: 15 },
+      { en: 'Complete Blood Count (CBC)', ar: 'صورة دم كاملة', catEn: 'Hematology', catAr: 'أمراض الدم', cost: 25 },
+      { en: 'Widal Test (Typhoid)', ar: 'فحص التيفويد', catEn: 'Serology', catAr: 'المصليات', cost: 20 },
+      { en: 'Blood Sugar (Random)', ar: 'سكر عشوائي', catEn: 'Biochemistry', catAr: 'الكيمياء الحيوية', cost: 10 }
+    ];
+    const lStmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost) VALUES (?, ?, ?, ?, ?)');
+    tests.forEach(t => lStmt.run(t.en, t.ar, t.catEn, t.catAr, t.cost));
+  }
+
+  // --- NURSE SERVICES ---
+  const nurseCount = db.prepare('SELECT count(*) as count FROM nurse_services').get().count;
+  if (nurseCount === 0) {
+    const services = [
+      { en: 'IM Injection', ar: 'حقنة عضل', cost: 5 },
+      { en: 'IV Cannulation', ar: 'تركيب كانيولا', cost: 10 },
+      { en: 'Wound Dressing', ar: 'غيار جرح', cost: 15 },
+      { en: 'Vitals Monitoring', ar: 'مراقبة العلامات الحيوية', cost: 8 }
+    ];
+    const nStmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, cost) VALUES (?, ?, ?)');
+    services.forEach(s => nStmt.run(s.en, s.ar, s.cost));
+  }
+
+  // --- OPERATIONS ---
+  const opsCount = db.prepare('SELECT count(*) as count FROM operations_catalog').get().count;
+  if (opsCount === 0) {
+    const ops = [
+      { en: 'Appendectomy', ar: 'عملية الزائدة الدودية', cost: 500 },
+      { en: 'Hernia Repair', ar: 'إصلاح الفتق', cost: 450 },
+      { en: 'Cesarean Section', ar: 'عملية قيصرية', cost: 800 },
+      { en: 'Laparoscopy', ar: 'عملية منظار', cost: 700 }
+    ];
+    const oStmt = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
+    ops.forEach(o => oStmt.run(o.en, o.ar, o.cost));
+  }
+
   const pmCount = db.prepare('SELECT count(*) as count FROM payment_methods').get().count;
   if (pmCount === 0) {
     const pms = [

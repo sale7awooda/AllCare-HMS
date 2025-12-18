@@ -19,6 +19,7 @@ import { User } from './types';
 import { api } from './services/api';
 import { useTranslation } from './context/TranslationContext';
 import { AuthContext } from './context/AuthContext';
+import { HeaderProvider } from './context/HeaderContext';
 
 function AppContent() {
   const { user, isAuthChecking } = React.useContext(AuthContext)!;
@@ -34,23 +35,25 @@ function AppContent() {
 
   return (
     <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/patients" element={<Patients />} />
-          <Route path="/appointments" element={<Appointments />} />
-          <Route path="/admissions" element={<Admissions />} /> 
-          <Route path="/laboratory" element={<Laboratory />} /> 
-          <Route path="/operations" element={<Operations />} /> 
-          <Route path="/billing" element={<Billing />} />
-          <Route path="/hr" element={<Staff />} /> 
-          <Route path="/reports" element={<Reports />} /> 
-          <Route path="/records" element={<Records />} /> 
-          <Route path="/settings" element={<Settings />} /> 
-          <Route path="/configuration" element={<Configuration />} /> 
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </Layout>
+      <HeaderProvider>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/patients" element={<Patients />} />
+            <Route path="/appointments" element={<Appointments />} />
+            <Route path="/admissions" element={<Admissions />} /> 
+            <Route path="/laboratory" element={<Laboratory />} /> 
+            <Route path="/operations" element={<Operations />} /> 
+            <Route path="/billing" element={<Billing />} />
+            <Route path="/hr" element={<Staff />} /> 
+            <Route path="/reports" element={<Reports />} /> 
+            <Route path="/records" element={<Records />} /> 
+            <Route path="/settings" element={<Settings />} /> 
+            <Route path="/configuration" element={<Configuration />} /> 
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </Layout>
+      </HeaderProvider>
     </Router>
   );
 }

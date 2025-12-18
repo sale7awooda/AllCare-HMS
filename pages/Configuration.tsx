@@ -1,864 +1,787 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Wrench, Settings as SettingsIcon, Building, Database, Trash2, Plus, Save, Edit, 
   Bed, Users, Loader2, CheckCircle, XCircle, AlertTriangle, Upload, Download, Server, 
-  CreditCard, RotateCcw, Shield, Lock, Activity, RefreshCw, Briefcase, FlaskConical, Stethoscope 
+  CreditCard, RotateCcw, Shield, Lock, Activity, RefreshCw, Briefcase, FlaskConical, Stethoscope,
+  Landmark, ShieldCheck, Cpu, HardDrive, Clock, Hash
 } from 'lucide-react';
 import { api } from '../services/api';
-import { LabTestCatalog, NurseServiceCatalog, OperationCatalog, Bed as BedType, User, Role, TaxRate, PaymentMethod, InsuranceProvider } from '../types';
+import { LabTestCatalog, NurseServiceCatalog, OperationCatalog, Bed as BedType, User, Role, TaxRate, PaymentMethod, InsuranceProvider, MedicalStaff } from '../types';
 import { Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
+import { useHeader } from '../context/HeaderContext';
 
-type CatalogType = 'dept' | 'spec' | 'lab' | 'nurse' | 'ops' | 'insurance' | 'banks';
-
-const permissionGroups: Record<string, string[]> = {
-  'permission_group_general': ['VIEW_DASHBOARD'],
-  'permission_group_patients': ['VIEW_PATIENTS', 'MANAGE_PATIENTS', 'DELETE_PATIENTS'],
-  'permission_group_appointments': ['VIEW_APPOINTMENTS', 'MANAGE_APPOINTMENTS', 'DELETE_APPOINTMENTS'],
-  'permission_group_billing': ['VIEW_BILLING', 'MANAGE_BILLING', 'DELETE_BILLING'],
-  'permission_group_hr': ['VIEW_HR', 'MANAGE_HR', 'DELETE_HR'],
-  'permission_group_admissions': ['VIEW_ADMISSIONS', 'MANAGE_ADMISSIONS', 'DELETE_ADMISSIONS'],
-  'permission_group_laboratory': ['VIEW_LABORATORY', 'MANAGE_LABORATORY', 'DELETE_LABORATORY'],
-  'permission_group_operations': ['VIEW_OPERATIONS', 'MANAGE_OPERATIONS', 'DELETE_OPERATIONS'],
-  'permission_group_reports': ['VIEW_REPORTS', 'MANAGE_REPORTS', 'VIEW_RECORDS'],
-  'permission_group_system': ['VIEW_SETTINGS', 'MANAGE_SETTINGS', 'MANAGE_CONFIGURATION'],
-};
-
-const DiagnosticStat = ({ title, value, icon: Icon }: any) => (
-  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-4">
-    <div className="p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm text-primary-600">
-       <Icon size={20} />
-    </div>
-    <div>
-      <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">{title}</p>
-      <p className="text-lg font-bold text-slate-800 dark:text-white">{value}</p>
-    </div>
-  </div>
-);
+type ConfigTab = 'general' | 'users' | 'beds' | 'catalogs' | 'data' | 'financial' | 'diagnostics';
+type CatalogType = 'departments' | 'specializations' | 'lab' | 'nurse' | 'ops' | 'insurance' | 'banks';
 
 export const Configuration = () => {
-  const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'general' | 'beds' | 'catalogs' | 'users' | 'data' | 'financial' | 'diagnostics'>('general');
+  const { t, language } = useTranslation();
+  const [activeTab, setActiveTab] = useState<ConfigTab>('general');
+  const [activeCatalog, setActiveCatalog] = useState<CatalogType>('departments');
   const [loading, setLoading] = useState(true);
   
-  const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
-  const [processMessage, setProcessMessage] = useState('');
-
-  const [confirmState, setConfirmState] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    action: () => void;
-    type?: 'danger' | 'warning';
-  }>({ isOpen: false, title: '', message: '', action: () => {} });
-
   // Data States
-  // Modified Settings state to initialize from localStorage or hardcoded defaults (No DB)
-  const [settings, setSettings] = useState({ 
-    hospitalName: localStorage.getItem('h_name') || 'AllCare Hospital', 
-    hospitalAddress: localStorage.getItem('h_address') || 'atbara ,the big marker', 
-    hospitalPhone: localStorage.getItem('h_phone') || '0987654321', 
-    currency: '$' 
-  });
-  
-  const [healthData, setHealthData] = useState<any>(null);
-  const [testLogs, setTestLogs] = useState<string[]>([]);
-  const [isTesting, setIsTesting] = useState(false);
-  const [users, setUsers] = useState<any[]>([]);
+  const [settings, setSettings] = useState({ hospitalName: '', hospitalAddress: '', hospitalPhone: '' });
+  const [users, setUsers] = useState<User[]>([]);
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({});
   const [beds, setBeds] = useState<BedType[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [specializations, setSpecializations] = useState<any[]>([]);
-  const [labTests, setLabTests] = useState<LabTestCatalog[]>([]);
-  const [nurseServices, setNurseServices] = useState<NurseServiceCatalog[]>([]);
-  const [operations, setOperations] = useState<OperationCatalog[]>([]);
-  const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
-  const [banks, setBanks] = useState<any[]>([]);
-  const [taxes, setTaxes] = useState<TaxRate[]>([]);
+  const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [catalogData, setCatalogData] = useState<any[]>([]);
+  const [healthData, setHealthData] = useState<any>(null);
 
-  // Modal & Form States
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [userForm, setUserForm] = useState<any>({});
-  const [editingUserId, setEditingUserId] = useState<number | null>(null);
-  const [userTabMode, setUserTabMode] = useState<'accounts' | 'roles'>('accounts');
-  const [availableRoles] = useState<string[]>(['admin', 'manager', 'receptionist', 'technician', 'accountant', 'doctor', 'nurse', 'pharmacist', 'hr']);
-  const [isBedModalOpen, setIsBedModalOpen] = useState(false);
-  const [bedForm, setBedForm] = useState<Partial<BedType>>({});
-  const [editingBedId, setEditingBedId] = useState<number | null>(null);
-  const [catalogTab, setCatalogTab] = useState<CatalogType>('lab');
-  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
-  const [itemFormData, setItemFormData] = useState<any>({});
-  const [editingItemId, setEditingItemId] = useState<number | null>(null);
-  const [financeForm, setFinanceForm] = useState<any>({});
-  const [editingFinanceId, setEditingFinanceId] = useState<number | null>(null);
-  const [financeTab, setFinanceTab] = useState<'tax' | 'payment'>('tax');
-  const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
+  // UI States
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'user' | 'tax' | 'payment' | 'bed' | 'catalog' | ''>('');
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [processMessage, setProcessMessage] = useState('');
+  const [confirmState, setConfirmState] = useState<any>({ isOpen: false, title: '', message: '', action: () => {} });
 
+  // Form States
+  const [userForm, setUserForm] = useState({ username: '', password: '', fullName: '', role: 'receptionist', email: '', isActive: true });
+  const [taxForm, setTaxForm] = useState({ name_en: '', name_ar: '', rate: '', is_active: true });
+  const [paymentForm, setPaymentForm] = useState({ name_en: '', name_ar: '', is_active: true });
+  const [bedForm, setBedForm] = useState({ roomNumber: '', type: 'General', costPerDay: '', status: 'available' });
 
-  const loadAllData = async (silent = false) => {
-    if (!silent) setLoading(true);
+  // Sync Header
+  useHeader(t('config_title'), '');
+
+  const loadData = async () => {
+    setLoading(true);
     try {
-      const [d, sp, b, l, n, o, ip, bn, u, t, p, rPerms] = await Promise.all([
-        api.getDepartments(),
-        api.getSpecializations(),
-        api.getBeds(), 
-        api.getLabTests(),
-        api.getNurseServices(),
-        api.getOperations(),
-        api.getInsuranceProviders(),
-        api.getBanks(),
+      const hospitalName = localStorage.getItem('h_name') || 'AllCare Hospital';
+      const hospitalAddress = localStorage.getItem('h_address') || '';
+      const hospitalPhone = localStorage.getItem('h_phone') || '';
+      setSettings({ hospitalName, hospitalAddress, hospitalPhone });
+
+      const [u, p, b, tax, pm] = await Promise.all([
         api.getSystemUsers(),
+        api.getRolePermissions(),
+        api.getBeds(),
         api.getTaxRates(),
-        api.getPaymentMethods(),
-        api.getRolePermissions()
+        api.getPaymentMethods()
       ]);
-      
-      // General settings (Identity fields) are handled exclusively via localStorage now
-      
-      setDepartments(Array.isArray(d) ? d : []);
-      setSpecializations(Array.isArray(sp) ? sp : []);
-      setBeds(Array.isArray(b) ? b : []);
-      setLabTests(Array.isArray(l) ? l : []);
-      setNurseServices(Array.isArray(n) ? n : []);
-      setOperations(Array.isArray(o) ? o : []);
-      setInsuranceProviders(Array.isArray(ip) ? ip : []);
-      setBanks(Array.isArray(bn) ? bn : []);
-      setUsers(Array.isArray(u) ? u : []);
-      setTaxes(Array.isArray(t) ? t : []);
-      setPaymentMethods(Array.isArray(p) ? p : []);
-      setRolePermissions(rPerms || {});
+
+      setUsers(u || []);
+      setRolePermissions(p || {});
+      setBeds(b || []);
+      setTaxRates(tax || []);
+      setPaymentMethods(pm || []);
     } catch (e) {
-      console.error("Failed to load config data", e);
+      console.error(e);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   };
 
-  useEffect(() => { loadAllData(); }, []);
-
-  const handleAction = async (action: () => Promise<void>, successMsg: string) => {
-    setProcessStatus('processing');
-    setProcessMessage(t('processing'));
+  const loadCatalog = async (type: CatalogType) => {
+    setLoading(true);
     try {
-      await action();
-      setProcessStatus('success');
-      setProcessMessage(successMsg);
-      await loadAllData(true);
-      setTimeout(() => { setProcessStatus('idle'); }, 1500);
-    } catch (e: any) {
-      setProcessStatus('error');
-      setProcessMessage(e.response?.data?.error || e.message || 'An error occurred');
-    }
+      let data = [];
+      switch(type) {
+        case 'departments': data = await api.getDepartments(); break;
+        case 'specializations': data = await api.getSpecializations(); break;
+        case 'lab': data = await api.getLabTests(); break;
+        case 'nurse': data = await api.getNurseServices(); break;
+        case 'ops': data = await api.getOperations(); break;
+        case 'insurance': data = await api.getInsuranceProviders(); break;
+        case 'banks': data = await api.getBanks(); break;
+      }
+      setCatalogData(data || []);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
-  // --- Handlers for each section ---
+  useEffect(() => { loadData(); }, []);
+  useEffect(() => { if (activeTab === 'catalogs') loadCatalog(activeCatalog); }, [activeTab, activeCatalog]);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
-    setProcessMessage(t('processing'));
-    
-    // Save to LocalStorage ONLY - as per requirement that it has nothing to do with the database
     localStorage.setItem('h_name', settings.hospitalName);
     localStorage.setItem('h_address', settings.hospitalAddress);
     localStorage.setItem('h_phone', settings.hospitalPhone);
-    localStorage.setItem('hospital_name', settings.hospitalName); // Legacy support for dashboard
-    
     setTimeout(() => {
-        setProcessStatus('success');
-        setProcessMessage(t('config_toast_settings_saved'));
-        setTimeout(() => setProcessStatus('idle'), 1500);
+      setProcessStatus('success');
+      setProcessMessage(t('config_toast_settings_saved'));
+      setTimeout(() => setProcessStatus('idle'), 1500);
     }, 500);
   };
 
-  // User Handlers
-  const openUserModal = (user?: any) => {
-    setEditingUserId(user ? user.id : null);
-    setUserForm(user ? { ...user, password: '' } : { username: '', fullName: '', role: 'manager', isActive: true });
-    setIsUserModalOpen(true);
-  };
-  const handleUserSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleAction(async () => {
-      if (editingUserId) await api.updateSystemUser(editingUserId, userForm);
-      else await api.addSystemUser(userForm);
-      setIsUserModalOpen(false);
-    }, editingUserId ? t('config_toast_user_updated') : t('config_toast_user_created'));
-  };
-  const handleDeleteUser = (id: number) => {
-    setConfirmState({
-      isOpen: true, title: t('config_dialog_delete_user_title'), message: t('config_dialog_delete_user_msg'),
-      action: () => handleAction(async () => await api.deleteSystemUser(id), t('config_toast_user_deleted'))
-    });
-  };
-  const togglePermission = (role: string, permission: string) => {
-    if (role === 'admin') return;
-    const currentPerms = rolePermissions[role] || [];
-    const updatedPerms = currentPerms.includes(permission) ? currentPerms.filter(p => p !== permission) : [...currentPerms, permission];
-    setRolePermissions(prev => ({ ...prev, [role]: updatedPerms }));
-  };
-  const savePermissions = (role: string) => {
-    handleAction(async () => await api.updateRolePermissions(role, rolePermissions[role] || []), t('config_toast_perms_updated', {role}));
+  // --- USER HANDLERS ---
+  const openUserModal = (user?: User) => {
+    if (user) {
+      setSelectedItem(user);
+      setUserForm({ username: user.username, password: '', fullName: user.fullName, role: user.role, email: user.email || '', isActive: user.is_active !== false });
+    } else {
+      setSelectedItem(null);
+      setUserForm({ username: '', password: '', fullName: '', role: 'receptionist', email: '', isActive: true });
+    }
+    setModalType('user');
+    setIsModalOpen(true);
   };
 
-  // Bed Handlers
-  const openBedModal = (bed?: BedType) => {
-    setEditingBedId(bed ? bed.id : null);
-    setBedForm(bed ? { ...bed } : { roomNumber: '', type: 'General', status: 'available', costPerDay: 0 });
-    setIsBedModalOpen(true);
-  };
-  const handleBedSubmit = (e: React.FormEvent) => {
+  const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    handleAction(async () => {
-      if (editingBedId) await api.updateBed(editingBedId, bedForm);
-      else await api.addBed(bedForm);
-      setIsBedModalOpen(false);
-    }, editingBedId ? t('config_toast_room_updated') : t('config_toast_room_added'));
+    setProcessStatus('processing');
+    try {
+      if (selectedItem) await api.updateSystemUser(selectedItem.id, userForm);
+      else await api.addSystemUser(userForm);
+      setProcessStatus('success');
+      loadData();
+      setIsModalOpen(false);
+      setTimeout(() => setProcessStatus('idle'), 1000);
+    } catch (err: any) {
+      setProcessStatus('error');
+      setProcessMessage(err.response?.data?.error || "Failed to save user.");
+    }
   };
-  const handleDeleteBed = (id: number) => {
+
+  const deleteUser = (id: number, username: string) => {
+    setConfirmState({
+      isOpen: true, title: t('config_dialog_delete_user_title'), message: `${t('config_dialog_delete_user_msg')} (@${username})`,
+      action: async () => {
+        try { await api.deleteSystemUser(id); loadData(); } catch (e) { alert("Failed to delete"); }
+      }
+    });
+  };
+
+  // --- TAX HANDLERS ---
+  const openTaxModal = (tax?: TaxRate) => {
+    if (tax) {
+      setSelectedItem(tax);
+      setTaxForm({ name_en: tax.name_en, name_ar: tax.name_ar, rate: tax.rate.toString(), is_active: tax.isActive });
+    } else {
+      setSelectedItem(null);
+      setTaxForm({ name_en: '', name_ar: '', rate: '', is_active: true });
+    }
+    setModalType('tax');
+    setIsModalOpen(true);
+  };
+
+  const handleTaxSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = { ...taxForm, rate: parseFloat(taxForm.rate) };
+    try {
+      if (selectedItem) await api.updateTaxRate(selectedItem.id, payload);
+      else await api.addTaxRate(payload);
+      loadData();
+      setIsModalOpen(false);
+    } catch (e) { alert("Failed to save tax."); }
+  };
+
+  // --- PAYMENT METHOD HANDLERS ---
+  const openPaymentModal = (pm?: PaymentMethod) => {
+    if (pm) {
+      setSelectedItem(pm);
+      setPaymentForm({ name_en: pm.name_en, name_ar: pm.name_ar, is_active: pm.isActive });
+    } else {
+      setSelectedItem(null);
+      setPaymentForm({ name_en: '', name_ar: '', is_active: true });
+    }
+    setModalType('payment');
+    setIsModalOpen(true);
+  };
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (selectedItem) await api.updatePaymentMethod(selectedItem.id, paymentForm);
+      else await api.addPaymentMethod(paymentForm);
+      loadData();
+      setIsModalOpen(false);
+    } catch (e) { alert("Failed to save payment method."); }
+  };
+
+  const deletePaymentMethod = (id: number) => {
+    setConfirmState({
+      isOpen: true, title: "Delete Payment Method", message: "This will remove this payment option from the system.",
+      action: async () => { try { await api.deletePaymentMethod(id); loadData(); } catch (e) { alert("Failed"); } }
+    });
+  };
+
+  // --- BED HANDLERS ---
+  const openBedModal = (bed?: BedType) => {
+    if (bed) {
+      if (bed.status === 'occupied' || bed.status === 'reserved') {
+          alert("Beds that are occupied or reserved cannot be updated or deleted for data integrity.");
+          return;
+      }
+      setSelectedItem(bed);
+      setBedForm({ roomNumber: bed.roomNumber, type: bed.type, costPerDay: bed.costPerDay.toString(), status: bed.status });
+    } else {
+      setSelectedItem(null);
+      setBedForm({ roomNumber: '', type: 'General', costPerDay: '50', status: 'available' });
+    }
+    setModalType('bed');
+    setIsModalOpen(true);
+  };
+
+  const handleBedSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = { ...bedForm, costPerDay: parseFloat(bedForm.costPerDay) };
+    try {
+      if (selectedItem) await api.updateBed(selectedItem.id, payload);
+      else await api.addBed(payload);
+      loadData();
+      setIsModalOpen(false);
+    } catch (e) { alert("Failed to save bed."); }
+  };
+
+  const deleteBed = (id: number) => {
     setConfirmState({
       isOpen: true, title: t('config_dialog_delete_room_title'), message: t('config_dialog_delete_room_msg'),
-      action: () => handleAction(async () => await api.deleteBed(id), t('config_toast_room_deleted'))
+      action: async () => { try { await api.deleteBed(id); loadData(); } catch (e) { alert("Failed"); } }
     });
   };
 
-  // Catalog Handlers
-  const openItemModal = (item?: any) => {
-    setEditingItemId(item ? item.id : null);
-    setItemFormData(item ? { ...item } : {});
-    setIsItemModalOpen(true);
-  };
-  const handleItemSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const { apiAdd, apiUpdate } = catalogMetadata[catalogTab];
-    handleAction(async () => {
-      if (editingItemId) await apiUpdate(editingItemId, itemFormData);
-      else await apiAdd(itemFormData);
-      setIsItemModalOpen(false);
-    }, editingItemId ? t('config_toast_item_updated') : t('config_toast_item_added'));
-  };
-  const handleDeleteItem = (id: number) => {
-    const { apiDelete } = catalogMetadata[catalogTab];
-    setConfirmState({
-      isOpen: true, title: t('config_dialog_delete_item_title'), message: t('config_dialog_delete_item_msg'),
-      action: () => handleAction(async () => await apiDelete(id), t('config_toast_item_deleted'))
-    });
-  };
-
-  // Financial Handlers
-  const openFinanceModal = (type: 'tax' | 'payment', item?: any) => {
-    setFinanceTab(type);
-    setEditingFinanceId(item ? item.id : null);
-    setFinanceForm(item ? { ...item } : { name_en: '', name_ar: '', isActive: true });
-    setIsFinanceModalOpen(true);
-  };
-
-  const handleFinanceSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleAction(async () => {
-      const financeApi = api as any;
-      if (financeTab === 'tax') {
-        if (editingFinanceId) await financeApi.updateTaxRate(editingFinanceId, financeForm);
-        else await financeApi.addTaxRate(financeForm);
-      } else {
-        if (editingFinanceId) await financeApi.updatePaymentMethod(editingFinanceId, financeForm);
-        else await financeApi.addPaymentMethod(financeForm);
-      }
-      setIsFinanceModalOpen(false);
-    }, editingFinanceId ? t('config_toast_item_updated') : t('config_toast_item_added'));
-  };
-  const handleDeleteFinance = (id: number, type: 'tax' | 'payment') => {
-    setConfirmState({
-      isOpen: true, title: t('config_dialog_delete_item_title'), message: t('config_dialog_delete_item_msg'),
-      action: () => handleAction(async () => {
-        if (type === 'tax') await api.deleteTaxRate(id);
-        else await api.deletePaymentMethod(id);
-      }, t('config_toast_item_deleted'))
-    });
-  };
-
-  // Data Management Handlers
-  const handleDownloadBackup = () => api.downloadBackup();
-  const handleRestoreDatabase = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!restoreFile) return;
-    setConfirmState({
-      isOpen: true, title: t('config_dialog_overwrite_db_title'), message: t('config_dialog_overwrite_db_msg'), type: 'danger',
-      action: () => handleAction(async () => {
-        await api.restoreDatabase(restoreFile);
-        setTimeout(() => window.location.reload(), 1500);
-      }, t('config_toast_db_restored'))
-    });
-  };
-  const handleResetDatabase = () => {
-    setConfirmState({
-      isOpen: true, title: t('config_dialog_factory_reset_title'), message: t('config_dialog_factory_reset_msg'), type: 'danger',
-      action: () => handleAction(async () => {
-          await api.resetDatabase();
-          setTimeout(() => window.location.reload(), 2000);
-      }, t('config_toast_db_reset'))
-    });
-  };
-  
-  // Diagnostics
   const runDiagnostics = async () => {
-    setIsTesting(true);
-    setTestLogs([t('config_diag_start')]);
+    setProcessStatus('processing');
+    setProcessMessage("Analyzing system nodes...");
     try {
-      const addLog = (msg: string) => setTestLogs(prev => [...prev, msg]);
-      await new Promise(res => setTimeout(res, 300));
-      
-      addLog(t('config_diag_check_api'));
-      const health = await api.checkSystemHealth();
-      setHealthData(health);
-      addLog(t('config_diag_server_ok', {uptime: (health.uptime / 60).toFixed(1)}));
-      
-      await new Promise(res => setTimeout(res, 500));
-      addLog(t('config_diag_verify_db'));
-      addLog(t('config_diag_db_ok', {latency: health.database.latency}));
-      
-      await new Promise(res => setTimeout(res, 300));
-      addLog(t('config_diag_all_ok'));
-    } catch (e: any) {
-      setTestLogs(prev => [...prev, t('config_diag_failed', {error: e.message})]);
-      setHealthData({ status: 'error' });
-    } finally {
-      setIsTesting(false);
+      const data = await api.checkSystemHealth();
+      setHealthData(data);
+      setProcessStatus('idle');
+    } catch (e) {
+      setProcessStatus('error');
+      setProcessMessage("Health check failed.");
     }
   };
 
-  const catalogMetadata: Record<CatalogType, any> = {
-    dept: {
-      label: t('config_catalog_dept'),
-      data: departments,
-      fields: [
-        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
-        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
-        { name: 'description_en', label: t('config_field_desc_en'), type: 'textarea' },
-        { name: 'description_ar', label: t('config_field_desc_ar'), type: 'textarea' },
-      ],
-      apiAdd: api.addDepartment, apiUpdate: api.updateDepartment, apiDelete: api.deleteDepartment
-    },
-    spec: {
-      label: t('config_catalog_spec'),
-      data: specializations,
-      fields: [
-        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
-        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
-        { name: 'related_role', label: t('config_field_related_role'), type: 'select', options: availableRoles },
-        { name: 'description_en', label: t('config_field_desc_en'), type: 'textarea' },
-        { name: 'description_ar', label: t('config_field_desc_ar'), type: 'textarea' },
-      ],
-      apiAdd: api.addSpecialization, apiUpdate: api.updateSpecialization, apiDelete: api.deleteSpecialization
-    },
-    lab: {
-      label: t('config_catalog_lab'),
-      data: labTests,
-      fields: [
-        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
-        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
-        { name: 'category_en', label: t('config_field_category_en'), type: 'text' },
-        { name: 'category_ar', label: t('config_field_category_ar'), type: 'text' },
-        { name: 'cost', label: t('config_field_cost'), type: 'number', prefix: '$' },
-        { name: 'normal_range', label: t('config_field_normal_range'), type: 'text' },
-      ],
-      apiAdd: api.addLabTest, apiUpdate: api.updateLabTest, apiDelete: api.deleteLabTest
-    },
-    nurse: {
-      label: t('config_catalog_nurse'),
-      data: nurseServices,
-      fields: [
-        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
-        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
-        { name: 'description_en', label: t('config_field_desc_en'), type: 'textarea' },
-        { name: 'description_ar', label: t('config_field_desc_ar'), type: 'textarea' },
-        { name: 'cost', label: t('config_field_cost'), type: 'number', prefix: '$' },
-      ],
-      apiAdd: api.addNurseService, apiUpdate: api.updateNurseService, apiDelete: api.deleteNurseService
-    },
-    ops: {
-      label: t('config_catalog_ops'),
-      data: operations,
-      fields: [
-        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
-        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
-        { name: 'base_cost', label: t('config_field_base_cost'), type: 'number', prefix: '$' },
-      ],
-      apiAdd: api.addOperationCatalog, apiUpdate: api.updateOperationCatalog, apiDelete: api.deleteOperationCatalog
-    },
-    insurance: {
-      label: t('config_catalog_insurance'),
-      data: insuranceProviders,
-      fields: [
-        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
-        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
-        { name: 'is_active', label: t('config_field_status'), type: 'toggle' },
-      ],
-      apiAdd: api.addInsuranceProvider, apiUpdate: api.updateInsuranceProvider, apiDelete: api.deleteInsuranceProvider
-    },
-    banks: {
-      label: t('config_catalog_banks'),
-      data: banks,
-      fields: [
-        { name: 'name_en', label: t('config_field_name_en'), type: 'text', required: true },
-        { name: 'name_ar', label: t('config_field_name_ar'), type: 'text', required: true },
-        { name: 'is_active', label: t('config_field_status'), type: 'toggle' },
-      ],
-      apiAdd: api.addBank, apiUpdate: api.updateBank, apiDelete: api.deleteBank
+  const togglePermission = async (role: string, perm: string) => {
+    const current = rolePermissions[role] || [];
+    const updated = current.includes(perm) ? current.filter(p => p !== perm) : [...current, perm];
+    try {
+      await api.updateRolePermissions(role, updated);
+      setRolePermissions({ ...rolePermissions, [role]: updated });
+    } catch (e) {
+      console.error("Failed to update permission");
     }
   };
 
-  const formatPermissionName = (p: string) => {
-    return p.replace(/_/g, ' ').toLowerCase();
+  // FIX: Implemented handleBackup function to trigger binary download of database snapshot.
+  const handleBackup = async () => {
+    setProcessStatus('processing');
+    setProcessMessage("Preparing system snapshot...");
+    try {
+      await api.downloadBackup();
+      setProcessStatus('success');
+      setProcessMessage("Backup downloaded successfully.");
+      setTimeout(() => setProcessStatus('idle'), 1500);
+    } catch (e) {
+      setProcessStatus('error');
+      setProcessMessage("Failed to download backup.");
+    }
   };
 
+  // FIX: Implemented handleRestore function to manage database snapshot file upload and restoration.
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setConfirmState({
+      isOpen: true,
+      title: "Confirm Restoration",
+      message: "This will completely overwrite the current database. This action is irreversible. Are you sure?",
+      action: async () => {
+        setProcessStatus('processing');
+        setProcessMessage("Restoring database from snapshot...");
+        try {
+          await api.restoreDatabase(file);
+          setProcessStatus('success');
+          setProcessMessage("System restored successfully. Reloading...");
+          setTimeout(() => window.location.reload(), 2000);
+        } catch (err: any) {
+          setProcessStatus('error');
+          setProcessMessage(err.response?.data?.error || "Failed to restore database.");
+        }
+      }
+    });
+  };
+
+  // FIX: Implemented handleReset function to perform a factory reset after user confirmation.
+  const handleReset = () => {
+    setConfirmState({
+      isOpen: true,
+      title: "Factory Reset",
+      message: "WARNING: This will delete all clinical and financial records. Only the admin user will remain. Proceed with absolute caution.",
+      action: async () => {
+        setProcessStatus('processing');
+        setProcessMessage("Performing factory reset...");
+        try {
+          await api.resetDatabase();
+          setProcessStatus('success');
+          setProcessMessage("System has been reset. Reloading...");
+          setTimeout(() => window.location.reload(), 2000);
+        } catch (err: any) {
+          setProcessStatus('error');
+          setProcessMessage("Failed to reset system.");
+        }
+      }
+    });
+  };
+
+  const getPermissionLabel = (perm: string) => {
+    return perm.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+  };
+
+  const permissionGroups = [
+    { name: t('permission_group_general'), perms: [Permissions.VIEW_DASHBOARD, Permissions.VIEW_REPORTS, Permissions.VIEW_RECORDS] },
+    { name: t('permission_group_patients'), perms: [Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, Permissions.DELETE_PATIENTS] },
+    { name: t('permission_group_appointments'), perms: [Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, Permissions.DELETE_APPOINTMENTS] },
+    { name: t('permission_group_billing'), perms: [Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, Permissions.DELETE_BILLING] },
+    { name: t('permission_group_hr'), perms: [Permissions.VIEW_HR, Permissions.MANAGE_HR, Permissions.DELETE_HR] },
+    { name: t('permission_group_admissions'), perms: [Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, Permissions.DELETE_ADMISSIONS] },
+    { name: t('permission_group_laboratory'), perms: [Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, Permissions.DELETE_LABORATORY] },
+    { name: t('permission_group_operations'), perms: [Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, Permissions.DELETE_OPERATIONS] },
+    { name: t('permission_group_system'), perms: [Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS, Permissions.MANAGE_CONFIGURATION] },
+  ];
+
+  if (loading && !catalogData.length && !users.length) return (
+    <div className="flex flex-col items-center justify-center h-96 gap-4">
+      <Loader2 className="animate-spin text-primary-600" size={40} />
+      <p className="text-slate-500 font-medium">{t('loading')}</p>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
-      {/* STATUS OVERLAY */}
+      {/* Processing HUD */}
       {processStatus !== 'idle' && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
-            {processStatus === 'processing' && <Loader2 className="w-12 h-12 text-primary-600 animate-spin mb-4" />}
-            {processStatus === 'success' && <CheckCircle className="w-12 h-12 text-green-600 mb-4" />}
-            {processStatus === 'error' && <XCircle className="w-12 h-12 text-red-600 mb-4" />}
-            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{processStatus === 'processing' ? t('patients_process_title_processing') : processStatus === 'success' ? t('patients_process_title_success') : t('patients_process_title_failed')}</h3>
-            <p className="text-slate-500 dark:text-slate-400 mb-6">{processMessage}</p>
-            {processStatus === 'error' && <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">{t('patients_process_close_button')}</Button>}
+            {processStatus === 'processing' && <Loader2 className="w-16 h-16 text-primary-600 animate-spin mb-4" />}
+            {processStatus === 'success' && <CheckCircle size={48} className="text-green-600 mb-4" />}
+            {processStatus === 'error' && <XCircle size={48} className="text-red-600 mb-4" />}
+            <h3 className="text-xl font-bold">{processStatus === 'processing' ? t('processing') : processStatus === 'success' ? t('success') : t('error')}</h3>
+            <p className="text-sm text-slate-500 mt-2">{processMessage}</p>
+            {processStatus === 'error' && <Button variant="secondary" className="mt-6 w-full" onClick={() => setProcessStatus('idle')}>{t('close')}</Button>}
           </div>
         </div>
       )}
 
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('config_title')}</h1>
-
-      <div className="flex border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-t-xl px-4 pt-2 overflow-x-auto">
+      {/* Main Tab Navigation */}
+      <div className="flex bg-white dark:bg-slate-800 p-1 rounded-2xl shadow-soft border border-slate-200 dark:border-slate-700 overflow-x-auto">
         {[
           { id: 'general', icon: SettingsIcon, label: t('config_tab_general') },
           { id: 'users', icon: Shield, label: t('config_tab_roles') }, 
           { id: 'financial', icon: CreditCard, label: t('config_tab_financial') },
           { id: 'beds', icon: Bed, label: t('config_tab_beds') },
           { id: 'catalogs', icon: Database, label: t('config_tab_catalogs') },
-          { id: 'data', icon: Server, label: t('config_tab_data') },
-          { id: 'diagnostics', icon: Activity, label: t('config_tab_health') }
+          { id: 'data', icon: HardDrive, label: t('config_tab_data') },
+          { id: 'diagnostics', icon: Activity, label: t('config_tab_health') },
         ].map(tab => (
           <button 
-            key={tab.id}
+            key={tab.id} 
             onClick={() => setActiveTab(tab.id as any)} 
-            className={`px-5 py-3 font-medium text-sm border-b-2 transition-all flex items-center gap-2 whitespace-nowrap 
-              ${activeTab === tab.id 
-                ? 'border-primary-600 text-primary-600 bg-primary-50/50 dark:bg-primary-900/20' 
-                : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}`}
           >
-            <tab.icon size={18}/> {tab.label}
+            <tab.icon size={16}/> {tab.label}
           </button>
         ))}
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-b-xl shadow-sm border border-t-0 border-gray-200 dark:border-slate-700 p-6 min-h-[400px] relative">
-        {loading && <div className="absolute inset-0 z-10 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary-500" /></div>}
-
-        {!loading && (
-          <>
-            {activeTab === 'general' && (
-              <form onSubmit={handleSaveSettings} className="max-w-xl space-y-6 animate-in fade-in">
-                <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30 mb-4">
-                  <p className="text-sm text-blue-800 dark:text-blue-300">
-                    Hospital identity details are stored locally in the browser to isolate the system profile from clinical data.
-                  </p>
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        {/* --- GENERAL SETTINGS --- */}
+        {activeTab === 'general' && (
+          <Card title="Hospital Profile">
+            <form onSubmit={handleSaveSettings} className="max-w-2xl space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Input label={t('config_general_hospital_name')} value={settings.hospitalName} onChange={e => setSettings({...settings, hospitalName: e.target.value})} prefix={<Building size={16}/>} />
+                <Input label={t('settings_profile_phone')} value={settings.hospitalPhone} onChange={e => setSettings({...settings, hospitalPhone: e.target.value})} prefix={<Clock size={16}/>} />
+                <div className="md:col-span-2">
+                  <Input label={t('config_general_address')} value={settings.hospitalAddress} onChange={e => setSettings({...settings, hospitalAddress: e.target.value})} prefix={<Hash size={16}/>} />
                 </div>
-                <Input label={t('config_general_hospital_name')} value={settings.hospitalName} onChange={e => setSettings({...settings, hospitalName: e.target.value})} />
-                <Input label={t('config_general_address')} value={settings.hospitalAddress} onChange={e => setSettings({...settings, hospitalAddress: e.target.value})} />
-                <Input label={t('settings_profile_phone')} value={settings.hospitalPhone} onChange={e => setSettings({...settings, hospitalPhone: e.target.value})} />
-                <div className="pt-4 border-t dark:border-slate-700">
-                  <Button type="submit" icon={Save}>{t('config_general_save_button')}</Button>
-                </div>
-              </form>
-            )}
+              </div>
+              <div className="pt-4 border-t dark:border-slate-700">
+                <Button type="submit" icon={Save}>{t('config_general_save_button')}</Button>
+              </div>
+            </form>
+          </Card>
+        )}
 
-            {activeTab === 'users' && (
-              <div className="animate-in fade-in">
-                <div className="flex gap-2 mb-6">
-                   <Button variant={userTabMode === 'accounts' ? 'primary' : 'outline'} onClick={() => setUserTabMode('accounts')} icon={Users}>{t('config_users_accounts_tab')}</Button>
-                   <Button variant={userTabMode === 'roles' ? 'primary' : 'outline'} onClick={() => setUserTabMode('roles')} icon={Lock}>{t('config_users_roles_tab')}</Button>
-                </div>
+        {/* --- USERS & PERMISSIONS --- */}
+        {activeTab === 'users' && (
+          <div className="space-y-6">
+            <Card title="Permission Matrix (Role Control)" className="!p-0 overflow-hidden">
+               <div className="overflow-x-auto">
+                 <table className="min-w-full">
+                    <thead className="bg-slate-50 dark:bg-slate-900/50">
+                       <tr>
+                         <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Permission Group</th>
+                         {Object.keys(rolePermissions).map(role => (
+                           <th key={role} className="px-4 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[100px] border-l border-slate-200 dark:border-slate-700">{role}</th>
+                         ))}
+                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                       {permissionGroups.map(group => (
+                         <React.Fragment key={group.name}>
+                           <tr className="bg-slate-50/50 dark:bg-slate-900/20">
+                             <td colSpan={Object.keys(rolePermissions).length + 1} className="px-6 py-2 text-[10px] font-black text-primary-600 uppercase tracking-widest">{group.name}</td>
+                           </tr>
+                           {group.perms.map(perm => (
+                             <tr key={perm} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                               <td className="px-6 py-3 text-xs font-bold text-slate-700 dark:text-slate-300">{getPermissionLabel(perm)}</td>
+                               {Object.keys(rolePermissions).map(role => {
+                                  const hasPerm = rolePermissions[role]?.includes(perm);
+                                  const isAdmin = role === 'admin';
+                                  return (
+                                    <td key={role} className="px-4 py-3 text-center border-l border-slate-100 dark:border-slate-800">
+                                       <button 
+                                          disabled={isAdmin}
+                                          onClick={() => togglePermission(role, perm)}
+                                          className={`w-5 h-5 rounded flex items-center justify-center transition-all ${hasPerm ? 'bg-primary-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-transparent'} ${isAdmin ? 'opacity-50 cursor-not-allowed' : 'hover:scale-110'}`}
+                                       >
+                                         <CheckCircle size={14} />
+                                       </button>
+                                    </td>
+                                  );
+                               })}
+                             </tr>
+                           ))}
+                         </React.Fragment>
+                       ))}
+                    </tbody>
+                 </table>
+               </div>
+            </Card>
 
-                {userTabMode === 'accounts' ? (
-                  <>
-                    <div className="flex justify-end mb-4"><Button icon={Plus} onClick={() => openUserModal()}>{t('config_users_add_button')}</Button></div>
-                    <div className="overflow-x-auto border rounded-xl shadow-sm">
-                      <table className="min-w-full divide-y">
-                        <thead className="bg-slate-50 dark:bg-slate-900">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_users_header_user')}</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_users_header_role')}</th>
-                            <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">{t('config_users_header_status')}</th>
-                            <th className="px-4 py-3 text-right">{t('actions')}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y dark:bg-slate-800">
-                          {users.map(user => (
-                            <tr key={user.id}>
-                              <td className="px-4 py-3"><div className="font-medium">{user.fullName}</div><div className="text-xs text-slate-500">{user.username}</div></td>
-                              <td className="px-4 py-3 capitalize"><Badge color="blue">{user.role}</Badge></td>
-                              <td className="px-4 py-3 text-center"><Badge color={user.isActive ? 'green' : 'gray'}>{user.isActive ? t('config_users_active') : t('config_users_inactive')}</Badge></td>
-                              <td className="px-4 py-3 text-right">
-                                <div className="flex justify-end gap-2">
-                                    <Button size="sm" variant="outline" onClick={() => openUserModal(user)} icon={Edit}>{t('edit')}</Button>
-                                    <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user.id)} icon={Trash2}>{t('delete')}</Button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                ) : (
-                  <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm">
-                    <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                      <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-1/4">
-                            {t('config_users_feature_column')}
-                          </th>
-                          {availableRoles.map(role => (
-                            <th key={role} className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
-                              <div className="flex flex-col items-center gap-2">
-                                <span className="capitalize">{role}</span>
-                                {role !== 'admin' && (
-                                  <Button size="sm" onClick={() => savePermissions(role)} className="!px-2 !py-0.5 !text-[10px] h-auto">
-                                    {t('config_users_permissions_save_button')}
-                                  </Button>
-                                )}
+            <Card title="Active System Accounts" action={<Button size="sm" icon={Plus} onClick={() => openUserModal()}>New Account</Button>} className="!p-0 overflow-hidden">
+               <table className="min-w-full divide-y">
+                 <thead className="bg-slate-50 dark:bg-slate-900/50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Username</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Name</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Role</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Status</th>
+                      <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Actions</th>
+                    </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {users.map(u => (
+                      <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+                        <td className="px-6 py-4 text-sm font-mono text-primary-600">@{u.username}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{u.fullName}</td>
+                        <td className="px-6 py-4"><Badge color="blue" className="capitalize">{u.role}</Badge></td>
+                        <td className="px-6 py-4"><Badge color={u.isActive ? 'green' : 'gray'}>{u.isActive ? 'Active' : 'Locked'}</Badge></td>
+                        <td className="px-6 py-4 text-right">
+                           <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <button onClick={() => openUserModal(u)} className="text-slate-400 hover:text-primary-600"><Edit size={16}/></button>
+                             <button onClick={() => deleteUser(u.id, u.username)} className="text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
+                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                 </tbody>
+               </table>
+            </Card>
+          </div>
+        )}
+
+        {/* --- FINANCIAL SETTINGS --- */}
+        {activeTab === 'financial' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <Card 
+               title="Tax Rates" 
+               action={<Button size="lg" icon={Plus} onClick={() => openTaxModal()} className="shadow-lg transform active:scale-95 transition-all" />}
+               className="hover:border-primary-200 transition-colors"
+             >
+                <div className="space-y-4">
+                   {taxRates.length === 0 ? <p className="text-center py-10 text-slate-400 italic">No tax rates defined.</p> : 
+                    taxRates.map(t => (
+                     <div key={t.id} className="group flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-primary-200 dark:hover:border-primary-800 transition-all">
+                        <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-primary-600 shadow-sm font-bold">%</div>
+                           <div>
+                              <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{language === 'ar' ? t.name_ar : t.name_en}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-primary-600">{t.rate}%</span>
+                                <Badge color={t.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{t.isActive ? 'Active' : 'Hidden'}</Badge>
                               </div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white dark:bg-slate-800">
-                        {Object.entries(permissionGroups).map(([groupKey, perms]) => (
-                          <React.Fragment key={groupKey}>
-                            <tr className="bg-slate-50/50 dark:bg-slate-900/50">
-                              <td colSpan={availableRoles.length + 1} className="px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300">
-                                {t(groupKey)}
-                              </td>
-                            </tr>
-                            {perms.map(p => (
-                              <tr key={p} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                <td className="px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300 capitalize">
-                                  {formatPermissionName(p)}
-                                </td>
-                                {availableRoles.map(role => (
-                                  <td key={`${role}-${p}`} className="px-4 py-3 text-center">
-                                    <input
-                                      type="checkbox"
-                                      className="h-5 w-5 rounded text-primary-600 focus:ring-primary-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                                      checked={(rolePermissions[role] || []).includes(p)}
-                                      onChange={() => togglePermission(role, p)}
-                                      disabled={role === 'admin'}
-                                    />
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          </React.Fragment>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'financial' && (
-              <div className="animate-in fade-in">
-                <div className="flex gap-2 mb-6">
-                   <Button variant={financeTab === 'tax' ? 'primary' : 'outline'} onClick={() => setFinanceTab('tax')}>{t('config_financial_tax_tab')}</Button>
-                   <Button variant={financeTab === 'payment' ? 'primary' : 'outline'} onClick={() => setFinanceTab('payment')}>{t('config_financial_payment_tab')}</Button>
+                           </div>
+                        </div>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <button onClick={() => openTaxModal(t)} className="p-2 text-slate-400 hover:text-primary-600 hover:bg-white dark:hover:bg-slate-800 rounded-lg shadow-sm"><Edit size={16}/></button>
+                           <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-white dark:hover:bg-slate-800 rounded-lg shadow-sm"><Trash2 size={16}/></button>
+                        </div>
+                     </div>
+                   ))}
                 </div>
-                {financeTab === 'tax' ? (
-                  <div>
-                    <div className="flex justify-end mb-4"><Button size="sm" icon={Plus} onClick={() => openFinanceModal('tax')}>{t('add')}</Button></div>
-                    {/* FIX: Renamed 't' to 'taxItem' to avoid shadowing translation function 't' */}
-                    {taxes.map(taxItem => (
-                        <div key={taxItem.id} className="flex justify-between items-center py-2 border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-2 rounded transition-colors">
-                            <span>{taxItem.name_en} ({taxItem.rate}%)</span>
-                            <div className="flex gap-2">
-                                <Button size="sm" variant="ghost" onClick={() => openFinanceModal('tax', taxItem)} icon={Edit}>{t('edit')}</Button>
-                                <Button size="sm" variant="danger" onClick={() => handleDeleteFinance(taxItem.id, 'tax')} icon={Trash2}>{t('delete')}</Button>
-                            </div>
+             </Card>
+             <Card 
+               title="Payment Methods" 
+               action={<Button size="lg" variant="secondary" icon={Plus} onClick={() => openPaymentModal()} className="shadow-lg transform active:scale-95 transition-all" />}
+               className="hover:border-primary-200 transition-colors"
+             >
+                <div className="space-y-4">
+                   {paymentMethods.length === 0 ? <p className="text-center py-10 text-slate-400 italic">No payment methods configured.</p> : 
+                    paymentMethods.map(m => (
+                     <div key={m.id} className="group flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-primary-200 dark:hover:border-primary-800 transition-all">
+                        <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm"><CreditCard size={18}/></div>
+                           <div>
+                             <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{language === 'ar' ? m.name_ar : m.name_en}</p>
+                             <Badge color={m.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{m.isActive ? 'Online' : 'Disabled'}</Badge>
+                           </div>
                         </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex justify-end mb-4"><Button size="sm" icon={Plus} onClick={() => openFinanceModal('payment')}>{t('add')}</Button></div>
-                    {paymentMethods.map(p => (
-                        <div key={p.id} className="flex justify-between items-center py-2 border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-2 rounded transition-colors">
-                            <div className="flex items-center gap-2">
-                                <span>{p.name_en}</span>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button size="sm" variant="ghost" onClick={() => openFinanceModal('payment', p)} icon={Edit}>{t('edit')}</Button>
-                                <Button size="sm" variant="danger" onClick={() => handleDeleteFinance(p.id, 'payment')} icon={Trash2}>{t('delete')}</Button>
-                            </div>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <button onClick={() => openPaymentModal(m)} className="p-2 text-slate-400 hover:text-primary-600 hover:bg-white dark:hover:bg-slate-800 rounded-lg shadow-sm"><Edit size={16}/></button>
+                           <button onClick={() => deletePaymentMethod(m.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-white dark:hover:bg-slate-800 rounded-lg shadow-sm"><Trash2 size={16}/></button>
                         </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                     </div>
+                   ))}
+                </div>
+             </Card>
+          </div>
+        )}
 
-            {activeTab === 'beds' && (
-              <div className="animate-in fade-in">
-                <div className="flex justify-end mb-4"><Button icon={Plus} onClick={() => openBedModal()}>{t('config_beds_add_button')}</Button></div>
-                <div className="overflow-x-auto border rounded-xl shadow-sm">
-                  <table className="min-w-full divide-y">
-                    <thead className="bg-slate-50 dark:bg-slate-900">
+        {/* --- WARDS & BEDS --- */}
+        {activeTab === 'beds' && (
+          <Card title="Ward Management" action={<Button size="sm" icon={Plus} onClick={() => openBedModal()}>Add Bed</Button>} className="!p-0 overflow-hidden">
+            <table className="min-w-full divide-y">
+              <thead className="bg-slate-50 dark:bg-slate-900">
+                <tr>
+                  <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Room #</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Ward Type</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Daily Rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                {beds.map(b => (
+                  <tr key={b.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer group" onClick={() => openBedModal(b)}>
+                    <td className="px-6 py-4 font-black text-slate-800 dark:text-white flex items-center gap-2">
+                       <Bed size={14} className="text-slate-300 group-hover:text-primary-500 transition-colors" />
+                       {b.roomNumber}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium">{b.type}</td>
+                    <td className="px-6 py-4"><Badge color={b.status === 'available' ? 'green' : (b.status === 'occupied' || b.status === 'reserved') ? 'red' : 'orange'}>{b.status}</Badge></td>
+                    <td className="px-6 py-4 text-right font-mono font-bold text-primary-600 flex justify-end items-center gap-4">
+                       ${b.costPerDay}
+                       <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          {b.status !== 'occupied' && b.status !== 'reserved' ? <Trash2 size={14} className="text-slate-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); deleteBed(b.id); }} /> : <Lock size={12} className="text-slate-300" />}
+                       </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )}
+
+        {/* --- CATALOGS --- */}
+        {activeTab === 'catalogs' && (
+          <div className="space-y-6">
+             <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                {[
+                  { id: 'departments', icon: Building, label: 'Departments' },
+                  { id: 'specializations', icon: Stethoscope, label: 'Specialties' },
+                  { id: 'lab', icon: FlaskConical, label: 'Laboratory' },
+                  { id: 'nurse', icon: Activity, label: 'Nursing' },
+                  { id: 'ops', icon: Activity, label: 'Theaters' },
+                  { id: 'insurance', icon: ShieldCheck, label: 'Insurance' },
+                  { id: 'banks', icon: Landmark, label: 'Banks' },
+                ].map(cat => (
+                  <button 
+                    key={cat.id} 
+                    onClick={() => setActiveCatalog(cat.id as any)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${activeCatalog === cat.id ? 'bg-primary-50 border-primary-200 text-primary-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                  >
+                    <cat.icon size={14}/> {cat.label}
+                  </button>
+                ))}
+             </div>
+             
+             <Card title={`${activeCatalog.charAt(0).toUpperCase() + activeCatalog.slice(1)} Catalog`} action={<Button size="sm" icon={Plus}>Add Entry</Button>} className="!p-0 overflow-hidden">
+                <table className="min-w-full divide-y">
+                   <thead className="bg-slate-50 dark:bg-slate-900/50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_room')}</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_type')}</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_status')}</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_cost')}</th>
-                        <th className="px-4 py-3 text-right">{t('actions')}</th>
+                         <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Entry Name</th>
+                         <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Local (AR)</th>
+                         {activeCatalog === 'lab' || activeCatalog === 'nurse' || activeCatalog === 'ops' ? (
+                           <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Cost/Base</th>
+                         ) : <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">ID</th>}
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y dark:bg-slate-800">
-                      {beds.map(bed => (
-                        <tr key={bed.id}>
-                          <td className="px-4 py-3 font-medium">{bed.roomNumber}</td>
-                          <td className="px-4 py-3">{bed.type}</td>
-                          <td className="px-4 py-3 text-right font-mono">${bed.costPerDay}</td>
-                          <td className="px-4 py-3 text-center capitalize"><Badge color={bed.status === 'available' ? 'green' : bed.status === 'cleaning' ? 'purple' : 'red'}>{t(`config_bed_status_${bed.status}`)}</Badge></td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex justify-end gap-2">
-                                <Button size="sm" variant="ghost" onClick={() => openBedModal(bed)} icon={Edit}>{t('edit')}</Button>
-                                <Button size="sm" variant="danger" onClick={() => handleDeleteBed(bed.id)} icon={Trash2}>{t('delete')}</Button>
-                            </div>
-                          </td>
+                   </thead>
+                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                      {catalogData.map((item, i) => (
+                        <tr key={item.id || i} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                           <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{item.name_en || item.fullName || 'Unnamed'}</td>
+                           <td className="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">{item.name_ar || '-'}</td>
+                           <td className="px-6 py-4 text-right">
+                              {item.cost !== undefined || item.base_cost !== undefined ? (
+                                <span className="font-mono font-bold text-primary-600">${(item.cost || item.base_cost || 0).toLocaleString()}</span>
+                              ) : <span className="text-[10px] font-black text-slate-300">#{item.id}</span>}
+                           </td>
                         </tr>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+                   </tbody>
+                </table>
+             </Card>
+          </div>
+        )}
 
-            {activeTab === 'catalogs' && (
-              <div className="animate-in fade-in">
-                <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-                  <div className="flex gap-1 bg-gray-100 dark:bg-slate-900 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
-                    {Object.keys(catalogMetadata).map(key => (
-                      <button 
-                        key={key}
-                        onClick={() => setCatalogTab(key as CatalogType)} 
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm whitespace-nowrap ${catalogTab === key ? 'bg-white dark:bg-slate-800 text-primary-700 shadow' : 'bg-transparent text-gray-500 hover:text-gray-700'}`}
-                      >
-                        {catalogMetadata[key as CatalogType].label}
-                      </button>
-                    ))}
+        {/* --- DATA MANAGEMENT --- */}
+        {activeTab === 'data' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+             <Card title="System Snapshot" className="lg:col-span-1">
+                <p className="text-sm text-slate-500 mb-6 leading-relaxed">Securely download a full binary mirror of the HMS database. This includes all patients, financial logs, and staff records.</p>
+                <Button variant="outline" icon={Download} onClick={handleBackup} className="w-full py-4 text-md">Export .DB Snapshot</Button>
+             </Card>
+             <Card title="Database Restoration" className="lg:col-span-1">
+                <p className="text-sm text-slate-500 mb-6 leading-relaxed">Restore the system using a valid AllCare .db file. This will completely overwrite existing data. Proceed with caution.</p>
+                <div className="relative">
+                  <input type="file" accept=".db,.sqlite,.sqlite3" onChange={handleRestore} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <Button variant="secondary" icon={Upload} className="w-full py-4 text-md">Upload & Restore</Button>
+                </div>
+             </Card>
+             <Card title="Danger Zone" className="lg:col-span-1 border-rose-100 bg-rose-50/20">
+                <p className="text-sm text-rose-600 mb-6 font-bold uppercase tracking-wider flex items-center gap-2"><AlertTriangle size={16}/> Warning: Irreversible</p>
+                <p className="text-xs text-rose-500/80 mb-6 italic">Performing a factory reset will wipe all clinical and financial history, keeping only the default admin account.</p>
+                <Button variant="danger" icon={RotateCcw} onClick={handleReset} className="w-full py-4 text-md">Execute Factory Reset</Button>
+             </Card>
+          </div>
+        )}
+
+        {/* --- DIAGNOSTICS --- */}
+        {activeTab === 'diagnostics' && (
+          <div className="space-y-6">
+             <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border shadow-soft">
+                <div>
+                   <h3 className="font-bold text-lg">System Health Monitor</h3>
+                   <p className="text-xs text-slate-500">Live operational diagnostics for the HMS backend</p>
+                </div>
+                <Button icon={Activity} onClick={runDiagnostics}>Refresh Status</Button>
+             </div>
+
+             {healthData ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <HealthStat icon={Server} label="API Status" value={healthData.status} color="text-emerald-500" />
+                  <HealthStat icon={Clock} label="Server Uptime" value={`${Math.round(healthData.uptime / 3600)} hrs`} color="text-blue-500" />
+                  <HealthStat icon={Cpu} label="CPU Latency" value={healthData.database?.latency || '-'} color="text-violet-500" />
+                  <HealthStat icon={HardDrive} label="RAM Usage" value={healthData.memory?.rss || '-'} color="text-orange-500" />
+                  
+                  <div className="md:col-span-2 lg:col-span-4 mt-4">
+                     <Card title="Backend Technical JSON">
+                        <pre className="text-[10px] font-mono bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto">
+                           {JSON.stringify(healthData, null, 2)}
+                        </pre>
+                     </Card>
                   </div>
-                  <Button size="sm" icon={Plus} onClick={() => openItemModal()}>{t('config_catalogs_add_button')}</Button>
-                </div>
-
-                <div className="overflow-x-auto border rounded-xl shadow-sm">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-                    <thead className="bg-gray-50/80 dark:bg-slate-900">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_catalogs_header_name_en')}</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_catalogs_header_name_ar')}</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{t('config_catalogs_header_details')}</th>
-                        <th className="px-4 py-3 text-right">{t('actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
-                      {catalogMetadata[catalogTab].data.map((item: any) => (
-                        <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.name_en}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-slate-300">{item.name_ar}</td>
-                          <td className="px-4 py-3 text-sm text-right font-mono text-slate-500">
-                            {item.cost !== undefined && `$${item.cost}`}
-                            {item.base_cost !== undefined && `$${item.base_cost}`}
-                            {item.rate !== undefined && `${item.rate}%`}
-                            {item.related_role && <span className="mr-2 text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">{item.related_role}</span>}
-                            {item.isActive !== undefined && <Badge color={item.isActive ? 'green' : 'gray'}>{item.isActive ? t('config_users_active') : t('config_users_inactive')}</Badge>}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex justify-end gap-2">
-                                <Button size="sm" variant="ghost" onClick={() => openItemModal(item)} icon={Edit}>{t('edit')}</Button>
-                                <Button size="sm" variant="danger" onClick={() => handleDeleteItem(item.id)} icon={Trash2}>{t('delete')}</Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-            
-            {activeTab === 'data' && (
-              <div className="max-w-xl space-y-8 animate-in fade-in">
-                <Card title={t('config_data_backup_title')} action={<Button icon={Download} onClick={handleDownloadBackup}>{t('config_data_backup_button')}</Button>}>
-                  <p>{t('config_data_backup_note')}</p>
-                </Card>
-                <Card title={t('config_data_restore_title')}>
-                  <form onSubmit={handleRestoreDatabase} className="space-y-4">
-                    <Input type="file" accept=".db,.sqlite,.sqlite3" onChange={e => setRestoreFile(e.target.files ? e.target.files[0] : null)} />
-                    <Button type="submit" icon={Upload} disabled={!restoreFile}>{t('config_data_restore_button')}</Button>
-                  </form>
-                </Card>
-                <Card title={t('config_data_danger_title')} className="border-red-500 bg-red-50 dark:bg-red-900/10">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h4 className="font-bold text-red-800 dark:text-red-300">{t('config_data_danger_reset_title')}</h4>
-                      <p className="text-sm text-red-600 dark:text-red-400">{t('config_data_danger_reset_note')}</p>
-                    </div>
-                    <Button variant="danger" icon={RotateCcw} onClick={handleResetDatabase}>{t('config_data_danger_reset_button')}</Button>
-                  </div>
-                </Card>
-              </div>
-            )}
-            
-            {activeTab === 'diagnostics' && (
-              <div className="max-w-3xl space-y-6 animate-in fade-in">
-                <Button onClick={runDiagnostics} disabled={isTesting} icon={isTesting ? undefined : RefreshCw}>
-                  {isTesting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin"/>{t('config_health_running_button')}</> : t('config_health_run_button')}
-                </Button>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <DiagnosticStat title={t('config_health_stat_status')} value={healthData?.status || t('none')} icon={healthData?.status === 'operational' ? CheckCircle : AlertTriangle} />
-                  <DiagnosticStat title={t('config_health_stat_latency')} value={healthData?.database?.latency || t('none')} icon={Database} />
-                  <DiagnosticStat title={t('config_health_stat_uptime')} value={healthData?.uptime ? `${(healthData.uptime / 60).toFixed(1)} mins` : t('none')} icon={Activity} />
-                  <DiagnosticStat title={t('config_health_stat_memory')} value={healthData?.memory?.rss || t('none')} icon={Server} />
-                </div>
-
-                {testLogs.length > 0 && (
-                  <div className="bg-slate-900 text-slate-300 p-4 rounded-xl text-xs font-mono h-64 overflow-y-auto custom-scrollbar">
-                    {testLogs.map((log, i) => <p key={i} className={`flex items-start gap-2 ${log.startsWith('❌') ? 'text-red-400' : log.startsWith('✅') ? 'text-green-400' : ''}`}><span className="text-slate-600 select-none">&gt;</span><span className="flex-1">{log}</span></p>)}
-                  </div>
-                )}
-              </div>
-            )}
-
-          </>
+               </div>
+             ) : (
+               <div className="p-20 text-center border-2 border-dashed rounded-3xl opacity-50">
+                  <Activity size={48} className="mx-auto mb-4 text-slate-300" />
+                  <p className="font-bold text-slate-400">Run diagnostics to see live metrics.</p>
+               </div>
+             )}
+          </div>
         )}
       </div>
 
-       {/* CATALOG ITEM MODAL (DYNAMIC) */}
-      <Modal 
-        isOpen={isItemModalOpen} 
-        onClose={() => setIsItemModalOpen(false)} 
-        title={`${editingItemId ? t('edit') : t('add')} ${catalogMetadata[catalogTab].label}`}
-      >
-        <form onSubmit={handleItemSubmit} className="space-y-4">
-          {catalogMetadata[catalogTab].fields.map((field: any) => {
-            if (field.type === 'textarea') {
-              return <Textarea key={field.name} label={field.label} value={itemFormData[field.name] || ''} onChange={e => setItemFormData({...itemFormData, [field.name]: e.target.value})} required={field.required} />
-            }
-            if (field.type === 'select') {
-                return (
-                    <Select key={field.name} label={field.label} value={itemFormData[field.name] || ''} onChange={e => setItemFormData({...itemFormData, [field.name]: e.target.value})}>
-                        <option value="">{t('config_field_related_role')}...</option>
-                        {field.options.map((opt: string) => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
-                    </Select>
-                )
-            }
-            if (field.type === 'toggle') {
-              return (
-                <div key={field.name} className="flex items-center gap-2">
-                  <input type="checkbox" id={field.name} checked={itemFormData[field.name] !== false} onChange={e => setItemFormData({...itemFormData, [field.name]: e.target.checked})} />
-                  <label htmlFor={field.name}>{field.label}</label>
-                </div>
-              )
-            }
-            return <Input key={field.name} label={field.label} type={field.type || 'text'} value={itemFormData[field.name] || ''} onChange={e => setItemFormData({...itemFormData, [field.name]: e.target.value})} required={field.required} prefix={field.prefix} />
-          })}
-          <div className="flex justify-end pt-4 gap-3">
-            <Button type="button" variant="secondary" onClick={() => setIsItemModalOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit">{editingItemId ? t('edit') : t('add')}</Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} title={editingUserId ? t('edit') : t('add')}>
-        <form onSubmit={handleUserSubmit} className="space-y-4">
-          <Input label={t('patients_modal_form_fullName')} required value={userForm.fullName || ''} onChange={e => setUserForm({...userForm, fullName: e.target.value})} />
-          <Input label={t('settings_profile_username')} required value={userForm.username || ''} onChange={e => setUserForm({...userForm, username: e.target.value})} />
-          <Input label={t('login_password_label')} type="password" placeholder={editingUserId ? t('settings_security_new_password') : ''} value={userForm.password || ''} onChange={e => setUserForm({...userForm, password: e.target.value})} required={!editingUserId} />
-          <Input label={t('settings_profile_email')} type="email" value={userForm.email || ''} onChange={e => setUserForm({...userForm, email: e.target.value})} />
-          <Select label={t('config_users_header_role')} value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value})}>
-            {availableRoles.map(r => <option key={r} value={r} className="capitalize">{r}</option>)}
-          </Select>
-          <div className="flex justify-end pt-4 gap-3">
-            <Button type="button" variant="secondary" onClick={() => setIsUserModalOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit">{editingUserId ? t('edit') : t('add')}</Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal isOpen={isBedModalOpen} onClose={() => setIsBedModalOpen(false)} title={editingBedId ? t('edit') : t('add')}>
-         <form onSubmit={handleBedSubmit} className="space-y-4">
-           <Input label={t('config_beds_header_room')} required value={bedForm.roomNumber || ''} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} />
-           <Select label={t('config_beds_header_type')} value={bedForm.type || 'General'} onChange={e => setBedForm({...bedForm, type: e.target.value as any})}>
-             <option value="General">General</option>
-             <option value="Private">Private</option>
-             <option value="ICU">ICU</option>
-           </Select>
-           <Input label={t('config_beds_header_cost')} type="number" value={bedForm.costPerDay || 0} onChange={e => setBedForm({...bedForm, costPerDay: parseFloat(e.target.value)})} />
-           <Select label={t('status')} value={bedForm.status || 'available'} onChange={e => setBedForm({...bedForm, status: e.target.value as any})}>
-             <option value="available">{t('config_bed_status_available')}</option>
-             <option value="maintenance">{t('config_bed_status_maintenance')}</option>
-             <option value="cleaning">{t('config_bed_status_cleaning')}</option>
-             <option value="reserved">{t('config_bed_status_reserved')}</option>
-             <option value="occupied">{t('config_bed_status_occupied')}</option>
-           </Select>
-           <div className="flex justify-end pt-4 gap-3">
-             <Button type="button" variant="secondary" onClick={() => setIsBedModalOpen(false)}>{t('cancel')}</Button>
-             <Button type="submit">{editingBedId ? t('edit') : t('add')}</Button>
-           </div>
-         </form>
-      </Modal>
-
-      <Modal isOpen={isFinanceModalOpen} onClose={() => setIsFinanceModalOpen(false)} title={`${editingFinanceId ? t('edit') : t('add')} ${financeTab === 'tax' ? t('config_financial_tax_tab') : t('config_financial_payment_tab')}`}>
-        <form onSubmit={handleFinanceSubmit} className="space-y-4">
-           <Input label={t('config_field_name_en')} required value={financeForm.name_en || ''} onChange={e => setFinanceForm({...financeForm, name_en: e.target.value})} />
-           <Input label={t('config_field_name_ar')} required value={financeForm.name_ar || ''} onChange={e => setFinanceForm({...financeForm, name_ar: e.target.value})} />
-           {financeTab === 'tax' ? (
-             <>
-               <Input label={t('config_field_rate')} type="number" required value={financeForm.rate || ''} onChange={e => setFinanceForm({...financeForm, rate: e.target.value})} />
-               <div className="flex items-center gap-2">
-                   <input 
-                       type="checkbox" 
-                       id="financeActive"
-                       checked={financeForm.isActive !== false} // Default true
-                       onChange={e => setFinanceForm({...financeForm, isActive: e.target.checked})} 
-                   /> 
-                   <label htmlFor="financeActive">{t('config_users_active')}</label>
+      {/* REUSABLE MODAL */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={selectedItem ? `Update Entry` : `Add New Entry`}>
+         {modalType === 'user' && (
+            <form onSubmit={handleUserSubmit} className="space-y-4">
+               <Input label="Full Name" required value={userForm.fullName} onChange={e => setUserForm({...userForm, fullName: e.target.value})} />
+               <div className="grid grid-cols-2 gap-4">
+                  <Input label="Username" required disabled={!!selectedItem} value={userForm.username} onChange={e => setUserForm({...userForm, username: e.target.value})} />
+                  <Select label="System Role" value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value as Role})}>
+                     <option value="admin">Admin</option>
+                     <option value="manager">Manager</option>
+                     <option value="receptionist">Receptionist</option>
+                     <option value="doctor">Doctor</option>
+                     <option value="accountant">Accountant</option>
+                     <option value="hr">HR</option>
+                  </Select>
                </div>
-             </>
-           ) : null}
-           <div className="flex justify-end pt-2 gap-3">
-             <Button type="button" variant="secondary" onClick={() => setIsFinanceModalOpen(false)}>{t('cancel')}</Button>
-             <Button type="submit">{t('save')}</Button>
-           </div>
-        </form>
+               <Input label="Password" type="password" required={!selectedItem} placeholder={selectedItem ? "Leave empty to keep current" : "••••••••"} value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} />
+               <div className="flex items-center gap-2 py-2">
+                  <input type="checkbox" id="userActive" checked={userForm.isActive} onChange={e => setUserForm({...userForm, isActive: e.target.checked})} />
+                  <label htmlFor="userActive" className="text-sm font-bold">Account is Active</label>
+               </div>
+               <Button type="submit" className="w-full">{selectedItem ? 'Update Account' : 'Create Account'}</Button>
+            </form>
+         )}
+
+         {modalType === 'tax' && (
+            <form onSubmit={handleTaxSubmit} className="space-y-4">
+               <div className="grid grid-cols-2 gap-4">
+                  <Input label="Name (EN)" required value={taxForm.name_en} onChange={e => setTaxForm({...taxForm, name_en: e.target.value})} />
+                  <Input label="Name (AR)" required value={taxForm.name_ar} onChange={e => setTaxForm({...taxForm, name_ar: e.target.value})} />
+               </div>
+               <Input label="Rate (%)" type="number" step="0.01" required value={taxForm.rate} onChange={e => setTaxForm({...taxForm, rate: e.target.value})} />
+               <div className="flex items-center gap-2 py-2">
+                  <input type="checkbox" id="taxActive" checked={taxForm.is_active} onChange={e => setTaxForm({...taxForm, is_active: e.target.checked})} />
+                  <label htmlFor="taxActive" className="text-sm font-bold">Enabled for Billing</label>
+               </div>
+               <Button type="submit" className="w-full">{selectedItem ? 'Update Tax' : 'Add Tax Rate'}</Button>
+            </form>
+         )}
+
+         {modalType === 'payment' && (
+            <form onSubmit={handlePaymentSubmit} className="space-y-4">
+               <div className="grid grid-cols-2 gap-4">
+                  <Input label="Method (EN)" required value={paymentForm.name_en} onChange={e => setPaymentForm({...paymentForm, name_en: e.target.value})} />
+                  <Input label="Method (AR)" required value={paymentForm.name_ar} onChange={e => setPaymentForm({...paymentForm, name_ar: e.target.value})} />
+               </div>
+               <div className="flex items-center gap-2 py-2">
+                  <input type="checkbox" id="pmActive" checked={paymentForm.is_active} onChange={e => setPaymentForm({...paymentForm, is_active: e.target.checked})} />
+                  <label htmlFor="pmActive" className="text-sm font-bold">Active Selection</label>
+               </div>
+               <Button type="submit" className="w-full">{selectedItem ? 'Update Method' : 'Add Method'}</Button>
+            </form>
+         )}
+
+         {modalType === 'bed' && (
+            <form onSubmit={handleBedSubmit} className="space-y-4">
+               <div className="grid grid-cols-2 gap-4">
+                  <Input label="Room/Bed Number" required value={bedForm.roomNumber} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} />
+                  <Select label="Ward Type" value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value})}>
+                     <option>General</option>
+                     <option>Private</option>
+                     <option>ICU</option>
+                     <option>Emergency</option>
+                  </Select>
+               </div>
+               <Input label="Cost Per Day ($)" type="number" required value={bedForm.costPerDay} onChange={e => setBedForm({...bedForm, costPerDay: e.target.value})} />
+               {selectedItem && (
+                 <Select label="Status" value={bedForm.status} onChange={e => setBedForm({...bedForm, status: e.target.value})}>
+                    <option value="available">Available</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="cleaning">Cleaning</option>
+                 </Select>
+               )}
+               <Button type="submit" className="w-full">{selectedItem ? 'Update Ward Info' : 'Create Bed'}</Button>
+            </form>
+         )}
       </Modal>
 
       <ConfirmationDialog 
-        isOpen={confirmState.isOpen}
-        onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
-        onConfirm={() => {
-          confirmState.action();
-          setConfirmState({ ...confirmState, isOpen: false });
-        }}
-        title={confirmState.title}
-        message={confirmState.message}
-        type={confirmState.type || 'danger'}
+        isOpen={confirmState.isOpen} 
+        onClose={() => setConfirmState({...confirmState, isOpen: false})} 
+        onConfirm={confirmState.action} 
+        title={confirmState.title} 
+        message={confirmState.message} 
       />
     </div>
   );
 };
+
+const HealthStat = ({ icon: Icon, label, value, color }: any) => (
+  <Card className="!p-5 bg-white dark:bg-slate-800 hover:shadow-lg transition-all group">
+     <div className="flex items-center gap-3">
+        <div className={`p-3 rounded-xl bg-slate-50 dark:bg-slate-900 group-hover:bg-primary-50 transition-colors ${color}`}>
+           <Icon size={24} />
+        </div>
+        <div>
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+           <p className="text-xl font-black text-slate-800 dark:text-white capitalize">{value}</p>
+        </div>
+     </div>
+  </Card>
+);

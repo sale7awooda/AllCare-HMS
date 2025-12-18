@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -11,8 +10,8 @@ import { Patient, Appointment, MedicalStaff } from '../types';
 import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
+import { useHeader } from '../context/HeaderContext';
 
-// Date Helpers
 const formatDate = (date: Date) => date.toISOString().split('T')[0];
 const isSameDay = (d1: Date, d2: Date) => 
   d1.getFullYear() === d2.getFullYear() &&
@@ -58,20 +57,12 @@ interface DoctorQueueColumnProps {
 
 const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointments, onStatusUpdate, onCancel, canManage }) => {
   const { t } = useTranslation();
-  // 1. Separate Active vs Waiting
   const activePatient = appointments.find(a => a.status === 'in_progress');
-  
-  // Queue: pending, confirmed, checked_in, waiting
-  // The parent component 'dailyAppointments' logic already sorts these by Priority (Paid > Unpaid) then FIFO
-  const queue = appointments.filter(a => 
-    ['pending', 'confirmed', 'checked_in', 'waiting'].includes(a.status)
-  );
-
+  const queue = appointments.filter(a => ['pending', 'confirmed', 'checked_in', 'waiting'].includes(a.status));
   const completedCount = appointments.filter(a => a.status === 'completed').length;
 
   return (
     <div className="flex flex-col min-w-[320px] max-w-[320px] bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 h-full overflow-hidden">
-      {/* Column Header */}
       <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-10">
         <div className="flex items-center gap-3 mb-3">
           <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 text-lg shadow-sm border border-slate-200 dark:border-slate-600 ${doctor.type === 'nurse' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100'}`}>
@@ -89,63 +80,40 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
           </div>
           <div className="flex flex-col items-center bg-green-50 dark:bg-green-900/20 p-2 rounded-lg border border-green-100 dark:border-green-800">
              <span className="text-[10px] uppercase font-bold text-green-600 dark:text-green-400">{t('appointments_queue_done')}</span>
-             <span className="text-3xl font-bold text-green-800 dark:text-green-300">{completedCount}</span>
+             <span className="text-3xl font-bold text-green-800 dark:text-blue-300">{completedCount}</span>
           </div>
         </div>
       </div>
 
-      {/* Scrollable Queue Area */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar bg-slate-50 dark:bg-slate-950/30">
-        
-        {/* Active Slot */}
         {activePatient ? (
           <div className="bg-white dark:bg-slate-800 rounded-xl border-l-4 border-l-green-500 border border-slate-200 dark:border-slate-700 shadow-md p-4 animate-in fade-in zoom-in-95 duration-300 ring-4 ring-green-500/10">
             <div className="flex justify-between items-start mb-2">
               <span className="text-[10px] font-bold uppercase text-green-600 bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-full flex items-center gap-1.5 border border-green-100 dark:border-green-800">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </span>
+                <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span>
                 {t('appointments_queue_now_seeing')}
               </span>
               <span className="font-mono text-xs text-slate-400">#{activePatient.dailyToken}</span>
             </div>
             <h4 className="font-bold text-lg text-slate-800 dark:text-white mb-1">{activePatient.patientName}</h4>
             <p className="text-xs text-slate-500 mb-3">{activePatient.type} • {activePatient.datetime && new Date(activePatient.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-            {doctor.type === 'nurse' && activePatient.reason && (
-                <p className="text-xs text-slate-500 italic bg-slate-50 p-1 rounded mb-3">{activePatient.reason}</p>
-            )}
-            
             {canManage && (
-              <Button 
-                size="sm" 
-                className="w-full bg-green-600 hover:bg-green-700 text-white border-none shadow-green-200 dark:shadow-none"
-                onClick={() => onStatusUpdate(activePatient.id, 'completed', activePatient.patientName)}
-                icon={CheckCircle}
-              >
-                {t('appointments_queue_complete_button')}
-              </Button>
+              <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white border-none shadow-green-200 dark:shadow-none" onClick={() => onStatusUpdate(activePatient.id, 'completed', activePatient.patientName)} icon={CheckCircle}>{t('appointments_queue_complete_button')}</Button>
             )}
           </div>
         ) : (
           <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 flex flex-col items-center justify-center text-slate-400 h-28 bg-slate-50/50 dark:bg-slate-900/20">
-            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-2">
-               {/* User icon placeholder */}
-               <div className="w-5 h-5 rounded-full border-2 border-slate-300"></div>
-            </div>
+            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-2"><div className="w-5 h-5 rounded-full border-2 border-slate-300"></div></div>
             <span className="text-xs font-medium">{t('appointments_queue_room_empty')}</span>
           </div>
         )}
 
-        {/* Waiting List */}
         {queue.length > 0 && (
           <div className="space-y-2 mt-4">
             <h5 className="text-xs font-bold uppercase text-slate-400 pl-1 flex justify-between items-center">{t('appointments_queue_up_next')} <span className="text-[10px] font-medium normal-case">{t('appointments_queue_sort_label')}</span></h5>
             {queue.map((apt, index) => {
               const isFirstWaiting = !activePatient && index === 0;
-              // Robust check: Is paid if billingStatus is paid OR actual paidAmount covers totalAmount
               const isPaid = apt.billingStatus === 'paid' || (apt.totalAmount !== undefined && (apt.paidAmount || 0) >= (apt.totalAmount || 0));
-
               return (
                 <div key={apt.id} className={`bg-white dark:bg-slate-800 p-3 rounded-xl border transition-all duration-200 ${isFirstWaiting ? 'border-primary-300 dark:border-primary-700 shadow-md ring-2 ring-primary-500/10' : 'border-slate-200 dark:border-slate-700'}`}>
                   <div className="flex justify-between items-start">
@@ -154,45 +122,13 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                     </span>
                     <span className="font-mono text-xs text-slate-400">#{apt.dailyToken}</span>
                   </div>
-                  <h4 className="font-bold text-slate-800 dark:text-white mb-1" title={apt.patientName}>{apt.patientName}</h4>
+                  <h4 className="font-bold text-slate-800 dark:text-white mb-1 truncate" title={apt.patientName}>{apt.patientName}</h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{apt.type} • {apt.datetime && new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                  
-                  {apt.status === 'pending' && !isPaid && (
-                    <p className="text-xs font-semibold text-orange-500 mt-1">{t('appointments_queue_payment_needed')}</p>
-                  )}
-                  {apt.status === 'pending' && isPaid && (
-                    <p className="text-xs font-semibold text-green-600 mt-1 flex items-center gap-1"><CheckCircle size={10}/> Paid - Ready</p>
-                  )}
-
+                  {apt.status === 'pending' && !isPaid && (<p className="text-xs font-semibold text-orange-500 mt-1">{t('appointments_queue_payment_needed')}</p>)}
                   {canManage && (
                     <div className="flex gap-2 mt-3">
-                      {['confirmed', 'checked_in', 'waiting', 'pending'].includes(apt.status) && (
-                        <>
-                          <Button
-                              size="sm"
-                              variant="danger"
-                              onClick={() => onCancel(apt.id)}
-                              icon={X}
-                              className="flex-1"
-                          >
-                              {t('cancel')}
-                          </Button>
-                          {/* Enable Start if Paid, regardless of pending status */}
-                          {isPaid && (
-                            <Button 
-                                size="sm" 
-                                variant={isFirstWaiting ? 'primary' : 'outline'}
-                                className="flex-1"
-                                onClick={() => onStatusUpdate(apt.id, 'in_progress', apt.patientName)}
-                                disabled={!isFirstWaiting}
-                                title={!isFirstWaiting ? t('appointments_queue_start_tooltip') : ''}
-                                icon={Play}
-                            >
-                                {t('appointments_queue_start_button')}
-                            </Button>
-                          )}
-                        </>
-                      )}
+                        <Button size="sm" variant="danger" onClick={() => onCancel(apt.id)} icon={X} className="flex-1">{t('cancel')}</Button>
+                        {isPaid && (<Button size="sm" variant={isFirstWaiting ? 'primary' : 'outline'} className="flex-1" onClick={() => onStatusUpdate(apt.id, 'in_progress', apt.patientName)} disabled={!isFirstWaiting} icon={Play}>{t('appointments_queue_start_button')}</Button>)}
                     </div>
                   )}
                 </div>
@@ -234,9 +170,7 @@ const ListView = ({ appointments, onEdit, onCancel, canManage }: { appointments:
                     {canManage && (
                       <div className="flex gap-2 justify-end">
                         <Button size="sm" variant="outline" icon={Edit} onClick={() => onEdit(apt)}>Edit</Button>
-                        {apt.status !== 'completed' && apt.status !== 'cancelled' && (
-                          <Button size="sm" variant="danger" icon={X} onClick={() => onCancel(apt.id)}>Cancel</Button>
-                        )}
+                        {apt.status !== 'completed' && apt.status !== 'cancelled' && (<Button size="sm" variant="danger" icon={X} onClick={() => onCancel(apt.id)}>Cancel</Button>)}
                       </div>
                     )}
                   </td>
@@ -256,17 +190,9 @@ export const Appointments = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
-  const [formData, setFormData] = useState({
-    patientId: '',
-    staffId: '',
-    date: formatDate(new Date()),
-    time: '09:00',
-    type: 'Consultation',
-    reason: ''
-  });
+  const [formData, setFormData] = useState({ patientId: '', staffId: '', date: formatDate(new Date()), time: '09:00', type: 'Consultation', reason: '' });
   const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', action: () => {} });
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
@@ -275,34 +201,29 @@ export const Appointments = () => {
   const { user: currentUser } = useAuth();
   const canManage = hasPermission(currentUser, Permissions.MANAGE_APPOINTMENTS);
 
+  // Header Sync
+  useHeader(
+    t('appointments_title'),
+    t('appointments_subtitle'),
+    canManage ? <Button onClick={() => { setEditingAppointment(null); setIsModalOpen(true); }} icon={Plus}>{t('appointments_new_button')}</Button> : null
+  );
+
   const loadData = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
-      const [apts, stf, pts] = await Promise.all([
-        api.getAppointments(),
-        api.getStaff(),
-        api.getPatients()
-      ]);
+      const [apts, stf, pts] = await Promise.all([api.getAppointments(), api.getStaff(), api.getPatients()]);
       setAppointments(Array.isArray(apts) ? apts : []);
       setStaff(Array.isArray(stf) ? stf : []);
       setPatients(Array.isArray(pts) ? pts : []);
-    } catch (e) {
-      console.error("Failed to load appointment data", e);
-    } finally {
-      if (!isSilent) setLoading(false);
-    }
+    } catch (e) { console.error(e); } finally { if (!isSilent) setLoading(false); }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
-  // Filter and group appointments for the selected date
   const dailyAppointments = useMemo(() => {
     return appointments
       .filter(apt => isSameDay(new Date(apt.datetime), selectedDate))
       .sort((a, b) => {
-        // Sort logic: paid > unpaid, then by time
         const aIsPaid = a.billingStatus === 'paid' || (a.totalAmount !== undefined && a.paidAmount !== undefined && a.paidAmount >= a.totalAmount);
         const bIsPaid = b.billingStatus === 'paid' || (b.totalAmount !== undefined && b.paidAmount !== undefined && b.paidAmount >= b.totalAmount);
         if (aIsPaid && !bIsPaid) return -1;
@@ -312,17 +233,10 @@ export const Appointments = () => {
   }, [appointments, selectedDate]);
 
   const appointmentsByDoctor = useMemo(() => {
-    const doctorsWithAppointments = staff.filter(s =>
-      (s.type === 'doctor' || s.type === 'nurse') && dailyAppointments.some(a => a.staffId === s.id)
-    );
-
-    return doctorsWithAppointments.map(doc => ({
-      doctor: doc,
-      appointments: dailyAppointments.filter(a => a.staffId === doc.id)
-    }));
+    const doctorsWithAppointments = staff.filter(s => (s.type === 'doctor' || s.type === 'nurse') && dailyAppointments.some(a => a.staffId === s.id));
+    return doctorsWithAppointments.map(doc => ({ doctor: doc, appointments: dailyAppointments.filter(a => a.staffId === doc.id) }));
   }, [dailyAppointments, staff]);
 
-  // Handlers
   const handleStatusUpdate = async (id: number, status: string, patientName: string) => {
     setProcessStatus('processing');
     setProcessMessage(`Updating status for ${patientName}...`);
@@ -331,112 +245,41 @@ export const Appointments = () => {
         const apt = appointments.find(a => a.id === id);
         if (apt) {
           const otherInProgress = appointments.find(a => a.staffId === apt.staffId && a.status === 'in_progress');
-          if (otherInProgress) {
-             await api.updateAppointmentStatus(otherInProgress.id, 'checked_in');
-          }
+          if (otherInProgress) await api.updateAppointmentStatus(otherInProgress.id, 'checked_in');
         }
       }
       await api.updateAppointmentStatus(id, { status });
       await loadData(true);
       setProcessStatus('idle');
-    } catch (e: any) {
-      setProcessStatus('error');
-      setProcessMessage(e.message || 'Failed to update status');
-      setTimeout(() => setProcessStatus('idle'), 2000);
-    }
+    } catch (e: any) { setProcessStatus('error'); setProcessMessage(e.message || 'Failed'); setTimeout(() => setProcessStatus('idle'), 2000); }
   };
   
   const handleCancel = (id: number) => {
     setConfirmState({
-      isOpen: true,
-      title: 'Cancel Appointment',
-      message: 'Are you sure you want to cancel this appointment? This may affect billing.',
+      isOpen: true, title: 'Cancel Appointment', message: 'Are you sure?',
       action: async () => {
         setProcessStatus('processing');
-        setProcessMessage('Cancelling appointment...');
-        try {
-          await api.cancelAppointment(id);
-          await loadData(true);
-          setProcessStatus('success');
-          setProcessMessage('Appointment cancelled.');
-          setTimeout(() => setProcessStatus('idle'), 1500);
-        } catch (e: any) {
-          setProcessStatus('error');
-          setProcessMessage(e.message || 'Failed to cancel.');
-          setTimeout(() => setProcessStatus('idle'), 2000);
-        }
+        try { await api.cancelAppointment(id); await loadData(true); setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1500); } 
+        catch (e: any) { setProcessStatus('error'); setTimeout(() => setProcessStatus('idle'), 2000); }
       }
     });
-  };
-
-  const openCreateModal = () => {
-    setEditingAppointment(null);
-    setFormData({
-      patientId: '',
-      staffId: '',
-      date: formatDate(selectedDate),
-      time: '09:00',
-      type: 'Consultation',
-      reason: ''
-    });
-    setIsModalOpen(true);
-  };
-  
-  const openEditModal = (apt: Appointment) => {
-    setEditingAppointment(apt);
-    setFormData({
-      patientId: apt.patientId.toString(),
-      staffId: apt.staffId.toString(),
-      date: apt.datetime.split('T')[0],
-      time: apt.datetime.split('T')[1].slice(0, 5),
-      type: apt.type,
-      reason: apt.reason || ''
-    });
-    setIsModalOpen(true);
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
-    setProcessMessage(editingAppointment ? 'Updating...' : 'Creating...');
     try {
-      const payload = {
-        ...formData,
-        patientId: parseInt(formData.patientId),
-        staffId: parseInt(formData.staffId),
-        datetime: `${formData.date}T${formData.time}`
-      };
-
-      if (editingAppointment) {
-        await api.updateAppointment(editingAppointment.id, payload);
-      } else {
-        await api.createAppointment(payload);
-      }
+      const payload = { ...formData, patientId: parseInt(formData.patientId), staffId: parseInt(formData.staffId), datetime: `${formData.date}T${formData.time}` };
+      if (editingAppointment) await api.updateAppointment(editingAppointment.id, payload);
+      else await api.createAppointment(payload);
       await loadData(true);
       setProcessStatus('success');
-      setProcessMessage(editingAppointment ? 'Updated successfully!' : 'Created successfully!');
-      setTimeout(() => {
-        setIsModalOpen(false);
-        setProcessStatus('idle');
-      }, 1500);
-    } catch (e: any) {
-      setProcessStatus('error');
-      setProcessMessage(e.message || 'Failed to save appointment.');
-      setTimeout(() => setProcessStatus('idle'), 2000);
-    }
-  };
-
-  const changeDate = (offset: number) => {
-    setSelectedDate(prev => {
-      const newDate = new Date(prev);
-      newDate.setDate(newDate.getDate() + offset);
-      return newDate;
-    });
+      setTimeout(() => { setIsModalOpen(false); setProcessStatus('idle'); }, 1500);
+    } catch (e: any) { setProcessStatus('error'); setTimeout(() => setProcessStatus('idle'), 2000); }
   };
 
   return (
     <div className="space-y-6">
-      {/* Loading Overlay */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
@@ -450,21 +293,11 @@ export const Appointments = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('appointments_title')}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t('appointments_subtitle')}</p>
-        </div>
-        {canManage && <Button onClick={openCreateModal} icon={Plus}>{t('appointments_new_button')}</Button>}
-      </div>
-
-      {/* Controls */}
       <Card className="!p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => changeDate(-1)} />
+          <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))} />
           <Input type="date" value={formatDate(selectedDate)} onChange={e => setSelectedDate(new Date(e.target.value))} className="w-auto" />
-          <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => changeDate(1)} />
+          <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))} />
           <Button size="sm" variant="secondary" onClick={() => setSelectedDate(new Date())}>{t('today')}</Button>
         </div>
         <div className="flex items-center bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
@@ -473,40 +306,17 @@ export const Appointments = () => {
         </div>
       </Card>
 
-      {/* Content */}
       {loading ? (
         <div className="text-center py-20 text-slate-400">{t('appointments_loading')}</div>
       ) : viewMode === 'grid' ? (
         <div className="flex gap-6 overflow-x-auto pb-4 custom-scrollbar -mx-6 px-6">
-          {appointmentsByDoctor.length === 0 ? (
-            <div className="flex-1 text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl w-full">
-              <p className="text-slate-500">{t('appointments_empty')}</p>
-            </div>
-          ) : (
-            appointmentsByDoctor.map(({ doctor, appointments }) => (
-              <DoctorQueueColumn 
-                key={doctor.id} 
-                doctor={doctor} 
-                appointments={appointments} 
-                onStatusUpdate={handleStatusUpdate}
-                onCancel={handleCancel}
-                canManage={canManage}
-              />
-            ))
-          )}
+          {appointmentsByDoctor.length === 0 ? (<div className="flex-1 text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl w-full"><p className="text-slate-500">{t('appointments_empty')}</p></div>) : 
+           appointmentsByDoctor.map(({ doctor, appointments }) => (<DoctorQueueColumn key={doctor.id} doctor={doctor} appointments={appointments} onStatusUpdate={handleStatusUpdate} onCancel={handleCancel} canManage={canManage} />))}
         </div>
       ) : (
-        <Card className="!p-0">
-          <ListView 
-            appointments={dailyAppointments} 
-            onEdit={openEditModal} 
-            onCancel={handleCancel}
-            canManage={canManage}
-          />
-        </Card>
+        <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={(apt) => { setEditingAppointment(apt); setIsModalOpen(true); }} onCancel={handleCancel} canManage={canManage} /></Card>
       )}
 
-      {/* Modals */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingAppointment ? t('appointments_modal_edit_title') : t('appointments_modal_new_title')}>
         <form onSubmit={handleFormSubmit} className="space-y-4">
           <Select label={t('appointments_form_select_patient')} required value={formData.patientId} onChange={e => setFormData({...formData, patientId: e.target.value})}>
@@ -522,26 +332,14 @@ export const Appointments = () => {
             <Input label={t('time')} type="time" required value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
           </div>
           <Select label={t('appointments_form_type')} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
-            <option>Consultation</option>
-            <option>Follow-up</option>
-            <option>Emergency</option>
+            <option>Consultation</option><option>Follow-up</option><option>Emergency</option>
           </Select>
           <Textarea label={t('reason')} value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
-          <div className="flex justify-end pt-4 gap-3">
-            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit">{t('save')}</Button>
-          </div>
+          <div className="flex justify-end pt-4 gap-3"><Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button><Button type="submit">{t('save')}</Button></div>
         </form>
       </Modal>
       
-      <ConfirmationDialog
-        isOpen={confirmState.isOpen}
-        onClose={() => setConfirmState({...confirmState, isOpen: false})}
-        onConfirm={confirmState.action}
-        title={confirmState.title}
-        message={confirmState.message}
-        type="danger"
-      />
+      <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({...confirmState, isOpen: false})} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message} />
     </div>
   );
 };
