@@ -12,7 +12,7 @@ const apiRoutes = require('./src/routes/api');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.set('trust proxy', 1); // Crucial for Railway
+app.set('trust proxy', 1); // Crucial for Railway and other proxy-based deployments
 
 // Initialize DB
 try {
@@ -48,12 +48,14 @@ app.use(cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json());
 
-// Rate Limiting - Increased limit to prevent 429s during burst loads
+// Rate Limiting - Increased to 10,000 and reduced window to 5 mins 
+// to prevent 429s during burst loads in shared testing environments
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 2000, // Increased from 300
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 10000, 
   standardHeaders: true,
   legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
 });
 app.use('/api', apiLimiter);
 

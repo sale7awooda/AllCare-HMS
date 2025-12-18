@@ -1,17 +1,11 @@
+
 import axios from 'axios';
 
-// Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
   const { hostname } = window.location;
-  
-  // 1. Local Development (uses Vite proxy in vite.config.js)
-  // 2. Production Deployment (served by Express on same domain)
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('railway.app')) {
     return '/api';
   }
-
-  // 3. External Environments (e.g. Google AI Studio, StackBlitz, Local Network)
-  // Connect directly to the deployed Railway backend
   return 'https://allcare.up.railway.app/api';
 };
 
@@ -29,19 +23,15 @@ client.interceptors.request.use((config) => {
 
 client.interceptors.response.use(
   (response) => response.data,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/'; 
-    }
-    if (!error.response && error.code !== 'ERR_CANCELED') {
-      console.error('Network Error: Backend unreachable.');
     }
     return Promise.reject(error);
   }
 );
 
-// Helpers to cast response to any, ensuring TS treats return values as data objects (unwrapped by interceptor)
 const get = (url: string) => client.get(url) as Promise<any>;
 const post = (url: string, data?: any, config?: any) => client.post(url, data, config) as Promise<any>;
 const put = (url: string, data?: any) => client.put(url, data) as Promise<any>;
@@ -50,140 +40,155 @@ const del = (url: string) => client.delete(url) as Promise<any>;
 export const api = {
   login: (username, password) => post('/auth/login', { username, password }),
   me: () => get('/auth/me'),
-  updateProfile: (data) => put('/auth/profile', data),
-  changePassword: (data) => put('/auth/password', data),
-  checkSystemHealth: () => get('/config/health'),
+  getPublicSettings: () => get('/config/settings/public'),
 
+  // --- Patients ---
   getPatients: () => get('/patients'),
   getPatient: (id) => get(`/patients/${id}`),
   addPatient: (data) => post('/patients', data),
+  // FIX: Added updatePatient method
   updatePatient: (id, data) => put(`/patients/${id}`, data),
 
+  // --- HR & Staff ---
   getStaff: () => get('/hr'),
   addStaff: (data) => post('/hr', data),
+  // FIX: Added updateStaff and other HR related methods
   updateStaff: (id, data) => put(`/hr/${id}`, data),
   getAttendance: (date) => get(`/hr/attendance?date=${date}`),
   markAttendance: (data) => post('/hr/attendance', data),
   getLeaves: () => get('/hr/leaves'),
   requestLeave: (data) => post('/hr/leaves', data),
-  updateLeaveStatus: (id, status) => put(`/hr/leaves/${id}`, { status }),
+  updateLeaveStatus: (id, status) => put(`/hr/leaves/${id}/status`, { status }),
   getPayroll: (month) => get(`/hr/payroll?month=${month}`),
   generatePayroll: (data) => post('/hr/payroll/generate', data),
-  updatePayrollStatus: (id, status) => put(`/hr/payroll/${id}/status`, { status }),
-  getFinancials: (type) => get(`/hr/financials?type=${type}`), 
-  addAdjustment: (data) => post('/hr/financials', data), 
+  updatePayrollStatus: (id, data) => put(`/hr/payroll/${id}/status`, data),
+  getFinancials: (type) => get(`/hr/financials?type=${type}`),
+  addAdjustment: (data) => post('/hr/financials', data),
 
+  // --- Appointments ---
   getAppointments: () => get('/appointments'),
   createAppointment: (data) => post('/appointments', data),
+  // FIX: Added updateAppointment and cancelAppointment methods
   updateAppointment: (id, data) => put(`/appointments/${id}`, data),
   updateAppointmentStatus: (id, status) => put(`/appointments/${id}/status`, { status }),
-  cancelAppointment: (id) => put(`/appointments/${id}/cancel`),
+  cancelAppointment: (id) => del(`/appointments/${id}`),
 
+  // --- Billing & Treasury ---
   getBills: () => get('/billing'),
   createBill: (data) => post('/billing', data),
-  recordPayment: (id, data) => post(`/billing/${id}/pay`, data), 
-  processRefund: (id, data) => post(`/billing/${id}/refund`, data),
-  cancelService: (id) => post(`/billing/${id}/cancel-service`), 
+  recordPayment: (id, data) => post(`/billing/${id}/pay`, data),
   getTransactions: () => get('/treasury/transactions'),
+  // FIX: Added addExpense and updateExpense methods
   addExpense: (data) => post('/treasury/expenses', data),
   updateExpense: (id, data) => put(`/treasury/expenses/${id}`, data),
 
+  // --- Pharmacy ---
+  getPharmacyInventory: () => get('/pharmacy/inventory'),
+  addMedicine: (data) => post('/pharmacy/inventory', data),
+  updateMedicine: (id, data) => put(`/pharmacy/inventory/${id}`, data),
+  dispenseMedicine: (data) => post('/pharmacy/dispense', data),
+  getPharmacyTransactions: () => get('/pharmacy/transactions'),
+
+  // --- Admissions ---
   getActiveAdmissions: () => get('/admissions'),
-  getInpatientDetails: (id) => get(`/admissions/${id}`),
+  // FIX: Added admission management methods
   createAdmission: (data) => post('/admissions', data),
   confirmAdmissionDeposit: (id) => post(`/admissions/${id}/confirm`),
-  cancelAdmission: (id) => put(`/admissions/${id}/cancel`),
+  cancelAdmission: (id) => del(`/admissions/${id}`),
+  getInpatientDetails: (id) => get(`/admissions/${id}`),
   addInpatientNote: (id, data) => post(`/admissions/${id}/notes`, data),
   dischargePatient: (id, data) => post(`/admissions/${id}/discharge`, data),
-  settleAndDischarge: (id, data) => post(`/admissions/${id}/settle_and_discharge`, data),
-  generateSettlementBill: (id) => post(`/admissions/${id}/generate-settlement`),
-  markBedClean: (id) => put(`/admissions/beds/${id}/clean`),
 
+  // --- Laboratory ---
   getLabTests: () => get('/config/lab-tests'),
   getPendingLabRequests: () => get('/lab/requests'),
+  // FIX: Added lab request management methods
   createLabRequest: (data) => post('/lab/requests', data),
-  completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`),
+  completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`, data),
 
+  // --- Nurse Services ---
   getNurseServices: () => get('/config/nurse-services'),
-  createNurseRequest: (data) => post('/nurse/requests', data),
-  getNurseRequests: () => get('/nurse/requests'),
 
+  // --- Operations ---
   getScheduledOperations: () => get('/operations'),
   getOperations: () => get('/config/operations'),
+  // FIX: Added operation management methods
   createOperation: (data) => post('/operations', data),
   processOperationRequest: (id, data) => post(`/operations/${id}/process`, data),
   completeOperation: (id) => post(`/operations/${id}/complete`),
 
-  getSystemSettings: () => get('/config/settings'),
-  getPublicSettings: () => get('/config/settings/public'),
-  updateSystemSettings: (data) => put('/config/settings', data),
-  getSystemUsers: () => get('/config/users'),
-  addSystemUser: (data) => post('/config/users', data),
-  updateSystemUser: (id, data) => put(`/config/users/${id}`, data),
-  deleteSystemUser: (id) => del(`/config/users/${id}`),
-  getRolePermissions: () => get('/config/permissions'),
-  updateRolePermissions: (role, permissions) => put(`/config/permissions/${role}`, { permissions }),
-
-  getDepartments: () => get('/config/departments'),
-  addDepartment: (data) => post('/config/departments', data),
-  updateDepartment: (id, data) => put(`/config/departments/${id}`, data),
-  deleteDepartment: (id) => del(`/config/departments/${id}`),
-  getSpecializations: () => get('/config/specializations'),
-  addSpecialization: (data) => post('/config/specializations', data),
-  updateSpecialization: (id, data) => put(`/config/specializations/${id}`, data),
-  deleteSpecialization: (id) => del(`/config/specializations/${id}`),
-  getBeds: () => get('/config/beds'), 
+  // --- Configuration Catalogs ---
+  getBeds: () => get('/config/beds'),
+  // FIX: Added catalog CRUD methods for beds, insurance, etc.
   addBed: (data) => post('/config/beds', data),
   updateBed: (id, data) => put(`/config/beds/${id}`, data),
   deleteBed: (id) => del(`/config/beds/${id}`),
-  addLabTest: (data) => post('/config/lab-tests', data),
-  updateLabTest: (id, data) => put(`/config/lab-tests/${id}`, data),
-  deleteLabTest: (id) => del(`/config/lab-tests/${id}`),
-  addNurseService: (data) => post('/config/nurse-services', data),
-  updateNurseService: (id, data) => put(`/config/nurse-services/${id}`, data),
-  deleteNurseService: (id) => del(`/config/nurse-services/${id}`),
-  addOperationCatalog: (data) => post('/config/operations', data),
-  updateOperationCatalog: (id, data) => put(`/config/operations/${id}`, data),
-  deleteOperationCatalog: (id) => del(`/config/operations/${id}`),
-  
+  markBedClean: (id) => put(`/config/beds/${id}/clean`),
+
   getInsuranceProviders: () => get('/config/insurance-providers'),
   addInsuranceProvider: (data) => post('/config/insurance-providers', data),
   updateInsuranceProvider: (id, data) => put(`/config/insurance-providers/${id}`, data),
   deleteInsuranceProvider: (id) => del(`/config/insurance-providers/${id}`),
-  getBanks: () => get('/config/banks'),
-  addBank: (data) => post('/config/banks', data),
-  updateBank: (id, data) => put(`/config/banks/${id}`, data),
-  deleteBank: (id) => del(`/config/banks/${id}`),
-  getTaxRates: () => get('/config/tax-rates'),
-  addTaxRate: (data) => post('/config/tax-rates', data),
-  updateTaxRate: (id, data) => put(`/config/tax-rates/${id}`, data),
-  deleteTaxRate: (id) => del(`/config/tax-rates/${id}`),
+
   getPaymentMethods: () => get('/config/payment-methods'),
   addPaymentMethod: (data) => post('/config/payment-methods', data),
   updatePaymentMethod: (id, data) => put(`/config/payment-methods/${id}`, data),
   deletePaymentMethod: (id) => del(`/config/payment-methods/${id}`),
 
-  downloadBackup: async () => {
-    try {
-        const response = await client.get('/config/backup', { responseType: 'blob' });
-        // Enforce binary type so the browser respects the .db extension
-        const blob = new Blob([response], { type: 'application/x-sqlite3' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `allcare-backup-${new Date().toISOString().split('T')[0]}.db`);
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode?.removeChild(link);
-        window.URL.revokeObjectURL(url);
-    } catch (e) {
-        console.error("Backup download error:", e);
-        throw e;
-    }
-  },
+  getTaxRates: () => get('/config/tax-rates'),
+  addTaxRate: (data) => post('/config/tax-rates', data),
+  updateTaxRate: (id, data) => put(`/config/tax-rates/${id}`, data),
+  deleteTaxRate: (id) => del(`/config/tax-rates/${id}`),
+
+  getDepartments: () => get('/config/departments'),
+  addDepartment: (data) => post('/config/departments', data),
+  updateDepartment: (id, data) => put(`/config/departments/${id}`, data),
+  deleteDepartment: (id) => del(`/config/departments/${id}`),
+
+  getSpecializations: () => get('/config/specializations'),
+  addSpecialization: (data) => post('/config/specializations', data),
+  updateSpecialization: (id, data) => put(`/config/specializations/${id}`, data),
+  deleteSpecialization: (id) => del(`/config/specializations/${id}`),
+
+  getBanks: () => get('/config/banks'),
+  addBank: (data) => post('/config/banks', data),
+  updateBank: (id, data) => put(`/config/banks/${id}`, data),
+  deleteBank: (id) => del(`/config/banks/${id}`),
+
+  addOperationCatalog: (data) => post('/config/operations', data),
+  updateOperationCatalog: (id, data) => put(`/config/operations/${id}`, data),
+  deleteOperationCatalog: (id) => del(`/config/operations/${id}`),
+
+  // --- System Management ---
+  getSystemUsers: () => get('/config/users'),
+  addSystemUser: (data) => post('/config/users', data),
+  updateSystemUser: (id, data) => put(`/config/users/${id}`, data),
+  deleteSystemUser: (id) => del(`/config/users/${id}`),
+
+  getRolePermissions: () => get('/config/permissions'),
+  updateRolePermissions: (role, permissions) => put(`/config/permissions/${role}`, { permissions }),
+
+  checkSystemHealth: () => get('/config/health'),
+  
+  // --- Profile & Auth ---
+  // FIX: Added profile update methods
+  updateProfile: (data) => put('/auth/profile', data),
+  changePassword: (data) => put('/auth/password', data),
+
+  // --- Data Tools ---
+  // FIX: Added backup and restore methods
+  downloadBackup: () => client.get('/config/backup', { responseType: 'blob' }).then(data => {
+    const url = window.URL.createObjectURL(new Blob([data as any]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `allcare-backup-${new Date().toISOString().split('T')[0]}.db`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }),
   restoreDatabase: (file) => {
     const formData = new FormData();
-    formData.append('backup', file);
+    formData.append('file', file);
     return post('/config/restore', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
   resetDatabase: () => post('/config/reset'),

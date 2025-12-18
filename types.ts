@@ -1,5 +1,4 @@
 
-
 export type Role = 'admin' | 'receptionist' | 'manager' | 'technician' | 'accountant' | 'doctor' | 'nurse' | 'pharmacist' | 'hr'; 
 
 export interface User {
@@ -213,4 +212,28 @@ export interface PaymentMethod {
   name_en: string;
   name_ar: string;
   isActive: boolean;
+}
+
+export interface Medicine {
+  id: number;
+  name: string;
+  category: string;
+  stock: number;
+  minStock: number;
+  unitPrice: number;
+  expiryDate: string;
+  manufacturer?: string;
+  sku?: string;
+}
+
+export interface PharmacyTransaction {
+  id: number;
+  patientId: number;
+  patientName: string;
+  medicineId: number;
+  medicineName: string;
+  quantity: number;
+  totalPrice: number;
+  dispensedAt: string;
+  pharmacistName: string;
 }

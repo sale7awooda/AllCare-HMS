@@ -425,6 +425,8 @@
   "admissions_go_to_billing": "الذهاب إلى الفواتير",
   "billing_generate_settlement_button": "إنشاء فاتورة التسوية النهائية",
   "admissions_clear_due_balance": "تسوية الرصيد المستحق (${balance})",
+  "admissions_dialog_discharge_title": "تأكيد الخروج النهائي",
+  "admissions_dialog_discharge_message": "هل أنت متأكد من رغبتك في تخريج هذا المريض؟ سيؤدي ذلك إلى إنهاء إقامته وتحديد السرير للتنظيف.",
   "config_title": "تهيئة النظام",
   "config_tab_general": "عام",
   "config_tab_roles": "الأدوار والمستخدمين",

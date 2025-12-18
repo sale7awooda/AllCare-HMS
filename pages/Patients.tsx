@@ -138,14 +138,19 @@ export const Patients = () => {
     }
   };
 
+  // FIX: Load data only once on mount to avoid triggering redundant fetches on location change
   useEffect(() => {
     loadData();
     loadCatalogs();
+  }, []);
+
+  // FIX: Handle triggers separately from data loading
+  useEffect(() => {
     const state = location.state as any;
     if (state?.trigger === 'new' && hasPermissionToCreate) {
       openCreateModal();
     }
-  }, [location.state]);
+  }, [location.state, hasPermissionToCreate]);
 
   const openCreateModal = () => {
     setFormData(initialFormState);
@@ -817,7 +822,16 @@ export const Patients = () => {
                                             const isAvailable = bed.status === 'available';
                                             const isSelected = selectedBed?.id === bed.id;
                                             return (
-                                                <div key={bed.id} onClick={() => isAvailable && setSelectedBed(bed)} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${isSelected ? 'border-primary-500 bg-primary-50 shadow-md ring-2 ring-primary-500/20' : isAvailable ? 'border-slate-100 hover:border-primary-200 cursor-pointer' : 'opacity-40 grayscale bg-slate-50 cursor-not-allowed'}`}>
+                                                <div 
+                                                  key={bed.id} 
+                                                  onClick={() => {
+                                                    if (isAvailable) {
+                                                      setSelectedBed(bed);
+                                                      setActionFormData(prev => ({ ...prev, deposit: bed.costPerDay }));
+                                                    }
+                                                  }} 
+                                                  className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${isSelected ? 'border-primary-500 bg-primary-50 shadow-md ring-2 ring-primary-500/20' : isAvailable ? 'border-slate-100 hover:border-primary-200 cursor-pointer' : 'opacity-40 grayscale bg-slate-50 cursor-not-allowed'}`}
+                                                >
                                                     <Bed size={20} className={isSelected ? 'text-primary-600' : 'text-slate-400'} />
                                                     <span className="text-xs font-black">{bed.roomNumber}</span>
                                                     <span className="text-[10px] font-mono text-slate-500">${formatMoney(bed.costPerDay)}/d</span>

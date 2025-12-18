@@ -314,7 +314,8 @@ exports.getInpatientDetails = (req, res) => {
 
     if (!admission) return res.status(404).json({ error: 'Admission not found' });
 
-    const notes = db.prepare(`SELECT n.*, m.full_name as doctorName FROM inpatient_notes n JOIN medical_staff m ON n.doctor_id = m.id WHERE n.admission_id = ? ORDER BY n.created_at DESC`).all(id);
+    // FIX: Using LEFT JOIN to ensure notes are returned even if doctor record has inconsistencies
+    const notes = db.prepare(`SELECT n.*, m.full_name as doctorName FROM inpatient_notes n LEFT JOIN medical_staff m ON n.doctor_id = m.id WHERE n.admission_id = ? ORDER BY n.created_at DESC`).all(id);
     const endDate = admission.actual_discharge_date ? new Date(admission.actual_discharge_date) : new Date();
     const daysStayed = Math.ceil((endDate.getTime() - new Date(admission.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1;
     const estimatedAccommodationCost = daysStayed * admission.costPerDay;

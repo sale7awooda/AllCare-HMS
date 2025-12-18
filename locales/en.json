@@ -422,6 +422,8 @@
   "admissions_go_to_billing": "Go to Billing",
   "billing_generate_settlement_button": "Generate Final Settlement Bill",
   "admissions_clear_due_balance": "Clear Balance Due (${balance})",
+  "admissions_dialog_discharge_title": "Confirm Final Discharge",
+  "admissions_dialog_discharge_message": "Are you sure you want to discharge this patient? This will finalize their stay and mark the bed for cleaning.",
   "config_title": "System Configuration",
   "config_tab_general": "General",
   "config_tab_roles": "Roles & Users",

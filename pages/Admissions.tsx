@@ -573,7 +573,8 @@ export const Admissions = () => {
                     <Button type="submit" className="w-full" icon={Save}>Add Note to Chart</Button>
                  </form>
                  <div className="space-y-4 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-                    {inpatientDetails.notes?.length === 0 ? (
+                    {/* FIX: Improved empty state check for visibility after add */}
+                    {(inpatientDetails.notes || []).length === 0 ? (
                       <div className="p-10 text-center text-slate-300 font-bold italic">No notes recorded yet.</div>
                     ) : (
                       inpatientDetails.notes.map((note: any) => (
