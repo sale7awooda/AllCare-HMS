@@ -97,22 +97,22 @@ export const Login: React.FC = () => {
       <button
         type="button"
         onClick={() => handleProfileSelect(role)}
-        className={`group relative flex flex-col items-center gap-1.5 transition-all duration-300 ${isActive ? 'scale-105' : 'opacity-80 hover:opacity-100'}`}
+        className={`group relative flex flex-col items-center gap-2 transition-all duration-300 ${isActive ? 'scale-110' : 'opacity-80 hover:opacity-100 hover:scale-105'}`}
       >
         <div className={`
-          w-11 h-11 rounded-xl flex items-center justify-center shadow-sm transition-all duration-300 border
+          w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-all duration-300 border
           ${isActive 
-            ? `bg-gradient-to-br ${color} text-white border-transparent ring-2 ring-primary-100` 
+            ? `bg-gradient-to-br ${color} text-white border-transparent ring-4 ring-primary-100` 
             : 'bg-white border-slate-100 text-slate-400 hover:border-primary-200 hover:text-primary-500 dark:bg-slate-800 dark:border-slate-700'}
         `}>
-          <Icon size={18} className={isActive ? 'animate-pulse' : ''} />
+          <Icon size={20} className={isActive ? 'animate-pulse' : ''} />
           {isActive && (
-            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white text-emerald-600 rounded-full flex items-center justify-center shadow-sm border border-slate-100">
-              <Check size={9} strokeWidth={4} />
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-white text-emerald-600 rounded-full flex items-center justify-center shadow-sm border border-slate-100">
+              <Check size={10} strokeWidth={4} />
             </div>
           )}
         </div>
-        <span className={`text-[9px] font-bold uppercase tracking-wider ${isActive ? 'text-primary-700 dark:text-primary-400' : 'text-slate-400 group-hover:text-primary-600'}`}>
+        <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-primary-700 dark:text-primary-400' : 'text-slate-400 group-hover:text-primary-600'}`}>
           {label}
         </span>
       </button>
@@ -130,64 +130,64 @@ export const Login: React.FC = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-400/10 blur-3xl animate-pulse delay-700" />
       </div>
 
-      <div className="relative z-10 w-full max-w-md px-4 py-4">
+      <div className="relative z-10 w-full max-w-md px-4">
         <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/60 dark:border-slate-800/60 rounded-3xl shadow-2xl overflow-hidden ring-1 ring-slate-900/5 transition-all">
           
-          <div className="px-6 pt-6 pb-4 text-center border-b border-slate-100 dark:border-slate-800">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-md shadow-primary-500/20 mb-3 text-white">
-              <Activity size={24} />
+          <div className="px-8 pt-8 pb-6 text-center border-b border-slate-100 dark:border-slate-800">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/20 mb-4 text-white">
+              <Activity size={28} />
             </div>
-            <h1 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{hospitalInfo.name}</h1>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{hospitalInfo.name}</h1>
             
-            <div className="mt-2 space-y-0.5">
-              <div className="flex items-center justify-center gap-1 text-slate-500 dark:text-slate-400 text-[11px] font-medium">
-                <MapPin size={10} className="text-primary-500" />
+            <div className="mt-3 space-y-1">
+              <div className="flex items-center justify-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs font-medium">
+                <MapPin size={12} className="text-primary-500" />
                 <span>{hospitalInfo.address}</span>
               </div>
-              <div className="flex items-center justify-center gap-1 text-slate-500 dark:text-slate-400 text-[11px] font-medium">
-                <PhoneCall size={10} className="text-primary-500" />
+              <div className="flex items-center justify-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs font-medium">
+                <PhoneCall size={12} className="text-primary-500" />
                 <span>{hospitalInfo.phone}</span>
               </div>
             </div>
           </div>
 
-          <div className="px-6 py-5">
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="p-8">
+            <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <div className="p-2.5 rounded-xl bg-red-50 border border-red-100 flex items-center gap-2.5 text-red-600 text-xs animate-in shake duration-300">
-                  <AlertCircle size={14} className="shrink-0" />
+                <div className="p-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm animate-in shake duration-300">
+                  <AlertCircle size={16} className="shrink-0" />
                   {error}
                 </div>
               )}
 
-              <div className="space-y-3.5">
+              <div className="space-y-4">
                 <div className="group">
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 ml-1">{t('login_id_label')}</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">{t('login_id_label')}</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
-                      <UserIcon size={16} />
+                      <UserIcon size={18} />
                     </div>
                     <input
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="block w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-700 transition-all shadow-sm"
+                      className="block w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-700 transition-all shadow-sm"
                       placeholder={t('login_id_placeholder')}
                     />
                   </div>
                 </div>
 
                 <div className="group">
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 ml-1">{t('login_password_label')}</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">{t('login_password_label')}</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
-                      <Lock size={16} />
+                      <Lock size={18} />
                     </div>
                     <input
                       type={passwordVisible ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-700 transition-all shadow-sm"
+                      className="block w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-700 transition-all shadow-sm"
                       placeholder={t('login_password_placeholder')}
                     />
                     <button
@@ -195,48 +195,48 @@ export const Login: React.FC = () => {
                       onClick={() => setPasswordVisible(!passwordVisible)}
                       className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none"
                     >
-                      {passwordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-0.5">
+              <div className="flex items-center justify-between pt-1">
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500 transition-all"
+                    className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 transition-all"
                   />
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium group-hover:text-slate-700 dark:group-hover:text-slate-200">{t('login_remember_me')}</span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400 font-medium group-hover:text-slate-700 dark:group-hover:text-slate-200">{t('login_remember_me')}</span>
                 </label>
-                <a href="#" className="text-xs text-primary-600 hover:text-primary-700 font-bold transition-colors">{t('login_help')}</a>
+                <a href="#" className="text-sm text-primary-600 hover:text-primary-700 font-bold transition-colors">{t('login_help')}</a>
               </div>
 
               <button
                 type="submit"
                 disabled={loading || !username || !password}
-                className="w-full py-3 px-4 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white text-sm font-bold rounded-xl shadow-md transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
+                className="w-full py-4 px-4 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white font-bold rounded-xl shadow-lg shadow-primary-500/25 transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
               >
                 {loading ? (
                   <>
-                    <RefreshCw className="animate-spin" size={16}/>
+                    <RefreshCw className="animate-spin" size={18}/>
                     <span>{t('login_verifying')}</span>
                   </>
                 ) : (
                   <>
                     <span>{t('login_button')}</span>
-                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform rtl:group-hover:-translate-x-1" />
+                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform rtl:group-hover:-translate-x-1" />
                   </>
                 )}
               </button>
             </form>
           </div>
 
-          <div className="bg-slate-50/80 dark:bg-slate-900/40 p-5 border-t border-slate-100 dark:border-slate-800">
-            <p className="text-center text-[9px] text-slate-400 dark:text-slate-500 mb-3.5 font-black uppercase tracking-widest">{t('login_quick_select_title')}</p>
-            <div className="grid grid-cols-3 gap-y-4 gap-x-1.5 px-1">
+          <div className="bg-slate-50/80 dark:bg-slate-900/40 p-6 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mb-4 font-black uppercase tracking-widest">{t('login_quick_select_title')}</p>
+            <div className="grid grid-cols-3 gap-y-6 gap-x-2 px-2">
               <QuickProfile role="admin" label={t('login_profile_admin')} icon={ShieldCheck} color="from-rose-500 to-red-600" />
               <QuickProfile role="doctor" label={t('staff_role_doctor')} icon={Stethoscope} color="from-blue-600 to-indigo-600" />
               <QuickProfile role="manager" label={t('login_profile_manager')} icon={LayoutDashboard} color="from-orange-500 to-amber-500" />
@@ -247,12 +247,12 @@ export const Login: React.FC = () => {
           </div>
         </div>
         
-        <div className="mt-5 flex flex-col items-center gap-1.5">
-           <div className="flex items-center gap-2 text-slate-400 dark:text-slate-600 text-[9px] font-bold uppercase tracking-widest">
-              <Database size={9} />
+        <div className="mt-8 flex flex-col items-center gap-2">
+           <div className="flex items-center gap-2 text-slate-400 dark:text-slate-600 text-[10px] font-bold uppercase tracking-widest">
+              <Database size={10} />
               <span>{t('login_footer_text')}</span>
            </div>
-           <p className="text-slate-400 dark:text-slate-500 text-[9px] font-bold uppercase tracking-tight">
+           <p className="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-tight">
              {t('login_developer_credit')} • 0909018730
            </p>
         </div>

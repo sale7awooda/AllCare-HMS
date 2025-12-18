@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
@@ -129,7 +128,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                   {apt.status === 'pending' && !isPaid && (<p className="text-xs font-semibold text-orange-500 mt-1">{t('appointments_queue_payment_needed')}</p>)}
                   {canManage && (
                     <div className="flex gap-2 mt-3">
-                        {/* FIX: Changed handleCancel(apt.id) to onCancel(apt.id) which is provided via props */}
+                        {/* FIX: Changed handleCancel to onCancel which is available as a prop */}
                         <Button size="sm" variant="danger" onClick={() => onCancel(apt.id)} icon={X} className="flex-1">{t('cancel')}</Button>
                         {isPaid && (<Button size="sm" variant={isFirstWaiting ? 'primary' : 'outline'} className="flex-1" onClick={() => onStatusUpdate(apt.id, 'in_progress', apt.patientName)} disabled={!isFirstWaiting} icon={Play}>{t('appointments_queue_start_button')}</Button>)}
                     </div>
