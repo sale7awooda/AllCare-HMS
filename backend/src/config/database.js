@@ -58,7 +58,6 @@ const initDB = (forceReset = false) => {
   `).run();
 
   // --- 2. Medical Staff ---
-  // UPDATED: Added 'onleave' to status check constraint
   db.prepare(`
     CREATE TABLE IF NOT EXISTS medical_staff (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,7 +128,24 @@ const initDB = (forceReset = false) => {
   // --- 4. HR ---
   db.prepare(`CREATE TABLE IF NOT EXISTS hr_attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, date DATE NOT NULL, status TEXT, check_in TIME, check_out TIME, FOREIGN KEY(staff_id) REFERENCES medical_staff(id))`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS hr_leaves (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, type TEXT, start_date DATE, end_date DATE, reason TEXT, status TEXT, FOREIGN KEY(staff_id) REFERENCES medical_staff(id))`).run();
-  db.prepare(`CREATE TABLE IF NOT EXISTS hr_payroll (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, month TEXT, base_salary REAL, total_bonuses REAL, total_fines REAL, net_salary REAL, status TEXT, generated_at DATETIME, FOREIGN KEY(staff_id) REFERENCES medical_staff(id))`).run();
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS hr_payroll (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, 
+      staff_id INTEGER NOT NULL, 
+      month TEXT, 
+      base_salary REAL, 
+      total_bonuses REAL, 
+      total_fines REAL, 
+      net_salary REAL, 
+      status TEXT, 
+      generated_at DATETIME,
+      payment_method TEXT,
+      transaction_ref TEXT,
+      payment_notes TEXT,
+      payment_date DATETIME,
+      FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
+    )
+  `).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS hr_financials (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, type TEXT, amount REAL, reason TEXT, date DATE, status TEXT, FOREIGN KEY(staff_id) REFERENCES medical_staff(id))`).run();
 
   // --- 5. Billing ---

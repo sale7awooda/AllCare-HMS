@@ -94,7 +94,6 @@ exports.update = (req, res) => {
   const bankDetailsJson = bankDetails ? JSON.stringify(bankDetails) : null;
 
   try {
-    // Explicitly update address column
     db.prepare(`
       UPDATE medical_staff SET
         full_name = ?, type = ?, department = ?, specialization = ?,
@@ -127,14 +126,13 @@ exports.getAttendance = (req, res) => {
       WHERE a.date = ?
     `).all(date);
     
-    // Map to frontend expectation
     const mapped = records.map(r => ({
       id: r.id,
       staffId: r.staff_id,
       staffName: r.staffName,
       date: r.date,
       status: r.status,
-      checkIn: r.check_in ? r.check_in.slice(0, 5) : '', // HH:MM
+      checkIn: r.check_in ? r.check_in.slice(0, 5) : '', 
       checkOut: r.check_out ? r.check_out.slice(0, 5) : ''
     }));
     res.json(mapped);
@@ -150,7 +148,6 @@ exports.markAttendance = (req, res) => {
     const existing = db.prepare('SELECT id FROM hr_attendance WHERE staff_id = ? AND date = ?').get(staffId, date);
     
     if (existing) {
-      // Update
       let query = 'UPDATE hr_attendance SET status = ?';
       const params = [status];
       if (checkIn) { query += ', check_in = ?'; params.push(checkIn); }
@@ -159,7 +156,6 @@ exports.markAttendance = (req, res) => {
       params.push(existing.id);
       db.prepare(query).run(...params);
     } else {
-      // Insert
       db.prepare(`
         INSERT INTO hr_attendance (staff_id, date, status, check_in, check_out)
         VALUES (?, ?, ?, ?, ?)
@@ -267,6 +263,7 @@ exports.getPayroll = (req, res) => {
       FROM hr_payroll p
       JOIN medical_staff m ON p.staff_id = m.id
       WHERE p.month = ?
+      ORDER BY p.generated_at DESC
     `).all(month);
     
     res.json(records.map(p => ({
@@ -279,7 +276,11 @@ exports.getPayroll = (req, res) => {
       totalFines: p.total_fines,
       netSalary: p.net_salary,
       status: p.status,
-      generatedAt: p.generated_at
+      generatedAt: p.generated_at,
+      paymentMethod: p.payment_method,
+      transactionRef: p.transaction_ref,
+      paymentNotes: p.payment_notes,
+      paymentDate: p.payment_date
     })));
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -290,36 +291,34 @@ exports.generatePayroll = (req, res) => {
   const { month } = req.body; // YYYY-MM
   
   const tx = db.transaction(() => {
-    // 1. Clear existing draft payroll for this month
-    db.prepare("DELETE FROM hr_payroll WHERE month = ? AND status = 'draft'").run(month);
+    // Logic Improvement:
+    // 1. We no longer wipe all drafts. We keep existing paid records.
+    // 2. We calculate what the current month totals SHOULD be.
+    // 3. We create or update a delta draft for any difference between what's needed and what's already created.
     
-    // 2. Get active staff
-    const staff = db.prepare("SELECT id, base_salary FROM medical_staff WHERE status = 'active'").all();
+    const staff = db.prepare("SELECT id, full_name, base_salary FROM medical_staff WHERE status = 'active'").all();
     
     for (const s of staff) {
       const baseSalary = s.base_salary || 0;
-      const dailyRate = baseSalary / 30; // Standard 30-day calculation
+      const dailyRate = baseSalary / 30;
 
-      // A. Calculate Manual Financial Adjustments (Loans, Manual Fines, Bonuses)
+      // A. Calculate Adjustments (Bonuses/Fines/Loans)
       const adjustments = db.prepare(`
         SELECT type, amount FROM hr_financials 
         WHERE staff_id = ? AND strftime('%Y-%m', date) = ?
       `).all(s.id, month);
       
-      const manualBonuses = adjustments.filter(a => a.type === 'bonus').reduce((acc, a) => acc + a.amount, 0);
-      const manualFines = adjustments.filter(a => a.type === 'fine' || a.type === 'loan').reduce((acc, a) => acc + a.amount, 0);
+      const currentBonuses = adjustments.filter(a => a.type === 'bonus').reduce((acc, a) => acc + a.amount, 0);
+      const currentFinesAdjust = adjustments.filter(a => a.type === 'fine' || a.type === 'loan').reduce((acc, a) => acc + a.amount, 0);
       
       // B. Calculate Attendance-based Fines
-      // Fetch approved leaves for exclusion
       const leaves = db.prepare("SELECT start_date, end_date FROM hr_leaves WHERE staff_id = ? AND status = 'approved'").all(s.id);
-      
       const isExcused = (dateStr) => {
           const d = new Date(dateStr);
+          d.setHours(12,0,0,0);
           return leaves.some(l => {
               const start = new Date(l.start_date);
               const end = new Date(l.end_date);
-              // Normalize times to avoid timezone issues during comparison
-              d.setHours(12,0,0,0);
               start.setHours(12,0,0,0);
               end.setHours(12,0,0,0);
               return d >= start && d <= end;
@@ -331,32 +330,55 @@ exports.generatePayroll = (req, res) => {
         WHERE staff_id = ? AND strftime('%Y-%m', date) = ?
       `).all(s.id, month);
 
-      // Only count absence if NOT excused
       const unexcusedAbsences = attendance.filter(a => a.status === 'absent' && !isExcused(a.date)).length;
       const lateCount = attendance.filter(a => a.status === 'late').length;
+      const currentAttendanceFines = (unexcusedAbsences * dailyRate) + (Math.floor(lateCount / 2) * (dailyRate * 0.5));
 
-      const absentDeduction = unexcusedAbsences * dailyRate; 
-      // 2 Lates = 0.5 day deduction
-      const latePairs = Math.floor(lateCount / 2);
-      const lateDeduction = latePairs * (dailyRate * 0.5); 
-      
-      const attendanceFines = absentDeduction + lateDeduction;
+      // C. Target Monthly Total
+      const totalDeservedFines = currentFinesAdjust + currentAttendanceFines;
+      const totalDeservedBonuses = currentBonuses;
+      const targetNet = Math.max(0, baseSalary + totalDeservedBonuses - totalDeservedFines);
 
-      // C. Totals
-      const totalFines = manualFines + attendanceFines;
-      const totalBonuses = manualBonuses;
-      const netSalary = Math.max(0, baseSalary + totalBonuses - totalFines);
+      // D. Find what's already accounted for (Sum of all existing records for this month/staff)
+      const existingRecords = db.prepare("SELECT SUM(net_salary) as totalNet, SUM(base_salary) as totalBase, SUM(total_bonuses) as totalBonuses, SUM(total_fines) as totalFines FROM hr_payroll WHERE staff_id = ? AND month = ?").get(s.id, month);
       
-      db.prepare(`
-        INSERT INTO hr_payroll (staff_id, month, base_salary, total_bonuses, total_fines, net_salary, status)
-        VALUES (?, ?, ?, ?, ?, ?, 'draft')
-      `).run(s.id, month, baseSalary, totalBonuses, totalFines, netSalary);
+      const accountedNet = existingRecords.totalNet || 0;
+      const accountedBase = existingRecords.totalBase || 0;
+      const accountedBonuses = existingRecords.totalBonuses || 0;
+      const accountedFines = existingRecords.totalFines || 0;
+
+      const deltaNet = targetNet - accountedNet;
+      const deltaBase = baseSalary - accountedBase;
+      const deltaBonuses = totalDeservedBonuses - accountedBonuses;
+      const deltaFines = totalDeservedFines - accountedFines;
+
+      // If there is a delta, create or update a DRAFT record
+      if (Math.abs(deltaNet) > 0.01) {
+          const existingDraft = db.prepare("SELECT id FROM hr_payroll WHERE staff_id = ? AND month = ? AND status = 'draft'").get(s.id, month);
+          
+          if (existingDraft) {
+            db.prepare(`
+              UPDATE hr_payroll SET 
+                base_salary = base_salary + ?, 
+                total_bonuses = total_bonuses + ?, 
+                total_fines = total_fines + ?, 
+                net_salary = net_salary + ?,
+                generated_at = datetime('now')
+              WHERE id = ?
+            `).run(deltaBase, deltaBonuses, deltaFines, deltaNet, existingDraft.id);
+          } else {
+            db.prepare(`
+              INSERT INTO hr_payroll (staff_id, month, base_salary, total_bonuses, total_fines, net_salary, status, generated_at)
+              VALUES (?, ?, ?, ?, ?, ?, 'draft', datetime('now'))
+            `).run(s.id, month, deltaBase, deltaBonuses, deltaFines, deltaNet);
+          }
+      }
     }
   });
 
   try {
     tx();
-    res.json({ success: true, message: 'Payroll generated successfully with excused absences excluded.' });
+    res.json({ success: true, message: 'Payroll delta calculations completed.' });
   } catch(e) {
     console.error(e);
     res.status(500).json({ error: e.message });
@@ -365,11 +387,48 @@ exports.generatePayroll = (req, res) => {
 
 exports.updatePayrollStatus = (req, res) => {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, paymentMethod, transactionRef, notes } = req.body;
+    
+    const tx = db.transaction(() => {
+        const record = db.prepare(`
+            SELECT p.*, m.full_name as staffName 
+            FROM hr_payroll p 
+            JOIN medical_staff m ON p.staff_id = m.id 
+            WHERE p.id = ?
+        `).get(id);
+
+        if (!record) throw new Error('Record not found.');
+
+        // Update Payroll Table
+        db.prepare(`
+            UPDATE hr_payroll 
+            SET status = ?, 
+                payment_method = ?, 
+                transaction_ref = ?, 
+                payment_notes = ?, 
+                payment_date = datetime('now') 
+            WHERE id = ?
+        `).run(status, paymentMethod || null, transactionRef || null, notes || null, id);
+
+        // Sync with Treasury if marked as Paid
+        if (status === 'paid') {
+            db.prepare(`
+                INSERT INTO transactions (type, category, amount, method, reference_id, date, description)
+                VALUES ('expense', 'Staff Salaries', ?, ?, ?, datetime('now'), ?)
+            `).run(
+                record.net_salary, 
+                paymentMethod || 'Cash', 
+                id, 
+                `Salary Disbursement for ${record.staffName} (${record.month})`
+            );
+        }
+    });
+
     try {
-        db.prepare('UPDATE hr_payroll SET status = ? WHERE id = ?').run(status, id);
+        tx();
         res.json({ success: true });
     } catch(e) {
+        console.error(e);
         res.status(500).json({ error: e.message });
     }
 };
