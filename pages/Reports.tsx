@@ -245,6 +245,33 @@ export const Reports = () => {
     const filteredAppts = filterByDate(appointments, 'datetime');
     const filteredBills = filterByDate(bills, 'date');
 
+    // FIX: Added chartData calculation to resolve the "Property 'chartData' does not exist" error.
+    const dateMap = new Map<string, { name: string; patients: number; appointments: number; bills: number; timestamp: number }>();
+    const daySpan = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 3600 * 24));
+    const isLargeRange = daySpan > 60;
+
+    const getGroupData = (dateStr: string) => {
+        const d = new Date(dateStr);
+        const groupDate = new Date(d);
+        if (isLargeRange) groupDate.setDate(1);
+        groupDate.setHours(0, 0, 0, 0);
+        
+        const key = isLargeRange 
+            ? d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+            : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            
+        if (!dateMap.has(key)) {
+            dateMap.set(key, { name: key, patients: 0, appointments: 0, bills: 0, timestamp: groupDate.getTime() });
+        }
+        return dateMap.get(key)!;
+    };
+
+    filteredPatients.forEach(p => { getGroupData(p.createdAt).patients++; });
+    filteredAppts.forEach(a => { getGroupData(a.datetime).appointments++; });
+    filteredBills.forEach(b => { getGroupData(b.date).bills++; });
+
+    const chartData = Array.from(dateMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+
     // Recent Activity Feed
     const activity = [
         ...filteredPatients.map(p => ({ 
@@ -282,7 +309,8 @@ export const Reports = () => {
             appointments: filteredAppts.length,
             bills: filteredBills.length
         },
-        activity
+        activity,
+        chartData
     };
   }, [patients, appointments, bills, dateRange, t]);
 

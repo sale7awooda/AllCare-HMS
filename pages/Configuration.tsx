@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -55,7 +54,14 @@ export const Configuration = () => {
   }>({ isOpen: false, title: '', message: '', action: () => {} });
 
   // Data States
-  const [settings, setSettings] = useState({ hospitalName: '', hospitalAddress: '', hospitalPhone: '', currency: '$' });
+  // Modified Settings state to initialize from localStorage or hardcoded defaults (No DB)
+  const [settings, setSettings] = useState({ 
+    hospitalName: localStorage.getItem('h_name') || 'AllCare Hospital', 
+    hospitalAddress: localStorage.getItem('h_address') || 'atbara ,the big marker', 
+    hospitalPhone: localStorage.getItem('h_phone') || '0987654321', 
+    currency: '$' 
+  });
+  
   const [healthData, setHealthData] = useState<any>(null);
   const [testLogs, setTestLogs] = useState<string[]>([]);
   const [isTesting, setIsTesting] = useState(false);
@@ -95,8 +101,7 @@ export const Configuration = () => {
   const loadAllData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [s, d, sp, b, l, n, o, ip, bn, u, t, p, rPerms] = await Promise.all([
-        api.getSystemSettings(),
+      const [d, sp, b, l, n, o, ip, bn, u, t, p, rPerms] = await Promise.all([
         api.getDepartments(),
         api.getSpecializations(),
         api.getBeds(), 
@@ -110,7 +115,9 @@ export const Configuration = () => {
         api.getPaymentMethods(),
         api.getRolePermissions()
       ]);
-      if (s) setSettings(prev => ({ ...prev, hospitalName: s.hospitalName || '', hospitalAddress: s.hospitalAddress || '', hospitalPhone: s.hospitalPhone || '', currency: s.currency || '$' }));
+      
+      // General settings (Identity fields) are handled exclusively via localStorage now
+      
       setDepartments(Array.isArray(d) ? d : []);
       setSpecializations(Array.isArray(sp) ? sp : []);
       setBeds(Array.isArray(b) ? b : []);
@@ -151,10 +158,20 @@ export const Configuration = () => {
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    handleAction(async () => {
-      await api.updateSystemSettings(settings);
-      if (settings.hospitalName) localStorage.setItem('hospital_name', settings.hospitalName);
-    }, t('config_toast_settings_saved'));
+    setProcessStatus('processing');
+    setProcessMessage(t('processing'));
+    
+    // Save to LocalStorage ONLY - as per requirement that it has nothing to do with the database
+    localStorage.setItem('h_name', settings.hospitalName);
+    localStorage.setItem('h_address', settings.hospitalAddress);
+    localStorage.setItem('h_phone', settings.hospitalPhone);
+    localStorage.setItem('hospital_name', settings.hospitalName); // Legacy support for dashboard
+    
+    setTimeout(() => {
+        setProcessStatus('success');
+        setProcessMessage(t('config_toast_settings_saved'));
+        setTimeout(() => setProcessStatus('idle'), 1500);
+    }, 500);
   };
 
   // User Handlers
@@ -190,7 +207,6 @@ export const Configuration = () => {
   // Bed Handlers
   const openBedModal = (bed?: BedType) => {
     setEditingBedId(bed ? bed.id : null);
-    // Ensure default values to prevent uncontrolled input issues
     setBedForm(bed ? { ...bed } : { roomNumber: '', type: 'General', status: 'available', costPerDay: 0 });
     setIsBedModalOpen(true);
   };
@@ -239,15 +255,17 @@ export const Configuration = () => {
     setFinanceForm(item ? { ...item } : { name_en: '', name_ar: '', isActive: true });
     setIsFinanceModalOpen(true);
   };
+
   const handleFinanceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleAction(async () => {
+      const financeApi = api as any;
       if (financeTab === 'tax') {
-        if (editingFinanceId) await api.updateTaxRate(editingFinanceId, financeForm);
-        else await api.addTaxRate(financeForm);
+        if (editingFinanceId) await financeApi.updateTaxRate(editingFinanceId, financeForm);
+        else await financeApi.addTaxRate(financeForm);
       } else {
-        if (editingFinanceId) await api.updatePaymentMethod(editingFinanceId, financeForm);
-        else await api.addPaymentMethod(financeForm);
+        if (editingFinanceId) await financeApi.updatePaymentMethod(editingFinanceId, financeForm);
+        else await financeApi.addPaymentMethod(financeForm);
       }
       setIsFinanceModalOpen(false);
     }, editingFinanceId ? t('config_toast_item_updated') : t('config_toast_item_added'));
@@ -312,7 +330,6 @@ export const Configuration = () => {
     }
   };
 
-  // --- DYNAMIC CATALOG CONFIGURATION ---
   const catalogMetadata: Record<CatalogType, any> = {
     dept: {
       label: t('config_catalog_dept'),
@@ -447,6 +464,11 @@ export const Configuration = () => {
           <>
             {activeTab === 'general' && (
               <form onSubmit={handleSaveSettings} className="max-w-xl space-y-6 animate-in fade-in">
+                <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30 mb-4">
+                  <p className="text-sm text-blue-800 dark:text-blue-300">
+                    Hospital identity details are stored locally in the browser to isolate the system profile from clinical data.
+                  </p>
+                </div>
                 <Input label={t('config_general_hospital_name')} value={settings.hospitalName} onChange={e => setSettings({...settings, hospitalName: e.target.value})} />
                 <Input label={t('config_general_address')} value={settings.hospitalAddress} onChange={e => setSettings({...settings, hospitalAddress: e.target.value})} />
                 <Input label={t('settings_profile_phone')} value={settings.hospitalPhone} onChange={e => setSettings({...settings, hospitalPhone: e.target.value})} />
@@ -560,12 +582,13 @@ export const Configuration = () => {
                 {financeTab === 'tax' ? (
                   <div>
                     <div className="flex justify-end mb-4"><Button size="sm" icon={Plus} onClick={() => openFinanceModal('tax')}>{t('add')}</Button></div>
-                    {taxes.map(t => (
-                        <div key={t.id} className="flex justify-between items-center py-2 border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-2 rounded transition-colors">
-                            <span>{t.name_en} ({t.rate}%)</span>
+                    {/* FIX: Renamed 't' to 'taxItem' to avoid shadowing translation function 't' */}
+                    {taxes.map(taxItem => (
+                        <div key={taxItem.id} className="flex justify-between items-center py-2 border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-2 rounded transition-colors">
+                            <span>{taxItem.name_en} ({taxItem.rate}%)</span>
                             <div className="flex gap-2">
-                                <Button size="sm" variant="ghost" onClick={() => openFinanceModal('tax', t)} icon={Edit}>{t('edit')}</Button>
-                                <Button size="sm" variant="danger" onClick={() => handleDeleteFinance(t.id, 'tax')} icon={Trash2}>{t('delete')}</Button>
+                                <Button size="sm" variant="ghost" onClick={() => openFinanceModal('tax', taxItem)} icon={Edit}>{t('edit')}</Button>
+                                <Button size="sm" variant="danger" onClick={() => handleDeleteFinance(taxItem.id, 'tax')} icon={Trash2}>{t('delete')}</Button>
                             </div>
                         </div>
                     ))}
@@ -598,8 +621,8 @@ export const Configuration = () => {
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_room')}</th>
                         <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_type')}</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_cost')}</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_status')}</th>
+                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_status')}</th>
+                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">{t('config_beds_header_cost')}</th>
                         <th className="px-4 py-3 text-right">{t('actions')}</th>
                       </tr>
                     </thead>
@@ -825,7 +848,6 @@ export const Configuration = () => {
         </form>
       </Modal>
 
-      {/* --- CONFIRMATION DIALOG --- */}
       <ConfirmationDialog 
         isOpen={confirmState.isOpen}
         onClose={() => setConfirmState({ ...confirmState, isOpen: false })}

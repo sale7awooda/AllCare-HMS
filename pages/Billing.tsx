@@ -347,7 +347,7 @@ export const Billing = () => {
       setPayingBill(null);
       loadData();
     } catch (e) {
-      alert('Payment failed');
+      alert(t('billing_payment_failed'));
     } finally {
       setIsProcessing(false);
     }
@@ -384,7 +384,7 @@ export const Billing = () => {
         setRefundingBill(null);
         loadData();
     } catch (e) {
-        alert('Refund failed');
+        alert(t('billing_refund_failed'));
     } finally {
         setIsProcessing(false);
     }
@@ -403,7 +403,7 @@ export const Billing = () => {
           loadData();
         } catch (e) {
           console.error(e);
-          alert('Failed to cancel service.');
+          alert(t('billing_cancel_service_failed'));
         } finally {
           setIsProcessing(false);
         }
@@ -423,7 +423,7 @@ export const Billing = () => {
           setExpenseForm({ category: 'General', amount: '', method: 'Cash', date: new Date().toISOString().split('T')[0], description: '' });
           loadData();
       } catch(e) {
-          alert('Failed to add expense');
+          alert(t('billing_expense_failed'));
       } finally {
           setIsProcessing(false);
       }
@@ -523,31 +523,29 @@ export const Billing = () => {
 
   // Method Breakdown (Income vs Expense per Method)
   const methodStats = useMemo(() => {
-    const stats: Record<string, { income: number; expense: number; balance: number }> = {};
+    const stats: Record<string, { income: number; expense: number; balance: number, name_en: string, name_ar: string }> = {};
     
     // Initialize with config methods to ensure they show up
     paymentMethods.forEach(pm => {
-        stats[pm.name_en] = { income: 0, expense: 0, balance: 0 };
+        stats[pm.name_en] = { income: 0, expense: 0, balance: 0, name_en: pm.name_en, name_ar: pm.name_ar };
     });
     // Ensure Cash exists
-    if (!stats['Cash']) stats['Cash'] = { income: 0, expense: 0, balance: 0 };
+    if (!stats['Cash']) stats['Cash'] = { income: 0, expense: 0, balance: 0, name_en: 'Cash', name_ar: 'نقدي' };
 
     filteredTransactions.forEach(tx => {
-        const method = tx.method || 'Unknown';
-        if (!stats[method]) stats[method] = { income: 0, expense: 0, balance: 0 };
+        const methodKey = tx.method || 'Unknown';
+        if (!stats[methodKey]) stats[methodKey] = { income: 0, expense: 0, balance: 0, name_en: methodKey, name_ar: methodKey };
         
         if (tx.type === 'income') {
-            stats[method].income += tx.amount;
-            stats[method].balance += tx.amount;
+            stats[methodKey].income += tx.amount;
+            stats[methodKey].balance += tx.amount;
         } else {
-            stats[method].expense += tx.amount;
-            stats[method].balance -= tx.amount;
+            stats[methodKey].expense += tx.amount;
+            stats[methodKey].balance -= tx.amount;
         }
     });
 
-    return Object.entries(stats)
-        .map(([name, data]) => ({ name, ...data }))
-        .sort((a, b) => b.balance - a.balance); // Sort by balance desc
+    return Object.values(stats).sort((a, b) => b.balance - a.balance);
   }, [filteredTransactions, paymentMethods]);
 
   const getMethodIcon = (name: string) => {
@@ -757,7 +755,7 @@ export const Billing = () => {
             </div>
             
             {/* Revenue by Type Chart */}
-            <Card title="Revenue by Service Type">
+            <Card title={t('billing_chart_revenue_by_type')}>
               <div className="h-80 w-full flex flex-col md:flex-row items-center gap-6">
                 <div className="w-full md:w-1/2 h-full">
                   <ResponsiveContainer>
@@ -781,7 +779,7 @@ export const Billing = () => {
                   </ResponsiveContainer>
                 </div>
                 <div className="w-full md:w-1/2 space-y-3">
-                  <h4 className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-2 border-b border-slate-200 dark:border-slate-700 pb-2">Legend</h4>
+                  <h4 className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-2 border-b border-slate-200 dark:border-slate-700 pb-2">{t('billing_chart_legend')}</h4>
                   {stats.revenueByType.map((entry, index) => (
                     <div key={`legend-${index}`} className="flex items-center justify-between text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50 p-2 rounded-lg">
                       <div className="flex items-center gap-3">
@@ -892,8 +890,8 @@ export const Billing = () => {
                     <div className="flex justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700">
                         <span className="text-sm text-slate-500">{t('patients_pagination_showing')} {paginatedBills.length} {t('patients_pagination_of')} {filteredBills.length}</span>
                         <div className="flex gap-2">
-                            <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} icon={ChevronLeft}>Prev</Button>
-                            <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} icon={ChevronRight}>Next</Button>
+                            <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
+                            <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
                         </div>
                     </div>
                 )}
@@ -902,7 +900,7 @@ export const Billing = () => {
         </div>
       )}
 
-      {/* ... Treasury Tab ... */}
+      {/* --- Treasury Tab --- */}
       {activeTab === 'treasury' && (
           <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-end">
@@ -953,16 +951,18 @@ export const Billing = () => {
                           <p className="text-xs text-slate-500">{t('billing_treasury_holdings_subtitle')}</p>
                       </div>
                       <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                          {methodStats.map((item) => {
-                              const Icon = getMethodIcon(item.name);
+                          {methodStats.map((item, idx) => {
+                              const Icon = getMethodIcon(item.name_en);
                               return (
-                                  <div key={item.name} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20">
+                                  <div key={idx} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20">
                                       <div className={`p-3 rounded-full ${item.balance >= 0 ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-red-100 text-red-600'}`}>
                                           <Icon size={20} />
                                       </div>
                                       <div className="flex-1 min-w-0">
                                           <div className="flex justify-between items-center mb-1">
-                                              <h4 className="font-bold text-slate-700 dark:text-slate-200 truncate">{item.name}</h4>
+                                              <h4 className="font-bold text-slate-700 dark:text-slate-200 truncate">
+                                                  {language === 'ar' ? item.name_ar : item.name_en}
+                                              </h4>
                                               <span className={`font-mono font-bold ${item.balance >= 0 ? 'text-slate-900 dark:text-white' : 'text-red-500'}`}>
                                                   ${item.balance.toLocaleString()}
                                               </span>
@@ -989,14 +989,25 @@ export const Billing = () => {
                           <Landmark size={18} className="text-slate-500"/> 
                           <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3>
                       </div>
-                      <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            placeholder={t('search_placeholder')} 
-                            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
-                            value={treasurySearch}
-                            onChange={(e) => setTreasurySearch(e.target.value)}
-                          />
+                      <div className="flex gap-2 items-center">
+                          <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                            <span>{t('billing_treasury_from')}</span>
+                            <input 
+                              type="date" 
+                              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
+                              value={treasuryDate.start}
+                              onChange={(e) => setTreasuryDate({...treasuryDate, start: e.target.value})}
+                            />
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                            <span>{t('billing_treasury_to')}</span>
+                            <input 
+                              type="date" 
+                              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
+                              value={treasuryDate.end}
+                              onChange={(e) => setTreasuryDate({...treasuryDate, end: e.target.value})}
+                            />
+                          </div>
                           <select 
                             className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
                             value={treasuryFilter}
@@ -1006,12 +1017,6 @@ export const Billing = () => {
                               <option value="income">{t('billing_treasury_type_income')}</option>
                               <option value="expense">{t('billing_treasury_type_expense')}</option>
                           </select>
-                          <input 
-                            type="date" 
-                            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
-                            value={treasuryDate.start}
-                            onChange={(e) => setTreasuryDate({...treasuryDate, start: e.target.value})}
-                          />
                       </div>
                   </div>
                   <div className="overflow-x-auto">
@@ -1158,18 +1163,17 @@ export const Billing = () => {
               onChange={e => setPaymentForm({...paymentForm, method: e.target.value})}
               required
             >
-              {/* Always include Cash as a first option even if methods fail to load */}
               {paymentMethods.length > 0 ? (
                   <>
                     {paymentMethods.filter(p => p.isActive).map(p => (
                         <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>
                     ))}
-                    {!paymentMethods.some(p => p.name_en === 'Cash') && <option value="Cash">Cash</option>}
+                    {!paymentMethods.some(p => p.name_en === 'Cash') && <option value="Cash">{t('billing_method_cash')}</option>}
                   </>
               ) : (
                   <>
-                    <option value="Cash">Cash</option>
-                    <option value="Insurance">Insurance</option>
+                    <option value="Cash">{t('billing_method_cash')}</option>
+                    <option value="Insurance">{t('billing_method_insurance')}</option>
                   </>
               )}
             </Select>
@@ -1315,7 +1319,7 @@ export const Billing = () => {
                         value={refundForm.method}
                         onChange={e => setRefundForm({...refundForm, method: e.target.value})}
                     >
-                        <option value="Cash">Cash</option>
+                        <option value="Cash">{t('billing_method_cash')}</option>
                         <option value="Bank Transfer">Bank Transfer</option>
                         <option value="Credit Card Reversal">Credit Card Reversal</option>
                         <option value="Check">Check</option>
@@ -1369,7 +1373,7 @@ export const Billing = () => {
               <Input label={t('billing_modal_expense_amount')} type="number" required value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} />
               <div className="grid grid-cols-2 gap-4">
                   <Select label={t('billing_modal_expense_method')} value={expenseForm.method} onChange={e => setExpenseForm({...expenseForm, method: e.target.value})}>
-                      <option value="Cash">Cash</option>
+                      <option value="Cash">{t('billing_method_cash')}</option>
                       <option value="Bank Transfer">Bank Transfer</option>
                       <option value="Check">Check</option>
                   </Select>

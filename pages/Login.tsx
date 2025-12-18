@@ -1,7 +1,6 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { api } from '../services/api';
-import { User, Role } from '../types';
+import { Role } from '../types';
 import { 
   AlertCircle, 
   Lock, 
@@ -14,7 +13,10 @@ import {
   Microscope,
   Check,
   Eye,
-  EyeOff
+  EyeOff,
+  MapPin,
+  PhoneCall,
+  Stethoscope
 } from 'lucide-react';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
@@ -28,9 +30,12 @@ export const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const { t } = useTranslation();
   
-  // Read hospital name directly from cache for instant loading.
-  // It's only updated from the Configuration page now.
-  const [hospitalName] = useState(() => localStorage.getItem('hospital_name') || t('login_title'));
+  // Identity details from LocalStorage with hardcoded fallbacks as per requirements
+  const [hospitalInfo] = useState(() => ({
+    name: localStorage.getItem('h_name') || "AllCare Hospital",
+    address: localStorage.getItem('h_address') || "atbara ,the big marker",
+    phone: localStorage.getItem('h_phone') || "0987654321"
+  }));
   
   const [activeProfile, setActiveProfile] = useState<Role | null>(null);
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -40,7 +45,6 @@ export const Login: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      // API returns { token: string, user: User }
       const response = await api.login(username, password);
       login(response.user, response.token);
     } catch (err: any) {
@@ -53,11 +57,17 @@ export const Login: React.FC = () => {
 
   const handleProfileSelect = (role: Role) => {
     setActiveProfile(role);
-    // Mapping specific usernames based on seed data
-    if (role === 'technician') setUsername('labtech');
-    else setUsername(role);
-    
-    setPassword(`${role === 'technician' ? 'labtech' : role}123`);
+    // Map roles to seeded usernames in database.js
+    if (role === 'technician') {
+      setUsername('labtech');
+      setPassword('labtech123');
+    } else if (role === 'hr') {
+      setUsername('hr');
+      setPassword('hr123');
+    } else {
+      setUsername(role);
+      setPassword(`${role}123`);
+    }
   };
 
   const QuickProfile = ({ role, label, icon: Icon, color }: { role: Role, label: string, icon: any, color: string }) => {
@@ -91,12 +101,10 @@ export const Login: React.FC = () => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-slate-50">
       
-      {/* Background Layer - Bright & Clinical */}
+      {/* Background Layer */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-cyan-100" />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light" />
-        
-        {/* Abstract Soft Blobs */}
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 blur-3xl animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-400/10 blur-3xl animate-pulse delay-700" />
       </div>
@@ -105,20 +113,28 @@ export const Login: React.FC = () => {
       <div className="relative z-10 w-full max-w-md px-4">
         <div className="bg-white/80 backdrop-blur-2xl border border-white/60 rounded-3xl shadow-2xl overflow-hidden ring-1 ring-slate-900/5">
           
-          {/* Header */}
+          {/* Header with identity information */}
           <div className="px-8 pt-8 pb-6 text-center border-b border-slate-100">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/20 mb-4 text-white">
               <Activity size={28} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{hospitalName}</h1>
-            <p className="text-slate-500 text-sm mt-1">{t('login_subtitle')}</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{hospitalInfo.name}</h1>
+            
+            <div className="mt-3 space-y-1">
+              <div className="flex items-center justify-center gap-1.5 text-slate-500 text-xs font-medium">
+                <MapPin size={12} className="text-primary-500" />
+                <span>{hospitalInfo.address}</span>
+              </div>
+              <div className="flex items-center justify-center gap-1.5 text-slate-500 text-xs font-medium">
+                <PhoneCall size={12} className="text-primary-500" />
+                <span>{hospitalInfo.phone}</span>
+              </div>
+            </div>
           </div>
 
           {/* Form Section */}
           <div className="p-8">
             <form onSubmit={handleSubmit} className="space-y-5">
-              
-              {/* Error Message */}
               {error && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm animate-in fade-in slide-in-from-top-2">
                   <AlertCircle size={16} className="shrink-0" />
@@ -201,11 +217,11 @@ export const Login: React.FC = () => {
             </form>
           </div>
 
-          {/* Quick Login Footer */}
           <div className="bg-slate-50/80 p-6 border-t border-slate-100">
             <p className="text-center text-xs text-slate-400 mb-4 font-bold uppercase tracking-widest">{t('login_quick_select_title')}</p>
-            <div className="flex justify-between items-center px-2">
+            <div className="grid grid-cols-3 gap-y-6 gap-x-2 px-2">
               <QuickProfile role="admin" label={t('login_profile_admin')} icon={ShieldCheck} color="from-rose-500 to-red-600" />
+              <QuickProfile role="doctor" label={t('staff_role_doctor')} icon={Stethoscope} color="from-blue-600 to-indigo-600" />
               <QuickProfile role="manager" label={t('login_profile_manager')} icon={LayoutDashboard} color="from-orange-500 to-amber-500" />
               <QuickProfile role="receptionist" label={t('login_profile_desk')} icon={UserIcon} color="from-blue-500 to-cyan-500" />
               <QuickProfile role="technician" label={t('login_profile_lab')} icon={Microscope} color="from-emerald-500 to-teal-500" />
@@ -214,8 +230,8 @@ export const Login: React.FC = () => {
           </div>
         </div>
         
-        <p className="text-center text-slate-400 text-xs mt-6 font-medium">
-          {t('login_footer_text')}
+        <p className="text-center text-slate-400 text-[10px] mt-6 font-bold uppercase tracking-tight">
+          Developed by Saleh Tech@2025 Contact: 0909018730
         </p>
       </div>
     </div>
