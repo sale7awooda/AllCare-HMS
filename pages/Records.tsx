@@ -182,24 +182,24 @@ export const Records = () => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
-        <Card className="!p-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Total Logs</p>
-          <p className="text-2xl font-black text-slate-800 dark:text-white">{records.length.toLocaleString()}</p>
+        <Card className="!py-2.5 !px-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Logs</p>
+          <p className="text-xl font-black text-slate-800 dark:text-white leading-tight">{records.length.toLocaleString()}</p>
         </Card>
-        <Card className="!p-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Found</p>
-          <p className="text-2xl font-black text-primary-600">{filteredRecords.length.toLocaleString()}</p>
+        <Card className="!py-2.5 !px-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Found</p>
+          <p className="text-xl font-black text-primary-600 leading-tight">{filteredRecords.length.toLocaleString()}</p>
         </Card>
-        <Card className="!p-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Last 24h</p>
-          <p className="text-2xl font-black text-slate-800 dark:text-white">
+        <Card className="!py-2.5 !px-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Last 24h</p>
+          <p className="text-xl font-black text-slate-800 dark:text-white leading-tight">
             {records.filter(r => new Date(r.date).getTime() > Date.now() - 86400000).length}
           </p>
         </Card>
-        <Card className="!p-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">System Health</p>
-          <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm mt-1">
-             <ShieldCheck size={16} /> Optimal
+        <Card className="!py-2.5 !px-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">System Health</p>
+          <div className="flex items-center gap-1.5 text-emerald-500 font-bold text-sm leading-tight">
+             <ShieldCheck size={14} /> Optimal
           </div>
         </Card>
       </div>
@@ -397,8 +397,10 @@ export const Records = () => {
                           <p className="text-sm font-bold">{selectedRecord.status}</p>
                        </div>
                        <div className="col-span-2">
-                          <p className="text-xs text-slate-400 font-bold mb-1">Reason for Visit</p>
-                          <p className="text-sm italic text-slate-600 dark:text-slate-300">"{selectedRecord.details?.reason || 'No reason provided'}"</p>
+                          <p className="text-xs text-slate-400 font-bold mb-1">Reason for visit</p>
+                          <p className="text-sm italic text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 p-3 rounded-lg border">
+                             "{selectedRecord.details?.reason || 'No reason provided'}"
+                          </p>
                        </div>
                     </div>
                   )}

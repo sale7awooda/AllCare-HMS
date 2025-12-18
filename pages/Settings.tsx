@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Badge, Select } from '../components/UI';
 import { 
@@ -7,7 +8,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { User as UserType } from '../types';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, colorPalettes, AccentColor } from '../context/ThemeContext';
 import { useTranslation } from '../context/TranslationContext';
 import { useHeader } from '../context/HeaderContext';
 
@@ -35,7 +36,7 @@ export const Settings = () => {
     sms_emergency: true
   });
 
-  const ACCENT_COLORS = [
+  const ACCENT_COLORS: AccentColor[] = [
     'slate', 'zinc', 'stone', 'red', 'orange', 'amber', 'yellow', 'lime', 
     'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 
     'purple', 'fuchsia', 'pink', 'rose'
@@ -328,12 +329,12 @@ export const Settings = () => {
                    {ACCENT_COLORS.map(color => (
                      <button
                         key={color}
-                        onClick={() => setAccent(color as any)}
-                        className={`group relative w-12 h-12 rounded-2xl transition-all duration-300 ${
-                          accent === color ? 'ring-4 ring-offset-4 ring-primary-500 scale-110 shadow-xl' : 'hover:scale-105 shadow-sm'
+                        onClick={() => setAccent(color)}
+                        className={`group relative w-12 h-12 rounded-2xl transition-all duration-300 border-2 ${
+                          accent === color ? 'ring-4 ring-offset-4 ring-primary-500 scale-110 shadow-xl border-white dark:border-slate-800' : 'hover:scale-105 shadow-sm border-transparent'
                         }`}
                         title={color}
-                        style={{ backgroundColor: color }}
+                        style={{ backgroundColor: colorPalettes[color][500] }}
                      >
                        {accent === color && <Check className="absolute inset-0 m-auto text-white drop-shadow-md" size={20} strokeWidth={4} />}
                      </button>

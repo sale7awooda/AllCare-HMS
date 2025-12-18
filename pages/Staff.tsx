@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -5,7 +6,7 @@ import {
   Calendar, DollarSign, Wallet,
   Loader2, Edit, Trash2, MapPin,
   LogIn, LogOut, CheckCircle, XCircle, User, Info, CreditCard, ChevronRight, Eye, RefreshCw, Save,
-  ChevronLeft, CalendarDays
+  ChevronLeft, CalendarDays, Hash
 } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment } from '../types';
@@ -14,26 +15,51 @@ import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
 import { useHeader } from '../context/HeaderContext';
 
-const roleDepartmentMap: Record<string, string[]> = {
-  doctor: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology', 'Dermatology', 'Radiology', 'Anesthesiologist', 'Internal Medicine'],
-  nurse: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology', 'Internal Medicine'],
-  technician: ['Radiology', 'Laboratory'],
-  radiologist: ['Radiology'],
-  lab_technician: ['Laboratory'],
-  anesthesiologist: ['Anesthesiology', 'General Surgery'],
-  pharmacist: ['Pharmacy'],
-  hr_manager: ['Administration', 'HR'],
-  accountant: ['Finance', 'Administration'],
-  manager: ['Administration', 'Management'],
-  staff: ['Administration', 'Maintenance', 'Security', 'Support Services', 'Finance', 'IT Support'],
-  security: ['Security'],
-  maintenance: ['Maintenance'],
-  medical_assistant: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'General Surgery', 'Internal Medicine'],
-  receptionist: ['Administration', 'Front Desk']
-};
-
 const DAYS_OF_WEEK_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAYS_OF_WEEK_AR = ['إث', 'ثل', 'أر', 'خم', 'جم', 'سب', 'أح'];
+
+// Helper for currency-style formatting
+const formatNumber = (val: string | number) => {
+  if (val === undefined || val === null || val === '') return '';
+  const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : val;
+  if (isNaN(num)) return '';
+  return new Intl.NumberFormat('en-US').format(num);
+};
+
+const parseNumber = (val: string) => {
+  return val.replace(/,/g, '');
+};
+
+// Custom Input for Formatted Numbers
+const FormattedInput = ({ label, value, onChange, ...props }: any) => {
+  const [displayValue, setDisplayValue] = useState(formatNumber(value));
+
+  useEffect(() => {
+    setDisplayValue(formatNumber(value));
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = parseNumber(e.target.value);
+    if (raw === '' || !isNaN(Number(raw))) {
+      setDisplayValue(e.target.value); // Allow typing including commas temporarily
+      onChange(raw);
+    }
+  };
+
+  const handleBlur = () => {
+    setDisplayValue(formatNumber(value));
+  };
+
+  return (
+    <Input
+      {...props}
+      label={label}
+      value={displayValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
+  );
+};
 
 export const Staff = () => {
   const { t, language } = useTranslation();
@@ -337,22 +363,6 @@ export const Staff = () => {
     setSelectedDate(d.toISOString().split('T')[0]);
   };
 
-  // Sync Header
-  useHeader(
-    t('staff_title'),
-    t('staff_subtitle'),
-    <div className="flex gap-2">
-      {activeTab === 'directory' && canManageHR && <Button onClick={() => openStaffModal()} icon={Plus}>{t('staff_add_employee_button')}</Button>}
-      {activeTab === 'leaves' && <Button icon={Plus} onClick={() => setIsLeaveModalOpen(true)}>{t('staff_leave_request')}</Button>}
-      {activeTab === 'payroll' && canManageHR && <Button icon={DollarSign} onClick={handleGeneratePayroll}>{t('staff_generate_payroll')}</Button>}
-      {activeTab === 'financials' && canManageHR && <Button icon={Plus} onClick={() => setIsAdjustmentModalOpen(true)}>{t('staff_financial_add_entry')}</Button>}
-    </div>
-  );
-
-  const sortedStaff = useMemo(() => {
-    return staff.filter(s => s.fullName.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => (a.status === 'active' ? -1 : 1));
-  }, [staff, searchTerm]);
-
   // Searchable Employee Select Component
   const SearchableEmployeeSelect = ({ label, value, onChange, placeholder }: any) => {
     const [search, setSearch] = useState('');
@@ -361,8 +371,13 @@ export const Staff = () => {
     
     const selected = staff.find(s => s.id.toString() === value);
     const results = useMemo(() => {
-        if (!search) return staff.slice(0, 5);
-        return staff.filter(s => s.fullName.toLowerCase().includes(search.toLowerCase())).slice(0, 5);
+        const query = search.toLowerCase();
+        if (!query) return staff.slice(0, 5);
+        return staff.filter(s => 
+          s.fullName.toLowerCase().includes(query) || 
+          s.department?.toLowerCase().includes(query) ||
+          s.employeeId?.toLowerCase().includes(query)
+        ).slice(0, 5);
     }, [staff, search]);
 
     useEffect(() => {
@@ -379,35 +394,46 @@ export const Staff = () => {
         <div className="relative space-y-1.5" ref={containerRef}>
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">{label}</label>
             {selected && !open ? (
-                <div className="flex items-center justify-between p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl">
-                    <div className="flex flex-col">
-                        <span className="font-bold text-sm text-primary-900 dark:text-primary-100">{selected.fullName}</span>
-                        <span className="text-[10px] text-primary-600 dark:text-primary-400 uppercase font-black">{t(`staff_role_${selected.type}`)}</span>
+                <div className="flex items-center justify-between p-3.5 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-2xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-800 flex items-center justify-center text-primary-600 font-bold text-sm">
+                            {selected.fullName.charAt(0)}
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-sm text-primary-900 dark:text-primary-100">{selected.fullName}</span>
+                            <span className="text-[10px] text-primary-600 dark:text-primary-400 uppercase font-black tracking-widest">{t(`staff_role_${selected.type}`)} • {selected.department}</span>
+                        </div>
                     </div>
-                    <button type="button" onClick={() => setOpen(true)} className="p-1.5 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg transition-colors">
-                        <Edit size={14} className="text-primary-600"/>
+                    <button type="button" onClick={() => setOpen(true)} className="p-2 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-xl transition-colors">
+                        <RefreshCw size={16} className="text-primary-600"/>
                     </button>
                 </div>
             ) : (
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input 
                         type="text" 
-                        placeholder={placeholder || "Type to search employee..."}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+                        placeholder={placeholder || "Search employee name, ID or department..."}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all shadow-sm"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         onFocus={() => setOpen(true)}
                     />
                     {open && (
-                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                            {results.map(s => (
-                                <button key={s.id} type="button" className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b last:border-0 border-slate-100 dark:border-slate-700 flex flex-col" onClick={() => { onChange(s.id.toString()); setOpen(false); setSearch(''); }}>
-                                    <span className="text-sm font-bold text-slate-800 dark:text-white">{s.fullName}</span>
-                                    <span className="text-[10px] text-slate-400 uppercase font-black">{t(`staff_role_${s.type}`)}</span>
-                                </button>
-                            ))}
-                            {results.length === 0 && <div className="p-4 text-center text-xs text-slate-400 italic">No matches found.</div>}
+                        <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-64 overflow-y-auto">
+                            {results.length > 0 ? (
+                                results.map(s => (
+                                    <button key={s.id} type="button" className="w-full px-5 py-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 border-b last:border-0 border-slate-100 dark:border-slate-700 flex items-center justify-between group transition-colors" onClick={() => { onChange(s.id.toString()); setOpen(false); setSearch(''); }}>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-primary-600 transition-colors">{s.fullName}</span>
+                                            <span className="text-[10px] text-slate-400 uppercase font-black mt-0.5">{t(`staff_role_${s.type}`)} • {s.department}</span>
+                                        </div>
+                                        <ChevronRight size={16} className="text-slate-300 group-hover:text-primary-400" />
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="p-6 text-center text-xs text-slate-400 italic">No employees found matching "{search}"</div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -415,6 +441,22 @@ export const Staff = () => {
         </div>
     );
   };
+
+  // Sync Header
+  useHeader(
+    t('staff_title'),
+    t('staff_subtitle'),
+    <div className="flex gap-2">
+      {activeTab === 'directory' && canManageHR && <Button onClick={() => openStaffModal()} icon={Plus}>{t('staff_add_employee_button')}</Button>}
+      {activeTab === 'leaves' && <Button icon={Plus} onClick={() => setIsLeaveModalOpen(true)}>{t('staff_leave_request')}</Button>}
+      {activeTab === 'payroll' && canManageHR && <Button icon={DollarSign} onClick={handleGeneratePayroll}>{t('staff_generate_payroll')}</Button>}
+      {activeTab === 'financials' && canManageHR && <Button icon={Plus} onClick={() => setIsAdjustmentModalOpen(true)}>{t('staff_financial_add_entry')}</Button>}
+    </div>
+  );
+
+  const sortedStaff = useMemo(() => {
+    return staff.filter(s => s.fullName.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => (a.status === 'active' ? -1 : 1));
+  }, [staff, searchTerm]);
 
   return (
     <div className="space-y-6">
@@ -511,7 +553,7 @@ export const Staff = () => {
 
       {/* MODALS */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={staffForm.id ? t('staff_edit_employee') : t('staff_add_employee_button')}>
-        <form onSubmit={handleCreateStaff} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
+        <form onSubmit={handleCreateStaff} className="space-y-6">
           <div className="grid grid-cols-2 gap-4"><Input label={t('patients_modal_form_fullName')} required value={staffForm.fullName} onChange={e => setStaffForm({...staffForm, fullName: e.target.value})} /><Select label={t('staff_form_role')} value={staffForm.type} onChange={e => setStaffForm({...staffForm, type: e.target.value})}><option value="doctor">{t('staff_role_doctor')}</option><option value="nurse">{t('staff_role_nurse')}</option><option value="technician">{t('staff_role_technician')}</option><option value="lab_technician">Lab Technician</option><option value="radiologist">Radiologist</option><option value="pharmacist">Pharmacist</option><option value="anesthesiologist">Anesthesiologist</option><option value="receptionist">Receptionist</option><option value="accountant">Accountant</option><option value="hr_manager">HR Manager</option><option value="manager">Manager</option><option value="security">Security</option><option value="maintenance">Maintenance</option><option value="staff">Other Staff</option></Select></div>
           
           <div className="grid grid-cols-2 gap-4"><Select label={t('staff_form_department')} value={staffForm.department || ''} onChange={e => setStaffForm({...staffForm, department: e.target.value})}><option value="">Select...</option>{departments.map((d: any) => <option key={d.id} value={d.name_en}>{d.name_en}</option>)}</Select><Select label={t('staff_form_specialization')} value={staffForm.specialization || ''} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}><option value="">Select...</option>{specializations.map((s: any) => <option key={s.id} value={s.name_en}>{s.name_en}</option>)}</Select></div>
@@ -526,16 +568,16 @@ export const Staff = () => {
              </Select>
           </div>
 
-          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+          <div className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><DollarSign size={14}/> {t('staff_form_financials')}</h4>
             <div className="grid grid-cols-2 gap-4">
-                <Input label={t('staff_form_base_salary')} type="number" required value={staffForm.baseSalary} onChange={e => setStaffForm({...staffForm, baseSalary: e.target.value})} />
-                <Input label="Consultation (Initial)" type="number" value={staffForm.consultationFee} onChange={e => setStaffForm({...staffForm, consultationFee: e.target.value})} disabled={staffForm.type !== 'doctor'} />
+                <FormattedInput label={t('staff_form_base_salary')} required value={staffForm.baseSalary} onChange={(val: string) => setStaffForm({...staffForm, baseSalary: val})} prefix={<Hash size={14}/>} />
+                <FormattedInput label="Consultation (Initial)" value={staffForm.consultationFee} onChange={(val: string) => setStaffForm({...staffForm, consultationFee: val})} disabled={staffForm.type !== 'doctor'} prefix={<Hash size={14}/>} />
             </div>
             {staffForm.type === 'doctor' && (
                 <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2">
-                    <Input label="Follow-up Fee" type="number" value={staffForm.consultationFeeFollowup} onChange={e => setStaffForm({...staffForm, consultationFeeFollowup: e.target.value})} />
-                    <Input label="Emergency Fee" type="number" value={staffForm.consultationFeeEmergency} onChange={e => setStaffForm({...staffForm, consultationFeeEmergency: e.target.value})} />
+                    <FormattedInput label="Follow-up Fee" value={staffForm.consultationFeeFollowup} onChange={(val: string) => setStaffForm({...staffForm, consultationFeeFollowup: val})} prefix={<Hash size={14}/>} />
+                    <FormattedInput label="Emergency Fee" value={staffForm.consultationFeeEmergency} onChange={(val: string) => setStaffForm({...staffForm, consultationFeeEmergency: val})} prefix={<Hash size={14}/>} />
                 </div>
             )}
           </div>
@@ -545,7 +587,7 @@ export const Staff = () => {
             <div className="flex flex-wrap gap-2 mb-5">{DAYS_OF_WEEK.map((day) => (<button key={day} type="button" onClick={() => toggleDay(day)} className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${ (staffForm.availableDays || []).includes(DAYS_OF_WEEK_EN[DAYS_OF_WEEK.indexOf(day)]) ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>{day}</button>))}</div>
             <div className="grid grid-cols-2 gap-4"><Input label={t('staff_form_start_time')} type="time" value={staffForm.availableTimeStart} onChange={e => setStaffForm({...staffForm, availableTimeStart: e.target.value})} /><Input label={t('staff_form_end_time')} type="time" value={staffForm.availableTimeEnd} onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})} /></div>
           </div>
-          <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700"><Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button><Button type="submit" icon={Save}>{t('save')}</Button></div>
+          <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700 sticky bottom-0 bg-white dark:bg-slate-800 py-2 z-10"><Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button><Button type="submit" icon={Save}>{t('save')}</Button></div>
         </form>
       </Modal>
 
@@ -580,7 +622,7 @@ export const Staff = () => {
                     <option value="fine">Fine / Deduction</option>
                     <option value="loan">Employee Loan</option>
                 </Select>
-                <Input label="Amount" type="number" required value={adjForm.amount} onChange={e => setAdjForm({...adjForm, amount: e.target.value})} prefix={<DollarSign size={14}/>} />
+                <FormattedInput label="Amount" required value={adjForm.amount} onChange={(val: string) => setAdjForm({...adjForm, amount: val})} prefix={<DollarSign size={14}/>} />
             </div>
             <Input label="Reference Date" type="date" value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
             <Textarea label="Reason / Description" required placeholder="Details of this adjustment..." value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />

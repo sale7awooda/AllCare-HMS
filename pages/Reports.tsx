@@ -154,10 +154,11 @@ export const Reports = () => {
   }, [patients, dateRange]);
 
   const activityStream = useMemo(() => {
+    // FIX: Included status property to match usage in Modal
     const stream = [
-      ...patients.map(p => ({ type: 'patient', name: p.fullName, date: p.createdAt, meta: 'New Registration', id: `p-${p.id}`, raw: p })),
-      ...appointments.map(a => ({ type: 'appointment', name: a.patientName, sub: a.staffName, date: a.datetime, meta: a.status, id: `a-${a.id}`, raw: a })),
-      ...bills.map(b => ({ type: 'bill', name: b.patientName, sub: `$${b.totalAmount.toLocaleString()}`, date: b.date, meta: b.status, id: `b-${b.id}`, raw: b }))
+      ...patients.map(p => ({ type: 'patient', name: p.fullName, date: p.createdAt, meta: 'New Registration', status: 'Registered', id: `p-${p.id}`, raw: p })),
+      ...appointments.map(a => ({ type: 'appointment', name: a.patientName, sub: a.staffName, date: a.datetime, meta: a.status, status: a.status, id: `a-${a.id}`, raw: a })),
+      ...bills.map(b => ({ type: 'bill', name: b.patientName, sub: `$${b.totalAmount.toLocaleString()}`, date: b.date, meta: b.status, status: b.status, id: `b-${b.id}`, raw: b }))
     ];
     return stream.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 20);
   }, [patients, appointments, bills]);
@@ -252,10 +253,10 @@ export const Reports = () => {
   );
 
   const StatCard = ({ title, value, subtitle, icon: Icon, colorClass, trend }: any) => (
-    <Card className="!p-6 bg-white dark:bg-slate-800 shadow-soft border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
+    <Card className="!p-4 bg-white dark:bg-slate-800 shadow-soft border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
       <div className="flex justify-between items-start">
-        <div className={`p-3 rounded-2xl ${colorClass} text-white shadow-lg`}>
-          <Icon size={24} />
+        <div className={`p-2.5 rounded-xl ${colorClass} text-white shadow-lg`}>
+          <Icon size={20} />
         </div>
         {trend && (
            <div className={`flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${trend > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
@@ -264,10 +265,10 @@ export const Reports = () => {
            </div>
         )}
       </div>
-      <div className="mt-4">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{title}</p>
-        <h3 className="text-2xl font-black text-slate-900 dark:text-white leading-none">{value}</h3>
-        {subtitle && <p className="text-[10px] text-slate-500 mt-2 font-bold">{subtitle}</p>}
+      <div className="mt-2.5">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{title}</p>
+        <h3 className="text-xl font-black text-slate-900 dark:text-white leading-none">{value}</h3>
+        {subtitle && <p className="text-[10px] text-slate-500 mt-1.5 font-bold">{subtitle}</p>}
       </div>
     </Card>
   );
@@ -340,7 +341,7 @@ export const Reports = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2 !p-0" title="Revenue Realization Trend">
-                <div className="h-80 w-full p-4">
+                <div className="h-64 w-full p-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={financialStats.revenueTrend}>
                       <defs>
@@ -360,10 +361,10 @@ export const Reports = () => {
               </Card>
 
               <Card className="!p-0" title="Income by Method">
-                <div className="h-80 w-full p-4">
+                <div className="h-64 w-full p-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={financialStats.incomeByMethod} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                      <Pie data={financialStats.incomeByMethod} cx="50%" cy="50%" innerRadius={50} outerRadius={65} paddingAngle={5} dataKey="value">
                         {financialStats.incomeByMethod.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                       </Pie>
                       <Tooltip formatter={(val: number) => `$${val.toLocaleString()}`} />
@@ -374,14 +375,14 @@ export const Reports = () => {
               </Card>
 
               <Card className="lg:col-span-3 !p-0" title="Top Services by Generated Revenue">
-                <div className="h-64 w-full p-6">
+                <div className="h-56 w-full p-6">
                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={financialStats.topServices} layout="vertical" margin={{ left: 40, right: 40 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                         <XAxis type="number" hide />
                         <YAxis dataKey="name" type="category" tick={{fontSize: 11, fontWeight: 'bold'}} width={150} axisLine={false} tickLine={false} />
                         <Tooltip formatter={(val: number) => `$${val.toLocaleString()}`} />
-                        <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} />
+                        <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={20} />
                       </BarChart>
                    </ResponsiveContainer>
                 </div>
@@ -401,10 +402,10 @@ export const Reports = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card title="Department Utilization Split">
-                <div className="h-80 w-full p-4">
+                <div className="h-64 w-full p-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={operationalStats.deptRank} cx="50%" cy="50%" outerRadius={100} dataKey="value" label>
+                      <Pie data={operationalStats.deptRank} cx="50%" cy="50%" outerRadius={80} dataKey="value" label>
                         {operationalStats.deptRank.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                       </Pie>
                       <Tooltip />
@@ -415,14 +416,14 @@ export const Reports = () => {
               </Card>
 
               <Card title="Medical Staff Performance (Consultations)">
-                <div className="h-80 w-full p-4">
+                <div className="h-64 w-full p-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={operationalStats.doctorRank}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="name" tick={{fontSize: 10, fontWeight: 'bold'}} axisLine={false} tickLine={false} />
                       <YAxis tick={{fontSize: 10, fontWeight: 'bold'}} axisLine={false} tickLine={false} />
                       <Tooltip cursor={{fill: 'transparent'}} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+                      <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -442,7 +443,7 @@ export const Reports = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2" title="Daily Growth Trend">
-                 <div className="h-80 w-full p-4">
+                 <div className="h-64 w-full p-4">
                     <ResponsiveContainer width="100%" height="100%">
                        <LineChart data={patientStats.growthTrend}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -456,10 +457,10 @@ export const Reports = () => {
               </Card>
 
               <Card className="!p-0" title="Patient Age Groups">
-                <div className="h-80 w-full p-4">
+                <div className="h-64 w-full p-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={patientStats.ageDist} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                      <Pie data={patientStats.ageDist} cx="50%" cy="50%" innerRadius={50} outerRadius={65} paddingAngle={5} dataKey="value">
                         {patientStats.ageDist.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                       </Pie>
                       <Tooltip />
@@ -533,7 +534,7 @@ export const Reports = () => {
                  <h3 className="font-black text-slate-900 dark:text-white text-lg leading-tight">{selectedEvent.name}</h3>
                  <div className="flex items-center gap-2 mt-1">
                     <Badge color="blue" className="capitalize">{selectedEvent.type}</Badge>
-                    <Badge color="gray">{selectedEvent.meta}</Badge>
+                    <Badge color={getStatusColor(selectedEvent.status) as any}>{selectedEvent.status}</Badge>
                  </div>
               </div>
               <div className="text-right hidden sm:block">
@@ -543,30 +544,10 @@ export const Reports = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {selectedEvent.type === 'patient' && (
-                <>
-                  <RecordDetailItem label="Patient ID" value={selectedEvent.raw.patientId} icon={HashIcon} />
-                  <RecordDetailItem label="Contact" value={selectedEvent.raw.phone} icon={Stethoscope} />
-                  <RecordDetailItem label="Age" value={`${selectedEvent.raw.age} years`} icon={Users} />
-                  <RecordDetailItem label="Gender" value={selectedEvent.raw.gender} icon={Users} />
-                </>
-              )}
-              {selectedEvent.type === 'appointment' && (
-                <>
-                  <RecordDetailItem label="Doctor" value={selectedEvent.raw.staffName} icon={User} />
-                  <RecordDetailItem label="Appt ID" value={`#${selectedEvent.raw.id}`} icon={HashIcon} />
-                  <RecordDetailItem label="Time Slot" value={new Date(selectedEvent.raw.datetime).toLocaleTimeString()} icon={Clock} />
-                  <RecordDetailItem label="Status" value={selectedEvent.raw.status} icon={Info} />
-                </>
-              )}
-              {selectedEvent.type === 'bill' && (
-                <>
-                  <RecordDetailItem label="Bill Number" value={selectedEvent.raw.billNumber} icon={HashIcon} />
-                  <RecordDetailItem label="Total Amount" value={`$${selectedEvent.raw.totalAmount.toLocaleString()}`} icon={DollarSign} />
-                  <RecordDetailItem label="Paid" value={`$${selectedEvent.raw.paidAmount.toLocaleString()}`} icon={CreditCard} />
-                  <RecordDetailItem label="Status" value={selectedEvent.raw.status} icon={Info} />
-                </>
-              )}
+              <RecordDetailItem label="Patient ID" value={selectedEvent.raw.patientId} icon={HashIcon} />
+              <RecordDetailItem label="Contact" value={selectedEvent.raw.phone} icon={Stethoscope} />
+              <RecordDetailItem label="Age" value={`${selectedEvent.raw.age} years`} icon={Users} />
+              <RecordDetailItem label="Gender" value={selectedEvent.raw.gender} icon={Users} />
             </div>
 
             <div className="space-y-3">
@@ -641,6 +622,15 @@ export const Reports = () => {
       `}</style>
     </div>
   );
+};
+
+// FIX: Added missing helper function for status badge colors
+const getStatusColor = (status: string) => {
+  const s = (status || '').toLowerCase();
+  if (s.includes('paid') || s.includes('complete') || s.includes('active') || s.includes('regis')) return 'green';
+  if (s.includes('pending') || s.includes('waiting') || s.includes('reserved')) return 'yellow';
+  if (s.includes('cancelled') || s.includes('refunded') || s.includes('overdue')) return 'red';
+  return 'blue';
 };
 
 const HashIcon = ({ size, className }: any) => <span className={className}>#</span>;
