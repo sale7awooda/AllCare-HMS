@@ -87,7 +87,8 @@ exports.getUsers = (req, res) => {
       fullName: u.full_name,
       role: u.role,
       email: u.email || '',
-      isActive: !!u.is_active, 
+      // FIX: Changed isActive to is_active to match the User interface in types.ts
+      is_active: !!u.is_active, 
     }));
     res.json(mappedUsers);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -251,7 +252,7 @@ exports.getNurseServices = (req, res) => {
 exports.addNurseService = (req, res) => {
   const { name_en, name_ar, description_en, description_ar, cost } = req.body;
   try {
-    const info = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?, ?)').run(name_en, name_ar, description_en, description_ar, cost);
+    const info = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?)').run(name_en, name_ar, description_en, description_ar, cost);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };

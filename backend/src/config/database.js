@@ -14,7 +14,7 @@ if (!fs.existsSync(dbDir)) {
 
 const db = new Database(dbPath);
 
-// STABILITY FIX: Use DELETE journal mode instead of WAL for containerized environments (Railway/Heroku).
+// STABILITY FIX: Use DELETE journal mode instead of WAL for containerized environments.
 db.pragma('journal_mode = DELETE');
 db.pragma('synchronous = NORMAL'); 
 db.pragma('foreign_keys = ON');
@@ -52,7 +52,7 @@ const initDB = (forceReset = false) => {
   db.prepare(`
     CREATE TABLE IF NOT EXISTS role_permissions (
       role TEXT PRIMARY KEY,
-      permissions TEXT NOT NULL, -- JSON array
+      permissions TEXT NOT NULL,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
@@ -71,7 +71,7 @@ const initDB = (forceReset = false) => {
       consultation_fee_emergency REAL DEFAULT 0,
       status TEXT CHECK(status IN ('active', 'inactive', 'dismissed')) DEFAULT 'active',
       is_available BOOLEAN DEFAULT 1,
-      available_days TEXT, -- JSON array
+      available_days TEXT,
       available_time_start TEXT,
       available_time_end TEXT,
       email TEXT,
@@ -197,93 +197,145 @@ const seedData = () => {
       stmt.run(d.u, h, d.n, d.r);
   });
 
-  // --- SUDANESE BANKS ---
+  // --- 1. SUDANESE BANKS ---
   const bankCount = db.prepare('SELECT count(*) as count FROM banks').get().count;
   if (bankCount === 0) {
     const banks = [
       { en: 'Bank of Khartoum (BOK)', ar: 'بنك الخرطوم' },
       { en: 'Faisal Islamic Bank', ar: 'بنك فيصل الإسلامي' },
       { en: 'Omdurman National Bank', ar: 'بنك أمدرمان الوطني' },
-      { en: 'Al Baraka Bank', ar: 'بنك البركة' },
+      { en: 'Al Salam Bank', ar: 'بنك السلام' },
       { en: 'Sudanese Egyptian Bank', ar: 'البنك السوداني المصري' },
-      { en: 'Blue Nile Mashreq Bank', ar: 'بنك النيل الأزرق المشرق' }
+      { en: 'Blue Nile Mashreq Bank', ar: 'بنك النيل الأزرق المشرق' },
+      { en: 'United Capital Bank', ar: 'بنك المال المتحد' },
+      { en: 'Al Baraka Bank', ar: 'بنك البركة' }
     ];
     const bStmt = db.prepare('INSERT INTO banks (name_en, name_ar, is_active) VALUES (?, ?, 1)');
     banks.forEach(b => bStmt.run(b.en, b.ar));
   }
 
-  // --- INSURANCE PROVIDERS ---
+  // --- 2. SUDANESE INSURANCE COMPANIES ---
   const insCount = db.prepare('SELECT count(*) as count FROM insurance_providers').get().count;
   if (insCount === 0) {
     const providers = [
-      { en: 'Shiekan Insurance', ar: 'شيكان للتأمين' },
-      { en: 'United Insurance', ar: 'المتحدة للتأمين' },
-      { en: 'Islamic Insurance', ar: 'التأمين الإسلامية' },
-      { en: 'National Health Insurance Fund', ar: 'الصندوق القومي للتأمين الصحي' }
+      { en: 'Shiekan Insurance & Reinsurance', ar: 'شيكان للتأمين وإعادة التأمين' },
+      { en: 'United Insurance Company', ar: 'شركة المتحدة للتأمين' },
+      { en: 'Islamic Insurance Company', ar: 'شركة التأمين الإسلامية' },
+      { en: 'National Health Insurance Fund (NHIF)', ar: 'الصندوق القومي للتأمين الصحي' },
+      { en: 'Savanna Insurance Company', ar: 'شركة سافانا للتأمين' },
+      { en: 'Sudanese Insurance & Reinsurance', ar: 'السودانية للتأمين وإعادة التأمين' },
+      { en: 'Blue Nile Insurance', ar: 'شركة النيل الأزرق للتأمين' }
     ];
     const iStmt = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)');
     providers.forEach(p => iStmt.run(p.en, p.ar));
   }
 
-  // --- DEPARTMENTS ---
+  // --- 3. DEPARTMENTS ---
   const deptCount = db.prepare('SELECT count(*) as count FROM departments').get().count;
   if (deptCount === 0) {
     const depts = [
-      { en: 'Emergency', ar: 'الطوارئ' },
-      { en: 'General Medicine', ar: 'الطب العام' },
-      { en: 'Surgery', ar: 'الجراحة' },
-      { en: 'Pediatrics', ar: 'الأطفال' },
+      { en: 'Internal Medicine', ar: 'الطب الباطني' },
+      { en: 'General Surgery', ar: 'الجراحة العامة' },
+      { en: 'Pediatrics', ar: 'طب الأطفال' },
       { en: 'Obstetrics and Gynecology', ar: 'النساء والتوليد' },
-      { en: 'Cardiology', ar: 'القلب' }
+      { en: 'Cardiology', ar: 'طب القلب' },
+      { en: 'Neurology', ar: 'طب الأعصاب' },
+      { en: 'Orthopedics', ar: 'جراحة العظام' },
+      { en: 'Radiology', ar: 'الأشعة' },
+      { en: 'Laboratory', ar: 'المختبر' },
+      { en: 'Emergency', ar: 'الطوارئ' },
+      { en: 'Pharmacy', ar: 'الصيدلية' },
+      { en: 'Administration', ar: 'الإدارة' }
     ];
     const dStmt = db.prepare('INSERT INTO departments (name_en, name_ar) VALUES (?, ?)');
     depts.forEach(d => dStmt.run(d.en, d.ar));
   }
 
-  // --- LAB TESTS ---
+  // --- 4. SPECIALIZATIONS ---
+  const specCount = db.prepare('SELECT count(*) as count FROM specializations').get().count;
+  if (specCount === 0) {
+    const specs = [
+      { en: 'Cardiologist', ar: 'أخصائي قلب', role: 'doctor' },
+      { en: 'Neurologist', ar: 'أخصائي أعصاب', role: 'doctor' },
+      { en: 'General Surgeon', ar: 'جراح عام', role: 'doctor' },
+      { en: 'Orthopedic Surgeon', ar: 'جراح عظام', role: 'doctor' },
+      { en: 'Pediatrician', ar: 'أخصائي أطفال', role: 'doctor' },
+      { en: 'Obstetrician/Gynecologist', ar: 'أخصائي نساء وتوليد', role: 'doctor' },
+      { en: 'Radiologist', ar: 'أخصائي أشعة', role: 'doctor' },
+      { en: 'Anesthesiologist', ar: 'أخصائي تخدير', role: 'doctor' },
+      { en: 'Lab Technician', ar: 'فني مختبرات', role: 'technician' },
+      { en: 'Radiology Technician', ar: 'فني أشعة', role: 'technician' },
+      { en: 'Clinical Pharmacist', ar: 'صيدلي إكلينيكي', role: 'pharmacist' },
+      { en: 'Nurse Practitioner', ar: 'ممارس تمريض', role: 'nurse' },
+      { en: 'General Nurse', ar: 'ممرض عام', role: 'nurse' }
+    ];
+    const sStmt = db.prepare('INSERT INTO specializations (name_en, name_ar, related_role) VALUES (?, ?, ?)');
+    specs.forEach(s => sStmt.run(s.en, s.ar, s.role));
+  }
+
+  // --- 5. LAB TESTS ---
   const labCount = db.prepare('SELECT count(*) as count FROM lab_tests').get().count;
   if (labCount === 0) {
     const tests = [
-      { en: 'Malaria Parasite (MP)', ar: 'فحص الملاريا', catEn: 'Hematology', catAr: 'أمراض الدم', cost: 15 },
-      { en: 'Complete Blood Count (CBC)', ar: 'صورة دم كاملة', catEn: 'Hematology', catAr: 'أمراض الدم', cost: 25 },
-      { en: 'Widal Test (Typhoid)', ar: 'فحص التيفويد', catEn: 'Serology', catAr: 'المصليات', cost: 20 },
-      { en: 'Blood Sugar (Random)', ar: 'سكر عشوائي', catEn: 'Biochemistry', catAr: 'الكيمياء الحيوية', cost: 10 }
+      { en: 'Complete Blood Count (CBC)', ar: 'صورة دم كاملة', catEn: 'Hematology', cost: 25 },
+      { en: 'Malaria Parasite (MP)', ar: 'فحص الملاريا', catEn: 'Hematology', cost: 15 },
+      { en: 'Typhoid (Widal) Test', ar: 'فحص التيفويد', catEn: 'Serology', cost: 20 },
+      { en: 'Random Blood Sugar (RBS)', ar: 'سكر عشوائي', catEn: 'Biochemistry', cost: 10 },
+      { en: 'Lipid Profile', ar: 'دهون الدم', catEn: 'Biochemistry', cost: 45 },
+      { en: 'Liver Function Test (LFT)', ar: 'وظائف كبد', catEn: 'Biochemistry', cost: 40 },
+      { en: 'Renal Function Test (RFT)', ar: 'وظائف كلى', catEn: 'Biochemistry', cost: 35 },
+      { en: 'Urine Analysis', ar: 'فحص بول', catEn: 'Microbiology', cost: 15 },
+      { en: 'Hepatitis B Surface Antigen', ar: 'فحص التهاب الكبد الوبائي ب', catEn: 'Serology', cost: 30 }
     ];
-    const lStmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost) VALUES (?, ?, ?, ?, ?)');
-    tests.forEach(t => lStmt.run(t.en, t.ar, t.catEn, t.catAr, t.cost));
+    const lStmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, cost) VALUES (?, ?, ?, ?)');
+    tests.forEach(t => lStmt.run(t.en, t.ar, t.catEn, t.cost));
   }
 
-  // --- NURSE SERVICES ---
+  // --- 6. NURSE SERVICES ---
   const nurseCount = db.prepare('SELECT count(*) as count FROM nurse_services').get().count;
   if (nurseCount === 0) {
     const services = [
-      { en: 'IM Injection', ar: 'حقنة عضل', cost: 5 },
-      { en: 'IV Cannulation', ar: 'تركيب كانيولا', cost: 10 },
-      { en: 'Wound Dressing', ar: 'غيار جرح', cost: 15 },
-      { en: 'Vitals Monitoring', ar: 'مراقبة العلامات الحيوية', cost: 8 }
+      { en: 'IM Injection', ar: 'حقنة عضل', cost: 10 },
+      { en: 'IV Cannulation', ar: 'تركيب كانيولا', cost: 25 },
+      { en: 'Wound Dressing', ar: 'غيار جروح', cost: 30 },
+      { en: 'Vital Signs Monitoring', ar: 'مراقبة العلامات الحيوية', cost: 15 },
+      { en: 'ECG Recording', ar: 'رسم قلب', cost: 50 },
+      { en: 'Nebulizer Therapy', ar: 'جلسة بخار', cost: 20 },
+      { en: 'Catheterization', ar: 'تركيب قسطرة', cost: 40 },
+      { en: 'NG Tube Insertion', ar: 'تركيب أنبوب تغذية', cost: 45 }
     ];
     const nStmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, cost) VALUES (?, ?, ?)');
     services.forEach(s => nStmt.run(s.en, s.ar, s.cost));
   }
 
-  // --- OPERATIONS ---
+  // --- 7. OPERATIONS ---
   const opsCount = db.prepare('SELECT count(*) as count FROM operations_catalog').get().count;
   if (opsCount === 0) {
     const ops = [
-      { en: 'Appendectomy', ar: 'عملية الزائدة الدودية', cost: 500 },
+      { en: 'Appendectomy', ar: 'استئصال الزائدة الدودية', cost: 500 },
       { en: 'Hernia Repair', ar: 'إصلاح الفتق', cost: 450 },
-      { en: 'Cesarean Section', ar: 'عملية قيصرية', cost: 800 },
-      { en: 'Laparoscopy', ar: 'عملية منظار', cost: 700 }
+      { en: 'Cesarean Section (C-Section)', ar: 'عملية قيصرية', cost: 800 },
+      { en: 'Cholecystectomy (Gallbladder Removal)', ar: 'استئصال المرارة', cost: 650 },
+      { en: 'Tonsillectomy', ar: 'استئصال اللوزتين', cost: 350 },
+      { en: 'Laparoscopy', ar: 'جراحة منظار', cost: 700 },
+      { en: 'Orthopedic Fracture Fixation', ar: 'تثبيت كسور العظام', cost: 900 }
     ];
     const oStmt = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
     ops.forEach(o => oStmt.run(o.en, o.ar, o.cost));
+  }
+
+  // Default Tax and Payment
+  const taxCount = db.prepare('SELECT count(*) as count FROM tax_rates').get().count;
+  if (taxCount === 0) {
+    db.prepare('INSERT INTO tax_rates (name_en, name_ar, rate, is_active) VALUES (?, ?, ?, ?)').run('Standard VAT', 'ضريبة القيمة المضافة', 15, 1);
   }
 
   const pmCount = db.prepare('SELECT count(*) as count FROM payment_methods').get().count;
   if (pmCount === 0) {
     const pms = [
       { en: 'Cash', ar: 'نقدي' },
-      { en: 'Bankak', ar: 'بنكك' },
+      { en: 'Bankak (BOK)', ar: 'بنكك' },
+      { en: 'ATM/Card', ar: 'بطاقة صراف' },
       { en: 'Insurance', ar: 'تأمين' }
     ];
     const stmt = db.prepare('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, 1)');
