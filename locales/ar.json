@@ -1,4 +1,3 @@
-
 {
   "app_loading": "جاري تحميل التطبيق...",
   "nav_dashboard": "لوحة التحكم",
@@ -118,7 +117,7 @@
   "dashboard_action_register": "تسجيل مريض",
   "dashboard_action_lab": "طلب مختبر",
   "dashboard_action_invoice": "إنشاء فاتورة",
-  "dashboard_action_schedule": "جدول الموظفين",
+  "dashboard_action_schedule": "جدولة العمليات",
   "dashboard_stat_total_patients": "إجمالي المرضى",
   "dashboard_stat_today_appts": "مواعيد اليوم",
   "dashboard_stat_appts_subtext": "الزيارات المجدولة",
@@ -420,7 +419,7 @@
   "config_tab_general": "عام",
   "config_tab_roles": "الأدوار والمستخدمين",
   "config_tab_financial": "المالية",
-  "config_tab_beds": "الأجنحة والأسرّة",
+  "config_tab_beds": "الأقسام والأسرّة",
   "config_tab_catalogs": "الكتالوجات",
   "config_tab_data": "إدارة البيانات",
   "config_tab_health": "التشخيص",
@@ -595,7 +594,7 @@
   "operations_tab_schedule": "الجدول",
   "operations_tab_history": "التاريخ",
   "operations_requests_empty": "لا توجد طلبات عمليات معلقة.",
-  "operations_requests_empty_searched": "لا توجد طلبات تطابق بحثك.",
+  "operations_requests_empty_searched": "No requests match your search.",
   "operations_card_awaiting_payment": "في انتظار الدفع",
   "operations_card_needs_estimation": "يحتاج تقدير",
   "operations_card_est_cost": "التكلفة التقديرية",
@@ -636,7 +635,7 @@
   "lab_tab_queue": "قائمة الانتظار",
   "lab_tab_history": "التاريخ",
   "lab_search_placeholder": "بحث في الطلبات...",
-  "lab_empty": "لا توجد طلبات في {tab}.",
+  "lab_empty": "No requests found in {tab}.",
   "lab_loading": "جاري تحميل الطلبات...",
   "lab_card_results_ready": "النتائج جاهزة",
   "lab_card_paid": "مدفوع",
@@ -720,5 +719,6 @@
   "billing_method_cash": "نقدي",
   "billing_method_insurance": "تأمين",
   "patients_modal_view_invoice_label": "فاتورة",
-  "patients_modal_view_lab_request_label": "طلب مختبر"
+  "patients_modal_view_lab_request_label": "طلب مختبر",
+  "appointments_error_duplicate_day": "المريض لديه بالفعل موعد نشط مع هذا الطبيب في التاريخ المختار."
 }

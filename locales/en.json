@@ -1,4 +1,3 @@
-
 {
   "app_loading": "Loading application...",
   "nav_dashboard": "Dashboard",
@@ -118,7 +117,7 @@
   "dashboard_action_register": "Register Patient",
   "dashboard_action_lab": "Lab Request",
   "dashboard_action_invoice": "Create Invoice",
-  "dashboard_action_schedule": "Staff Schedule",
+  "dashboard_action_schedule": "Operations Schedule",
   "dashboard_stat_total_patients": "Total Patients",
   "dashboard_stat_today_appts": "Today's Appts",
   "dashboard_stat_appts_subtext": "Scheduled visits",
@@ -718,5 +717,6 @@
   "billing_treasury_from": "From",
   "billing_treasury_to": "To",
   "billing_method_cash": "Cash",
-  "billing_method_insurance": "Insurance"
+  "billing_method_insurance": "Insurance",
+  "appointments_error_duplicate_day": "The patient already has an active appointment with this doctor on the selected date."
 }

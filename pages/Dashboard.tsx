@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, Badge, Button } from '../components/UI';
 import { api } from '../services/api';
@@ -73,7 +72,6 @@ export const Dashboard = () => {
         });
 
         // --- 2. Department Workload (Appointments per Dept) ---
-        // We map appointments to doctor -> doctor to department
         const deptCounts: Record<string, number> = {};
         apts.forEach((apt: any) => {
            const doctor = staff.find((s: any) => s.id === apt.staffId);
@@ -196,7 +194,7 @@ export const Dashboard = () => {
       <div className={`p-2 rounded-full bg-${color}-100 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400 group-hover:scale-110 transition-transform`}>
         <Icon size={20} />
       </div>
-      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white">{label}</span>
+      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white text-center">{label}</span>
     </button>
   );
 
@@ -225,9 +223,10 @@ export const Dashboard = () => {
         <ActionButton icon={Plus} label={t('dashboard_action_admission')} color="blue" onClick={() => navigate('/admissions')} />
         <ActionButton icon={Calendar} label={t('dashboard_action_visit')} color="violet" onClick={() => navigate('/appointments')} />
         <ActionButton icon={Users} label={t('dashboard_action_register')} color="emerald" onClick={() => navigate('/patients')} />
-        <ActionButton icon={FlaskConical} label={t('dashboard_action_lab')} color="orange" onClick={() => navigate('/patients')} />
+        <ActionButton icon={FlaskConical} label={t('dashboard_action_lab')} color="orange" onClick={() => navigate('/laboratory')} />
         <ActionButton icon={Wallet} label={t('dashboard_action_invoice')} color="pink" onClick={() => navigate('/billing')} />
-        <ActionButton icon={Stethoscope} label={t('dashboard_action_schedule')} color="cyan" onClick={() => navigate('/hr')} />
+        {/* UPDATED: Changed from HR to Operations Schedule */}
+        <ActionButton icon={Activity} label={t('dashboard_action_schedule')} color="cyan" onClick={() => navigate('/operations')} />
       </div>
 
       {/* Main Stats Grid */}
@@ -373,4 +372,3 @@ export const Dashboard = () => {
     </div>
   );
 };
-// FIX: Removed extraneous file marker that was causing a syntax error.

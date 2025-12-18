@@ -216,30 +216,27 @@ const seedData = () => {
     console.log('Seeded role permissions.');
   }
 
-  // 2. Seed Users
-  const userCount = db.prepare('SELECT count(*) as count FROM users').get().count;
-  if (userCount === 0) {
-    const defaultUsers = [
-      { u: 'admin', p: 'admin123', n: 'System Administrator', r: 'admin' },
-      { u: 'manager', p: 'manager123', n: 'Sarah Manager', r: 'manager' },
-      { u: 'receptionist', p: 'receptionist123', n: 'Pam Receptionist', r: 'receptionist' },
-      { u: 'accountant', p: 'accountant123', n: 'Angela Accountant', r: 'accountant' },
-      { u: 'labtech', p: 'labtech123', n: 'Tom Technician', r: 'technician' },
-      { u: 'doctor', p: 'doctor123', n: 'Dr. John Doe', r: 'doctor' },
-      { u: 'nurse', p: 'nurse123', n: 'Nurse Mary', r: 'nurse' },
-      { u: 'pharmacist', p: 'pharmacist123', n: 'Phil Pharmacist', r: 'pharmacist' },
-      { u: 'hr', p: 'hr123', n: 'Toby HR', r: 'hr' },
-    ];
+  // 2. Seed Users - Robust Seeding with INSERT OR REPLACE to ensure correct credentials for demo
+  const defaultUsers = [
+    { u: 'admin', p: 'admin123', n: 'System Administrator', r: 'admin' },
+    { u: 'manager', p: 'manager123', n: 'Sarah Manager', r: 'manager' },
+    { u: 'receptionist', p: 'receptionist123', n: 'Pam Receptionist', r: 'receptionist' },
+    { u: 'accountant', p: 'accountant123', n: 'Angela Accountant', r: 'accountant' },
+    { u: 'labtech', p: 'labtech123', n: 'Tom Technician', r: 'technician' },
+    { u: 'doctor', p: 'doctor123', n: 'Dr. John Doe', r: 'doctor' },
+    { u: 'nurse', p: 'nurse123', n: 'Nurse Mary', r: 'nurse' },
+    { u: 'pharmacist', p: 'pharmacist123', n: 'Phil Pharmacist', r: 'pharmacist' },
+    { u: 'hr', p: 'hr123', n: 'Toby HR', r: 'hr' },
+  ];
 
-    const stmt = db.prepare("INSERT OR IGNORE INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)");
-    defaultUsers.forEach(d => {
-        const h = bcrypt.hashSync(d.p, 10);
-        stmt.run(d.u, h, d.n, d.r);
-    });
-    console.log('Seeded default users.');
-  }
+  const stmt = db.prepare("INSERT OR REPLACE INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)");
+  defaultUsers.forEach(d => {
+      const h = bcrypt.hashSync(d.p, 10);
+      stmt.run(d.u, h, d.n, d.r);
+  });
+  console.log('Verified and seeded default users.');
 
-  // 3. Departments - Expanded to cover all roles
+  // 3. Departments
   const deptCount = db.prepare('SELECT count(*) as count FROM departments').get().count;
   if (deptCount === 0) {
     const depts = [
@@ -267,16 +264,14 @@ const seedData = () => {
     console.log('Seeded departments.');
   }
 
-  // 4. Lab Tests (Common Tests)
+  // 4. Lab Tests
   const labCount = db.prepare('SELECT count(*) as count FROM lab_tests').get().count;
   if (labCount === 0) {
     const tests = [
-      // Hematology
       { en: 'Complete Blood Count (CBC)', ar: 'صورة دم كاملة', cat: 'Hematology', cost: 15 },
       { en: 'ESR', ar: 'سرعة الترسيب', cat: 'Hematology', cost: 5 },
       { en: 'Blood Grouping & Rh', ar: 'فصيلة الدم', cat: 'Hematology', cost: 5 },
       { en: 'Prothrombin Time (PT)', ar: 'زمن البروثرومبين', cat: 'Hematology', cost: 10 },
-      // Biochemistry
       { en: 'Fasting Blood Sugar (FBS)', ar: 'سكر صائم', cat: 'Biochemistry', cost: 5 },
       { en: 'HbA1c', ar: 'السكر التراكمي', cat: 'Biochemistry', cost: 20 },
       { en: 'Lipid Profile', ar: 'دهون الدم', cat: 'Biochemistry', cost: 25 },
@@ -303,7 +298,7 @@ const seedData = () => {
     console.log('Seeded nurse services.');
   }
 
-  // 6. Operations (Expanded)
+  // 6. Operations
   const opCount = db.prepare('SELECT count(*) as count FROM operations_catalog').get().count;
   if (opCount === 0) {
     const ops = [

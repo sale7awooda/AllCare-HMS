@@ -1,5 +1,3 @@
-
-
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
@@ -29,7 +27,20 @@ exports.create = (req, res) => {
   const apptNumber = `APT-${Math.floor(Math.random() * 100000)}`;
 
   const tx = db.transaction(() => {
-    // 1. Fetch Staff Fee or use Custom Fee
+    // 1. Validation: Prevent duplicate appointment for same patient + same doctor + same day
+    const existing = db.prepare(`
+      SELECT id FROM appointments 
+      WHERE patient_id = ? 
+      AND medical_staff_id = ? 
+      AND date(appointment_datetime) = date(?)
+      AND status != 'cancelled'
+    `).get(patientId, staffId, datetime);
+
+    if (existing) {
+      throw new Error('DUPLICATE_APPOINTMENT_SAME_DAY');
+    }
+
+    // 2. Fetch Staff Fee or use Custom Fee
     const staff = db.prepare('SELECT * FROM medical_staff WHERE id = ?').get(staffId);
     let fee = 0;
 
@@ -41,7 +52,7 @@ exports.create = (req, res) => {
       else fee = staff.consultation_fee || 0; // Default/Consultation
     }
 
-    // 2. Generate Bill
+    // 3. Generate Bill
     const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString(); // 8 digits
     const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, fee, 'pending');
     
@@ -50,7 +61,7 @@ exports.create = (req, res) => {
     
     db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, desc, fee);
 
-    // 3. Create Appointment with Bill Link
+    // 4. Create Appointment with Bill Link
     const info = db.prepare(`
       INSERT INTO appointments (appointment_number, patient_id, medical_staff_id, appointment_datetime, type, reason, status, billing_status, bill_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -64,7 +75,10 @@ exports.create = (req, res) => {
     res.status(201).json(result);
   } catch (err) {
     console.error(err);
-    res.status(400).json({ error: err.message });
+    const message = err.message === 'DUPLICATE_APPOINTMENT_SAME_DAY' 
+      ? 'The patient already has an active appointment with this doctor on the selected date.' 
+      : err.message;
+    res.status(400).json({ error: message, code: err.message });
   }
 };
 

@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, Edit, Calendar, Lock, 
   FlaskConical, Bed, Activity, Trash2, CheckCircle,
   Phone, User, Loader2,
-  ChevronLeft, ChevronRight, Stethoscope, FileText, XCircle, DollarSign
+  ChevronLeft, ChevronRight, Stethoscope, FileText, XCircle, DollarSign, Clock
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill, InsuranceProvider } from '../types';
@@ -211,6 +211,14 @@ export const Patients = () => {
   const handleBackToActionMenu = () => {
     setIsActionModalOpen(false);
     setIsActionMenuOpen(true);
+  };
+
+  const isDoctorAvailableOnDate = (doctor: MedicalStaff, dateString: string) => {
+    if (!doctor.availableDays || doctor.availableDays.length === 0) return true;
+    const date = new Date(dateString);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const currentDayName = dayNames[date.getDay()];
+    return doctor.availableDays.includes(currentDayName);
   };
 
   const submitAction = async (e: React.FormEvent) => {
@@ -510,15 +518,23 @@ export const Patients = () => {
               <Input label={t('patients_modal_form_age')} type="number" required value={formData.age} onChange={e => setFormData({...formData, age: parseInt(e.target.value) || 0})} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-                <Select label={t('patients_modal_form_gender')} value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value as any})}>
+                <select 
+                  className="block w-full rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 p-2.5 border"
+                  value={formData.gender} 
+                  onChange={e => setFormData({...formData, gender: e.target.value as any})}
+                >
                   <option value="male">{t('patients_modal_form_gender_male')}</option>
                   <option value="female">{t('patients_modal_form_gender_female')}</option>
-                </Select>
-                <Select label={t('patients_modal_form_type')} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})}>
+                </select>
+                <select 
+                  className="block w-full rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 p-2.5 border"
+                  value={formData.type} 
+                  onChange={e => setFormData({...formData, type: e.target.value as any})}
+                >
                   <option value="outpatient">{t('patients_filter_type_outpatient')}</option>
                   <option value="inpatient">{t('patients_filter_type_inpatient')}</option>
                   <option value="emergency">{t('patients_filter_type_emergency')}</option>
-                </Select>
+                </select>
             </div>
             <Input label={t('patients_modal_form_address')} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
           </div>
@@ -607,41 +623,63 @@ export const Patients = () => {
           <Button size="sm" variant="ghost" icon={ChevronLeft} onClick={handleBackToActionMenu}>{t('patients_modal_action_back_button')}</Button>
         </div>
 
-        <form onSubmit={submitAction} className="space-y-5">
+        <form onSubmit={submitAction} className="space-y-6">
           {currentAction === 'appointment' && (
             <>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{t('patients_modal_action_select_specialty')}</label>
-                <select 
-                  className="block w-full rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 p-2.5 border"
-                  value={selectedSpecialty}
-                  onChange={e => { setSelectedSpecialty(e.target.value); setActionFormData(prev => ({ ...prev, staffId: '', subtype: '' })); }}
-                >
-                  <option value="">{t('patients_modal_action_select_specialty')}</option>
-                  {[...new Set(staff.filter(s => s.type === 'doctor').map(s => s.specialization))].map(spec => <option key={spec} value={spec}>{spec}</option>)}
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{t('patients_modal_action_select_specialty')}</label>
+                  <select 
+                    className="block w-full rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 p-2.5 border"
+                    value={selectedSpecialty}
+                    onChange={e => { setSelectedSpecialty(e.target.value); setActionFormData(prev => ({ ...prev, staffId: '', subtype: '' })); }}
+                  >
+                    <option value="">{t('patients_modal_action_select_specialty')}</option>
+                    {[...new Set(staff.filter(s => s.type === 'doctor').map(s => s.specialization))].map(spec => <option key={spec} value={spec}>{spec}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{t('date')}</label>
+                  <Input type="date" value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{t('patients_modal_action_select_doctor')}</label>
-                <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                  {getFilteredDoctors().map(doc => (
-                    <div 
-                      key={doc.id}
-                      onClick={() => setActionFormData(prev => ({...prev, staffId: doc.id.toString(), subtype: ''}))}
-                      className={`min-w-[140px] p-3 rounded-xl border cursor-pointer ${actionFormData.staffId === doc.id.toString() ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500' : 'border-slate-200 hover:bg-slate-50'}`}
-                    >
-                      <div className="font-bold text-sm truncate">{doc.fullName}</div>
-                      <div className="text-xs text-slate-500 truncate">{doc.specialization}</div>
-                    </div>
-                  ))}
+                <div className="flex flex-wrap justify-center gap-3 max-h-[300px] overflow-y-auto pb-2 custom-scrollbar p-1">
+                  {getFilteredDoctors().map(doc => {
+                    const available = isDoctorAvailableOnDate(doc, actionFormData.date);
+                    return (
+                      <div 
+                        key={doc.id}
+                        onClick={() => setActionFormData(prev => ({...prev, staffId: doc.id.toString(), subtype: ''}))}
+                        className={`w-[160px] p-4 rounded-xl border transition-all duration-200 cursor-pointer relative overflow-hidden flex flex-col items-center text-center gap-2 ${actionFormData.staffId === doc.id.toString() ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500 shadow-md' : 'border-slate-200 bg-white dark:bg-slate-800 hover:border-primary-300 hover:shadow-sm'}`}
+                      >
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-400">
+                             {doc.fullName.charAt(0)}
+                          </div>
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-800 ${available ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                        </div>
+                        
+                        <div className="min-w-0">
+                          <div className="font-bold text-sm truncate w-full">{doc.fullName}</div>
+                          <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{doc.specialization}</div>
+                        </div>
+
+                        <div className={`text-[10px] font-bold py-0.5 px-2 rounded-full ${available ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                           {available ? "Available Today" : "Unavailable"}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               {actionFormData.staffId && (
-                <div className="animate-in fade-in">
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">{t('patients_modal_action_appointment_type')}</label>
-                  <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                <div className="animate-in fade-in space-y-3">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 text-center">{t('patients_modal_action_appointment_type')}</label>
+                  <div className="flex flex-wrap justify-center gap-3">
                     {(() => {
                       const doctor = staff.find(s => s.id.toString() === actionFormData.staffId);
                       return [
@@ -652,10 +690,10 @@ export const Patients = () => {
                         <div 
                           key={type.id}
                           onClick={() => setActionFormData(prev => ({...prev, subtype: type.id}))}
-                          className={`min-w-[120px] p-3 rounded-xl border cursor-pointer flex flex-col justify-between h-20 ${actionFormData.subtype === type.id ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500' : 'border-slate-200 hover:bg-slate-50'}`}
+                          className={`w-[140px] p-3 rounded-xl border cursor-pointer flex flex-col items-center justify-center gap-1 transition-all ${actionFormData.subtype === type.id ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500 shadow-md' : 'border-slate-200 bg-white dark:bg-slate-800 hover:border-primary-300'}`}
                         >
-                          <span className="text-sm font-medium">{type.label}</span>
-                          <span className="font-bold text-lg text-primary-600">${type.fee}</span>
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{type.label}</span>
+                          <span className="font-bold text-xl text-primary-600">${type.fee}</span>
                         </div>
                       ));
                     })()}

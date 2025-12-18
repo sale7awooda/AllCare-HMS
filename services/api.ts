@@ -1,43 +1,48 @@
+
 import axios from 'axios';
 
-// The application is structured as a monorepo where the backend serves the frontend.
-// In development (Vite), we use the proxy configured in vite.config.js.
-// In production, the API is served from the same origin.
+// Helper to determine the correct base URL based on the current environment
+const getBaseUrl = () => {
+  const { hostname } = window.location;
+  
+  // 1. Local Development (uses Vite proxy in vite.config.js)
+  // 2. Production Deployment (served by Express on same domain)
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('railway.app')) {
+    return '/api';
+  }
+
+  // 3. External Environments (e.g. Google AI Studio, StackBlitz, Local Network)
+  // Connect directly to the deployed Railway backend
+  return 'https://allcare.up.railway.app/api';
+};
+
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: getBaseUrl(),
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
 });
 
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
 client.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    // If we get a 401, the token is either expired, invalid, or missing.
-    // We clear it and let the App component handle the redirect to Login.
     if (error.response?.status === 401) {
-      const isLoginRequest = error.config.url.includes('/auth/login');
-      // Don't remove token if we are actually TRYING to login and failed
-      if (!isLoginRequest) {
-        localStorage.removeItem('token');
-        // Only reload if we are not already on the login screen logic
-        if (window.location.pathname !== '/' && !window.location.hash.startsWith('#/login')) {
-           window.location.href = '/'; 
-        }
-      }
+      localStorage.removeItem('token');
+      window.location.href = '/'; 
+    }
+    if (!error.response && error.code !== 'ERR_CANCELED') {
+      console.error('Network Error: Backend unreachable.');
     }
     return Promise.reject(error);
   }
 );
 
-// Helpers to cast response to any, ensuring TS treats return values as data objects
+// Helpers to cast response to any, ensuring TS treats return values as data objects (unwrapped by interceptor)
 const get = (url: string) => client.get(url) as Promise<any>;
 const post = (url: string, data?: any, config?: any) => client.post(url, data, config) as Promise<any>;
 const put = (url: string, data?: any) => client.put(url, data) as Promise<any>;
@@ -158,11 +163,11 @@ export const api = {
   updatePaymentMethod: (id, data) => put(`/config/payment-methods/${id}`, data),
   deletePaymentMethod: (id) => del(`/config/payment-methods/${id}`),
 
-  // FIX: Properly complete the truncated downloadBackup method.
   downloadBackup: async () => {
     try {
         const response = await client.get('/config/backup', { responseType: 'blob' });
-        const blob = new Blob([response as any], { type: 'application/x-sqlite3' });
+        // Enforce binary type so the browser respects the .db extension
+        const blob = new Blob([response], { type: 'application/x-sqlite3' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -172,17 +177,14 @@ export const api = {
         link.parentNode?.removeChild(link);
         window.URL.revokeObjectURL(url);
     } catch (e) {
-        console.error("Backup download error", e);
+        console.error("Backup download error:", e);
+        throw e;
     }
   },
-  // FIX: Added missing restoreDatabase method to resolve errors in Configuration.tsx
-  restoreDatabase: (file: File) => {
+  restoreDatabase: (file) => {
     const formData = new FormData();
     formData.append('backup', file);
-    return post('/config/restore', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+    return post('/config/restore', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
-  // FIX: Added missing resetDatabase method to resolve errors in Configuration.tsx
-  resetDatabase: () => post('/config/reset')
+  resetDatabase: () => post('/config/reset'),
 };
