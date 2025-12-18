@@ -13,19 +13,16 @@ exports.getLabRequests = (req, res) => {
       ORDER BY lr.created_at DESC
     `).all();
 
-    // Enrich with test names (parsing JSON test_ids)
     const enriched = requests.map(r => {
         let testNames = '';
         try {
-            const ids = JSON.parse(r.test_ids); // e.g. [1, 3]
+            const ids = JSON.parse(r.test_ids);
             if (Array.isArray(ids) && ids.length > 0) {
                 const placeholders = ids.map(() => '?').join(',');
                 const tests = db.prepare(`SELECT name_en FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
                 testNames = tests.map(t => t.name_en).join(', ');
             }
-        } catch(e) {
-            // Fallback if test_ids is not valid JSON
-        }
+        } catch(e) {}
         return { ...r, testNames };
     });
 
@@ -36,14 +33,16 @@ exports.getLabRequests = (req, res) => {
 };
 
 exports.createLabRequest = (req, res) => {
-  const { patientId, testIds, totalCost } = req.body; // testIds is array
+  const { patientId, testIds, totalCost } = req.body;
   
-  // Create Bill
   const tx = db.transaction(() => {
       const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
-      const bill = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, totalCost, 'pending');
+      // Ensure bill_date is present
+      const bill = db.prepare(`
+        INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date) 
+        VALUES (?, ?, ?, 'pending', datetime('now'))
+      `).run(billNumber, patientId, totalCost);
       
-      // Add simplified bill item
       db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Lab Tests (Qty: ${testIds.length})`, totalCost);
 
       db.prepare(`
@@ -62,22 +61,8 @@ exports.createLabRequest = (req, res) => {
 
 exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
-    const { results, notes } = req.body; // In a real app, store these
     try {
-        // Store results (Assuming we add a results column or just update status for now)
-        // db.prepare("UPDATE lab_requests SET status = 'completed', results = ? WHERE id = ?").run(JSON.stringify({results, notes}), id);
-        // For current schema which might not have results col, we just mark completed
         db.prepare("UPDATE lab_requests SET status = 'completed' WHERE id = ?").run(id);
-        res.json({success: true});
-    } catch(e) {
-        res.status(500).json({error: e.message});
-    }
-};
-
-exports.confirmLabRequest = (req, res) => {
-    const { id } = req.params;
-    try {
-        db.prepare("UPDATE lab_requests SET status = 'confirmed' WHERE id = ?").run(id);
         res.json({success: true});
     } catch(e) {
         res.status(500).json({error: e.message});
@@ -102,14 +87,14 @@ exports.createNurseRequest = (req, res) => {
     const { patientId, staffId, serviceName, cost, notes } = req.body;
     try {
         db.prepare(`
-            INSERT INTO nurse_requests (patient_id, staff_id, service_name, cost, notes, status)
-            VALUES (?, ?, ?, ?, ?, 'pending')
+            INSERT INTO nurse_requests (patient_id, staff_id, service_name, cost, notes, status, created_at)
+            VALUES (?, ?, ?, ?, ?, 'pending', datetime('now'))
         `).run(patientId, staffId, serviceName, cost, notes);
         res.status(201).json({ success: true });
     } catch(e) { res.status(400).json({ error: e.message }); }
 };
 
-// --- ADMISSIONS & OPS (Keep existing) ---
+// --- OPERATIONS ---
 exports.getScheduledOperations = (req, res) => {
   try {
     const ops = db.prepare(`
@@ -124,7 +109,6 @@ exports.getScheduledOperations = (req, res) => {
       ORDER BY o.created_at DESC
     `).all();
     
-    // Parse JSON details if they exist
     const mapped = ops.map(op => ({
       ...op,
       costDetails: op.cost_details ? JSON.parse(op.cost_details) : null
@@ -139,11 +123,11 @@ exports.getScheduledOperations = (req, res) => {
 exports.createOperation = (req, res) => {
   const { patientId, operationName, doctorId, notes } = req.body;
   try {
-    const info = db.prepare(`
-      INSERT INTO operations (patient_id, operation_name, doctor_id, notes, status)
-      VALUES (?, ?, ?, ?, 'requested')
+    db.prepare(`
+      INSERT INTO operations (patient_id, operation_name, doctor_id, notes, status, created_at)
+      VALUES (?, ?, ?, ?, 'requested', datetime('now'))
     `).run(patientId, operationName, doctorId, notes);
-    res.status(201).json({ id: info.lastInsertRowid, success: true });
+    res.status(201).json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -154,20 +138,18 @@ exports.processOperationRequest = (req, res) => {
   const { details, totalCost } = req.body;
   
   const tx = db.transaction(() => {
-    // 1. Update Operation
     db.prepare(`
       UPDATE operations 
       SET cost_details = ?, projected_cost = ?, status = 'pending_payment'
       WHERE id = ?
     `).run(JSON.stringify(details), totalCost, id);
 
-    // 2. Generate Bill (Optional: Could be done now or later. Here we create a pending bill)
     const op = db.prepare('SELECT * FROM operations WHERE id = ?').get(id);
     const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
     
     const billInfo = db.prepare(`
-      INSERT INTO billing (bill_number, patient_id, total_amount, status)
-      VALUES (?, ?, ?, 'pending')
+      INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date)
+      VALUES (?, ?, ?, 'pending', datetime('now'))
     `).run(billNumber, op.patient_id, totalCost);
     
     db.prepare(`
@@ -175,7 +157,6 @@ exports.processOperationRequest = (req, res) => {
       VALUES (?, ?, ?)
     `).run(billInfo.lastInsertRowid, `Surgery: ${op.operation_name}`, totalCost);
 
-    // Link bill to operation
     db.prepare('UPDATE operations SET bill_id = ? WHERE id = ?').run(billInfo.lastInsertRowid, id);
   });
 
@@ -185,16 +166,6 @@ exports.processOperationRequest = (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-};
-
-exports.confirmOperation = (req, res) => {
-    const { id } = req.params;
-    try {
-        db.prepare("UPDATE operations SET status = 'confirmed' WHERE id = ?").run(id);
-        res.json({success: true});
-    } catch(e) {
-        res.status(500).json({error: e.message});
-    }
 };
 
 exports.completeOperation = (req, res) => {
@@ -207,8 +178,7 @@ exports.completeOperation = (req, res) => {
     }
 };
 
-// --- Lab & Admission Helpers ---
-
+// --- ADMISSIONS ---
 exports.getActiveAdmissions = (req, res) => {
   try {
     const admissions = db.prepare(`
@@ -236,64 +206,6 @@ exports.getActiveAdmissions = (req, res) => {
   }
 };
 
-exports.getInpatientDetails = (req, res) => {
-  const { id } = req.params;
-  try {
-    const admission = db.prepare(`
-        SELECT 
-            a.*, 
-            p.full_name as patientName, p.patient_id as patientCode, p.age, p.gender, p.blood_group as bloodGroup,
-            b.room_number as roomNumber, b.cost_per_day as costPerDay,
-            m.full_name as doctorName
-        FROM admissions a
-        JOIN patients p ON a.patient_id = p.id
-        JOIN beds b ON a.bed_id = b.id
-        JOIN medical_staff m ON a.doctor_id = m.id
-        WHERE a.id = ?
-    `).get(id);
-
-    if (!admission) return res.status(404).json({ error: 'Admission not found' });
-
-    const notes = db.prepare(`
-        SELECT n.*, m.full_name as doctorName
-        FROM inpatient_notes n
-        JOIN medical_staff m ON n.doctor_id = m.id
-        WHERE n.admission_id = ?
-        ORDER BY n.created_at DESC
-    `).all(id);
-
-    const endDate = admission.actual_discharge_date ? new Date(admission.actual_discharge_date) : new Date();
-    const daysStayed = Math.ceil((endDate.getTime() - new Date(admission.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1;
-    const estimatedAccommodationCost = daysStayed * admission.costPerDay;
-
-    let depositPaid = 0;
-    if (admission.bill_id) {
-      const admissionBill = db.prepare("SELECT paid_amount FROM billing WHERE id = ?").get(admission.bill_id);
-      if (admissionBill) {
-        depositPaid = admissionBill.paid_amount || 0;
-      }
-    }
-
-    const unpaidBills = db.prepare(`
-      SELECT id, bill_number, total_amount, paid_amount, bill_date
-      FROM billing 
-      WHERE patient_id = ? AND status IN ('pending', 'partial')
-    `).all(admission.patient_id);
-
-    res.json({
-      ...admission,
-      notes: notes.map(n => ({...n, vitals: JSON.parse(n.vitals || '{}')})),
-      daysStayed,
-      estimatedBill: estimatedAccommodationCost,
-      depositPaid: depositPaid,
-      unpaidBills: unpaidBills,
-    });
-    
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch inpatient details' });
-  }
-};
-
 exports.createAdmission = (req, res) => {
     const { patientId, bedId, doctorId, entryDate, deposit, notes } = req.body;
 
@@ -305,134 +217,104 @@ exports.createAdmission = (req, res) => {
         if (!patient) throw new Error('Patient not found');
 
         const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
-        const billInfo = db.prepare('INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, ?)').run(billNumber, patientId, deposit, 'pending');
+        // Add bill_date
+        const billInfo = db.prepare(`
+          INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date) 
+          VALUES (?, ?, ?, 'pending', datetime('now'))
+        `).run(billNumber, patientId, deposit);
+        
         const billId = billInfo.lastInsertRowid;
         db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(billId, `Admission Deposit for ${patient.full_name}`, deposit);
 
-        const admissionInfo = db.prepare(`
+        db.prepare(`
           INSERT INTO admissions (patient_id, bed_id, doctor_id, entry_date, status, projected_cost, notes, bill_id)
           VALUES (?, ?, ?, ?, 'reserved', ?, ?, ?)
         `).run(patientId, bedId, doctorId, entryDate, deposit, notes, billId);
 
         db.prepare("UPDATE beds SET status = 'reserved' WHERE id = ?").run(bedId);
-        
-        return { admissionId: admissionInfo.lastInsertRowid };
-    });
-
-    try {
-        const result = tx();
-        res.status(201).json({ success: true, ...result });
-    } catch (e) {
-        res.status(400).json({ error: e.message });
-    }
-};
-
-exports.cancelAdmission = (req, res) => {
-    const { id } = req.params; // admission id
-
-    const tx = db.transaction(() => {
-        const admission = db.prepare("SELECT * FROM admissions WHERE id = ?").get(id);
-        if (!admission) throw new Error('Admission not found.');
-        if (admission.status !== 'reserved') throw new Error('Only reserved admissions can be cancelled.');
-
-        db.prepare("UPDATE admissions SET status = 'cancelled' WHERE id = ?").run(id);
-        db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(admission.bed_id);
-        if (admission.bill_id) {
-            db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ? AND status = 'pending'").run(admission.bill_id);
-        }
     });
 
     try {
         tx();
-        res.json({ success: true, message: 'Admission cancelled.' });
+        res.status(201).json({ success: true });
     } catch (e) {
         res.status(400).json({ error: e.message });
     }
 };
 
-exports.confirmAdmission = (req, res) => {
-    const { id } = req.params;
-    try {
-        const info = db.prepare("UPDATE admissions SET status = 'active' WHERE id = ? AND status = 'reserved' RETURNING bed_id, patient_id").get(id);
-        if(info) {
-            db.prepare("UPDATE beds SET status = 'occupied' WHERE id = ?").run(info.bed_id);
-            db.prepare("UPDATE patients SET type = 'inpatient' WHERE id = ?").run(info.patient_id);
-        } else {
-          throw new Error('Admission not found or not in reserved state.');
-        }
-        res.json({success: true});
-    } catch(e) {
-        res.status(500).json({error: e.message});
-    }
-};
+exports.getInpatientDetails = (req, res) => {
+  const { id } = req.params;
+  try {
+    const admission = db.prepare(`
+        SELECT a.*, p.full_name as patientName, p.patient_id as patientCode, p.age, p.gender, p.blood_group as bloodGroup, b.room_number as roomNumber, b.cost_per_day as costPerDay, m.full_name as doctorName
+        FROM admissions a
+        JOIN patients p ON a.patient_id = p.id
+        JOIN beds b ON a.bed_id = b.id
+        JOIN medical_staff m ON a.doctor_id = m.id
+        WHERE a.id = ?
+    `).get(id);
 
-exports.addInpatientNote = (req, res) => {
-    const { id } = req.params; // admission_id
-    const { doctorId, note, vitals } = req.body;
-    try {
-        db.prepare("INSERT INTO inpatient_notes (admission_id, doctor_id, note, vitals) VALUES (?, ?, ?, ?)").run(id, doctorId, note, JSON.stringify(vitals));
-        res.json({success: true});
-    } catch(e) {
-        res.status(500).json({error: e.message});
+    if (!admission) return res.status(404).json({ error: 'Admission not found' });
+
+    const notes = db.prepare(`SELECT n.*, m.full_name as doctorName FROM inpatient_notes n JOIN medical_staff m ON n.doctor_id = m.id WHERE n.admission_id = ? ORDER BY n.created_at DESC`).all(id);
+    const endDate = admission.actual_discharge_date ? new Date(admission.actual_discharge_date) : new Date();
+    const daysStayed = Math.ceil((endDate.getTime() - new Date(admission.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1;
+    const estimatedAccommodationCost = daysStayed * admission.costPerDay;
+
+    let depositPaid = 0;
+    if (admission.bill_id) {
+      const admissionBill = db.prepare("SELECT paid_amount FROM billing WHERE id = ?").get(admission.bill_id);
+      if (admissionBill) depositPaid = admissionBill.paid_amount || 0;
     }
+
+    const unpaidBills = db.prepare(`SELECT id, bill_number, total_amount, paid_amount, bill_date FROM billing WHERE patient_id = ? AND status IN ('pending', 'partial')`).all(admission.patient_id);
+
+    res.json({
+      ...admission,
+      notes: notes.map(n => ({...n, vitals: JSON.parse(n.vitals || '{}')})),
+      daysStayed,
+      estimatedBill: estimatedAccommodationCost,
+      depositPaid: depositPaid,
+      unpaidBills: unpaidBills,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch inpatient details' });
+  }
 };
 
 exports.generateSettlementBill = (req, res) => {
-    const { id } = req.params; // admissionId
-
+    const { id } = req.params;
     const tx = db.transaction(() => {
         const admission = db.prepare('SELECT * FROM admissions WHERE id = ?').get(id);
         if (!admission || admission.status !== 'active') throw new Error('Active admission not found.');
-        
         const patientId = admission.patient_id;
         
-        const bed = db.prepare('SELECT cost_per_day FROM beds WHERE id = ?').get(admission.bed_id);
-        const daysStayed = Math.ceil((new Date().getTime() - new Date(admission.entry_date).getTime()) / (1000 * 3600 * 24)) || 1;
-        
-        const allPendingBills = db.prepare(`
-            SELECT id, bill_number, (total_amount - paid_amount) as due,
-                   (SELECT GROUP_CONCAT(description, '; ') FROM billing_items WHERE billing_id = billing.id) as description
-            FROM billing WHERE patient_id = ? AND status IN ('pending', 'partial')
-        `).all(patientId);
-        
+        const allPendingBills = db.prepare(`SELECT id, bill_number, (total_amount - paid_amount) as due, (SELECT GROUP_CONCAT(description, '; ') FROM billing_items WHERE billing_id = billing.id) as description FROM billing WHERE patient_id = ? AND status IN ('pending', 'partial')`).all(patientId);
         const totalPendingDebt = allPendingBills.reduce((sum, bill) => sum + bill.due, 0);
 
-        if (totalPendingDebt <= 0.01) {
-            return { success: false, message: 'No outstanding balance found. Proceed with direct discharge.' };
-        }
+        if (totalPendingDebt <= 0.01) return { success: false, message: 'No outstanding balance found.' };
 
-        db.prepare(`
-            UPDATE billing SET status = 'cancelled' 
-            WHERE patient_id = ? AND status IN ('pending', 'partial')
-        `).run(patientId);
+        db.prepare(`UPDATE billing SET status = 'cancelled' WHERE patient_id = ? AND status IN ('pending', 'partial')`).run(patientId);
 
-        const billNumber = `SETTLE-50582`;
+        const billNumber = `SETTLE-${Math.floor(Math.random()*90000)+10000}`;
+        // Ensure bill_date
         const billInfo = db.prepare(`
             INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date, is_settlement_bill, settlement_for_patient_id)
-            VALUES (?, ?, ?, 'pending', ?, 1, ?)
-        `).run(billNumber, patientId, totalPendingDebt, new Date().toISOString(), patientId);
-        const billId = billInfo.lastInsertRowid;
-
-        const insertItem = db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)');
+            VALUES (?, ?, ?, 'pending', datetime('now'), 1, ?)
+        `).run(billNumber, patientId, totalPendingDebt, patientId);
         
+        const billId = billInfo.lastInsertRowid;
+        const insertItem = db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)');
         allPendingBills.forEach(bill => {
             insertItem.run(billId, `Consolidated: Bill #${bill.bill_number} (${bill.description})`, bill.due);
         });
-
-        const newItemTotal = db.prepare("SELECT SUM(amount) as total FROM billing_items WHERE billing_id = ?").get(billId).total;
-        db.prepare("UPDATE billing SET total_amount = ? WHERE id = ?").run(newItemTotal, billId);
-
-        return { success: true, message: 'Settlement bill generated successfully.' };
+        return { success: true };
     });
-
     try {
         const result = tx();
-        if (!result.success) {
-            return res.status(400).json({ error: result.message });
-        }
+        if (!result.success) return res.status(400).json({ error: result.message });
         res.json(result);
     } catch (err) {
-        console.error('Error generating settlement bill:', err);
         res.status(500).json({ error: err.message });
     }
 };
@@ -440,41 +322,21 @@ exports.generateSettlementBill = (req, res) => {
 exports.dischargePatient = (req, res) => {
   const { id } = req.params;
   const { dischargeNotes, dischargeStatus } = req.body;
-  
   const tx = db.transaction(() => {
     const admission = db.prepare('SELECT * FROM admissions WHERE id = ?').get(id);
     if (!admission || admission.status !== 'active') throw new Error('Active admission not found.');
-
-    const balanceInfo = db.prepare(`
-        SELECT SUM(total_amount - paid_amount) as due 
-        FROM billing 
-        WHERE patient_id = ? AND status IN ('pending', 'partial')
-    `).get(admission.patient_id);
-    
-    if (balanceInfo && balanceInfo.due > 0.01) {
-        throw new Error(`Cannot discharge patient with an outstanding balance of $${balanceInfo.due.toFixed(2)}.`);
-    }
-    
-    db.prepare(`
-      UPDATE admissions 
-      SET status = 'discharged', actual_discharge_date = ?, discharge_notes = ?, discharge_status = ?
-      WHERE id = ?
-    `).run(new Date().toISOString(), dischargeNotes, dischargeStatus, id);
-
+    const balanceInfo = db.prepare(`SELECT SUM(total_amount - paid_amount) as due FROM billing WHERE patient_id = ? AND status IN ('pending', 'partial')`).get(admission.patient_id);
+    if (balanceInfo && balanceInfo.due > 0.01) throw new Error(`Cannot discharge with balance: $${balanceInfo.due.toFixed(2)}.`);
+    db.prepare(`UPDATE admissions SET status = 'discharged', actual_discharge_date = datetime('now'), discharge_notes = ?, discharge_status = ? WHERE id = ?`).run(dischargeNotes, dischargeStatus, id);
     db.prepare("UPDATE beds SET status = 'cleaning' WHERE id = ?").run(admission.bed_id);
     db.prepare("UPDATE patients SET type = 'outpatient' WHERE id = ?").run(admission.patient_id);
   });
-
   try {
     tx();
-    res.json({ success: true, message: 'Patient discharged. Bed set to cleaning.' });
+    res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
-};
-
-exports.settleAndDischarge = (req, res) => {
-    throw new Error('This endpoint is deprecated. Please use the new generate-settlement workflow.');
 };
 
 exports.markBedClean = (req, res) => {

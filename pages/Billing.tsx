@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -108,7 +109,7 @@ export const Billing = () => {
   // Refund Form State
   const [refundForm, setRefundForm] = useState({
     amount: '',
-    method: 'Cash',
+    method: '',
     reason: 'Service Cancelled',
     date: new Date().toISOString().split('T')[0],
     customReason: ''
@@ -175,14 +176,11 @@ export const Billing = () => {
         safeFetch(api.getBeds(), [])
       ]);
       
-      const billList: Bill[] = Array.isArray(b) ? b : [];
-      const transactionList: Transaction[] = Array.isArray(trans) ? trans : [];
-
-      setBills(billList);
+      setBills(Array.isArray(b) ? b : []);
       setPatients(Array.isArray(p) ? p : []);
       setPaymentMethods(Array.isArray(pm) ? pm : []);
       setTaxRates(Array.isArray(taxes) ? taxes : []);
-      setTransactions(transactionList);
+      setTransactions(Array.isArray(trans) ? trans : []);
       setInsuranceProviders(Array.isArray(ins) ? ins : []);
 
       const catalog = [
@@ -193,12 +191,13 @@ export const Billing = () => {
       ];
       setCatalogItems(catalog);
 
-      const total = billList.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0);
-      const pending = billList.reduce((acc, curr) => acc + ((curr.totalAmount || 0) - (curr.paidAmount || 0)), 0);
-      const paidCount = billList.filter(x => x.status === 'paid').length;
+      const billsArr = Array.isArray(b) ? b : [];
+      const total = billsArr.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0);
+      const pending = billsArr.reduce((acc, curr) => acc + ((curr.totalAmount || 0) - (curr.paidAmount || 0)), 0);
+      const paidCount = billsArr.filter(x => x.status === 'paid').length;
 
       const revenueByTypeMap: Record<string, number> = {};
-      billList.forEach(bill => {
+      billsArr.forEach(bill => {
         const type = getBillType(bill);
         revenueByTypeMap[type] = (revenueByTypeMap[type] || 0) + (bill.paidAmount || 0);
       });
@@ -206,8 +205,9 @@ export const Billing = () => {
 
       setStats({ totalRevenue: total, pendingAmount: pending, paidInvoices: paidCount, revenueByType });
 
-      const income = transactionList.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.amount, 0);
-      const expense = transactionList.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0);
+      const transArr = Array.isArray(trans) ? trans : [];
+      const income = transArr.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.amount, 0);
+      const expense = transArr.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0);
       setTreasuryStats({ income, expenses: expense, net: income - expense });
 
     } catch (e) {
@@ -218,6 +218,10 @@ export const Billing = () => {
   };
 
   useEffect(() => { loadData(); }, [language]);
+
+  const getFilteredPaymentMethods = () => {
+      return paymentMethods.filter(p => p.isActive);
+  };
 
   const handleAddItem = () => {
     setCreateForm({ ...createForm, items: [...createForm.items, { description: '', amount: '' }] });
@@ -268,7 +272,6 @@ export const Billing = () => {
           patientId: parseInt(createForm.patientId), 
           patientName: createForm.patientName, 
           totalAmount: total, 
-          date: new Date().toISOString().split('T')[0], 
           items: formattedItems 
         });
         setIsCreateModalOpen(false);
@@ -285,18 +288,14 @@ export const Billing = () => {
     const remaining = bill.totalAmount - (bill.paidAmount || 0);
     
     let defaultMethod = '';
-    const activePMs = paymentMethods.filter(p => p.isActive);
+    const activePMs = getFilteredPaymentMethods();
     if (activePMs.length > 0) {
         const cashMethod = activePMs.find(p => p.name_en.toLowerCase() === 'cash');
         const insuranceMethod = activePMs.find(p => p.name_en.toLowerCase() === 'insurance');
         
-        if (patient?.hasInsurance && insuranceMethod) {
-            defaultMethod = insuranceMethod.name_en;
-        } else if (cashMethod) {
-            defaultMethod = cashMethod.name_en;
-        } else {
-            defaultMethod = activePMs[0].name_en;
-        }
+        if (patient?.hasInsurance && insuranceMethod) defaultMethod = insuranceMethod.name_en;
+        else if (cashMethod) defaultMethod = cashMethod.name_en;
+        else defaultMethod = activePMs[0].name_en;
     }
 
     setPaymentForm({ 
@@ -337,7 +336,7 @@ export const Billing = () => {
 
   const openRefundModal = (bill: Bill) => {
     setRefundingBill(bill);
-    const activePMs = paymentMethods.filter(p => p.isActive);
+    const activePMs = getFilteredPaymentMethods();
     const defaultMethod = activePMs.find(p => p.name_en.toLowerCase() === 'cash')?.name_en || (activePMs[0]?.name_en || 'Cash');
     
     setRefundForm({ amount: bill.paidAmount.toString(), method: defaultMethod, reason: 'Service Cancelled', date: new Date().toISOString().split('T')[0], customReason: '' });
@@ -394,7 +393,7 @@ export const Billing = () => {
   };
 
   const openExpenseModal = (tx?: Transaction) => {
-      const activePMs = paymentMethods.filter(p => p.isActive);
+      const activePMs = getFilteredPaymentMethods();
       const cashMethod = activePMs.find(p => p.name_en.toLowerCase() === 'cash')?.name_en || (activePMs[0]?.name_en || 'Cash');
 
       if (tx) {
@@ -419,24 +418,11 @@ export const Billing = () => {
       setIsExpenseModalOpen(true);
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Admission': return 'orange';
-      case 'Operation': return 'red';
-      case 'Lab Test': return 'purple';
-      case 'Appointment': return 'blue';
-      case 'Procedure': return 'cyan';
-      default: return 'gray';
-    }
-  };
-
   const formatDateSafely = (dateStr: any) => {
       if (!dateStr) return 'N/A';
-      // Handle SQLite format YYYY-MM-DD HH:MM:SS which doesn't always have T
       const normalizedStr = typeof dateStr === 'string' ? dateStr.replace(' ', 'T') : dateStr;
       const d = new Date(normalizedStr);
       if (isNaN(d.getTime())) return 'N/A';
-      // Defensive check against Epoch 0 if incoming as numeric null
       if (d.getFullYear() <= 1970 && d.getMonth() === 0 && d.getDate() === 1) return 'N/A';
       return d.toLocaleDateString();
   };
@@ -584,20 +570,8 @@ export const Billing = () => {
     );
   };
 
-  const canManageBilling = hasPermission(currentUser, Permissions.MANAGE_BILLING);
   const isAccountant = currentUser?.role === 'accountant' || currentUser?.role === 'admin';
-
-  const getActionForPaidBill = (bill: Bill) => {
-      if (bill.serviceStatus !== 'cancelled') {
-          return <Button size="sm" variant="danger" onClick={() => handleCancelService(bill)} disabled={isProcessing}>{t('billing_action_cancel_process')}</Button>;
-      } else {
-          return <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white border-none" disabled={!isAccountant} icon={RefreshCcw} onClick={() => isAccountant && openRefundModal(bill)}>{t('billing_action_refund')}</Button>;
-      }
-  };
-
-  const getFilteredPaymentMethods = () => {
-      return paymentMethods.filter(p => p.isActive);
-  };
+  const canManageBilling = hasPermission(currentUser, Permissions.MANAGE_BILLING);
 
   return (
     <div className="space-y-6">
@@ -631,39 +605,6 @@ export const Billing = () => {
                 <Card><h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_stat_paid')}</h4><p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">{stats.paidInvoices}</p></Card>
             </div>
             
-            <Card title={t('billing_chart_revenue_by_type')}>
-              <div className="h-80 w-full flex flex-col md:flex-row items-center gap-6">
-                <div className="w-full md:w-1/2 h-full">
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie 
-                        data={stats.revenueByType} 
-                        cx="50%" 
-                        cy="50%" 
-                        innerRadius={80} 
-                        outerRadius={110} 
-                        paddingAngle={5} 
-                        dataKey="value" 
-                        nameKey="name"
-                      >
-                        {stats.revenueByType.map((entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
-                      </Pie>
-                      <RechartsTooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="w-full md:w-1/2 space-y-3">
-                  <h4 className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-2 border-b border-slate-200 dark:border-slate-700 pb-2">{t('billing_chart_legend')}</h4>
-                  {stats.revenueByType.map((entry, index) => (
-                    <div key={`legend-${index}`} className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-slate-50">
-                      <div className="flex items-center gap-3"><div className="w-4 h-4 rounded-md" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} /><span className="text-slate-600 font-medium">{translateBillType(entry.name)}</span></div>
-                      <span className="font-bold text-slate-800 font-mono">${entry.value.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
-
             <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                   <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
@@ -690,10 +631,9 @@ export const Billing = () => {
                        paginatedBills.length === 0 ? <tr><td colSpan={6} className="text-center py-10 text-slate-400">{t('billing_table_empty')}</td></tr> : 
                        paginatedBills.map(bill => {
                         const paidPercent = bill.totalAmount > 0 ? (bill.paidAmount / bill.totalAmount) * 100 : 0;
-                        const formattedDate = formatDateSafely(bill.date);
                         return (
                           <tr key={bill.id}>
-                            <td className="px-6 py-4 whitespace-nowrap"><div className="font-bold">{bill.billNumber}</div><div className="text-sm text-slate-500">{formattedDate}</div></td>
+                            <td className="px-6 py-4 whitespace-nowrap"><div className="font-bold">{bill.billNumber}</div><div className="text-sm text-slate-500">{formatDateSafely(bill.date)}</div></td>
                             <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium">{bill.patientName}</div><div className="text-xs text-slate-500">ID: {bill.patientId}</div></td>
                             <td className="px-6 py-4 whitespace-nowrap"><div className="flex flex-col gap-1"><Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{translateStatus(bill.status)}</Badge><Badge color={getTypeColor(getBillType(bill)) as any}>{translateBillType(getBillType(bill))}</Badge></div></td>
                             <td className="px-6 py-4 whitespace-nowrap min-w-[150px]"><div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5"><div className="bg-primary-500 h-2.5 rounded-full" style={{ width: `${paidPercent}%` }}></div></div><p className="text-right text-[10px] mt-1 text-slate-500">${(bill.paidAmount || 0).toLocaleString()} / ${(bill.totalAmount || 0).toLocaleString()}</p></td>
@@ -701,7 +641,7 @@ export const Billing = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div className="flex justify-end gap-2">
                                     <Button size="sm" variant="outline" icon={FileText} onClick={() => setSelectedBill(bill)}>{t('billing_action_view_invoice')}</Button>
-                                    {canManageBilling && (<>{(bill.status === 'pending' || bill.status === 'partial') && <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>}{bill.status === 'paid' && getActionForPaidBill(bill)}</>)}
+                                    {canManageBilling && (<>{(bill.status === 'pending' || bill.status === 'partial') && <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>}</>)}
                                 </div>
                             </td>
                           </tr>
@@ -718,21 +658,10 @@ export const Billing = () => {
       {activeTab === 'treasury' && (
           <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-end"><Button onClick={() => openExpenseModal()} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button></div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <Card><h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_income')}</h4><p className="text-3xl font-bold text-green-600 mt-2 flex items-center gap-2"><ArrowUpRight size={24}/> ${treasuryStats.income.toLocaleString()}</p></Card>
-                  <Card><h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_expenses')}</h4><p className="text-3xl font-bold text-red-500 mt-2 flex items-center gap-2"><ArrowDownRight size={24}/> ${treasuryStats.expenses.toLocaleString()}</p></Card>
-                  <Card><h4 className="text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_net')}</h4><p className={`text-3xl font-bold mt-2 ${treasuryStats.net >= 0 ? 'text-blue-600' : 'text-red-600'}`}>${treasuryStats.net.toLocaleString()}</p></Card>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="h-96 w-full bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden"><h3 className="font-bold text-slate-800 dark:text-white mb-4">{t('billing_treasury_chart_flow')}</h3><ResponsiveContainer width="100%" height="100%"><BarChart data={treasuryChartData}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" /><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} /><YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} /><RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} /><Legend /><Bar dataKey="income" name={t('billing_treasury_type_income')} fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} /><Bar dataKey="expense" name={t('billing_treasury_type_expense')} fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} /></BarChart></ResponsiveContainer></div>
-                  <div className="h-96 w-full bg-white dark:bg-slate-800 rounded-xl p-0 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden"><div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50"><h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_holdings')}</h3><p className="text-xs text-slate-500">{t('billing_treasury_holdings_subtitle')}</p></div><div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">{methodStats.map((item, idx) => { const Icon = getMethodIcon(item.name_en); return (<div key={idx} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 bg-slate-50 dark:bg-slate-900"><div className={`p-3 rounded-full ${item.balance >= 0 ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}><Icon size={20} /></div><div className="flex-1 min-w-0"><div className="flex justify-between items-center mb-1"><h4 className="font-bold text-slate-700 dark:text-slate-200 truncate">{language === 'ar' ? item.name_ar : item.name_en}</h4><span className={`font-mono font-bold ${item.balance >= 0 ? 'text-slate-900 dark:text-white' : 'text-red-500'}`}>${item.balance.toLocaleString()}</span></div><div className="flex items-center gap-3 text-xs"><span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded"><ArrowUpRight size={10}/> ${item.income.toLocaleString()}</span><span className="flex items-center gap-1 text-red-600 bg-red-50 dark:bg-red-900/30 px-1.5 py-0.5 rounded"><ArrowDownRight size={10}/> ${item.expense.toLocaleString()}</span></div></div></div>);})}</div></div>
-              </div>
-
               <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                   <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
                       <div className="flex items-center gap-2 flex-1"><Landmark size={18} className="text-slate-500"/> <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3></div>
-                      <div className="flex gap-2 items-center"><div className="flex items-center gap-1 text-xs text-slate-500"><span>{t('billing_treasury_from')}</span><input type="date" className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none" value={treasuryDate.start} onChange={(e) => setTreasuryDate({...treasuryDate, start: e.target.value})}/></div><div className="flex items-center gap-1 text-xs text-slate-500"><span>{t('billing_treasury_to')}</span><input type="date" className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none" value={treasuryDate.end} onChange={(e) => setTreasuryDate({...treasuryDate, end: e.target.value})}/></div><select className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white" value={treasuryFilter} onChange={(e) => setTreasuryFilter(e.target.value)}><option value="all">{t('patients_filter_type_all')}</option><option value="income">{t('billing_treasury_type_income')}</option><option value="expense">{t('billing_treasury_type_expense')}</option></select></div>
+                      <div className="flex gap-2 items-center"><select className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white" value={treasuryFilter} onChange={(e) => setTreasuryFilter(e.target.value)}><option value="all">{t('patients_filter_type_all')}</option><option value="income">{t('billing_treasury_type_income')}</option><option value="expense">{t('billing_treasury_type_expense')}</option></select></div>
                   </div>
                   <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id}><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300">{formatDateSafely(tx.date)}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-medium dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300">{tx.method}</td><td className={`px-6 py-3 text-sm font-bold text-right ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td><td className="px-6 py-3 text-right">{tx.type === 'expense' && isAccountant && (<Button size="sm" variant="ghost" icon={Edit} onClick={() => openExpenseModal(tx)} />)}</td></tr>))}</tbody></table></div>
                   <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900"><span className="text-sm text-slate-500">{t('patients_pagination_showing')} {treasuryPage} {t('patients_pagination_of')} {totalTreasuryPages || 1}</span><div className="flex gap-2"><button onClick={() => setTreasuryPage(p => Math.max(1, p - 1))} disabled={treasuryPage === 1} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"><ChevronLeft size={16}/></button><button onClick={() => setTreasuryPage(p => Math.min(totalTreasuryPages, p + 1))} disabled={treasuryPage === totalTreasuryPages} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"><ChevronRight size={16}/></button></div></div>
@@ -743,7 +672,6 @@ export const Billing = () => {
       {/* --- MODALS --- */}
       <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title={t('billing_modal_create_title')}>
         <form onSubmit={handleCreateSubmit} className="space-y-4">
-          
           <div className="space-y-1 relative">
             <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">{t('billing_modal_create_select_patient')}</label>
             {createForm.patientId ? (
@@ -762,23 +690,15 @@ export const Billing = () => {
                 <input 
                   type="text"
                   placeholder={t('patients_search_placeholder')}
-                  className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all"
+                  className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
                   value={patientSearch}
                   onChange={(e) => { setPatientSearch(e.target.value); setShowPatientResults(true); }}
                   onFocus={() => setShowPatientResults(true)}
                 />
                 {showPatientResults && filteredPatientsForInvoice.length > 0 && (
-                  <div className="absolute z-20 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1">
+                  <div className="absolute z-20 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden">
                     {filteredPatientsForInvoice.map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b last:border-0 border-slate-100 dark:border-slate-700 flex justify-between items-center transition-colors"
-                        onClick={() => {
-                          setCreateForm({ ...createForm, patientId: p.id.toString(), patientName: p.fullName });
-                          setShowPatientResults(false);
-                        }}
-                      >
+                      <button key={p.id} type="button" className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b last:border-0 border-slate-100 dark:border-slate-700 flex justify-between items-center" onClick={() => { setCreateForm({ ...createForm, patientId: p.id.toString(), patientName: p.fullName }); setShowPatientResults(false); }}>
                         <span className="font-medium text-slate-900 dark:text-white">{p.fullName}</span>
                         <span className="text-xs text-slate-500 font-mono">ID: {p.patientId}</span>
                       </button>
@@ -788,35 +708,26 @@ export const Billing = () => {
               </div>
             )}
           </div>
-
           <div>
             <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">{t('billing_modal_create_items_label')}</label>
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
               {createForm.items.map((item, index) => (
                 <div key={index} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-slate-50 dark:bg-slate-900 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
-                    <select 
-                      className="w-full sm:w-1/3 text-xs p-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500" 
-                      onChange={(e) => handleCatalogSelect(index, e.target.value)} 
-                      defaultValue=""
-                    >
-                        <option value="" disabled>{t('billing_modal_create_quick_add')}</option>
-                        {catalogItems.map((c, i) => <option key={i} value={c.label}>{c.label}</option>)}
-                    </select>
+                    <select className="w-full sm:w-1/3 text-xs p-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white" onChange={(e) => handleCatalogSelect(index, e.target.value)} defaultValue=""><option value="" disabled>{t('billing_modal_create_quick_add')}</option>{catalogItems.map((c, i) => <option key={i} value={c.label}>{c.label}</option>)}</select>
                     <Input placeholder={t('billing_modal_create_item_placeholder')} value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} className="flex-1" />
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Input placeholder="0.00" type="number" value={item.amount} onChange={e => handleItemChange(index, 'amount', e.target.value)} className="w-24" />
-                        <button type="button" onClick={() => handleRemoveItem(index)} className="text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                        <button type="button" onClick={() => handleRemoveItem(index)} className="text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={16}/></button>
                     </div>
                 </div>
               ))}
             </div>
             <Button size="sm" variant="secondary" onClick={handleAddItem} className="mt-2 w-full" icon={Plus}>{t('billing_modal_create_add_item_button')}</Button>
           </div>
-
           <div className="grid grid-cols-2 gap-4 border-t dark:border-slate-700 pt-4">
             <div>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('billing_modal_create_tax_rate')}</label>
-              <select className="w-full rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none" value={createForm.selectedTaxId} onChange={e => setCreateForm({...createForm, selectedTaxId: e.target.value})}>
+              <select className="w-full rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white" value={createForm.selectedTaxId} onChange={e => setCreateForm({...createForm, selectedTaxId: e.target.value})}>
                 <option value="">{t('billing_modal_create_none')}</option>
                 {taxRates.filter(t => t.isActive).map(t => (<option key={t.id} value={t.id}>{language === 'ar' ? t.name_ar : t.name_en} ({t.rate}%)</option>))}
               </select>
@@ -826,11 +737,7 @@ export const Billing = () => {
               <span className="text-3xl font-bold text-primary-600">${(() => { const subtotal = createForm.items.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0); const taxRate = taxRates.find(t => t.id === parseInt(createForm.selectedTaxId)); const tax = taxRate ? (subtotal * taxRate.rate) / 100 : 0; return (subtotal + tax).toFixed(2); })()}</span>
             </div>
           </div>
-
-          <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3">
-             <Button type="button" variant="secondary" onClick={() => setIsCreateModalOpen(false)}>{t('cancel')}</Button>
-             <Button type="submit" disabled={isProcessing || !createForm.patientId}>{isProcessing ? t('processing') : t('billing_modal_create_generate_button')}</Button>
-          </div>
+          <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3"><Button type="button" variant="secondary" onClick={() => setIsCreateModalOpen(false)}>{t('cancel')}</Button><Button type="submit" disabled={isProcessing || !createForm.patientId}>{isProcessing ? t('processing') : t('billing_modal_create_generate_button')}</Button></div>
         </form>
       </Modal>
 
@@ -856,67 +763,25 @@ export const Billing = () => {
 
       <Modal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} title={editingExpenseId ? "Update Expense Entry" : t('billing_modal_expense_title')}>
         <form onSubmit={handleExpenseSubmit} className="space-y-4">
-          <Select 
-            label={t('billing_modal_expense_category')} 
-            value={expenseForm.category} 
-            onChange={e => setExpenseForm({...expenseForm, category: e.target.value})}
-            required
-            className="text-slate-900 dark:text-white"
-          >
+          <Select label={t('billing_modal_expense_category')} value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})} required className="text-slate-900 dark:text-white">
             <option value="General">{t('billing_modal_expense_cat_general')}</option>
             <option value="Pharmacy Refill">Pharmacy Inventory Refill</option>
             <option value="Laboratory Supplies">Lab Reagents & Consumables</option>
             <option value="Medical Supplies">{t('billing_modal_expense_cat_supplies')}</option>
             <option value="Staff Salaries">Staff Monthly Salaries</option>
             <option value="Facility Rent">Facility / Real Estate Rent</option>
-            <option value="Utilities">{t('billing_modal_expense_cat_utilities')} (Power, Water, Gas)</option>
+            <option value="Utilities">{t('billing_modal_expense_cat_utilities')}</option>
             <option value="Facility Maintenance">{t('billing_modal_expense_cat_maintenance')}</option>
             <option value="Medical Equipment">{t('billing_modal_expense_cat_equipment')}</option>
-            <option value="Insurance Payouts">Insurance Claims Settlement</option>
-            <option value="Taxes & Gov">Government Taxes / Licensing</option>
-            <option value="Marketing">Marketing & Advertising</option>
-            <option value="Cleaning Services">Cleaning & Waste Management</option>
           </Select>
-          
           <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label={t('billing_modal_expense_amount')} 
-              type="number" 
-              required 
-              value={expenseForm.amount} 
-              onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} 
-            />
-            <Input 
-              label={t('date')} 
-              type="date" 
-              required 
-              value={expenseForm.date} 
-              onChange={e => setExpenseForm({...expenseForm, date: e.target.value})} 
-            />
+            <Input label={t('billing_modal_expense_amount')} type="number" required value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} />
+            <Input label={t('date')} type="date" required value={expenseForm.date} onChange={e => setExpenseForm({...expenseForm, date: e.target.value})} />
           </div>
-
-          <Select 
-            label={t('billing_modal_expense_method')} 
-            value={expenseForm.method} 
-            onChange={e => setExpenseForm({...expenseForm, method: e.target.value})}
-            required
-            className="text-slate-900 dark:text-white"
-          >
-            {getFilteredPaymentMethods().length === 0 ? (
-                <option value="">No methods configured</option>
-            ) : (
-                getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))
-            )}
+          <Select label={t('billing_modal_expense_method')} value={expenseForm.method} onChange={e => setExpenseForm({...expenseForm, method: e.target.value})} required className="text-slate-900 dark:text-white">
+            {getFilteredPaymentMethods().length === 0 ? <option value="">No methods configured</option> : getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}
           </Select>
-
-          <Textarea 
-            label={t('billing_modal_expense_description')} 
-            rows={3} 
-            required
-            value={expenseForm.description} 
-            onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} 
-          />
-
+          <Textarea label={t('billing_modal_expense_description')} rows={3} required value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} />
           <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700">
             <Button type="button" variant="secondary" onClick={() => setIsExpenseModalOpen(false)}>{t('cancel')}</Button>
             <Button type="submit" disabled={isProcessing}>{isProcessing ? t('processing') : (editingExpenseId ? t('save') : t('billing_modal_expense_save'))}</Button>
@@ -930,4 +795,15 @@ export const Billing = () => {
       <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({ ...confirmState, isOpen: false })} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message} />
     </div>
   );
+};
+
+const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'Admission': return 'orange';
+      case 'Operation': return 'red';
+      case 'Lab Test': return 'purple';
+      case 'Appointment': return 'blue';
+      case 'Procedure': return 'cyan';
+      default: return 'gray';
+    }
 };

@@ -84,15 +84,6 @@ const initDB = (forceReset = false) => {
     )
   `).run();
 
-  // Migration for address column
-  try {
-    db.prepare('SELECT address FROM medical_staff LIMIT 1').get();
-  } catch (error) {
-    if (error.message.includes('no such column')) {
-        try { db.prepare('ALTER TABLE medical_staff ADD COLUMN address TEXT').run(); } catch (e) {}
-    }
-  }
-
   // --- 3. Patient & Clinical Records ---
   db.prepare(`
     CREATE TABLE IF NOT EXISTS patients (
@@ -156,17 +147,6 @@ const initDB = (forceReset = false) => {
     )
   `).run();
   
-  // Migration for new billing columns
-  try {
-    db.prepare('SELECT is_settlement_bill FROM billing LIMIT 1').get();
-  } catch (e) {
-    if (e.message.includes('no such column')) {
-      try { db.prepare('ALTER TABLE billing ADD COLUMN is_settlement_bill BOOLEAN DEFAULT 0').run(); } catch(err){}
-      try { db.prepare('ALTER TABLE billing ADD COLUMN settlement_for_patient_id INTEGER').run(); } catch(err){}
-    }
-  }
-
-
   db.prepare(`CREATE TABLE IF NOT EXISTS billing_items (id INTEGER PRIMARY KEY AUTOINCREMENT, billing_id INTEGER, description TEXT, amount REAL, FOREIGN KEY(billing_id) REFERENCES billing(id))`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, category TEXT, amount REAL, method TEXT, reference_id INTEGER, details TEXT, date DATETIME DEFAULT CURRENT_TIMESTAMP, description TEXT)`).run();
 
@@ -187,16 +167,6 @@ const initDB = (forceReset = false) => {
   db.prepare(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value TEXT)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS tax_rates (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, rate REAL, is_active BOOLEAN)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`).run();
-  
-  // Migration for payment_methods is_active
-  try {
-    db.prepare('SELECT is_active FROM payment_methods LIMIT 1').get();
-  } catch (e) {
-    if (e.message.includes('no such column')) {
-      try { db.prepare('ALTER TABLE payment_methods ADD COLUMN is_active BOOLEAN DEFAULT 1').run(); } catch(err){}
-    }
-  }
-
   db.prepare(`CREATE TABLE IF NOT EXISTS insurance_providers (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS banks (id INTEGER PRIMARY KEY AUTOINCREMENT, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`).run();
 
@@ -206,27 +176,19 @@ const initDB = (forceReset = false) => {
 const seedData = () => {
   const bcrypt = require('bcryptjs');
 
-  // 1. Seed Role Permissions
   const permCount = db.prepare('SELECT count(*) as count FROM role_permissions').get().count;
   if (permCount === 0) {
     const stmt = db.prepare('INSERT INTO role_permissions (role, permissions) VALUES (?, ?)');
     Object.entries(ROLE_PERMISSIONS).forEach(([role, perms]) => {
       stmt.run(role, JSON.stringify(perms));
     });
-    console.log('Seeded role permissions.');
   }
 
-  // 2. Seed Users - Robust Seeding with INSERT OR REPLACE to ensure correct credentials for demo
   const defaultUsers = [
     { u: 'admin', p: 'admin123', n: 'System Administrator', r: 'admin' },
     { u: 'manager', p: 'manager123', n: 'Sarah Manager', r: 'manager' },
     { u: 'receptionist', p: 'receptionist123', n: 'Pam Receptionist', r: 'receptionist' },
     { u: 'accountant', p: 'accountant123', n: 'Angela Accountant', r: 'accountant' },
-    { u: 'labtech', p: 'labtech123', n: 'Tom Technician', r: 'technician' },
-    { u: 'doctor', p: 'doctor123', n: 'Dr. John Doe', r: 'doctor' },
-    { u: 'nurse', p: 'nurse123', n: 'Nurse Mary', r: 'nurse' },
-    { u: 'pharmacist', p: 'pharmacist123', n: 'Phil Pharmacist', r: 'pharmacist' },
-    { u: 'hr', p: 'hr123', n: 'Toby HR', r: 'hr' },
   ];
 
   const stmt = db.prepare("INSERT OR REPLACE INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)");
@@ -234,143 +196,16 @@ const seedData = () => {
       const h = bcrypt.hashSync(d.p, 10);
       stmt.run(d.u, h, d.n, d.r);
   });
-  console.log('Verified and seeded default users.');
 
-  // 3. Departments
-  const deptCount = db.prepare('SELECT count(*) as count FROM departments').get().count;
-  if (deptCount === 0) {
-    const depts = [
-      { en: 'Administration', ar: 'الإدارة' },
-      { en: 'Human Resources', ar: 'الموارد البشرية' },
-      { en: 'Finance', ar: 'المالية' },
-      { en: 'Information Technology', ar: 'تقنية المعلومات' },
-      { en: 'Reception', ar: 'الاستقبال' },
-      { en: 'Cardiology', ar: 'أمراض القلب' },
-      { en: 'Neurology', ar: 'الأعصاب' },
-      { en: 'Orthopedics', ar: 'العظام' },
-      { en: 'Pediatrics', ar: 'الأطفال' },
-      { en: 'General Surgery', ar: 'الجراحة العامة' },
-      { en: 'Internal Medicine', ar: 'الباطنية' },
-      { en: 'Emergency', ar: 'الطوارئ' },
-      { en: 'Radiology', ar: 'الأشعة' },
-      { en: 'Laboratory', ar: 'المختبر' },
-      { en: 'Pharmacy', ar: 'الصيدلية' },
-      { en: 'Nursing', ar: 'التمريض' },
-      { en: 'Security', ar: 'الأمن' },
-      { en: 'Maintenance', ar: 'الصيانة' }
-    ];
-    const stmt = db.prepare('INSERT INTO departments (name_en, name_ar) VALUES (?, ?)');
-    depts.forEach(d => stmt.run(d.en, d.ar));
-    console.log('Seeded departments.');
-  }
-
-  // 4. Lab Tests
-  const labCount = db.prepare('SELECT count(*) as count FROM lab_tests').get().count;
-  if (labCount === 0) {
-    const tests = [
-      { en: 'Complete Blood Count (CBC)', ar: 'صورة دم كاملة', cat: 'Hematology', cost: 15 },
-      { en: 'ESR', ar: 'سرعة الترسيب', cat: 'Hematology', cost: 5 },
-      { en: 'Blood Grouping & Rh', ar: 'فصيلة الدم', cat: 'Hematology', cost: 5 },
-      { en: 'Prothrombin Time (PT)', ar: 'زمن البروثرومبين', cat: 'Hematology', cost: 10 },
-      { en: 'Fasting Blood Sugar (FBS)', ar: 'سكر صائم', cat: 'Biochemistry', cost: 5 },
-      { en: 'HbA1c', ar: 'السكر التراكمي', cat: 'Biochemistry', cost: 20 },
-      { en: 'Lipid Profile', ar: 'دهون الدم', cat: 'Biochemistry', cost: 25 },
-      { en: 'Liver Function Test (LFT)', ar: 'وظائف كبد كاملة', cat: 'Biochemistry', cost: 30 },
-      { en: 'Renal Function Test (RFT)', ar: 'وظائف كلى كاملة', cat: 'Biochemistry', cost: 30 }
-    ];
-    const stmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost) VALUES (?, ?, ?, ?, ?)');
-    tests.forEach(t => stmt.run(t.en, t.ar, t.cat, t.cat, t.cost));
-    console.log('Seeded lab tests.');
-  }
-
-  // 5. Nurse Services
-  const nurseCount = db.prepare('SELECT count(*) as count FROM nurse_services').get().count;
-  if (nurseCount === 0) {
-    const services = [
-      { en: 'Injection (IM/IV)', ar: 'حقن', cost: 5 },
-      { en: 'Cannula Insertion', ar: 'تركيب كانيولا', cost: 10 },
-      { en: 'Wound Dressing', ar: 'غيار على جرح', cost: 15 },
-      { en: 'Nebulizer', ar: 'جلسة بخار', cost: 10 },
-      { en: 'ECG', ar: 'رسم قلب', cost: 20 }
-    ];
-    const stmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, cost) VALUES (?, ?, ?)');
-    services.forEach(s => stmt.run(s.en, s.ar, s.cost));
-    console.log('Seeded nurse services.');
-  }
-
-  // 6. Operations
-  const opCount = db.prepare('SELECT count(*) as count FROM operations_catalog').get().count;
-  if (opCount === 0) {
-    const ops = [
-      { en: 'Appendectomy', ar: 'استئصال الزائدة الدودية', cost: 800 },
-      { en: 'Cholecystectomy', ar: 'استئصال المرارة', cost: 1500 },
-      { en: 'Cesarean Section', ar: 'ولادة قيصرية', cost: 1200 },
-      { en: 'Cataract Surgery', ar: 'إزالة المياه البيضاء', cost: 1000 }
-    ];
-    const stmt = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
-    ops.forEach(o => stmt.run(o.en, o.ar, o.cost));
-    console.log('Seeded operations.');
-  }
-
-  // 7. Beds
-  const bedCount = db.prepare('SELECT count(*) as count FROM beds').get().count;
-  if (bedCount === 0) {
-    const stmt = db.prepare('INSERT INTO beds (room_number, type, status, cost_per_day) VALUES (?, ?, ?, ?)');
-    for (let i = 1; i <= 5; i++) stmt.run(`10${i}`, 'General', 'available', 50);
-    for (let i = 1; i <= 3; i++) stmt.run(`20${i}`, 'Private', 'available', 120);
-    for (let i = 1; i <= 2; i++) stmt.run(`30${i}`, 'ICU', 'available', 300);
-    console.log('Seeded beds.');
-  }
-
-  // 8. Payment Methods
   const pmCount = db.prepare('SELECT count(*) as count FROM payment_methods').get().count;
   if (pmCount === 0) {
     const pms = [
       { en: 'Cash', ar: 'نقدي' },
       { en: 'Bankak', ar: 'بنكك' },
-      { en: 'Fawry', ar: 'فوري' },
-      { en: 'Insurance', ar: 'تأمين' },
-      { en: 'Credit Card', ar: 'بطاقة ائتمان' }
+      { en: 'Insurance', ar: 'تأمين' }
     ];
     const stmt = db.prepare('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, 1)');
     pms.forEach(p => stmt.run(p.en, p.ar));
-    console.log('Seeded payment methods.');
-  }
-
-  // 9. Insurance Providers
-  const insCount = db.prepare('SELECT count(*) as count FROM insurance_providers').get().count;
-  if (insCount === 0) {
-      const providers = [
-          { en: 'National Health Insurance Fund', ar: 'الصندوق القومي للتأمين الصحي' },
-          { en: 'Shiekan Insurance', ar: 'شيكان للتأمين وإعادة التأمين' }
-      ];
-      const stmt = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)');
-      providers.forEach(p => stmt.run(p.en, p.ar));
-      console.log('Seeded insurance providers.');
-  }
-
-  // 10. Medical Staff
-  const staffCount = db.prepare('SELECT count(*) as count FROM medical_staff').get().count;
-  if (staffCount === 0) {
-      const staffList = [
-          { name: 'Dr. Shaun Murphy', type: 'doctor', dept: 'General Surgery', spec: 'General Surgery', fee: 200 },
-          { name: 'Dr. Meredith Grey', type: 'doctor', dept: 'General Surgery', spec: 'General Surgery', fee: 180 },
-          { name: 'Dr. Gregory House', type: 'doctor', dept: 'Internal Medicine', spec: 'Diagnostic Medicine', fee: 300 },
-          { name: 'Nurse Carla Espinosa', type: 'nurse', dept: 'General Surgery', spec: 'Head Nurse', fee: 0 }
-      ];
-
-      const stmt = db.prepare(`
-        INSERT INTO medical_staff (
-            employee_id, full_name, type, department, specialization, consultation_fee, 
-            status, available_days, available_time_start, available_time_end, base_salary
-        ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, '08:00', '17:00', ?)
-      `);
-
-      staffList.forEach((s, i) => {
-          const id = `${s.type === 'doctor' ? 'DOC' : 'NUR'}${1000 + i}`;
-          stmt.run(id, s.name, s.type, s.dept, s.spec, s.fee, JSON.stringify(['Mon','Tue','Wed','Thu','Fri']), 5000 + (s.fee * 10));
-      });
-      console.log('Seeded medical staff.');
   }
 };
 

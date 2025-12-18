@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -50,7 +51,7 @@ export const Patients = () => {
   const [actionFormData, setActionFormData] = useState({
     staffId: '',
     date: new Date().toISOString().split('T')[0],
-    time: '09:00',
+    time: new Date().toTimeString().slice(0, 5),
     notes: '',
     subtype: '',
     deposit: 0 
@@ -184,7 +185,7 @@ export const Patients = () => {
     setActionFormData({
       staffId: '',
       date: new Date().toISOString().split('T')[0],
-      time: '09:00', 
+      time: new Date().toTimeString().slice(0, 5), 
       notes: '',
       subtype: '', 
       deposit: 0
@@ -250,8 +251,8 @@ export const Patients = () => {
           staffId: staffAssignedId,
           datetime: `${actionFormData.date}T${actionFormData.time}`,
           type: 'Procedure',
-          reason: `${selectedService.name_en}: ${actionFormData.notes}`,
-          customFee: selectedService.cost, 
+          reason: `${language === 'ar' ? selectedService.name_ar : selectedService.name_en}: ${actionFormData.notes}`,
+          customFee: parseFloat(selectedService.cost.toString()), 
         });
         setProcessMessage(t('patients_process_success_nurse'));
 
@@ -304,7 +305,7 @@ export const Patients = () => {
 
     } catch (err: any) {
       setProcessStatus('error');
-      setProcessMessage(err.message || t('patients_process_title_failed'));
+      setProcessMessage(err.response?.data?.error || err.message || t('patients_process_title_failed'));
     }
   };
 
@@ -371,6 +372,15 @@ export const Patients = () => {
   const patientVisits = useMemo(() => selectedPatient ? appointments.filter(a => a.patientId === selectedPatient.id).sort((a,b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime()) : [], [selectedPatient, appointments]);
   const patientFinancials = useMemo(() => selectedPatient ? bills.filter(b => b.patientId === selectedPatient.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [], [selectedPatient, bills]);
   const patientLabs = useMemo(() => selectedPatient ? allLabRequests.filter(l => l.patient_id === selectedPatient.id).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) : [], [selectedPatient, allLabRequests]);
+
+  const formatDateSafely = (dateStr: any) => {
+      if (!dateStr) return 'N/A';
+      const normalizedStr = typeof dateStr === 'string' ? dateStr.replace(' ', 'T') : dateStr;
+      const d = new Date(normalizedStr);
+      if (isNaN(d.getTime())) return 'N/A';
+      if (d.getFullYear() <= 1970 && d.getMonth() === 0 && d.getDate() === 1) return 'N/A';
+      return d.toLocaleDateString();
+  };
 
   return (
     <div className="space-y-6">
@@ -1003,7 +1013,7 @@ export const Patients = () => {
                                             <DollarSign size={14} className="text-emerald-600" />
                                             {t('patients_modal_view_invoice_label')} #{bill.billNumber}
                                         </div>
-                                        <div className="text-xs text-slate-500">{new Date(bill.date).toLocaleDateString()}</div>
+                                        <div className="text-xs text-slate-500">{formatDateSafely(bill.date)}</div>
                                     </div>
                                     <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{bill.status}</Badge>
                                 </div>
