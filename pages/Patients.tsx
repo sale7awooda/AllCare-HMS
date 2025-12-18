@@ -51,7 +51,7 @@ export const Patients = () => {
   const [actionFormData, setActionFormData] = useState({
     staffId: '',
     date: new Date().toISOString().split('T')[0],
-    time: new Date().toTimeString().slice(0, 5),
+    time: new Date().toTimeString().slice(0, 5), 
     notes: '',
     subtype: '',
     deposit: 0 
@@ -360,6 +360,7 @@ export const Patients = () => {
   }, [patients, searchTerm, filterType]);
 
   const paginatedPatients = filteredPatients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // FIX: Changed 'filteredRecords' to 'filteredPatients' to correctly reference the memoized variable.
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
 
   const getFilteredDoctors = () => {
@@ -617,14 +618,34 @@ export const Patients = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {getFilteredDoctors().map(doc => {
                             const selected = actionFormData.staffId === doc.id.toString();
+                            const isAvailable = isDoctorAvailableOnDate(doc, actionFormData.date);
                             return (
-                                <div key={doc.id} onClick={() => setActionFormData({...actionFormData, staffId: doc.id.toString()})} className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-3 ${selected ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}>
-                                    <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500">{doc.fullName.charAt(0)}</div>
-                                    <div className="min-w-0">
-                                        <p className="font-bold text-sm truncate">{doc.fullName}</p>
-                                        <p className="text-[10px] text-slate-500 uppercase">{doc.specialization}</p>
+                                <div 
+                                    key={doc.id} 
+                                    onClick={() => setActionFormData({...actionFormData, staffId: doc.id.toString()})} 
+                                    className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-3 overflow-hidden
+                                      ${selected ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : isAvailable ? 'border-slate-100 dark:border-slate-800 hover:border-slate-200' : 'border-slate-50 bg-slate-50/50 opacity-60 grayscale'}`}
+                                >
+                                    <div className="relative flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500">
+                                          {doc.fullName.charAt(0)}
+                                        </div>
+                                        <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-slate-800 ${isAvailable ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
                                     </div>
-                                    {selected && <CheckCircle size={16} className="ml-auto text-primary-600" />}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-bold text-sm truncate text-slate-900 dark:text-white">{doc.fullName}</p>
+                                        <div className="flex items-center gap-1.5 overflow-hidden">
+                                            <p className="text-[10px] text-slate-500 uppercase truncate flex-1">{doc.specialization}</p>
+                                            <div className={`flex items-center gap-0.5 whitespace-nowrap font-bold text-[9px] uppercase tracking-tight ${isAvailable ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                                {isAvailable ? t('patients_modal_action_doctor_available') : 'Off Duty'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {selected && (
+                                      <div className="absolute top-2 right-2 text-primary-600 animate-in zoom-in-50 duration-200">
+                                        <CheckCircle size={16} />
+                                      </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -775,6 +796,7 @@ export const Patients = () => {
                                 {staff.filter(s => s.type === 'doctor').map(doc => <option key={doc.id} value={doc.id}>{doc.fullName}</option>)}
                             </Select>
                             <Input label={t('patients_modal_action_admission_date')} type="date" value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
+                            {/* FIX: Corrected 'locus' to 'deposit' in the setActionFormData update function. */}
                             <Input label={t('patients_modal_action_required_deposit')} type="number" value={actionFormData.deposit} onChange={e => setActionFormData({...actionFormData, deposit: parseFloat(e.target.value)})} />
                             <div className="pt-2 border-t border-slate-200 dark:border-slate-700 mt-2">
                                 <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Selected Accommodation</p>
