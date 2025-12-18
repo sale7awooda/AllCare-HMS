@@ -1,4 +1,3 @@
-
 {
   "app_loading": "جاري تحميل التطبيق...",
   "nav_dashboard": "لوحة التحكم",
@@ -297,7 +296,7 @@
   "patients_modal_view_invoice_label": "فاتورة",
   "patients_modal_view_lab_request_label": "طلب مختبر",
   "patients_process_submitting": "جاري إرسال الطلب...",
-  "patients_process_error_select_test": "اختر فحصًا واحدًا على الأقل",
+  "patients_process_error_select_test": "اختر فحصًا واحدًا على الألق",
   "patients_process_error_select_service": "اختر خدمة.",
   "patients_process_error_select_nurse": "اختر ممرضًا.",
   "patients_process_success_nurse": "تم جدولة خدمة التمريض (في الطابور).",

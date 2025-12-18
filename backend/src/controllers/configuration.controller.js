@@ -87,7 +87,6 @@ exports.getUsers = (req, res) => {
       fullName: u.full_name,
       role: u.role,
       email: u.email || '',
-      // FIX: Changed isActive to is_active to match the User interface in types.ts
       is_active: !!u.is_active, 
     }));
     res.json(mappedUsers);
@@ -399,7 +398,6 @@ exports.deletePaymentMethod = (req, res) => {
 exports.downloadBackup = (req, res) => {
   const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
   if (fs.existsSync(dbPath)) {
-    // Explicitly set headers to force binary download and avoid .txt extension
     res.setHeader('Content-Type', 'application/x-sqlite3');
     res.setHeader('Content-Disposition', `attachment; filename="allcare-backup-${new Date().toISOString().split('T')[0]}.db"`);
     res.download(dbPath);
@@ -420,19 +418,42 @@ exports.restoreBackup = (req, res) => {
   }
 
   const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
+  
   try {
+    // 1. Close current connection handle to release locks
+    try { db.close(); } catch(e) {}
+    
+    // 2. Perform file overwrite
     fs.copyFileSync(req.file.path, dbPath);
     fs.unlinkSync(req.file.path);
-    res.json({ message: 'Database restored successfully' });
+    
+    // 3. Send success response before process exits
+    res.json({ message: 'Database restored successfully. System is restarting...' });
+    
+    // 4. Force process exit to trigger automatic restart with fresh file handles
+    setTimeout(() => process.exit(0), 500);
   } catch (err) {
     res.status(500).json({ error: 'Failed to restore database: ' + err.message });
   }
 };
 
 exports.resetDatabase = (req, res) => {
+  const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
+  
   try {
-    initDB(true); // Call with forceReset = true
-    res.json({ message: 'Database has been reset to factory state.' });
+    // 1. Close current connection handle to release locks
+    try { db.close(); } catch(e) {}
+    
+    // 2. Delete the active database file
+    if (fs.existsSync(dbPath)) {
+        fs.unlinkSync(dbPath);
+    }
+    
+    // 3. Respond
+    res.json({ message: 'Database has been reset. System is restarting...' });
+    
+    // 4. Exit. initDB() in server.js will recreate the file on next boot
+    setTimeout(() => process.exit(0), 500);
   } catch (err) {
     console.error('Reset failed:', err);
     res.status(500).json({ error: 'Failed to reset database.' });
