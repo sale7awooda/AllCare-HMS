@@ -52,11 +52,15 @@ export const Reports = () => {
     return { start, end };
   }, [rangeType, customRange]);
 
-  const filterByDate = (data: any[], dateField: string) => data.filter(item => {
-    if (!item[dateField]) return false;
-    const d = new Date(item[dateField]);
-    return d >= dateRange.start && d <= dateRange.end;
-  });
+  // FIX: Added defensive Array.isArray check to prevent "data.filter is not a function"
+  const filterByDate = (data: any[], dateField: string) => {
+    if (!Array.isArray(data)) return [];
+    return data.filter(item => {
+      if (!item || !item[dateField]) return false;
+      const d = new Date(item[dateField]);
+      return d >= dateRange.start && d <= dateRange.end;
+    });
+  };
 
   // --- ANALYTICS CALCULATIONS ---
 
@@ -138,7 +142,7 @@ export const Reports = () => {
     const senior = fp.filter(p => p.age >= 60).length;
 
     return {
-      total: patients.length,
+      total: Array.isArray(patients) ? patients.length : 0,
       newCount: fp.length,
       growthTrend: Array.from(growthMap).map(([name, count]) => ({ name, count })),
       genderSplit: [
@@ -154,11 +158,14 @@ export const Reports = () => {
   }, [patients, dateRange]);
 
   const activityStream = useMemo(() => {
-    // FIX: Included status property to match usage in Modal
+    const pts = Array.isArray(patients) ? patients : [];
+    const apts = Array.isArray(appointments) ? appointments : [];
+    const bls = Array.isArray(bills) ? bills : [];
+
     const stream = [
-      ...patients.map(p => ({ type: 'patient', name: p.fullName, date: p.createdAt, meta: 'New Registration', status: 'Registered', id: `p-${p.id}`, raw: p })),
-      ...appointments.map(a => ({ type: 'appointment', name: a.patientName, sub: a.staffName, date: a.datetime, meta: a.status, status: a.status, id: `a-${a.id}`, raw: a })),
-      ...bills.map(b => ({ type: 'bill', name: b.patientName, sub: `$${b.totalAmount.toLocaleString()}`, date: b.date, meta: b.status, status: b.status, id: `b-${b.id}`, raw: b }))
+      ...pts.map(p => ({ type: 'patient', name: p.fullName, date: p.createdAt, meta: 'New Registration', status: 'Registered', id: `p-${p.id}`, raw: p })),
+      ...apts.map(a => ({ type: 'appointment', name: a.patientName, sub: a.staffName, date: a.datetime, meta: a.status, status: a.status, id: `a-${a.id}`, raw: a })),
+      ...bls.map(b => ({ type: 'bill', name: b.patientName, sub: `$${b.totalAmount.toLocaleString()}`, date: b.date, meta: b.status, status: b.status, id: `b-${b.id}`, raw: b }))
     ];
     return stream.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 20);
   }, [patients, appointments, bills]);
@@ -226,13 +233,14 @@ export const Reports = () => {
             api.getTransactions(), 
             api.getStaff()
         ]);
-        setBills(b || []); 
-        setAppointments(a || []); 
-        setPatients(p || []); 
-        setTransactions(t_data || []); 
-        setStaff(s || []);
+        setBills(Array.isArray(b) ? b : []); 
+        setAppointments(Array.isArray(a) ? a : []); 
+        setPatients(Array.isArray(p) ? p : []); 
+        setTransactions(Array.isArray(t_data) ? t_data : []); 
+        setStaff(Array.isArray(s) ? s : []);
       } catch (e) { 
-        console.error(e); 
+        console.error("Reports data fetch failed:", e);
+        setBills([]); setAppointments([]); setPatients([]); setTransactions([]); setStaff([]);
       } finally { 
         setLoading(false); 
       }
@@ -624,7 +632,6 @@ export const Reports = () => {
   );
 };
 
-// FIX: Added missing helper function for status badge colors
 const getStatusColor = (status: string) => {
   const s = (status || '').toLowerCase();
   if (s.includes('paid') || s.includes('complete') || s.includes('active') || s.includes('regis')) return 'green';

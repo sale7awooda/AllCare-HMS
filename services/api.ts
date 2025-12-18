@@ -101,6 +101,10 @@ export const api = {
 
   // --- Laboratory ---
   getLabTests: () => get('/config/lab-tests'),
+  // FIX: Added missing CRUD for lab tests to resolve Configuration.tsx errors
+  addLabTest: (data) => post('/config/lab-tests', data),
+  updateLabTest: (id, data) => put(`/config/lab-tests/${id}`, data),
+  deleteLabTest: (id) => del(`/config/lab-tests/${id}`),
   getPendingLabRequests: () => get('/lab/requests'),
   // FIX: Added lab request management methods
   createLabRequest: (data) => post('/lab/requests', data),
@@ -108,6 +112,10 @@ export const api = {
 
   // --- Nurse Services ---
   getNurseServices: () => get('/config/nurse-services'),
+  // FIX: Added missing CRUD for nurse services to resolve Configuration.tsx errors
+  addNurseService: (data) => post('/config/nurse-services', data),
+  updateNurseService: (id, data) => put(`/config/nurse-services/${id}`, data),
+  deleteNurseService: (id) => del(`/config/nurse-services/${id}`),
 
   // --- Operations ---
   getScheduledOperations: () => get('/operations'),

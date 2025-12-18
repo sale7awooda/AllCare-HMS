@@ -6,7 +6,7 @@ exports.getLabRequests = (req, res) => {
   try {
     const requests = db.prepare(`
       SELECT 
-        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids,
+        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results, lr.notes,
         p.full_name as patientName
       FROM lab_requests lr
       JOIN patients p ON lr.patient_id = p.id
@@ -14,16 +14,29 @@ exports.getLabRequests = (req, res) => {
     `).all();
 
     const enriched = requests.map(r => {
-        let testNames = '';
+        let tests = [];
         try {
             const ids = JSON.parse(r.test_ids);
             if (Array.isArray(ids) && ids.length > 0) {
                 const placeholders = ids.map(() => '?').join(',');
-                const tests = db.prepare(`SELECT name_en FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
-                testNames = tests.map(t => t.name_en).join(', ');
+                tests = db.prepare(`SELECT id, name_en, name_ar, normal_range FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
             }
         } catch(e) {}
-        return { ...r, testNames };
+        
+        let structuredResults = [];
+        try {
+            structuredResults = r.results ? JSON.parse(r.results) : [];
+        } catch (e) {
+            // Handle legacy string results if any
+            structuredResults = [];
+        }
+
+        return { 
+          ...r, 
+          tests, 
+          testNames: tests.map(t => t.name_en).join(', '),
+          structuredResults 
+        };
     });
 
     res.json(enriched);
@@ -70,8 +83,13 @@ exports.confirmLabRequest = (req, res) => {
 
 exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
+    const { results, notes } = req.body; // results is now an array of objects
     try {
-        db.prepare("UPDATE lab_requests SET status = 'completed' WHERE id = ?").run(id);
+        db.prepare("UPDATE lab_requests SET status = 'completed', results = ?, notes = ? WHERE id = ?").run(
+          JSON.stringify(results), 
+          notes || '', 
+          id
+        );
         res.json({success: true});
     } catch(e) {
         res.status(500).json({error: e.message});

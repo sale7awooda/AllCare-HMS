@@ -41,13 +41,20 @@ export const Pharmacy = () => {
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [inv, pts, transactions] = await Promise.all([
+      const [invRaw, ptsRaw, logsRaw] = await Promise.all([
         api.getPharmacyInventory(), api.getPatients(), api.getPharmacyTransactions()
       ]);
-      setInventory(inv);
-      setPatients(pts);
-      setLogs(transactions);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+      
+      // FIX: Added defensive Array.isArray checks
+      setInventory(Array.isArray(invRaw) ? invRaw : []);
+      setPatients(Array.isArray(ptsRaw) ? ptsRaw : []);
+      setLogs(Array.isArray(logsRaw) ? logsRaw : []);
+    } catch (e) { 
+        console.error("Pharmacy loadData failed:", e); 
+        setInventory([]); setPatients([]); setLogs([]);
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   useEffect(() => { loadData(); }, []);
@@ -77,8 +84,15 @@ export const Pharmacy = () => {
     } catch (err: any) { setProcessStatus('error'); setProcessMessage(err.response?.data?.error || 'Dispensing failed.'); }
   };
 
-  const filteredInventory = inventory.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()) || m.sku?.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredPatients = patients.filter(p => p.fullName.toLowerCase().includes(patientSearch.toLowerCase()) || p.patientId.toLowerCase().includes(patientSearch.toLowerCase())).slice(0, 5);
+  const filteredInventory = inventory.filter(m => {
+    if (!m) return false;
+    return m.name.toLowerCase().includes(searchTerm.toLowerCase()) || (m.sku && m.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+  });
+  
+  const filteredPatients = patients.filter(p => {
+    if (!p) return false;
+    return p.fullName.toLowerCase().includes(patientSearch.toLowerCase()) || p.patientId.toLowerCase().includes(patientSearch.toLowerCase());
+  }).slice(0, 5);
 
   return (
     <div className="space-y-6">

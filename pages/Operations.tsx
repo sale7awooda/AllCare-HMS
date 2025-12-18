@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Badge, Modal, Input, Select, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Activity, CheckCircle, Clock, User, Syringe, Plus, Trash2, 
@@ -39,9 +39,16 @@ export const Operations = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [opsData, staffData] = await Promise.all([api.getScheduledOperations(), api.getStaff()]);
-      setOps(opsData); setStaff(staffData);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+      const [opsDataRaw, staffDataRaw] = await Promise.all([api.getScheduledOperations(), api.getStaff()]);
+      setOps(Array.isArray(opsDataRaw) ? opsDataRaw : []); 
+      setStaff(Array.isArray(staffDataRaw) ? staffDataRaw : []);
+    } catch (e) { 
+      console.error(e); 
+      setOps([]);
+      setStaff([]);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   useEffect(() => { loadData(); }, []);
@@ -95,7 +102,14 @@ export const Operations = () => {
     setConfirmState({ isOpen: true, title: t('operations_dialog_complete_title'), message: t('operations_dialog_complete_message'), action: async () => { try { await api.completeOperation(opId); loadData(); } catch (e) { alert("Failed to update status"); } } });
   };
 
-  const filteredOps = ops.filter(op => { const search = searchTerm.toLowerCase(); return op.patientName.toLowerCase().includes(search) || op.operation_name.toLowerCase().includes(search); });
+  const filteredOps = useMemo(() => {
+    if (!Array.isArray(ops)) return [];
+    const search = searchTerm.toLowerCase();
+    return ops.filter(op => 
+        (op.patientName?.toLowerCase() || '').includes(search) || 
+        (op.operation_name?.toLowerCase() || '').includes(search)
+    );
+  }, [ops, searchTerm]);
 
   return (
     <div className="space-y-6">
