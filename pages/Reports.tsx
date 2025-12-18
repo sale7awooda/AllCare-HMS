@@ -261,23 +261,26 @@ export const Reports = () => {
   );
 
   const StatCard = ({ title, value, subtitle, icon: Icon, colorClass, trend }: any) => (
-    <Card className="!p-4 bg-white dark:bg-slate-800 shadow-soft border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
-      <div className="flex justify-between items-start">
-        <div className={`p-2.5 rounded-xl ${colorClass} text-white shadow-lg`}>
-          <Icon size={20} />
+    <Card className="relative !p-3 bg-white dark:bg-slate-800 shadow-soft border-slate-100 dark:border-slate-700 hover:shadow-md transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
+      <div className="flex items-center gap-3.5">
+        <div className={`p-2.5 rounded-xl ${colorClass} text-white shadow-md shrink-0`}>
+          <Icon size={18} />
         </div>
-        {trend && (
-           <div className={`flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${trend > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-              {trend > 0 ? <ArrowUpRight size={10}/> : <ArrowDownRight size={10}/>}
-              {Math.abs(trend)}%
-           </div>
-        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 truncate">{title}</p>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white leading-none truncate">{value}</h3>
+          </div>
+          {subtitle && <p className="text-[9px] text-slate-500 mt-1 font-bold truncate">{subtitle}</p>}
+        </div>
       </div>
-      <div className="mt-2.5">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{title}</p>
-        <h3 className="text-xl font-black text-slate-900 dark:text-white leading-none">{value}</h3>
-        {subtitle && <p className="text-[10px] text-slate-500 mt-1.5 font-bold">{subtitle}</p>}
-      </div>
+      
+      {trend && (
+        <div className={`absolute top-2 right-2 flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full ${trend > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+          {trend > 0 ? <ArrowUpRight size={8}/> : <ArrowDownRight size={8}/>}
+          {Math.abs(trend)}%
+        </div>
+      )}
     </Card>
   );
 
@@ -340,7 +343,7 @@ export const Reports = () => {
         {/* --- FINANCIAL VIEW --- */}
         {activeTab === 'financial' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard title="Net Profit/Loss" value={`$${financialStats.netProfit.toLocaleString()}`} subtitle="Revenue vs Expenses" icon={TrendingUp} colorClass={financialStats.netProfit >= 0 ? "bg-emerald-500" : "bg-rose-500"} />
               <StatCard title="Gross Revenue" value={`$${financialStats.totalRevenue.toLocaleString()}`} subtitle="Payments collected" icon={CreditCard} colorClass="bg-blue-500" trend={12} />
               <StatCard title="Outstanding" value={`$${financialStats.outstanding.toLocaleString()}`} subtitle="Awaiting settlement" icon={Clock} colorClass="bg-orange-500" />
@@ -402,7 +405,7 @@ export const Reports = () => {
         {/* --- OPERATIONAL VIEW --- */}
         {activeTab === 'operational' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <StatCard title="Total Volume" value={operationalStats.total} subtitle="Appointments scheduled" icon={Calendar} colorClass="bg-blue-500" />
               <StatCard title="Fulfillment Rate" value={`${operationalStats.completionRate}%`} subtitle="Completed consultations" icon={UserCheck} colorClass="bg-emerald-500" />
               <StatCard title="Busiest Service" value={operationalStats.deptRank[0]?.name || '-'} subtitle="Primary demand driver" icon={BarChart3} colorClass="bg-orange-500" />
@@ -443,7 +446,7 @@ export const Reports = () => {
         {/* --- DEMOGRAPHICS VIEW --- */}
         {activeTab === 'demographics' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <StatCard title="Registry Size" value={patientStats.total} subtitle="Total registered patients" icon={Users} colorClass="bg-blue-500" />
               <StatCard title="Acquisition" value={patientStats.newCount} subtitle="New registrations in period" icon={FilePlus} colorClass="bg-emerald-500" trend={8} />
               <StatCard title="Primary Segment" value={patientStats.ageDist.sort((a,b)=>b.value-a.value)[0]?.name || '-'} subtitle="Largest patient base" icon={Layers} colorClass="bg-violet-500" />
@@ -523,93 +526,6 @@ export const Reports = () => {
         )}
       </div>
 
-      <Modal 
-        isOpen={isEventModalOpen} 
-        onClose={() => setIsEventModalOpen(false)} 
-        title={`Audit Log: ${selectedEvent?.type.toUpperCase()}`}
-      >
-        {selectedEvent && (
-          <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300 print-content">
-            <div className={`flex flex-wrap items-center gap-3 p-4 rounded-2xl border ${
-              selectedEvent.type === 'patient' ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/20' : 
-              selectedEvent.type === 'appointment' ? 'bg-violet-50 border-violet-100 dark:bg-violet-900/20' : 
-              'bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20'
-            }`}>
-              <div className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-primary-600">
-                 {selectedEvent.type === 'patient' ? <Users size={24}/> : selectedEvent.type === 'appointment' ? <Calendar size={24}/> : <DollarSign size={24}/>}
-              </div>
-              <div className="flex-1">
-                 <h3 className="font-black text-slate-900 dark:text-white text-lg leading-tight">{selectedEvent.name}</h3>
-                 <div className="flex items-center gap-2 mt-1">
-                    <Badge color="blue" className="capitalize">{selectedEvent.type}</Badge>
-                    <Badge color={getStatusColor(selectedEvent.status) as any}>{selectedEvent.status}</Badge>
-                 </div>
-              </div>
-              <div className="text-right hidden sm:block">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Logged Time</p>
-                 <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{new Date(selectedEvent.date).toLocaleString()}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <RecordDetailItem label="Patient ID" value={selectedEvent.raw.patientId} icon={HashIcon} />
-              <RecordDetailItem label="Contact" value={selectedEvent.raw.phone} icon={Stethoscope} />
-              <RecordDetailItem label="Age" value={`${selectedEvent.raw.age} years`} icon={Users} />
-              <RecordDetailItem label="Gender" value={selectedEvent.raw.gender} icon={Users} />
-            </div>
-
-            <div className="space-y-3">
-               <h4 className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest px-1">
-                 <Activity size={14}/> Technical Context
-               </h4>
-               <div className="bg-slate-50 dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 min-h-[100px]">
-                  {selectedEvent.type === 'bill' && (
-                    <div className="space-y-3">
-                       <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700">
-                          <span className="text-sm font-bold">Line Items</span>
-                          <span className="text-xs text-slate-500">{(selectedEvent.raw.items || []).length} entries</span>
-                       </div>
-                       <div className="space-y-2 max-h-40 overflow-y-auto">
-                          {(selectedEvent.raw.items || []).map((item: any, idx: number) => (
-                            <div key={idx} className="flex justify-between items-center text-sm">
-                               <span className="text-slate-600 dark:text-slate-400">{item.description}</span>
-                               <span className="font-mono font-bold">${item.amount.toLocaleString()}</span>
-                            </div>
-                          ))}
-                       </div>
-                    </div>
-                  )}
-
-                  {selectedEvent.type === 'appointment' && (
-                    <div className="space-y-3">
-                       <p className="text-xs font-bold text-slate-400 uppercase">Reason for visit</p>
-                       <p className="text-sm italic text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 p-3 rounded-lg border">
-                          "{selectedEvent.raw.reason || 'No clinical notes provided.'}"
-                       </p>
-                    </div>
-                  )}
-
-                  {selectedEvent.type === 'patient' && (
-                    <div className="space-y-3">
-                       <p className="text-xs font-bold text-slate-400 uppercase">Registered Address</p>
-                       <p className="text-sm text-slate-700 dark:text-slate-300">
-                          {selectedEvent.raw.address || 'No address provided.'}
-                       </p>
-                    </div>
-                  )}
-               </div>
-            </div>
-
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-700 flex justify-between gap-3 no-print">
-               <Button variant="ghost" icon={Printer} onClick={() => window.print()}>Print Entry Details</Button>
-               <div className="flex gap-2">
-                 <Button variant="secondary" onClick={() => setIsEventModalOpen(false)}>Close</Button>
-               </div>
-            </div>
-          </div>
-        )}
-      </Modal>
-
       <style>{`
         @media print {
           body * { display: none !important; }
@@ -639,5 +555,3 @@ const getStatusColor = (status: string) => {
   if (s.includes('cancelled') || s.includes('refunded') || s.includes('overdue')) return 'red';
   return 'blue';
 };
-
-const HashIcon = ({ size, className }: any) => <span className={className}>#</span>;
