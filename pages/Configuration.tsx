@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -194,6 +193,7 @@ export const Configuration = () => {
             case 'lab': await api.deleteLabTest(id); break;
             case 'nurse': await api.deleteNurseService(id); break;
             case 'ops': await api.deleteOperationCatalog(id); break;
+            // FIX: Changed updateInsuranceProvider (which requires 2 args) to deleteInsuranceProvider (1 arg) to resolve the reported "Expected 2 arguments, but got 1" error and correctly perform the deletion.
             case 'insurance': await api.deleteInsuranceProvider(id); break;
             case 'banks': await api.deleteBank(id); break;
           }
@@ -351,7 +351,6 @@ export const Configuration = () => {
     } catch (e) { setProcessStatus('error'); setProcessMessage("Health check failed."); }
   };
 
-  // FIX: Added missing handleBackup, handleRestore, and handleReset functions for data management.
   const handleBackup = async () => {
     setProcessStatus('processing');
     setProcessMessage("Generating system snapshot...");
@@ -439,7 +438,7 @@ export const Configuration = () => {
       {/* Processing HUD */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-sm w-full mx-4 text-center">
             {processStatus === 'processing' && <Loader2 className="w-16 h-16 text-primary-600 animate-spin mb-4" />}
             {processStatus === 'success' && <CheckCircle size={48} className="text-green-600 mb-4" />}
             {processStatus === 'error' && <XCircle size={48} className="text-red-600 mb-4" />}
@@ -532,7 +531,12 @@ export const Configuration = () => {
                         <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{u.fullName}</td>
                         <td className="px-6 py-4"><Badge color="blue" className="capitalize">{u.role}</Badge></td>
                         <td className="px-6 py-4"><Badge color={u.is_active ? 'green' : 'gray'}>{u.is_active ? 'Active' : 'Locked'}</Badge></td>
-                        <td className="px-6 py-4 text-right"><div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => openUserModal(u)} className="text-slate-400 hover:text-primary-600"><Edit size={16}/></button><button onClick={() => deleteUserAccount(u.id, u.username)} className="text-slate-400 hover:text-red-600"><Trash2 size={16}/></button></div></td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openUserModal(u)} icon={Edit}>{t('edit')}</Button>
+                            <Button size="sm" variant="danger" onClick={() => deleteUserAccount(u.id, u.username)} icon={Trash2}>{t('delete')}</Button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                  </tbody>
@@ -546,10 +550,13 @@ export const Configuration = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <Card title="Tax Rates" action={<Button size="sm" icon={Plus} onClick={() => openTaxModal()} />}>
                 <div className="space-y-4">
-                   {taxRates.map(t => (
-                     <div key={t.id} className="group flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <div><p className="font-bold text-sm">{language === 'ar' ? t.name_ar : t.name_en}</p><div className="flex items-center gap-2"><span className="text-xs font-black text-primary-600">{t.rate}%</span><Badge color={t.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{t.isActive ? 'Active' : 'Hidden'}</Badge></div></div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => openTaxModal(t)} className="p-2 text-slate-400 hover:text-primary-600"><Edit size={16}/></button><button onClick={() => deleteTaxRateEntry(t.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button></div>
+                   {taxRates.map(t_rate => (
+                     <div key={t_rate.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <div><p className="font-bold text-sm">{language === 'ar' ? t_rate.name_ar : t_rate.name_en}</p><div className="flex items-center gap-2"><span className="text-xs font-black text-primary-600">{t_rate.rate}%</span><Badge color={t_rate.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{t_rate.isActive ? 'Active' : 'Hidden'}</Badge></div></div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openTaxModal(t_rate)} icon={Edit}>{t('edit')}</Button>
+                          <Button size="sm" variant="danger" onClick={() => deleteTaxRateEntry(t_rate.id)} icon={Trash2}>{t('delete')}</Button>
+                        </div>
                      </div>
                    ))}
                 </div>
@@ -557,9 +564,12 @@ export const Configuration = () => {
              <Card title="Payment Methods" action={<Button size="sm" icon={Plus} onClick={() => openPaymentModal()} />}>
                 <div className="space-y-4">
                    {paymentMethods.map(m => (
-                     <div key={m.id} className="group flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                     <div key={m.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                         <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm"><CreditCard size={18}/></div><div><p className="font-bold text-sm">{language === 'ar' ? m.name_ar : m.name_en}</p><Badge color={m.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{m.isActive ? 'Enabled' : 'Disabled'}</Badge></div></div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => openPaymentModal(m)} className="p-2 text-slate-400 hover:text-primary-600"><Edit size={16}/></button><button onClick={() => deletePaymentMethodEntry(m.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button></div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openPaymentModal(m)} icon={Edit}>{t('edit')}</Button>
+                          <Button size="sm" variant="danger" onClick={() => deletePaymentMethodEntry(m.id)} icon={Trash2}>{t('delete')}</Button>
+                        </div>
                      </div>
                    ))}
                 </div>
@@ -588,11 +598,11 @@ export const Configuration = () => {
                            <div className="flex justify-end gap-2">
                               {!isLocked ? (
                                 <>
-                                  <button onClick={() => openBedModal(b)} className="p-1.5 text-slate-400 hover:text-primary-600 transition-colors"><Edit size={16}/></button>
-                                  <button onClick={() => deleteBedEntry(b.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={16}/></button>
+                                  <Button size="sm" variant="outline" onClick={() => openBedModal(b)} icon={Edit}>{t('edit')}</Button>
+                                  <Button size="sm" variant="danger" onClick={() => deleteBedEntry(b.id)} icon={Trash2}>{t('delete')}</Button>
                                 </>
                               ) : (
-                                <div title="Bed is currently in use" className="p-1.5 text-slate-300 cursor-help"><Lock size={16}/></div>
+                                <div title="Bed is currently in use" className="p-1.5 text-slate-300 cursor-help flex items-center gap-1 text-xs font-bold"><Lock size={14}/> {t('Locked')}</div>
                               )}
                            </div>
                         </td>
@@ -632,7 +642,12 @@ export const Configuration = () => {
                            <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{item.name_en || item.fullName || 'Unnamed'}</td>
                            <td className="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">{item.name_ar || '-'}</td>
                            <td className="px-6 py-4 text-right">{item.cost !== undefined || item.base_cost !== undefined ? (<span className="font-mono font-bold text-primary-600">${(item.cost || item.base_cost || 0).toLocaleString()}</span>) : <span className="text-[10px] font-black text-slate-300">#{item.id}</span>}</td>
-                           <td className="px-6 py-4 text-right"><div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => openCatalogModal(item)} className="text-slate-400 hover:text-primary-600"><Edit size={16}/></button><button onClick={() => deleteCatalogItem(item.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={16}/></button></div></td>
+                           <td className="px-6 py-4 text-right">
+                             <div className="flex justify-end gap-2">
+                               <Button size="sm" variant="outline" onClick={() => openCatalogModal(item)} icon={Edit}>{t('edit')}</Button>
+                               <Button size="sm" variant="danger" onClick={() => deleteCatalogItem(item.id)} icon={Trash2}>{t('delete')}</Button>
+                             </div>
+                           </td>
                         </tr>
                       ))}
                    </tbody>
@@ -716,6 +731,7 @@ export const Configuration = () => {
          {modalType === 'bed' && (
             <form onSubmit={handleBedSubmit} className="space-y-4">
                <div className="grid grid-cols-2 gap-4"><Input label="Room/Bed Number" required value={bedForm.roomNumber} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} /><Select label="Ward Type" value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value})}><option>General</option><option>Private</option><option>ICU</option><option>Emergency</option></Select></div>
+               {/* FIX: Fixed syntax error by adding 'e =>' to the onChange handler. */}
                <Input label="Cost Per Day ($)" type="number" required value={bedForm.costPerDay} onChange={e => setBedForm({...bedForm, costPerDay: e.target.value})} />
                <Button type="submit" className="w-full">{selectedItem ? 'Update Ward Info' : 'Create Bed'}</Button>
             </form>

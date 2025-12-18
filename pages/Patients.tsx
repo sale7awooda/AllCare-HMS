@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -6,7 +5,7 @@ import {
   FlaskConical, Bed, Activity, Trash2, CheckCircle,
   Phone, User, Loader2, Info,
   ChevronLeft, ChevronRight, Stethoscope, FileText, XCircle, DollarSign, Clock, 
-  ClipboardCheck, ShoppingCart, Layers, Syringe, Zap, Briefcase
+  ClipboardCheck, ShoppingCart, Layers, Syringe, Zap, Briefcase, ShieldCheck, Heart, UserPlus
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill, InsuranceProvider } from '../types';
@@ -84,7 +83,7 @@ export const Patients = () => {
     t('patients_title'), 
     t('patients_subtitle'), 
     hasPermissionToCreate ? (
-      <Button onClick={() => setIsFormModalOpen(true)} icon={Plus}>{t('patients_register_button')}</Button>
+      <Button onClick={() => openCreateModal()} icon={Plus}>{t('patients_register_button')}</Button>
     ) : (
       <Button disabled variant="secondary" icon={Lock}>{t('patients_register_button_locked')}</Button>
     )
@@ -516,39 +515,39 @@ export const Patients = () => {
 
       {/* PATIENT REGISTRATION MODAL */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? t('patients_modal_edit_title') : t('patients_modal_new_title')}>
-        <form onSubmit={handlePatientSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 pb-2">{t('patients_modal_form_personal_title')}</h4>
-            <Input label={t('patients_modal_form_fullName')} required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
-            <div className="grid grid-cols-2 gap-4">
-              <Input label={t('patients_modal_form_phone')} required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-              <Input label={t('patients_modal_form_age')} type="number" required value={formData.age} onChange={e => setFormData({...formData, age: parseInt(e.target.value) || 0})} />
+        <form onSubmit={handlePatientSubmit} className="space-y-8 max-h-[85vh] overflow-y-auto pr-2 custom-scrollbar">
+          
+          {/* Section 1: Personal Profile */}
+          <div className="space-y-5">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
+                <UserPlus size={18} className="text-primary-600" />
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('patients_modal_form_personal_title')}</h4>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-                <select 
-                  className="block w-full rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 p-2.5 border"
-                  value={formData.gender} 
-                  onChange={e => setFormData({...formData, gender: e.target.value as any})}
-                >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <Input label={t('patients_modal_form_fullName')} required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
+               <Input label={t('patients_modal_form_phone')} required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+               <Input label={t('patients_modal_form_age')} type="number" required value={formData.age} onChange={e => setFormData({...formData, age: parseInt(e.target.value) || 0})} />
+               <Select label={t('patients_modal_form_gender')} value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value as any})}>
                   <option value="male">{t('patients_modal_form_gender_male')}</option>
                   <option value="female">{t('patients_modal_form_gender_female')}</option>
-                </select>
-                <select 
-                  className="block w-full rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 p-2.5 border"
-                  value={formData.type} 
-                  onChange={e => setFormData({...formData, type: e.target.value as any})}
-                >
+                  <option value="other">Other</option>
+               </Select>
+               <Select label={t('patients_modal_form_type')} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})}>
                   <option value="outpatient">{t('patients_filter_type_outpatient')}</option>
                   <option value="inpatient">{t('patients_filter_type_inpatient')}</option>
                   <option value="emergency">{t('patients_filter_type_emergency')}</option>
-                </select>
+               </Select>
+               <Input label={t('patients_modal_form_address')} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
             </div>
-            <Input label={t('patients_modal_form_address')} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 pb-2">{t('patients_modal_form_medical_title')}</h4>
-            <div className="grid grid-cols-2 gap-4">
+          {/* Section 2: Clinical Baseline */}
+          <div className="space-y-5">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
+                <Heart size={18} className="text-red-500" />
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('patients_modal_form_medical_title')}</h4>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <Select label={t('patients_modal_form_bloodGroup')} value={formData.bloodGroup} onChange={e => setFormData({...formData, bloodGroup: e.target.value})}>
                   <option value="">{t('patients_modal_form_bloodGroup_unknown')}</option>
                   {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
@@ -559,9 +558,54 @@ export const Patients = () => {
             <Textarea label={t('patients_modal_form_medicalHistory')} placeholder={t('patients_modal_form_medicalHistory_placeholder')} rows={2} value={formData.medicalHistory} onChange={e => setFormData({...formData, medicalHistory: e.target.value})} />
           </div>
 
-          <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700">
+          {/* Section 3: Emergency Outreach */}
+          <div className="space-y-5">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
+                <Activity size={18} className="text-orange-500" />
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('patients_modal_form_emergency_title')}</h4>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               <Input label={t('patients_modal_form_emergency_name')} value={formData.emergencyName} onChange={e => setFormData({...formData, emergencyName: e.target.value})} />
+               <Input label={t('patients_modal_form_emergency_phone')} value={formData.emergencyPhone} onChange={e => setFormData({...formData, emergencyPhone: e.target.value})} />
+               <Input label={t('patients_modal_form_emergency_relation')} placeholder={t('patients_modal_form_emergency_relation_placeholder')} value={formData.emergencyRelation} onChange={e => setFormData({...formData, emergencyRelation: e.target.value})} />
+            </div>
+          </div>
+
+          {/* Section 4: Billing & Insurance */}
+          <div className="space-y-5 bg-primary-50/30 dark:bg-primary-900/10 p-5 rounded-2xl border border-primary-100 dark:border-primary-800">
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-primary-100 dark:border-primary-800 mb-2">
+                <div className="flex items-center gap-2">
+                    <ShieldCheck size={18} className="text-primary-600" />
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('patients_modal_form_insurance_title')}</h4>
+                </div>
+                <div className="flex items-center gap-2">
+                   <input 
+                     type="checkbox" 
+                     id="hasInsurance" 
+                     checked={formData.hasInsurance} 
+                     onChange={e => setFormData({...formData, hasInsurance: e.target.checked})}
+                     className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                   />
+                   <label htmlFor="hasInsurance" className="text-xs font-bold text-slate-600 cursor-pointer">{t('patients_modal_form_has_insurance')}</label>
+                </div>
+            </div>
+            
+            {formData.hasInsurance && (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-300">
+                  <Select label={t('patients_modal_form_insurance_provider')} value={formData.insProvider} onChange={e => setFormData({...formData, insProvider: e.target.value})}>
+                     <option value="">{t('patients_modal_form_insurance_provider_select')}</option>
+                     {insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}
+                  </Select>
+                  <Input label={t('patients_modal_form_insurance_policy')} value={formData.insPolicy} onChange={e => setFormData({...formData, insPolicy: e.target.value})} />
+                  <Input label={t('patients_modal_form_insurance_expiry')} type="date" value={formData.insExpiry} onChange={e => setFormData({...formData, insExpiry: e.target.value})} />
+                  <Input label={t('patients_modal_form_insurance_notes')} value={formData.insNotes} onChange={e => setFormData({...formData, insNotes: e.target.value})} />
+               </div>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700 sticky bottom-0 bg-white dark:bg-slate-800 py-3 z-10">
             <Button type="button" variant="secondary" onClick={() => setIsFormModalOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit">{t('patients_modal_save_button')}</Button>
+            <Button type="submit" icon={CheckCircle}>{t('patients_modal_save_button')}</Button>
           </div>
         </form>
       </Modal>
