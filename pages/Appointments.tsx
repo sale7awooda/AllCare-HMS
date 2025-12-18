@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Play, LayoutGrid, List as ListIcon, Edit,
-  Loader2, XCircle, CheckCircle, X, ChevronLeft, ChevronRight
+  Loader2, XCircle, CheckCircle, X, ChevronLeft, ChevronRight,
+  CalendarDays
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, MedicalStaff } from '../types';
@@ -296,13 +296,31 @@ export const Appointments = () => {
       <Card className="!p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))} />
-          <Input type="date" value={formatDate(selectedDate)} onChange={e => setSelectedDate(new Date(e.target.value))} className="w-auto" />
+          <div className="relative group">
+            {/* FIX: Corrected missing import for CalendarDays by adding it to the top level imports from 'lucide-react' */}
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-primary-500"><CalendarDays size={16}/></div>
+            <Input type="date" value={formatDate(selectedDate)} onChange={e => setSelectedDate(new Date(e.target.value))} className="w-auto pl-10 pr-4 font-bold border-slate-200" />
+          </div>
           <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))} />
           <Button size="sm" variant="secondary" onClick={() => setSelectedDate(new Date())}>{t('today')}</Button>
         </div>
-        <div className="flex items-center bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
-          <Button size="sm" variant={viewMode === 'grid' ? 'secondary' : 'ghost'} icon={LayoutGrid} onClick={() => setViewMode('grid')}>{t('appointments_view_queue')}</Button>
-          <Button size="sm" variant={viewMode === 'list' ? 'secondary' : 'ghost'} icon={ListIcon} onClick={() => setViewMode('list')}>{t('appointments_view_list')}</Button>
+        
+        {/* IMPROVED VISIBILITY: Segmented Tab Style Toggle */}
+        <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl shadow-inner border border-slate-200 dark:border-slate-800 shrink-0">
+          <button 
+            onClick={() => setViewMode('grid')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/30' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+          >
+            <LayoutGrid size={16} />
+            {t('appointments_view_queue')}
+          </button>
+          <button 
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/30' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+          >
+            <ListIcon size={16} />
+            {t('appointments_view_list')}
+          </button>
         </div>
       </Card>
 
@@ -335,7 +353,7 @@ export const Appointments = () => {
             <option>Consultation</option><option>Follow-up</option><option>Emergency</option>
           </Select>
           <Textarea label={t('reason')} value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
-          <div className="flex justify-end pt-4 gap-3"><Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button><Button type="submit">{t('save')}</Button></div>
+          <div className="flex justify-end pt-4 gap-3 border-t"><Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button><Button type="submit">{t('save')}</Button></div>
         </form>
       </Modal>
       

@@ -193,7 +193,6 @@ export const Configuration = () => {
             case 'lab': await api.deleteLabTest(id); break;
             case 'nurse': await api.deleteNurseService(id); break;
             case 'ops': await api.deleteOperationCatalog(id); break;
-            // FIX: Changed updateInsuranceProvider (which requires 2 args) to deleteInsuranceProvider (1 arg) to resolve the reported "Expected 2 arguments, but got 1" error and correctly perform the deletion.
             case 'insurance': await api.deleteInsuranceProvider(id); break;
             case 'banks': await api.deleteBank(id); break;
           }
@@ -435,16 +434,13 @@ export const Configuration = () => {
 
   return (
     <div className="space-y-6">
-      {/* Processing HUD */}
+      {/* IMPROVED SIZE PROCESS HUD */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-sm w-full mx-4 text-center">
-            {processStatus === 'processing' && <Loader2 className="w-16 h-16 text-primary-600 animate-spin mb-4" />}
-            {processStatus === 'success' && <CheckCircle size={48} className="text-green-600 mb-4" />}
-            {processStatus === 'error' && <XCircle size={48} className="text-red-600 mb-4" />}
-            <h3 className="text-xl font-bold">{processStatus === 'processing' ? t('processing') : processStatus === 'success' ? t('success') : t('error')}</h3>
-            <p className="text-sm text-slate-500 mt-2">{processMessage}</p>
-            {processStatus === 'error' && <Button variant="secondary" className="mt-6 w-full" onClick={() => setProcessStatus('idle')}>{t('close')}</Button>}
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
+            {processStatus === 'processing' && <><Loader2 className="w-12 h-12 text-primary-600 animate-spin mb-4" /><h3 className="font-bold text-slate-900 dark:text-white">{t('processing')}</h3></>}
+            {processStatus === 'success' && <><CheckCircle size={48} className="text-green-600 mb-4" /><h3 className="font-bold text-slate-900 dark:text-white">{t('success')}</h3></>}
+            {processStatus === 'error' && <><XCircle size={48} className="text-red-600 mb-4" /><h3 className="font-bold text-slate-900 dark:text-white">{t('patients_process_title_failed')}</h3><p className="text-sm text-red-500 mt-2">{processMessage}</p><Button variant="secondary" className="mt-4 w-full" onClick={() => setProcessStatus('idle')}>{t('close')}</Button></>}
           </div>
         </div>
       )}
@@ -731,7 +727,6 @@ export const Configuration = () => {
          {modalType === 'bed' && (
             <form onSubmit={handleBedSubmit} className="space-y-4">
                <div className="grid grid-cols-2 gap-4"><Input label="Room/Bed Number" required value={bedForm.roomNumber} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} /><Select label="Ward Type" value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value})}><option>General</option><option>Private</option><option>ICU</option><option>Emergency</option></Select></div>
-               {/* FIX: Fixed syntax error by adding 'e =>' to the onChange handler. */}
                <Input label="Cost Per Day ($)" type="number" required value={bedForm.costPerDay} onChange={e => setBedForm({...bedForm, costPerDay: e.target.value})} />
                <Button type="submit" className="w-full">{selectedItem ? 'Update Ward Info' : 'Create Bed'}</Button>
             </form>

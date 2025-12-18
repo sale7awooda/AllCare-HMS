@@ -5,7 +5,7 @@ import {
   FlaskConical, Bed, Activity, Trash2, CheckCircle,
   Phone, User, Loader2, Info,
   ChevronLeft, ChevronRight, Stethoscope, FileText, XCircle, DollarSign, Clock, 
-  ClipboardCheck, ShoppingCart, Layers, Syringe, Zap, Briefcase, ShieldCheck, Heart, UserPlus
+  ClipboardCheck, ShoppingCart, Layers, Syringe, Zap, Briefcase, ShieldCheck, Heart, UserPlus, CalendarDays
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill, InsuranceProvider } from '../types';
@@ -54,7 +54,7 @@ export const Patients = () => {
     date: new Date().toISOString().split('T')[0],
     time: new Date().toTimeString().slice(0, 5), 
     notes: '',
-    subtype: '',
+    subtype: 'Consultation',
     deposit: 0 
   });
 
@@ -201,7 +201,7 @@ export const Patients = () => {
       date: new Date().toISOString().split('T')[0],
       time: new Date().toTimeString().slice(0, 5), 
       notes: '',
-      subtype: '', 
+      subtype: 'Consultation', 
       deposit: 0
     });
     setIsActionModalOpen(true);
@@ -402,6 +402,11 @@ export const Patients = () => {
       });
       return groups;
   };
+
+  // Helper to get selected doctor fees
+  const selectedDocForFee = useMemo(() => {
+    return staff.find(s => s.id.toString() === actionFormData.staffId);
+  }, [actionFormData.staffId, staff]);
 
   return (
     <div className="space-y-6">
@@ -663,30 +668,28 @@ export const Patients = () => {
                         {getFilteredDoctors().map(doc => {
                             const selected = actionFormData.staffId === doc.id.toString();
                             const isAvailable = isDoctorAvailableOnDate(doc, actionFormData.date);
+                            const isRtl = language === 'ar';
                             return (
                                 <div 
                                     key={doc.id} 
                                     onClick={() => setActionFormData({...actionFormData, staffId: doc.id.toString()})} 
-                                    className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-3 overflow-hidden
+                                    className={`relative py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-center overflow-hidden min-h-[70px]
                                       ${selected ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : isAvailable ? 'border-slate-100 dark:border-slate-800 hover:border-slate-200' : 'border-slate-50 bg-slate-50/50 opacity-60 grayscale'}`}
                                 >
-                                    <div className="relative flex-shrink-0">
-                                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500">
-                                          {doc.fullName.charAt(0)}
-                                        </div>
-                                        <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-slate-800 ${isAvailable ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
+                                    {/* Availability Vertical Stripe */}
+                                    <div className={`absolute top-0 bottom-0 ${isRtl ? 'right-0' : 'left-0'} w-8 flex items-center justify-center ${isAvailable ? 'bg-emerald-600' : 'bg-slate-400 shadow-inner'}`}>
+                                        <span className={`rotate-180 [writing-mode:vertical-lr] text-[9px] font-black uppercase tracking-tighter text-white leading-none whitespace-nowrap`}>
+                                            {isAvailable ? t('patients_modal_action_doctor_available') : 'OFF DUTY'}
+                                        </span>
                                     </div>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="font-bold text-sm truncate text-slate-900 dark:text-white">{doc.fullName}</p>
-                                        <div className="flex items-center gap-1.5 overflow-hidden">
-                                            <p className="text-[10px] text-slate-500 uppercase truncate flex-1">{doc.specialization}</p>
-                                            <div className={`flex items-center gap-0.5 whitespace-nowrap font-bold text-[9px] uppercase tracking-tight ${isAvailable ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                {isAvailable ? t('patients_modal_action_doctor_available') : 'Off Duty'}
-                                            </div>
-                                        </div>
+
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-sm truncate text-slate-900 dark:text-white leading-tight">{doc.fullName}</p>
+                                        <p className="text-[10px] text-slate-500 uppercase font-black truncate mt-1 tracking-wider">{doc.specialization}</p>
                                     </div>
+                                    
                                     {selected && (
-                                      <div className="absolute top-2 right-2 text-primary-600 animate-in zoom-in-50 duration-200">
+                                      <div className={`absolute top-2 ${isRtl ? 'left-2' : 'right-2'} text-primary-600 animate-in zoom-in-50 duration-200`}>
                                         <CheckCircle size={16} />
                                       </div>
                                     )}
@@ -697,10 +700,24 @@ export const Patients = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                      <Select label={t('appointments_form_type')} value={actionFormData.subtype} onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})}>
-                          <option value="Consultation">{t('patients_modal_action_consultation')}</option>
-                          <option value="Follow-up">{t('patients_modal_action_followUp')}</option>
-                          <option value="Emergency">{t('patients_modal_action_emergency')}</option>
+                      {/* ENHANCED: Show price in the Type selection list */}
+                      <Select 
+                        label={t('appointments_form_type')} 
+                        value={actionFormData.subtype} 
+                        onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})}
+                      >
+                          <option value="Consultation">
+                            {t('patients_modal_action_consultation')} 
+                            {selectedDocForFee ? ` ($${selectedDocForFee.consultationFee})` : ''}
+                          </option>
+                          <option value="Follow-up">
+                            {t('patients_modal_action_followUp')} 
+                            {selectedDocForFee ? ` ($${selectedDocForFee.consultationFeeFollowup || 0})` : ''}
+                          </option>
+                          <option value="Emergency">
+                            {t('patients_modal_action_emergency')} 
+                            {selectedDocForFee ? ` ($${selectedDocForFee.consultationFeeEmergency || 0})` : ''}
+                          </option>
                       </Select>
                       <Input type="time" label={t('time')} value={actionFormData.time} onChange={e => setActionFormData({...actionFormData, time: e.target.value})} />
                   </div>

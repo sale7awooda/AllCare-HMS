@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Search, Briefcase, Clock, 
   Calendar, DollarSign, Wallet,
   Loader2, Edit, Trash2, MapPin,
-  LogIn, LogOut, CheckCircle, XCircle, User, Info, CreditCard, ChevronRight, Eye, RefreshCw, Save
+  LogIn, LogOut, CheckCircle, XCircle, User, Info, CreditCard, ChevronRight, Eye, RefreshCw, Save,
+  ChevronLeft, CalendarDays
 } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment } from '../types';
@@ -14,7 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { useHeader } from '../context/HeaderContext';
 
 const roleDepartmentMap: Record<string, string[]> = {
-  doctor: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology', 'Dermatology', 'Radiology', 'Anesthesiology', 'Internal Medicine'],
+  doctor: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology', 'Dermatology', 'Radiology', 'Anesthesiologist', 'Internal Medicine'],
   nurse: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'General Surgery', 'Emergency', 'Obstetrics and Gynecology', 'Internal Medicine'],
   technician: ['Radiology', 'Laboratory'],
   radiologist: ['Radiology'],
@@ -72,7 +73,6 @@ export const Staff = () => {
   const [leaveForm, setLeaveForm] = useState({ staffId: '', type: 'sick', startDate: '', endDate: '', reason: '' });
   const [attendanceModal, setAttendanceModal] = useState<any>(null);
   
-  // Payroll Detail State
   const [selectedPayroll, setSelectedPayroll] = useState<PayrollRecord | null>(null);
   const [isPayrollDetailModalOpen, setIsPayrollDetailModalOpen] = useState(false);
 
@@ -170,16 +170,6 @@ export const Staff = () => {
       return prefix + name;
   };
 
-  const filteredDepartments = useMemo(() => {
-    if (!staffForm.type) return departments;
-    const allowedDepts = roleDepartmentMap[staffForm.type];
-    return !allowedDepts ? departments : departments.filter(d => allowedDepts.includes(d.name_en));
-  }, [staffForm.type, departments]);
-
-  const filteredSpecializations = useMemo(() => {
-    return !staffForm.type ? specializations : specializations.filter(s => !s.related_role || s.related_role === staffForm.type);
-  }, [staffForm.type, specializations]);
-
   const handleCheckIn = (staffMember: MedicalStaff) => {
     setConfirmState({
         isOpen: true, title: t('staff_attendance_confirm'), message: t('staff_attendance_checkin_confirm', {name: staffMember.fullName, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}),
@@ -230,6 +220,11 @@ export const Staff = () => {
 
   const handleLeaveRequest = async (e: React.FormEvent) => {
       e.preventDefault();
+      if (!leaveForm.staffId) {
+          setProcessStatus('error');
+          setProcessMessage("Please select an employee.");
+          return;
+      }
       setProcessStatus('processing');
       try {
         await api.requestLeave(leaveForm);
@@ -282,6 +277,11 @@ export const Staff = () => {
 
   const handleAdjustmentSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
+      if (!adjForm.staffId || !adjForm.amount) {
+        setProcessStatus('error');
+        setProcessMessage("Employee and amount are required.");
+        return;
+      }
       setProcessStatus('processing');
       try {
         await api.addAdjustment({ ...adjForm, amount: parseFloat(adjForm.amount) });
@@ -293,6 +293,12 @@ export const Staff = () => {
   const openPayrollDetails = (p: PayrollRecord) => {
       setSelectedPayroll(p);
       setIsPayrollDetailModalOpen(true);
+  };
+
+  const shiftDate = (days: number) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + days);
+    setSelectedDate(d.toISOString().split('T')[0]);
   };
 
   // Sync Header
@@ -307,43 +313,62 @@ export const Staff = () => {
     </div>
   );
 
-  const sortedStaff = staff.filter(s => s.fullName.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => (a.status === 'active' ? -1 : 1));
+  const sortedStaff = useMemo(() => {
+    return staff.filter(s => s.fullName.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => (a.status === 'active' ? -1 : 1));
+  }, [staff, searchTerm]);
 
   // Searchable Employee Select Component
   const SearchableEmployeeSelect = ({ label, value, onChange, placeholder }: any) => {
     const [search, setSearch] = useState('');
     const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    
     const selected = staff.find(s => s.id.toString() === value);
-    const results = staff.filter(s => s.fullName.toLowerCase().includes(search.toLowerCase())).slice(0, 5);
+    const results = useMemo(() => {
+        if (!search) return staff.slice(0, 5);
+        return staff.filter(s => s.fullName.toLowerCase().includes(search.toLowerCase())).slice(0, 5);
+    }, [staff, search]);
+
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+          setOpen(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     return (
-        <div className="relative space-y-1.5">
+        <div className="relative space-y-1.5" ref={containerRef}>
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">{label}</label>
             {selected && !open ? (
-                <div className="flex items-center justify-between p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800 rounded-xl">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center font-bold text-xs">{selected.fullName.charAt(0)}</div>
+                <div className="flex items-center justify-between p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl">
+                    <div className="flex flex-col">
                         <span className="font-bold text-sm text-primary-900 dark:text-primary-100">{selected.fullName}</span>
+                        <span className="text-[10px] text-primary-600 dark:text-primary-400 uppercase font-black">{t(`staff_role_${selected.type}`)}</span>
                     </div>
-                    <button type="button" onClick={() => setOpen(true)} className="text-primary-600 hover:text-primary-700"><Edit size={14}/></button>
+                    <button type="button" onClick={() => setOpen(true)} className="p-1.5 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg transition-colors">
+                        <Edit size={14} className="text-primary-600"/>
+                    </button>
                 </div>
             ) : (
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input 
                         type="text" 
-                        placeholder={placeholder || "Search employee..."}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                        placeholder={placeholder || "Type to search employee..."}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         onFocus={() => setOpen(true)}
                     />
-                    {open && search && (
-                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95">
+                    {open && (
+                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                             {results.map(s => (
-                                <button key={s.id} type="button" className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b last:border-0 flex items-center gap-3" onClick={() => { onChange(s.id.toString()); setOpen(false); setSearch(''); }}>
-                                    <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">{s.fullName.charAt(0)}</div>
-                                    <span className="text-sm font-medium">{s.fullName}</span>
+                                <button key={s.id} type="button" className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b last:border-0 border-slate-100 dark:border-slate-700 flex flex-col" onClick={() => { onChange(s.id.toString()); setOpen(false); setSearch(''); }}>
+                                    <span className="text-sm font-bold text-slate-800 dark:text-white">{s.fullName}</span>
+                                    <span className="text-[10px] text-slate-400 uppercase font-black">{t(`staff_role_${s.type}`)}</span>
                                 </button>
                             ))}
                             {results.length === 0 && <div className="p-4 text-center text-xs text-slate-400 italic">No matches found.</div>}
@@ -357,12 +382,13 @@ export const Staff = () => {
 
   return (
     <div className="space-y-6">
+      {/* STANDARD SIZE PROCESS HUD */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
-            {processStatus === 'processing' && <><Loader2 className="w-16 h-16 text-primary-600 animate-spin mb-4" /><h3 className="font-bold">{t('processing')}</h3></>}
-            {processStatus === 'success' && <><CheckCircle size={48} className="text-green-600 mb-4" /><h3 className="font-bold">{t('success')}</h3></>}
-            {processStatus === 'error' && <><XCircle size={48} className="text-red-600 mb-4" /><h3 className="font-bold">{t('patients_process_title_failed')}</h3><p className="text-sm text-red-500 mt-2">{processMessage}</p><Button variant="secondary" className="mt-4 w-full" onClick={() => setProcessStatus('idle')}>{t('close')}</Button></>}
+            {processStatus === 'processing' && <><Loader2 className="w-12 h-12 text-primary-600 animate-spin mb-4" /><h3 className="font-bold text-slate-900 dark:text-white">{t('processing')}</h3></>}
+            {processStatus === 'success' && <><CheckCircle size={48} className="text-green-600 mb-4" /><h3 className="font-bold text-slate-900 dark:text-white">{t('success')}</h3></>}
+            {processStatus === 'error' && <><XCircle size={48} className="text-red-600 mb-4" /><h3 className="font-bold text-slate-900 dark:text-white">{t('patients_process_title_failed')}</h3><p className="text-sm text-red-500 mt-2">{processMessage}</p><Button variant="secondary" className="mt-4 w-full" onClick={() => setProcessStatus('idle')}>{t('close')}</Button></>}
           </div>
         </div>
       )}
@@ -381,22 +407,21 @@ export const Staff = () => {
 
       {activeTab === 'directory' && (
           <div className="animate-in fade-in">
-              <div className="relative w-full sm:w-72 mb-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" /><input type="text" placeholder={t('staff_search_placeholder')} className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 shadow-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/></div>
+              <div className="relative w-full sm:w-72 mb-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" /><input type="text" placeholder={t('staff_search_placeholder')} className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 shadow-sm outline-none" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{sortedStaff.map(person => {
                 const statusColors: any = { active: 'green', inactive: 'gray', onleave: 'yellow', dismissed: 'red' };
                 return (
-                  <div key={person.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all group flex flex-col h-full relative">
-                    <div className="absolute top-4 right-4"><Badge color={statusColors[person.status] || 'gray'} className="text-[9px] uppercase font-black">{person.status}</Badge></div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg text-white bg-gradient-to-br from-slate-400 to-slate-500 shadow-sm`}>{person.fullName.charAt(0)}</div>
-                      <div className="min-w-0">
-                        <h3 className="font-bold text-slate-800 dark:text-white line-clamp-1">{formatPrefixedName(person)}</h3>
+                  <div key={person.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all group flex flex-col h-full">
+                    <div className="flex-1 min-w-0 mb-4">
+                      <h3 className="font-bold text-lg text-slate-800 dark:text-white line-clamp-2 leading-tight mb-2 min-h-[3rem]">{formatPrefixedName(person)}</h3>
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t(`staff_role_${person.type}`)}</p>
+                        <Badge color={statusColors[person.status] || 'gray'} className="text-[8px] px-1.5 py-0 uppercase font-black">{person.status}</Badge>
                       </div>
                     </div>
-                    <div className="space-y-2 text-sm text-slate-500 dark:text-slate-400 mb-6 flex-1">
-                      <div className="flex items-center gap-2"><Briefcase size={14} className="text-slate-300"/> {person.department || t('patients_modal_view_na')}</div>
-                      <div className="flex items-center gap-2"><MapPin size={14} className="text-slate-300"/> <span className="truncate">{person.address || t('patients_modal_view_na')}</span></div>
+                    <div className="space-y-2 text-sm text-slate-500 dark:text-slate-400 mb-6">
+                      <div className="flex items-center gap-2 text-xs"><Briefcase size={12} className="text-slate-300 shrink-0"/> <span className="truncate">{person.department || t('patients_modal_view_na')}</span></div>
+                      <div className="flex items-center gap-2 text-xs"><MapPin size={12} className="text-slate-300 shrink-0"/> <span className="truncate">{person.address || t('patients_modal_view_na')}</span></div>
                     </div>
                     {canManageHR && <Button variant="outline" size="sm" className="w-full mt-auto" onClick={() => openStaffModal(person)} icon={Edit}>{t('edit')}</Button>}
                   </div>
@@ -406,9 +431,26 @@ export const Staff = () => {
 
       {activeTab === 'attendance' && (
           <div className="animate-in fade-in space-y-4">
-              <Card className="!p-4 flex justify-between items-center bg-slate-50 dark:bg-slate-900 border-none shadow-none">
-                 <div className="flex items-center gap-2 text-slate-500"><Calendar size={18}/> <span className="text-sm font-bold">{new Date(selectedDate).toLocaleDateString(undefined, {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</span></div>
-                 <Input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="w-auto shadow-none !py-2" />
+              <Card className="!p-4 bg-slate-50 dark:bg-slate-900 border-none shadow-none">
+                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => shiftDate(-1)} />
+                        <div className="relative group cursor-pointer">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><CalendarDays size={16}/></div>
+                            <input 
+                                type="date" 
+                                value={selectedDate} 
+                                onChange={e => setSelectedDate(e.target.value)} 
+                                className="pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-primary-500/20"
+                            />
+                        </div>
+                        <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => shiftDate(1)} />
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-500">
+                        <span className="text-sm font-black uppercase tracking-widest">{new Date(selectedDate).toLocaleDateString(undefined, {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</span>
+                    </div>
+                    <Button size="sm" variant="secondary" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>Today</Button>
+                 </div>
               </Card>
               <div className="bg-white dark:bg-slate-800 rounded-2xl border overflow-hidden shadow-soft"><table className="w-full text-sm text-left"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_role_title')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('status')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_attendance_time')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Check Out</th>{canManageHR && <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('actions')}</th>}</tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-700">{staff.filter(s => s.status === 'active').map(s => { const record = attendance.find(a => a.staffId === s.id); return (<tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"><td><div className="px-6 py-4"><div className="font-bold text-slate-900 dark:text-white">{formatPrefixedName(s)}</div><div className="text-[10px] text-slate-400 uppercase font-black">{t(`staff_role_${s.type}`)}</div></div></td><td className="px-6 py-4">{record ? <Badge color={record.status === 'present' ? 'green' : 'yellow'}>{record.status}</Badge> : <span className="text-slate-300">-</span>}</td><td className="px-6 py-4 font-mono font-bold text-slate-600 dark:text-slate-400">{record?.checkIn || '-'}</td><td className="px-6 py-4 font-mono font-bold text-slate-600 dark:text-slate-400">{record?.checkOut || '-'}</td>{canManageHR && <td className="px-6 py-4 text-right"><div className="flex justify-end gap-2">{!record?.checkIn && <Button size="sm" onClick={() => handleCheckIn(s)} icon={LogIn}>Check In</Button>}{record?.checkIn && !record?.checkOut && <Button size="sm" variant="secondary" onClick={() => handleCheckOut(record)} icon={LogOut}>Check Out</Button>}<Button size="sm" variant="ghost" onClick={() => openAttendanceModal(s.id, s.fullName, 'present')} icon={Edit}>{t('edit')}</Button></div></td>}</tr>)})}</tbody></table></div>
           </div>
@@ -467,13 +509,11 @@ export const Staff = () => {
             <div className="flex flex-wrap gap-2 mb-5">{DAYS_OF_WEEK.map((day) => (<button key={day} type="button" onClick={() => toggleDay(day)} className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${ (staffForm.availableDays || []).includes(DAYS_OF_WEEK_EN[DAYS_OF_WEEK.indexOf(day)]) ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>{day}</button>))}</div>
             <div className="grid grid-cols-2 gap-4"><Input label={t('staff_form_start_time')} type="time" value={staffForm.availableTimeStart} onChange={e => setStaffForm({...staffForm, availableTimeStart: e.target.value})} /><Input label={t('staff_form_end_time')} type="time" value={staffForm.availableTimeEnd} onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})} /></div>
           </div>
-          {/* FIX: Imported 'Save' from 'lucide-react' to resolve reference error. */}
           <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700"><Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button><Button type="submit" icon={Save}>{t('save')}</Button></div>
         </form>
       </Modal>
 
       <Modal isOpen={!!attendanceModal} onClose={() => setAttendanceModal(null)} title={t('staff_modal_attendance_title')}>
-          {/* FIX: Imported 'Save' from 'lucide-react' to resolve reference error. */}
           {attendanceModal && (<form onSubmit={handleAttendanceSubmit} className="space-y-4"><div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl text-center border border-slate-100 dark:border-slate-800"><p className="font-black text-slate-800 dark:text-white text-lg">{attendanceModal.staffName}</p></div><Select label={t('status')} value={attendanceModal.status} onChange={e => setAttendanceModal({...attendanceModal, status: e.target.value})}><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option></Select><div className="grid grid-cols-2 gap-4"><Input label="In" type="time" value={attendanceModal.checkIn} onChange={e => setAttendanceModal({...attendanceModal, checkIn: e.target.value})} /><Input label="Out" type="time" value={attendanceModal.checkOut} onChange={e => setAttendanceModal({...attendanceModal, checkOut: e.target.value})} /></div><div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700"><Button type="button" variant="secondary" onClick={() => setAttendanceModal(null)}>{t('cancel')}</Button><Button type="submit" icon={Save}>{t('save')}</Button></div></form>)}
       </Modal>
 
@@ -508,12 +548,10 @@ export const Staff = () => {
             </div>
             <Input label="Reference Date" type="date" value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
             <Textarea label="Reason / Description" required placeholder="Details of this adjustment..." value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
-            {/* FIX: Imported 'Save' from 'lucide-react' to resolve reference error. */}
             <Button type="submit" className="w-full" icon={Save}>{t('save')}</Button>
         </form>
       </Modal>
 
-      {/* Payroll Calculation Details Modal */}
       <Modal isOpen={isPayrollDetailModalOpen} onClose={() => setIsPayrollDetailModalOpen(false)} title={`Salary Breakdown: ${selectedPayroll?.staffName}`}>
          {selectedPayroll && (
             <div className="space-y-6">
