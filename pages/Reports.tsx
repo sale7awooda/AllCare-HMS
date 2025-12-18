@@ -200,7 +200,7 @@ export const Reports = () => {
         {t('reports_export_button')} <ChevronDown size={14} className={`ml-2 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
       </Button>
       {showExportMenu && (
-        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden animate-in fade-in zoom-in-95">
+        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           <button onClick={() => { window.print(); setShowExportMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
             <Printer size={16} className="text-primary-500" />
             <span>Export as PDF Report</span>
@@ -245,14 +245,14 @@ export const Reports = () => {
   };
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center h-96 gap-4">
+    <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       <p className="text-slate-500 font-medium">{t('loading')}</p>
     </div>
   );
 
   const StatCard = ({ title, value, subtitle, icon: Icon, colorClass, trend }: any) => (
-    <Card className="!p-6 bg-white dark:bg-slate-800 shadow-soft border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300">
+    <Card className="!p-6 bg-white dark:bg-slate-800 shadow-soft border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
       <div className="flex justify-between items-start">
         <div className={`p-3 rounded-2xl ${colorClass} text-white shadow-lg`}>
           <Icon size={24} />
@@ -283,7 +283,7 @@ export const Reports = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       {/* Filters Bar */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border shadow-soft gap-4 no-print">
         <div className="flex flex-wrap gap-3 items-center w-full md:w-auto">
@@ -301,7 +301,7 @@ export const Reports = () => {
             </select>
           </div>
           {rangeType === 'custom' && (
-            <div className="flex items-center gap-2 animate-in slide-in-from-left-2 duration-300">
+            <div className="flex items-center gap-2 animate-in slide-in-from-left-2">
               <Input type="date" value={customRange.start} onChange={e => setCustomRange({...customRange, start: e.target.value})} className="!py-2 w-36 shadow-none" />
               <span className="text-slate-400 font-bold">-</span>
               <Input type="date" value={customRange.end} onChange={e => setCustomRange({...customRange, end: e.target.value})} className="!py-2 w-36 shadow-none" />
@@ -327,10 +327,10 @@ export const Reports = () => {
         </div>
       </div>
 
-      <div className="print-content">
+      <div className="print-content animate-in fade-in duration-500">
         {/* --- FINANCIAL VIEW --- */}
         {activeTab === 'financial' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard title="Net Profit/Loss" value={`$${financialStats.netProfit.toLocaleString()}`} subtitle="Revenue vs Expenses" icon={TrendingUp} colorClass={financialStats.netProfit >= 0 ? "bg-emerald-500" : "bg-rose-500"} />
               <StatCard title="Gross Revenue" value={`$${financialStats.totalRevenue.toLocaleString()}`} subtitle="Payments collected" icon={CreditCard} colorClass="bg-blue-500" trend={12} />
@@ -392,7 +392,7 @@ export const Reports = () => {
 
         {/* --- OPERATIONAL VIEW --- */}
         {activeTab === 'operational' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard title="Total Volume" value={operationalStats.total} subtitle="Appointments scheduled" icon={Calendar} colorClass="bg-blue-500" />
               <StatCard title="Fulfillment Rate" value={`${operationalStats.completionRate}%`} subtitle="Completed consultations" icon={UserCheck} colorClass="bg-emerald-500" />
@@ -433,7 +433,7 @@ export const Reports = () => {
 
         {/* --- DEMOGRAPHICS VIEW --- */}
         {activeTab === 'demographics' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard title="Registry Size" value={patientStats.total} subtitle="Total registered patients" icon={Users} colorClass="bg-blue-500" />
               <StatCard title="Acquisition" value={patientStats.newCount} subtitle="New registrations in period" icon={FilePlus} colorClass="bg-emerald-500" trend={8} />
@@ -474,7 +474,7 @@ export const Reports = () => {
 
         {/* --- ACTIVITY STREAM --- */}
         {activeTab === 'activity' && (
-          <Card className="!p-0 overflow-hidden animate-in fade-in duration-500" title="Recent Hospital Events Log">
+          <Card className="!p-0 overflow-hidden" title="Recent Hospital Events Log">
              <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
                 {activityStream.length === 0 ? (
                   <div className="p-20 text-center text-slate-400 font-medium">No activity recorded for this period.</div>
@@ -483,7 +483,8 @@ export const Reports = () => {
                     <div 
                       key={act.id} 
                       onClick={() => openEventDetails(act)}
-                      className="flex gap-4 p-5 items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer group/item"
+                      className="flex gap-4 p-5 items-start hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer group/item animate-in slide-in-from-bottom-2 duration-300"
+                      style={{ animationDelay: `${i * 50}ms` }}
                     >
                        <div className={`p-3 rounded-xl shrink-0 transition-transform group-hover/item:scale-110 ${
                          act.type === 'patient' ? 'bg-blue-100 text-blue-600' : 
@@ -513,15 +514,13 @@ export const Reports = () => {
         )}
       </div>
 
-      {/* Structured Details Modal */}
       <Modal 
         isOpen={isEventModalOpen} 
         onClose={() => setIsEventModalOpen(false)} 
         title={`Audit Log: ${selectedEvent?.type.toUpperCase()}`}
       >
         {selectedEvent && (
-          <div className="space-y-8 animate-in fade-in zoom-in-95 duration-200 print-content">
-            {/* Header Badge Strip */}
+          <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300 print-content">
             <div className={`flex flex-wrap items-center gap-3 p-4 rounded-2xl border ${
               selectedEvent.type === 'patient' ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/20' : 
               selectedEvent.type === 'appointment' ? 'bg-violet-50 border-violet-100 dark:bg-violet-900/20' : 
@@ -543,7 +542,6 @@ export const Reports = () => {
               </div>
             </div>
 
-            {/* Content Sections */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {selectedEvent.type === 'patient' && (
                 <>
@@ -571,12 +569,11 @@ export const Reports = () => {
               )}
             </div>
 
-            {/* Sub Details Table / Context */}
             <div className="space-y-3">
                <h4 className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest px-1">
                  <Activity size={14}/> Technical Context
                </h4>
-               <div className="bg-slate-50 dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+               <div className="bg-slate-50 dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 min-h-[100px]">
                   {selectedEvent.type === 'bill' && (
                     <div className="space-y-3">
                        <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700">
@@ -614,7 +611,6 @@ export const Reports = () => {
                </div>
             </div>
 
-            {/* Actions Footer */}
             <div className="pt-6 border-t border-slate-100 dark:border-slate-700 flex justify-between gap-3 no-print">
                <Button variant="ghost" icon={Printer} onClick={() => window.print()}>Print Entry Details</Button>
                <div className="flex gap-2">
@@ -625,7 +621,6 @@ export const Reports = () => {
         )}
       </Modal>
 
-      {/* Global CSS for Report Printing */}
       <style>{`
         @media print {
           body * { display: none !important; }
@@ -641,7 +636,6 @@ export const Reports = () => {
           }
           .no-print { display: none !important; }
           .Card { border: 1px solid #eee !important; box-shadow: none !important; margin-bottom: 20px; page-break-inside: avoid; }
-          .recharts-legend-wrapper { position: static !important; }
           header, aside { display: none !important; }
         }
       `}</style>

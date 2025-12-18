@@ -69,8 +69,8 @@ export const Badge: React.FC<{ children: React.ReactNode; color?: 'green' | 'red
 export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overflow-x-hidden bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/5 dark:ring-white/10 scale-100 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/5 dark:ring-white/10 overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-50 dark:border-slate-700 shrink-0">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white">{title}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg p-2 transition-colors">
@@ -243,7 +243,7 @@ export const Tooltip: React.FC<{ children: React.ReactNode; content: React.React
       </div>
       {show && (
         <div 
-          className="fixed px-3 py-1.5 text-xs font-bold text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-md shadow-xl animate-in fade-in zoom-in-95 duration-100 whitespace-nowrap z-[100]"
+          className="fixed px-3 py-1.5 text-xs font-bold text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-md shadow-xl whitespace-nowrap z-[100] animate-in fade-in zoom-in-95 duration-150"
           style={getStyles()}
         >
           {content}
@@ -253,4 +253,3 @@ export const Tooltip: React.FC<{ children: React.ReactNode; content: React.React
     </>
   );
 };
-// FIX: Removed extraneous file marker that was causing a syntax error.

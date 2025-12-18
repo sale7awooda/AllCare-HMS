@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Search, Filter, Edit, Calendar, Lock, 
@@ -16,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { useHeader } from '../context/HeaderContext';
 
 export const Patients = () => {
+  const location = useLocation();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
@@ -140,7 +142,13 @@ export const Patients = () => {
   useEffect(() => {
     loadData();
     loadCatalogs();
-  }, []);
+    
+    // Check for quick action trigger from Dashboard
+    const state = location.state as any;
+    if (state?.trigger === 'new' && hasPermissionToCreate) {
+      openCreateModal();
+    }
+  }, [location.state]);
 
   const openCreateModal = () => {
     setFormData(initialFormState);

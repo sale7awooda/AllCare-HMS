@@ -1,23 +1,24 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, Modal, Input, Textarea, Select, ConfirmationDialog } from '../components/UI';
 import { 
   Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, AlertTriangle,
   HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, 
   DollarSign, Loader2, XCircle, Sparkles, Thermometer, ChevronRight, X, Info, Save, Trash2,
-  // FIX: Added ExternalLink import to resolve compilation error on line 589.
   ExternalLink
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { useHeader } from '../context/HeaderContext';
 
 export const Admissions = () => {
   const { accent } = useTheme();
   const { t, language } = useTranslation();
   const { user: currentUser } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
   
   const [beds, setBeds] = useState<any[]>([]);
@@ -65,6 +66,14 @@ export const Admissions = () => {
       setActiveAdmissions(admissionsData);
       setPatients(patientsData);
       setStaff(staffData);
+      
+      // Check for trigger after data is loaded
+      const state = location.state as any;
+      if (state?.trigger === 'new') {
+        const availableBed = bedsData.find((b: any) => b.status === 'available');
+        if (availableBed) handleBedClick(availableBed);
+        else setProcessStatus('error'), setProcessMessage('No beds available for new admission.');
+      }
     } catch (e) { console.error(e); } finally { if (!silent) setLoading(false); }
   };
 
@@ -637,12 +646,3 @@ export const Admissions = () => {
     </div>
   );
 };
-
-const HealthStat = ({ icon: Icon, label, value, color }: any) => (
-  <Card className="!p-5 bg-white dark:bg-slate-800 hover:shadow-lg transition-all group">
-     <div className="flex items-center gap-3">
-        <div className={`p-3 rounded-xl bg-slate-50 dark:bg-slate-900 group-hover:bg-primary-50 transition-colors ${color}`}><Icon size={24} /></div>
-        <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p><p className="text-xl font-black text-slate-800 dark:text-white capitalize">{value}</p></div>
-     </div>
-  </Card>
-);

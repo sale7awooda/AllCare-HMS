@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Play, LayoutGrid, List as ListIcon, Edit,
@@ -234,6 +235,7 @@ const ListView = ({ appointments, onEdit, onCancel, canManage }: { appointments:
 };
 
 export const Appointments = () => {
+  const location = useLocation();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -262,7 +264,7 @@ export const Appointments = () => {
   useHeader(
     t('appointments_title'),
     t('appointments_subtitle'),
-    canManage ? <Button onClick={() => { setEditingAppointment(null); setFormData({ patientId: '', staffId: '', date: formatDate(selectedDate), time: '09:00', type: 'Consultation', reason: '' }); setPatientSearch(''); setIsModalOpen(true); }} icon={Plus}>{t('appointments_new_button')}</Button> : null
+    canManage ? <Button onClick={() => { openNewModal(); }} icon={Plus}>{t('appointments_new_button')}</Button> : null
   );
 
   const loadData = async (isSilent = false) => {
@@ -275,7 +277,24 @@ export const Appointments = () => {
     } catch (e) { console.error(e); } finally { if (!isSilent) setLoading(false); }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    loadData(); 
+  }, []);
+
+  // Check for quick action trigger from Dashboard
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.trigger === 'new' && canManage) {
+      openNewModal();
+    }
+  }, [location.state, canManage]);
+
+  const openNewModal = () => {
+    setEditingAppointment(null); 
+    setFormData({ patientId: '', staffId: '', date: formatDate(selectedDate), time: '09:00', type: 'Consultation', reason: '' }); 
+    setPatientSearch(''); 
+    setIsModalOpen(true);
+  };
 
   // Handle outside click for patient search results
   useEffect(() => {
