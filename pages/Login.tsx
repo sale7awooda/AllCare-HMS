@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Role } from '../types';
 import { 
@@ -16,7 +17,12 @@ import {
   EyeOff,
   MapPin,
   PhoneCall,
-  Stethoscope
+  Stethoscope,
+  Wifi,
+  WifiOff,
+  Database,
+  // FIX: Added RefreshCw to imports to resolve "Cannot find name 'RefreshCw'" error.
+  RefreshCw
 } from 'lucide-react';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
@@ -28,20 +34,38 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [serverStatus, setServerStatus] = useState<'connecting' | 'online' | 'offline'>('connecting');
   const { t } = useTranslation();
   
-  // Identity details from LocalStorage with hardcoded fallbacks as per requirements
   const [hospitalInfo] = useState(() => ({
     name: localStorage.getItem('h_name') || "AllCare Hospital",
-    address: localStorage.getItem('h_address') || "atbara ,the big marker",
+    address: localStorage.getItem('h_address') || "Atbara, The Big Market",
     phone: localStorage.getItem('h_phone') || "0987654321"
   }));
   
   const [activeProfile, setActiveProfile] = useState<Role | null>(null);
   const [passwordVisible, setPasswordVisible] = useState(false);
 
+  useEffect(() => {
+    const checkServer = async () => {
+      try {
+        await api.getPublicSettings();
+        setServerStatus('online');
+      } catch (e) {
+        setServerStatus('offline');
+      }
+    };
+    checkServer();
+    const interval = setInterval(checkServer, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (serverStatus === 'offline') {
+      setError(t('login_status_offline'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -57,7 +81,6 @@ export const Login: React.FC = () => {
 
   const handleProfileSelect = (role: Role) => {
     setActiveProfile(role);
-    // Map roles to seeded usernames in database.js
     if (role === 'technician') {
       setUsername('labtech');
       setPassword('labtech123');
@@ -82,7 +105,7 @@ export const Login: React.FC = () => {
           w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-all duration-300 border
           ${isActive 
             ? `bg-gradient-to-br ${color} text-white border-transparent ring-4 ring-primary-100` 
-            : 'bg-white border-slate-100 text-slate-400 hover:border-primary-200 hover:text-primary-500'}
+            : 'bg-white border-slate-100 text-slate-400 hover:border-primary-200 hover:text-primary-500 dark:bg-slate-800 dark:border-slate-700'}
         `}>
           <Icon size={20} className={isActive ? 'animate-pulse' : ''} />
           {isActive && (
@@ -91,7 +114,7 @@ export const Login: React.FC = () => {
             </div>
           )}
         </div>
-        <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-primary-700' : 'text-slate-400 group-hover:text-primary-600'}`}>
+        <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-primary-700 dark:text-primary-400' : 'text-slate-400 group-hover:text-primary-600'}`}>
           {label}
         </span>
       </button>
@@ -99,44 +122,53 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-slate-50">
+    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
       
-      {/* Background Layer */}
+      {/* Dynamic Background Layer */}
       <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-cyan-100" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-cyan-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950" />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light" />
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 blur-3xl animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-400/10 blur-3xl animate-pulse delay-700" />
       </div>
 
-      {/* Main Content Card */}
+      {/* Connectivity Status Toast */}
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 duration-500">
+        <div className={`px-4 py-2 rounded-full shadow-lg backdrop-blur-md border flex items-center gap-2 text-xs font-bold transition-all ${
+          serverStatus === 'online' ? 'bg-emerald-50/80 border-emerald-200 text-emerald-700' : 
+          serverStatus === 'connecting' ? 'bg-amber-50/80 border-amber-200 text-amber-700' :
+          'bg-red-50/80 border-red-200 text-red-700'
+        }`}>
+          {serverStatus === 'online' ? <Wifi size={14}/> : serverStatus === 'connecting' ? <RefreshCw className="animate-spin" size={14}/> : <WifiOff size={14}/>}
+          {t(`login_status_${serverStatus}`)}
+        </div>
+      </div>
+
       <div className="relative z-10 w-full max-w-md px-4">
-        <div className="bg-white/80 backdrop-blur-2xl border border-white/60 rounded-3xl shadow-2xl overflow-hidden ring-1 ring-slate-900/5">
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/60 dark:border-slate-800/60 rounded-3xl shadow-2xl overflow-hidden ring-1 ring-slate-900/5 transition-all">
           
-          {/* Header with identity information */}
-          <div className="px-8 pt-8 pb-6 text-center border-b border-slate-100">
+          <div className="px-8 pt-8 pb-6 text-center border-b border-slate-100 dark:border-slate-800">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/20 mb-4 text-white">
               <Activity size={28} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{hospitalInfo.name}</h1>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{hospitalInfo.name}</h1>
             
             <div className="mt-3 space-y-1">
-              <div className="flex items-center justify-center gap-1.5 text-slate-500 text-xs font-medium">
+              <div className="flex items-center justify-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs font-medium">
                 <MapPin size={12} className="text-primary-500" />
                 <span>{hospitalInfo.address}</span>
               </div>
-              <div className="flex items-center justify-center gap-1.5 text-slate-500 text-xs font-medium">
+              <div className="flex items-center justify-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs font-medium">
                 <PhoneCall size={12} className="text-primary-500" />
                 <span>{hospitalInfo.phone}</span>
               </div>
             </div>
           </div>
 
-          {/* Form Section */}
           <div className="p-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <div className="p-3 rounded-lg bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm animate-in fade-in slide-in-from-top-2">
+                <div className="p-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm animate-in shake duration-300">
                   <AlertCircle size={16} className="shrink-0" />
                   {error}
                 </div>
@@ -144,7 +176,7 @@ export const Login: React.FC = () => {
 
               <div className="space-y-4">
                 <div className="group">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{t('login_id_label')}</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">{t('login_id_label')}</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
                       <UserIcon size={18} />
@@ -153,14 +185,14 @@ export const Login: React.FC = () => {
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white transition-all shadow-sm"
+                      className="block w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-700 transition-all shadow-sm"
                       placeholder={t('login_id_placeholder')}
                     />
                   </div>
                 </div>
 
                 <div className="group">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{t('login_password_label')}</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">{t('login_password_label')}</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
                       <Lock size={18} />
@@ -169,14 +201,13 @@ export const Login: React.FC = () => {
                       type={passwordVisible ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white transition-all shadow-sm"
+                      className="block w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-700 transition-all shadow-sm"
                       placeholder={t('login_password_placeholder')}
                     />
                     <button
                       type="button"
                       onClick={() => setPasswordVisible(!passwordVisible)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
-                      aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none"
                     >
                       {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -184,41 +215,41 @@ export const Login: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                    className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 transition-all"
                   />
-                  <span className="text-sm text-slate-500 font-medium">{t('login_remember_me')}</span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400 font-medium group-hover:text-slate-700 dark:group-hover:text-slate-200">{t('login_remember_me')}</span>
                 </label>
-                <a href="#" className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors">{t('login_help')}</a>
+                <a href="#" className="text-sm text-primary-600 hover:text-primary-700 font-bold transition-colors">{t('login_help')}</a>
               </div>
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full py-3.5 px-4 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white font-bold rounded-xl shadow-lg shadow-primary-500/25 transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading || serverStatus === 'offline'}
+                className="w-full py-4 px-4 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white font-bold rounded-xl shadow-lg shadow-primary-500/25 transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
               >
                 {loading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <RefreshCw className="animate-spin" size={18}/>
                     <span>{t('login_verifying')}</span>
                   </>
                 ) : (
                   <>
                     <span>{t('login_button')}</span>
-                    <ArrowRight size={18} />
+                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform rtl:group-hover:-translate-x-1" />
                   </>
                 )}
               </button>
             </form>
           </div>
 
-          <div className="bg-slate-50/80 p-6 border-t border-slate-100">
-            <p className="text-center text-xs text-slate-400 mb-4 font-bold uppercase tracking-widest">{t('login_quick_select_title')}</p>
+          <div className="bg-slate-50/80 dark:bg-slate-900/40 p-6 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mb-4 font-black uppercase tracking-widest">{t('login_quick_select_title')}</p>
             <div className="grid grid-cols-3 gap-y-6 gap-x-2 px-2">
               <QuickProfile role="admin" label={t('login_profile_admin')} icon={ShieldCheck} color="from-rose-500 to-red-600" />
               <QuickProfile role="doctor" label={t('staff_role_doctor')} icon={Stethoscope} color="from-blue-600 to-indigo-600" />
@@ -230,9 +261,15 @@ export const Login: React.FC = () => {
           </div>
         </div>
         
-        <p className="text-center text-slate-400 text-[10px] mt-6 font-bold uppercase tracking-tight">
-          Developed by Saleh Tech@2025 Contact: 0909018730
-        </p>
+        <div className="mt-8 flex flex-col items-center gap-2">
+           <div className="flex items-center gap-2 text-slate-400 dark:text-slate-600 text-[10px] font-bold uppercase tracking-widest">
+              <Database size={10} />
+              <span>{t('login_footer_text')}</span>
+           </div>
+           <p className="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-tight">
+             {t('login_developer_credit')} • 0909018730
+           </p>
+        </div>
       </div>
     </div>
   );

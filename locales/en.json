@@ -1,3 +1,4 @@
+
 {
   "app_loading": "Loading application...",
   "nav_dashboard": "Dashboard",
@@ -35,7 +36,7 @@
   "search_placeholder": "Search...",
   "loading": "Loading...",
   "no_data": "No data available.",
-  "none": "None",
+  "none": "No",
   "login_title": "AllCare HMS",
   "login_subtitle": "Secure Staff Portal",
   "login_id_label": "Employee ID",
@@ -54,6 +55,10 @@
   "login_profile_finance": "Finance",
   "login_footer_text": "System v1.2.0 • Secured by 256-bit Encryption",
   "login_error_auth_failed": "Authentication failed.",
+  "login_status_connecting": "Connecting to server...",
+  "login_status_online": "Server Online",
+  "login_status_offline": "Server Offline",
+  "login_developer_credit": "Developed by Saleh Tech",
   "settings_title": "Account Settings",
   "settings_tab_profile": "My Profile",
   "settings_tab_notifications": "Notifications",
