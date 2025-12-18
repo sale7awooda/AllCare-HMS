@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -68,15 +67,13 @@ export const Configuration = () => {
         api.getPaymentMethods()
       ]);
 
-      // FIX: Added defensive Array.isArray and object check
-      setUsers(Array.isArray(u) ? u : []);
-      setRolePermissions(p && typeof p === 'object' ? p : {});
-      setBeds(Array.isArray(b) ? b : []);
-      setTaxRates(Array.isArray(tax) ? tax : []);
-      setPaymentMethods(Array.isArray(pm) ? pm : []);
+      setUsers(u || []);
+      setRolePermissions(p || {});
+      setBeds(b || []);
+      setTaxRates(tax || []);
+      setPaymentMethods(pm || []);
     } catch (e) {
-      console.error("Configuration loadData failed:", e);
-      setUsers([]); setRolePermissions({}); setBeds([]); setTaxRates([]); setPaymentMethods([]);
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -95,8 +92,8 @@ export const Configuration = () => {
         case 'insurance': data = await api.getInsuranceProviders(); break;
         case 'banks': data = await api.getBanks(); break;
       }
-      setCatalogData(Array.isArray(data) ? data : []);
-    } catch (e) { console.error("Catalog load failed:", e); setCatalogData([]); }
+      setCatalogData(data || []);
+    } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
@@ -739,7 +736,7 @@ export const Configuration = () => {
                {(activeCatalog === 'lab' || activeCatalog === 'nurse') && (<Input label="Service Cost ($)" type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} />)}
                {activeCatalog === 'ops' && (<Input label="Base Cost ($)" type="number" required value={catalogForm.base_cost} onChange={e => setCatalogForm({...catalogForm, base_cost: e.target.value})} />)}
                {activeCatalog === 'lab' && (<Input label="Category (e.g. Hematology)" value={catalogForm.category_en} onChange={e => setCatalogForm({...catalogForm, category_en: e.target.value})} />)}
-               {(activeCatalog === 'insurance' || activeCatalog === 'banks') && (<div className="flex items-center gap-2 py-2"><input type="checkbox" id="catActive" checked={catalogForm.is_active} onChange={e => setCatalogForm({...catalogForm, i_sactive: e.target.checked})} /><label htmlFor="catActive" className="text-sm font-bold">Active Entry</label></div>)}
+               {(activeCatalog === 'insurance' || activeCatalog === 'banks') && (<div className="flex items-center gap-2 py-2"><input type="checkbox" id="catActive" checked={catalogForm.is_active} onChange={e => setCatalogForm({...catalogForm, is_active: e.target.checked})} /><label htmlFor="catActive" className="text-sm font-bold">Active Entry</label></div>)}
                <Button type="submit" className="w-full">{selectedItem ? 'Update Catalog' : 'Add to Catalog'}</Button>
             </form>
          )}

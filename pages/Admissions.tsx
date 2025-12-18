@@ -54,21 +54,15 @@ export const Admissions = () => {
   useHeader(
     t('admissions_title'), 
     t('admissions_subtitle'),
-    <Badge color="blue" className="px-4 py-2 font-bold">{Array.isArray(activeAdmissions) ? activeAdmissions.length : 0} {t('admissions_legend_occupied')} / {beds.length} Total</Badge>
+    <Badge color="blue" className="px-4 py-2 font-bold">{activeAdmissions.length} {t('admissions_legend_occupied')} / {beds.length} Total</Badge>
   );
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [bedsRaw, admissionsRaw, patientsRaw, staffRaw] = await Promise.all([
+      const [bedsData, admissionsData, patientsData, staffData] = await Promise.all([
         api.getBeds(), api.getActiveAdmissions(), api.getPatients(), api.getStaff(),
       ]);
-
-      const bedsData = Array.isArray(bedsRaw) ? bedsRaw : [];
-      const admissionsData = Array.isArray(admissionsRaw) ? admissionsRaw : [];
-      const patientsData = Array.isArray(patientsRaw) ? patientsRaw : [];
-      const staffData = Array.isArray(staffRaw) ? staffRaw : [];
-
       setBeds(bedsData);
       setActiveAdmissions(admissionsData);
       setPatients(patientsData);
@@ -78,17 +72,9 @@ export const Admissions = () => {
       if (state?.trigger === 'new') {
         const availableBed = bedsData.find((b: any) => b.status === 'available');
         if (availableBed) handleBedClick(availableBed);
-        else {
-          setProcessStatus('error');
-          setProcessMessage('No beds available for new admission.');
-        }
+        else setProcessStatus('error'), setProcessMessage('No beds available for new admission.');
       }
-    } catch (e) { 
-      console.error(e); 
-      setActiveAdmissions([]); // Fallback
-    } finally { 
-      if (!silent) setLoading(false); 
-    }
+    } catch (e) { console.error(e); } finally { if (!silent) setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, []);
@@ -290,15 +276,11 @@ export const Admissions = () => {
     });
   };
 
-  const filteredPatientsForAdmission = useMemo(() => {
-    const query = patientSearchTerm.toLowerCase();
-    const admissions = Array.isArray(activeAdmissions) ? activeAdmissions : [];
-    return patients.filter(p => {
-      const matchesSearch = p.fullName.toLowerCase().includes(query) || (p.patientId && p.patientId.toLowerCase().includes(query));
-      const isAlreadyAdmitted = admissions.some(a => a.patientId === p.id);
-      return matchesSearch && !isAlreadyAdmitted && p.type !== 'inpatient';
-    }).slice(0, 5);
-  }, [patients, patientSearchTerm, activeAdmissions]);
+  const filteredPatientsForAdmission = patients.filter(p => {
+    const matchesSearch = p.fullName.toLowerCase().includes(patientSearchTerm.toLowerCase()) || (p.patientId && p.patientId.toLowerCase().includes(patientSearchTerm.toLowerCase()));
+    const isAlreadyAdmitted = activeAdmissions.some(a => a.patientId === p.id);
+    return matchesSearch && !isAlreadyAdmitted && p.type !== 'inpatient';
+  }).slice(0, 5);
 
   const totalOutstandingBalance = useMemo(() => {
     if (!inpatientDetails?.unpaidBills) return 0;
@@ -327,8 +309,7 @@ export const Admissions = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {loading ? <div className="col-span-full py-20 text-center"><Loader2 className="animate-spin mx-auto text-primary-600 mb-2"/><p className="text-slate-500 font-medium">{t('admissions_loading')}</p></div> : 
         beds.map(bed => {
-          const admissionsArr = Array.isArray(activeAdmissions) ? activeAdmissions : [];
-          const admission = admissionsArr.find(a => a.bedId === bed.id);
+          const admission = activeAdmissions.find(a => a.bedId === bed.id);
           const isOccupied = bed.status === 'occupied';
           const isReserved = bed.status === 'reserved';
           return (
@@ -592,6 +573,7 @@ export const Admissions = () => {
                     <Button type="submit" className="w-full" icon={Save}>Add Note to Chart</Button>
                  </form>
                  <div className="space-y-4 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+                    {/* FIX: Improved empty state check for visibility after add */}
                     {(inpatientDetails.notes || []).length === 0 ? (
                       <div className="p-10 text-center text-slate-300 font-bold italic">No notes recorded yet.</div>
                     ) : (

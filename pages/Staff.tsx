@@ -102,46 +102,25 @@ export const Staff = () => {
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [staffRaw, pmsRaw] = await Promise.all([
+      const [data, pms] = await Promise.all([
         api.getStaff(), api.getPaymentMethods()
       ]);
-      setStaff(Array.isArray(staffRaw) ? staffRaw : []);
-      setPaymentMethods(Array.isArray(pmsRaw) ? pmsRaw : []);
-    } catch (e) { 
-      console.error(e); 
-      setStaff([]);
-      setPaymentMethods([]);
-    } finally { if (!isBackground) setLoading(false); }
+      setStaff(Array.isArray(data) ? data : []);
+      setPaymentMethods(Array.isArray(pms) ? pms : []);
+    } catch (e) { console.error(e); } finally { if (!isBackground) setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
     const fetchTabData = async () => {
-        try {
-            if (activeTab === 'attendance') {
-                const data = await api.getAttendance(selectedDate);
-                setAttendance(Array.isArray(data) ? data : []);
-            }
-            else if (activeTab === 'leaves') {
-                const data = await api.getLeaves();
-                setLeaves(Array.isArray(data) ? data : []);
-            }
-            else if (activeTab === 'payroll') {
-                const data = await api.getPayroll(selectedMonth);
-                setPayroll(Array.isArray(data) ? data : []);
-            }
-            else if (activeTab === 'financials') {
-                const data = await api.getFinancials('all');
-                setFinancials(Array.isArray(data) ? data : []);
-            }
-        } catch (e) {
-            console.error(`Failed to fetch ${activeTab} data:`, e);
-            if (activeTab === 'attendance') setAttendance([]);
-            else if (activeTab === 'leaves') setLeaves([]);
-            else if (activeTab === 'payroll') setPayroll([]);
-            else if (activeTab === 'financials') setFinancials([]);
+        if (activeTab === 'attendance') {
+            const data = await api.getAttendance(selectedDate);
+            setAttendance(data);
         }
+        else if (activeTab === 'leaves') setLeaves(await api.getLeaves());
+        else if (activeTab === 'payroll') setPayroll(await api.getPayroll(selectedMonth));
+        else if (activeTab === 'financials') setFinancials(await api.getFinancials('all'));
     };
     if(activeTab !== 'directory') fetchTabData();
   }, [activeTab, selectedDate, selectedMonth]);
@@ -238,7 +217,7 @@ export const Staff = () => {
                 const timeString = now.toTimeString().slice(0, 5);
                 await api.markAttendance({ staffId: staffMember.id, date: selectedDate, status: staffMember.availableTimeStart && timeString > staffMember.availableTimeStart ? 'late' : 'present', checkIn: timeString });
                 const updated = await api.getAttendance(selectedDate);
-                setAttendance(Array.isArray(updated) ? updated : []);
+                setAttendance(updated);
                 setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
             } catch (e: any) { 
               setProcessStatus('error'); 
@@ -257,7 +236,7 @@ export const Staff = () => {
             try {
                 await api.markAttendance({ staffId: record.staffId, date: record.date, status: record.status, checkOut: new Date().toTimeString().slice(0, 5) });
                 const updated = await api.getAttendance(selectedDate);
-                setAttendance(Array.isArray(updated) ? updated : []);
+                setAttendance(updated);
                 setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
             } catch (e: any) { 
               setProcessStatus('error'); 
@@ -279,7 +258,7 @@ export const Staff = () => {
       try {
           await api.markAttendance({ staffId: attendanceModal.staffId, date: selectedDate, status: attendanceModal.status, checkIn: attendanceModal.checkIn || null, checkOut: attendanceModal.checkOut || null });
           const updated = await api.getAttendance(selectedDate);
-          setAttendance(Array.isArray(updated) ? updated : []);
+          setAttendance(updated);
           setProcessStatus('success'); setTimeout(() => { setProcessStatus('idle'); setAttendanceModal(null); }, 500);
       } catch (err: any) { 
         setProcessStatus('error'); 
@@ -298,8 +277,7 @@ export const Staff = () => {
       setProcessMessage('Filing leave request...');
       try {
         await api.requestLeave(leaveForm);
-        const updatedLeaves = await api.getLeaves();
-        setLeaves(Array.isArray(updatedLeaves) ? updatedLeaves : []);
+        setLeaves(await api.getLeaves());
         setProcessStatus('success'); setTimeout(() => { setIsLeaveModalOpen(false); setProcessStatus('idle'); }, 1000);
       } catch (e: any) { 
         setProcessStatus('error'); 
@@ -315,8 +293,7 @@ export const Staff = () => {
             setProcessMessage('Updating leave status...');
             try {
                 await api.updateLeaveStatus(id, status);
-                const updatedLeaves = await api.getLeaves();
-                setLeaves(Array.isArray(updatedLeaves) ? updatedLeaves : []);
+                setLeaves(await api.getLeaves());
                 setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
             } catch (e: any) { 
               setProcessStatus('error'); 
@@ -334,8 +311,7 @@ export const Staff = () => {
               setProcessMessage('Calculating salaries and checking for delta updates...');
               try {
                   await api.generatePayroll({ month: selectedMonth });
-                  const updatedPayroll = await api.getPayroll(selectedMonth);
-                  setPayroll(Array.isArray(updatedPayroll) ? updatedPayroll : []);
+                  setPayroll(await api.getPayroll(selectedMonth));
                   setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
               } catch(e: any) { 
                 setProcessStatus('error'); 
@@ -364,8 +340,7 @@ export const Staff = () => {
               transactionRef: payNowForm.reference, 
               notes: payNowForm.notes 
           });
-          const updatedPayroll = await api.getPayroll(selectedMonth);
-          setPayroll(Array.isArray(updatedPayroll) ? updatedPayroll : []);
+          setPayroll(await api.getPayroll(selectedMonth));
           setProcessStatus('success'); 
           setIsPayNowModalOpen(false);
           setTimeout(() => setProcessStatus('idle'), 1000);
@@ -386,8 +361,7 @@ export const Staff = () => {
       setProcessMessage('Saving financial adjustment...');
       try {
         await api.addAdjustment({ ...adjForm, amount: parseFloat(parseNumber(adjForm.amount)) });
-        const updatedFinancials = await api.getFinancials('all');
-        setFinancials(Array.isArray(updatedFinancials) ? updatedFinancials : []);
+        setFinancials(await api.getFinancials('all'));
         setProcessStatus('success'); setTimeout(() => { setIsAdjustmentModalOpen(false); setProcessStatus('idle'); }, 1000);
       } catch (e: any) { 
         setProcessStatus('error'); 

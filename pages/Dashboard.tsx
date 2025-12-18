@@ -44,7 +44,7 @@ export const Dashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      const [ptsRaw, aptsRaw, billsRaw, bedsRaw, labsRaw, staffRaw] = await Promise.all([
+      const [pts, apts, bills, bedsData, labs, staffData] = await Promise.all([
         api.getPatients(),
         api.getAppointments(),
         api.getBills(),
@@ -52,14 +52,6 @@ export const Dashboard = () => {
         api.getPendingLabRequests(),
         api.getStaff()
       ]);
-
-      // Ensure all inputs are arrays
-      const pts = Array.isArray(ptsRaw) ? ptsRaw : [];
-      const apts = Array.isArray(aptsRaw) ? aptsRaw : [];
-      const bills = Array.isArray(billsRaw) ? billsRaw : [];
-      const bedsData = Array.isArray(bedsRaw) ? bedsRaw : [];
-      const labs = Array.isArray(labsRaw) ? labsRaw : [];
-      const staffData = Array.isArray(staffRaw) ? staffRaw : [];
 
       const totalRev = bills.reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
       const outstanding = bills.reduce((sum: number, b: any) => sum + ((b.totalAmount || 0) - (b.paidAmount || 0)), 0);
@@ -95,7 +87,7 @@ export const Dashboard = () => {
 
       const bedStats = { general: { total: 0, free: 0 }, private: { total: 0, free: 0 }, icu: { total: 0, free: 0 } };
       bedsData.forEach((b: any) => {
-          const type = (b.type || '').toLowerCase() as keyof typeof bedStats;
+          const type = b.type.toLowerCase() as keyof typeof bedStats;
           if (bedStats[type]) {
               bedStats[type].total++;
               if (b.status === 'available') bedStats[type].free++;

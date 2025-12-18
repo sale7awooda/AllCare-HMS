@@ -41,19 +41,15 @@ export const Records = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [ptsRaw, aptsRaw, billsRaw] = await Promise.all([
+        const [pts, apts, bills] = await Promise.all([
           api.getPatients(), 
           api.getAppointments(), 
           api.getBills()
         ]);
         
-        const pts = Array.isArray(ptsRaw) ? ptsRaw : [];
-        const apts = Array.isArray(aptsRaw) ? aptsRaw : [];
-        const bills = Array.isArray(billsRaw) ? billsRaw : [];
-
         const all: SystemRecord[] = [];
         
-        pts.forEach((p: any) => all.push({ 
+        (pts || []).forEach((p: any) => all.push({ 
           id: `p-${p.id}`, 
           originalId: p.id, 
           type: 'Patient', 
@@ -64,7 +60,7 @@ export const Records = () => {
           details: p 
         }));
         
-        apts.forEach((a: any) => all.push({ 
+        (apts || []).forEach((a: any) => all.push({ 
           id: `a-${a.id}`, 
           originalId: a.id, 
           type: 'Appointment', 
@@ -76,7 +72,7 @@ export const Records = () => {
           details: a 
         }));
         
-        bills.forEach((b: any) => all.push({ 
+        (bills || []).forEach((b: any) => all.push({ 
           id: `b-${b.id}`, 
           originalId: b.id, 
           type: 'Bill', 
@@ -90,8 +86,7 @@ export const Records = () => {
         
         setRecords(all.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       } catch (e) { 
-        console.error("Records fetchData failed:", e); 
-        setRecords([]);
+        console.error(e); 
       } finally { 
         setLoading(false); 
       }

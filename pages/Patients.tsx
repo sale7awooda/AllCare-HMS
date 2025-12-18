@@ -23,7 +23,6 @@ export const Patients = () => {
   const [bills, setBills] = useState<Bill[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [allLabRequests, setAllLabRequests] = useState<any[]>([]); 
-  const [activeAdmissions, setActiveAdmissions] = useState<any[]>([]); // FIX: Added state
   const { user: currentUser } = useAuth();
   const { t, language } = useTranslation();
   
@@ -101,20 +100,18 @@ export const Patients = () => {
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [pts, apts, b, stf, labs, admissions] = await Promise.all([
+      const [pts, apts, b, stf, labs] = await Promise.all([
         api.getPatients(), 
         api.getAppointments(),
         api.getBills(),
         api.getStaff(),
-        api.getPendingLabRequests(),
-        api.getActiveAdmissions() // FIX: Added fetch
+        api.getPendingLabRequests()
       ]);
       setPatients(Array.isArray(pts) ? pts : []);
       setAppointments(Array.isArray(apts) ? apts : []);
       setBills(Array.isArray(b) ? b : []);
       setStaff(Array.isArray(stf) ? stf : []);
       setAllLabRequests(Array.isArray(labs) ? labs : []);
-      setActiveAdmissions(Array.isArray(admissions) ? admissions : []); // FIX: Set state
     } catch (error) {
       console.error("Failed to load core data:", error);
     } finally {
@@ -141,11 +138,13 @@ export const Patients = () => {
     }
   };
 
+  // FIX: Load data only once on mount to avoid triggering redundant fetches on location change
   useEffect(() => {
     loadData();
     loadCatalogs();
   }, []);
 
+  // FIX: Handle triggers separately from data loading
   useEffect(() => {
     const state = location.state as any;
     if (state?.trigger === 'new' && hasPermissionToCreate) {
@@ -630,7 +629,7 @@ export const Patients = () => {
             { id: 'appointment', label: t('patients_modal_action_appointment'), icon: Calendar, color: 'bg-violet-100 text-violet-700', allowed: hasPermission(currentUser, Permissions.MANAGE_APPOINTMENTS) },
             { id: 'lab', label: t('patients_modal_action_lab'), icon: FlaskConical, color: 'bg-orange-100 text-orange-700', allowed: hasPermission(currentUser, Permissions.MANAGE_LABORATORY) },
             { id: 'nurse', label: t('patients_modal_action_nurse'), icon: Stethoscope, color: 'bg-pink-100 text-pink-700', allowed: true }, 
-            { id: 'admission', label: t('patients_modal_action_admission'), icon: Bed, color: 'bg-blue-100 text-blue-700', allowed: hasPermission(currentUser, Permissions.MANAGE_ADMISSIONS), disabled: selectedPatient?.type === 'inpatient' || activeAdmissions.some(a => a.patientId === selectedPatient?.id) },
+            { id: 'admission', label: t('patients_modal_action_admission'), icon: Bed, color: 'bg-blue-100 text-blue-700', allowed: hasPermission(currentUser, Permissions.MANAGE_ADMISSIONS), disabled: selectedPatient?.type === 'inpatient' },
             { id: 'operation', label: t('patients_modal_action_operation'), icon: Activity, color: 'bg-red-100 text-red-700', allowed: hasPermission(currentUser, Permissions.MANAGE_OPERATIONS) },
             { id: 'history', label: t('patients_modal_action_history'), icon: FileText, color: 'bg-slate-100 text-slate-700', allowed: true },
           ].map(action => (
