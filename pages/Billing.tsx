@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -119,7 +118,7 @@ export const Billing = () => {
   const [expenseForm, setExpenseForm] = useState({
     category: 'General',
     amount: '',
-    method: 'Cash',
+    method: '',
     date: new Date().toISOString().split('T')[0],
     description: ''
   });
@@ -284,10 +283,20 @@ export const Billing = () => {
     setPayingBill(bill);
     const patient = patients.find(p => p.id === bill.patientId);
     const remaining = bill.totalAmount - (bill.paidAmount || 0);
-    let defaultMethod = 'Cash';
-    if (paymentMethods.length > 0) {
-        const found = patient?.hasInsurance ? paymentMethods.find(p => p.name_en === 'Insurance') : paymentMethods.find(p => p.name_en === 'Cash');
-        defaultMethod = found ? found.name_en : paymentMethods[0].name_en;
+    
+    let defaultMethod = '';
+    const activePMs = paymentMethods.filter(p => p.isActive);
+    if (activePMs.length > 0) {
+        const cashMethod = activePMs.find(p => p.name_en.toLowerCase() === 'cash');
+        const insuranceMethod = activePMs.find(p => p.name_en.toLowerCase() === 'insurance');
+        
+        if (patient?.hasInsurance && insuranceMethod) {
+            defaultMethod = insuranceMethod.name_en;
+        } else if (cashMethod) {
+            defaultMethod = cashMethod.name_en;
+        } else {
+            defaultMethod = activePMs[0].name_en;
+        }
     }
 
     setPaymentForm({ 
@@ -308,9 +317,9 @@ export const Billing = () => {
     if (!payingBill) return;
     setIsProcessing(true);
     const payload: any = { amount: parseFloat(paymentForm.amount), method: paymentForm.method, date: paymentForm.date, details: { notes: paymentForm.notes } };
-    if (paymentForm.method === 'Insurance') {
+    if (paymentForm.method.toLowerCase() === 'insurance') {
         payload.details = { ...payload.details, provider: paymentForm.insuranceProvider, policyNumber: paymentForm.policyNumber, expiryDate: paymentForm.expiryDate };
-    } else if (paymentForm.method !== 'Cash') {
+    } else if (paymentForm.method.toLowerCase() !== 'cash') {
         payload.details = { ...payload.details, transactionId: paymentForm.transactionId };
     }
 
@@ -319,12 +328,19 @@ export const Billing = () => {
       setIsPaymentModalOpen(false);
       setPayingBill(null);
       loadData();
-    } catch (e) { alert(t('billing_payment_failed')); } finally { setIsProcessing(false); }
+    } catch (err: any) { 
+        alert(err.response?.data?.error || t('billing_payment_failed')); 
+    } finally { 
+        setIsProcessing(false); 
+    }
   };
 
   const openRefundModal = (bill: Bill) => {
     setRefundingBill(bill);
-    setRefundForm({ amount: bill.paidAmount.toString(), method: 'Cash', reason: 'Service Cancelled', date: new Date().toISOString().split('T')[0], customReason: '' });
+    const activePMs = paymentMethods.filter(p => p.isActive);
+    const defaultMethod = activePMs.find(p => p.name_en.toLowerCase() === 'cash')?.name_en || (activePMs[0]?.name_en || 'Cash');
+    
+    setRefundForm({ amount: bill.paidAmount.toString(), method: defaultMethod, reason: 'Service Cancelled', date: new Date().toISOString().split('T')[0], customReason: '' });
     setIsRefundModalOpen(true);
   };
 
@@ -338,7 +354,11 @@ export const Billing = () => {
         setIsRefundModalOpen(false);
         setRefundingBill(null);
         loadData();
-    } catch (e) { alert(t('billing_refund_failed')); } finally { setIsProcessing(false); }
+    } catch (err: any) { 
+        alert(err.response?.data?.error || t('billing_refund_failed')); 
+    } finally { 
+        setIsProcessing(false); 
+    }
   };
 
   const handleCancelService = (bill: Bill) => {
@@ -365,24 +385,36 @@ export const Billing = () => {
           }
           setIsExpenseModalOpen(false);
           setEditingExpenseId(null);
-          setExpenseForm({ category: 'General', amount: '', method: 'Cash', date: new Date().toISOString().split('T')[0], description: '' });
           loadData();
-      } catch(e) { alert(t('billing_expense_failed')); } finally { setIsProcessing(false); }
+      } catch(err: any) { 
+          alert(err.response?.data?.error || (editingExpenseId ? "Failed to update expense." : t('billing_expense_failed'))); 
+      } finally { 
+          setIsProcessing(false); 
+      }
   };
 
   const openExpenseModal = (tx?: Transaction) => {
+      const activePMs = paymentMethods.filter(p => p.isActive);
+      const cashMethod = activePMs.find(p => p.name_en.toLowerCase() === 'cash')?.name_en || (activePMs[0]?.name_en || 'Cash');
+
       if (tx) {
         setEditingExpenseId(tx.id);
         setExpenseForm({
             category: tx.category || 'General',
             amount: tx.amount.toString(),
-            method: tx.method || 'Cash',
-            date: tx.date ? tx.date.split('T')[0] : new Date().toISOString().split('T')[0],
+            method: tx.method || cashMethod,
+            date: tx.date ? (tx.date.includes('T') ? tx.date.split('T')[0] : tx.date.split(' ')[0]) : new Date().toISOString().split('T')[0],
             description: tx.description || ''
         });
       } else {
         setEditingExpenseId(null);
-        setExpenseForm({ category: 'General', amount: '', method: 'Cash', date: new Date().toISOString().split('T')[0], description: '' });
+        setExpenseForm({ 
+            category: 'General', 
+            amount: '', 
+            method: cashMethod, 
+            date: new Date().toISOString().split('T')[0], 
+            description: '' 
+        });
       }
       setIsExpenseModalOpen(true);
   };
@@ -400,10 +432,11 @@ export const Billing = () => {
 
   const formatDateSafely = (dateStr: any) => {
       if (!dateStr) return 'N/A';
-      const d = new Date(dateStr);
-      // SQLite TIMESTAMP strings usually parse fine. If epoch is returned (1970), something is wrong.
+      // Handle SQLite format YYYY-MM-DD HH:MM:SS which doesn't always have T
+      const normalizedStr = typeof dateStr === 'string' ? dateStr.replace(' ', 'T') : dateStr;
+      const d = new Date(normalizedStr);
       if (isNaN(d.getTime())) return 'N/A';
-      // Robust check against EPOCH 0 if it's arriving as null converted to number
+      // Defensive check against Epoch 0 if incoming as numeric null
       if (d.getFullYear() <= 1970 && d.getMonth() === 0 && d.getDate() === 1) return 'N/A';
       return d.toLocaleDateString();
   };
@@ -563,8 +596,6 @@ export const Billing = () => {
   };
 
   const getFilteredPaymentMethods = () => {
-      // Prompt requested "Payment Methods wherever are used should allways be loaded from database"
-      // Filter strictly for active ones.
       return paymentMethods.filter(p => p.isActive);
   };
 
@@ -814,9 +845,9 @@ export const Billing = () => {
                 {getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}
             </Select>
             <div className="space-y-4">
-                {paymentForm.method === 'Cash' && (<><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required /><Textarea label={t('patients_modal_action_notes')} rows={2} value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} /></>)}
-                {paymentForm.method === 'Insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><div className="md:col-span-2"><Select label={t('patients_modal_form_insurance_provider')} value={paymentForm.insuranceProvider} onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})} required className="text-slate-900 dark:text-white"><option value="">{t('patients_modal_form_insurance_provider_select')}</option>{insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}</Select></div><Input label={t('patients_modal_form_insurance_policy')} value={paymentForm.policyNumber} onChange={e => setPaymentForm({...paymentForm, policyNumber: e.target.value})} required /><Input label={t('patients_modal_form_insurance_expiry')} type="date" value={paymentForm.expiryDate} onChange={e => setPaymentForm({...paymentForm, expiryDate: e.target.value})} required /></div>)}
-                {paymentForm.method !== 'Cash' && paymentForm.method !== 'Insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><Input label={t('billing_modal_payment_ref')} value={paymentForm.transactionId} onChange={e => setPaymentForm({...paymentForm, transactionId: e.target.value})} required /><Input label={t('date')} type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required /></div>)}
+                {paymentForm.method.toLowerCase() === 'cash' && (<><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required /><Textarea label={t('patients_modal_action_notes')} rows={2} value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} /></>)}
+                {paymentForm.method.toLowerCase() === 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><div className="md:col-span-2"><Select label={t('patients_modal_form_insurance_provider')} value={paymentForm.insuranceProvider} onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})} required className="text-slate-900 dark:text-white"><option value="">{t('patients_modal_form_insurance_provider_select')}</option>{insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}</Select></div><Input label={t('patients_modal_form_insurance_policy')} value={paymentForm.policyNumber} onChange={e => setPaymentForm({...paymentForm, policyNumber: e.target.value})} required /><Input label={t('patients_modal_form_insurance_expiry')} type="date" value={paymentForm.expiryDate} onChange={e => setPaymentForm({...paymentForm, expiryDate: e.target.value})} required /></div>)}
+                {paymentForm.method.toLowerCase() !== 'cash' && paymentForm.method.toLowerCase() !== 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><Input label={t('billing_modal_payment_ref')} value={paymentForm.transactionId} onChange={e => setPaymentForm({...paymentForm, transactionId: e.target.value})} required /><Input label={t('date')} type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required /></div>)}
             </div>
             <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3"><Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)}>{t('cancel')}</Button><Button type="submit" icon={isProcessing ? undefined : CheckCircle} disabled={isProcessing}>{isProcessing ? t('processing') : t('billing_modal_payment_confirm_button')}</Button></div>
           </form>
@@ -871,7 +902,11 @@ export const Billing = () => {
             required
             className="text-slate-900 dark:text-white"
           >
-            {getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}
+            {getFilteredPaymentMethods().length === 0 ? (
+                <option value="">No methods configured</option>
+            ) : (
+                getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))
+            )}
           </Select>
 
           <Textarea 
