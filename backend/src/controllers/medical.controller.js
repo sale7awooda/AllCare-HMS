@@ -37,7 +37,6 @@ exports.createLabRequest = (req, res) => {
   
   const tx = db.transaction(() => {
       const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
-      // Ensure bill_date is present
       const bill = db.prepare(`
         INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date) 
         VALUES (?, ?, ?, 'pending', datetime('now'))
@@ -57,6 +56,16 @@ exports.createLabRequest = (req, res) => {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+};
+
+exports.confirmLabRequest = (req, res) => {
+    const { id } = req.params;
+    try {
+        db.prepare("UPDATE lab_requests SET status = 'confirmed' WHERE id = ? AND status = 'pending'").run(id);
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
 };
 
 exports.completeLabRequest = (req, res) => {
@@ -168,6 +177,16 @@ exports.processOperationRequest = (req, res) => {
   }
 };
 
+exports.confirmOperation = (req, res) => {
+    const { id } = req.params;
+    try {
+        db.prepare("UPDATE operations SET status = 'confirmed' WHERE id = ? AND status = 'pending_payment'").run(id);
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
 exports.completeOperation = (req, res) => {
     const { id } = req.params;
     try {
@@ -217,7 +236,6 @@ exports.createAdmission = (req, res) => {
         if (!patient) throw new Error('Patient not found');
 
         const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
-        // Add bill_date
         const billInfo = db.prepare(`
           INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date) 
           VALUES (?, ?, ?, 'pending', datetime('now'))
@@ -239,6 +257,46 @@ exports.createAdmission = (req, res) => {
         res.status(201).json({ success: true });
     } catch (e) {
         res.status(400).json({ error: e.message });
+    }
+};
+
+exports.confirmAdmission = (req, res) => {
+    const { id } = req.params;
+    const tx = db.transaction(() => {
+        const adm = db.prepare("SELECT * FROM admissions WHERE id = ?").get(id);
+        if (!adm) throw new Error('Admission not found');
+        
+        db.prepare("UPDATE admissions SET status = 'active' WHERE id = ?").run(id);
+        db.prepare("UPDATE beds SET status = 'occupied' WHERE id = ?").run(adm.bed_id);
+        db.prepare("UPDATE patients SET type = 'inpatient' WHERE id = ?").run(adm.patient_id);
+    });
+    
+    try {
+        tx();
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.cancelAdmission = (req, res) => {
+    const { id } = req.params;
+    const tx = db.transaction(() => {
+        const adm = db.prepare("SELECT * FROM admissions WHERE id = ?").get(id);
+        if (!adm) throw new Error('Admission not found');
+        
+        db.prepare("UPDATE admissions SET status = 'cancelled' WHERE id = ?").run(id);
+        db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(adm.bed_id);
+        if (adm.bill_id) {
+            db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ? AND status = 'pending'").run(adm.bill_id);
+        }
+    });
+    
+    try {
+        tx();
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
     }
 };
 
@@ -282,6 +340,20 @@ exports.getInpatientDetails = (req, res) => {
   }
 };
 
+exports.addInpatientNote = (req, res) => {
+    const { id } = req.params;
+    const { doctorId, note, vitals } = req.body;
+    try {
+        db.prepare(`
+            INSERT INTO inpatient_notes (admission_id, doctor_id, note, vitals)
+            VALUES (?, ?, ?, ?)
+        `).run(id, doctorId, note, JSON.stringify(vitals || {}));
+        res.status(201).json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
 exports.generateSettlementBill = (req, res) => {
     const { id } = req.params;
     const tx = db.transaction(() => {
@@ -297,7 +369,6 @@ exports.generateSettlementBill = (req, res) => {
         db.prepare(`UPDATE billing SET status = 'cancelled' WHERE patient_id = ? AND status IN ('pending', 'partial')`).run(patientId);
 
         const billNumber = `SETTLE-${Math.floor(Math.random()*90000)+10000}`;
-        // Ensure bill_date
         const billInfo = db.prepare(`
             INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date, is_settlement_bill, settlement_for_patient_id)
             VALUES (?, ?, ?, 'pending', datetime('now'), 1, ?)
@@ -337,6 +408,11 @@ exports.dischargePatient = (req, res) => {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+};
+
+exports.settleAndDischarge = (req, res) => {
+    // This is a legacy endpoint, usually handled via generateSettlementBill + dischargePatient
+    res.status(501).json({ error: 'Endpoint deprecated. Use final settlement workflow.' });
 };
 
 exports.markBedClean = (req, res) => {
