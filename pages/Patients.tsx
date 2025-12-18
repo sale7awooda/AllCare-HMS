@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -7,7 +7,7 @@ import {
   FlaskConical, Bed, Activity, Trash2, CheckCircle,
   Phone, User, Loader2, Info,
   ChevronLeft, ChevronRight, Stethoscope, FileText, XCircle, DollarSign, Clock, 
-  ClipboardCheck, ShoppingCart, Layers, Syringe, Zap, Briefcase, ShieldCheck, Heart, UserPlus, CalendarDays
+  ClipboardCheck, ShoppingCart, Layers, Syringe, Zap, Briefcase, ShieldCheck, Heart, UserPlus, CalendarDays, ChevronDown, ChevronUp, Eye
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, MedicalStaff, LabTestCatalog, NurseServiceCatalog, Bed as BedType, OperationCatalog, Bill, InsuranceProvider } from '../types';
@@ -49,6 +49,7 @@ export const Patients = () => {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [viewTab, setViewTab] = useState<'info' | 'visits' | 'labs' | 'financials'>('info');
+  const [expandedLabId, setExpandedLabId] = useState<number | null>(null);
 
   const [currentAction, setCurrentAction] = useState<'appointment' | 'lab' | 'nurse' | 'admission' | 'operation' | null>(null);
   
@@ -81,13 +82,11 @@ export const Patients = () => {
 
   const hasPermissionToCreate = hasPermission(currentUser, Permissions.MANAGE_PATIENTS);
 
-  // Currency Formatter Helper
   const formatMoney = (val: number | string) => {
     const num = typeof val === 'string' ? parseFloat(val) : val;
     return new Intl.NumberFormat().format(num || 0);
   };
 
-  // Sync Header
   useHeader(
     t('patients_title'), 
     t('patients_subtitle'), 
@@ -142,8 +141,6 @@ export const Patients = () => {
   useEffect(() => {
     loadData();
     loadCatalogs();
-    
-    // Check for quick action trigger from Dashboard
     const state = location.state as any;
     if (state?.trigger === 'new' && hasPermissionToCreate) {
       openCreateModal();
@@ -202,14 +199,12 @@ export const Patients = () => {
       openViewModal(selectedPatient!);
       return;
     }
-    
     setIsActionMenuOpen(false);
     setSelectedTests([]);
     setTestSearch('');
     setSelectedService(null);
     setSelectedBed(null);
     setSelectedSpecialty('');
-    
     setCurrentAction(action);
     setActionFormData({
       staffId: '',
@@ -229,6 +224,7 @@ export const Patients = () => {
       const fullDetails = await api.getPatient(patient.id);
       setSelectedPatient(fullDetails);
       setViewTab('info');
+      setExpandedLabId(null);
       setIsActionMenuOpen(false);
       setIsViewModalOpen(true);
     } catch (e) { 
@@ -254,13 +250,10 @@ export const Patients = () => {
   const submitAction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatient || !currentAction) return;
-
     setProcessStatus('processing');
     setProcessMessage(t('patients_process_submitting'));
-    
     try {
       const staffAssignedId = actionFormData.staffId ? parseInt(actionFormData.staffId) : undefined;
-
       if (currentAction === 'lab') {
         if (selectedTests.length === 0) throw new Error(t('patients_process_error_select_test'));
         await api.createLabRequest({
@@ -270,11 +263,9 @@ export const Patients = () => {
           totalCost: selectedTests.reduce((a,b)=>a+b.cost, 0)
         });
         setProcessMessage(t('patients_process_success_lab'));
-
       } else if (currentAction === 'nurse') {
         if (!selectedService) throw new Error(t('patients_process_error_select_service'));
         if (!staffAssignedId) throw new Error(t('patients_process_error_select_nurse'));
-        
         await api.createAppointment({
           patientId: selectedPatient.id,
           staffId: staffAssignedId,
@@ -284,11 +275,9 @@ export const Patients = () => {
           customFee: parseFloat(selectedService.cost.toString()), 
         });
         setProcessMessage(t('patients_process_success_nurse'));
-
       } else if (currentAction === 'admission') {
         if (!selectedBed) throw new Error(t('patients_process_error_select_bed'));
         if (!staffAssignedId) throw new Error(t('patients_process_error_select_doctor'));
-
         await api.createAdmission({
           patientId: selectedPatient.id,
           bedId: selectedBed.id,
@@ -298,11 +287,9 @@ export const Patients = () => {
           notes: actionFormData.notes
         });
         setProcessMessage(t('patients_process_success_admission'));
-
       } else if (currentAction === 'operation') {
         if (!actionFormData.subtype) throw new Error(t('patients_process_error_select_op'));
         if (!staffAssignedId) throw new Error(t('patients_process_error_select_surgeon'));
-
         await api.createOperation({
           patientId: selectedPatient.id,
           operationName: actionFormData.subtype,
@@ -310,10 +297,8 @@ export const Patients = () => {
           notes: actionFormData.notes
         });
         setProcessMessage(t('patients_process_success_operation'));
-
       } else if (currentAction === 'appointment') {
         if (!staffAssignedId) throw new Error(t('patients_process_error_no_doctor'));
-        
         await api.createAppointment({
           patientId: selectedPatient.id,
           staffId: staffAssignedId,
@@ -323,15 +308,12 @@ export const Patients = () => {
         });
         setProcessMessage(t('patients_process_success_appointment'));
       }
-
       setProcessStatus('success');
       await loadData(true);
-      
       setTimeout(() => {
         setIsActionModalOpen(false);
         setProcessStatus('idle');
       }, 1500);
-
     } catch (err: any) {
       setProcessStatus('error');
       setProcessMessage(err.response?.data?.error || err.message || t('patients_process_title_failed'));
@@ -342,7 +324,6 @@ export const Patients = () => {
     e.preventDefault();
     setProcessStatus('processing');
     setProcessMessage(isEditing ? t('patients_process_updating') : t('patients_process_registering'));
-
     const payload = {
       ...formData,
       emergencyContact: {
@@ -357,7 +338,6 @@ export const Patients = () => {
         notes: formData.insNotes
       }
     };
-
     try {
       if (isEditing && selectedPatient) {
         await api.updatePatient(selectedPatient.id, payload);
@@ -401,11 +381,11 @@ export const Patients = () => {
   const patientLabs = useMemo(() => selectedPatient ? allLabRequests.filter(l => l.patient_id === selectedPatient.id).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) : [], [selectedPatient, allLabRequests]);
 
   const formatDateSafely = (dateStr: any) => {
-      if (!dateStr) return 'N/A';
+      if (!dateStr) return t('patients_modal_view_na');
       const normalizedStr = typeof dateStr === 'string' ? dateStr.replace(' ', 'T') : dateStr;
       const d = new Date(normalizedStr);
-      if (isNaN(d.getTime())) return 'N/A';
-      if (d.getFullYear() <= 1970 && d.getMonth() === 0 && d.getDate() === 1) return 'N/A';
+      if (isNaN(d.getTime())) return t('patients_modal_view_na');
+      if (d.getFullYear() <= 1970 && d.getMonth() === 0 && d.getDate() === 1) return t('patients_modal_view_na');
       return d.toLocaleDateString();
   };
 
@@ -418,7 +398,6 @@ export const Patients = () => {
       return groups;
   };
 
-  // Helper to get selected doctor fees
   const selectedDocForFee = useMemo(() => {
     return staff.find(s => s.id.toString() === actionFormData.staffId);
   }, [actionFormData.staffId, staff]);
@@ -426,7 +405,6 @@ export const Patients = () => {
   return (
     <div className="space-y-6">
       
-      {/* STANDARD SIZE PROCESS HUD */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
@@ -522,9 +500,22 @@ export const Patients = () => {
         </div>
         
         {!loading && (
-            <div className="flex justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700">
-                <div className="flex items-center gap-4 text-sm text-slate-500">
+            <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4">
+                <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
                     <span>{t('patients_pagination_showing')} {paginatedPatients.length} {t('patients_pagination_of')} {filteredPatients.length}</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs whitespace-nowrap">{t('patients_pagination_rows')}</span>
+                        <select 
+                          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                          value={itemsPerPage}
+                          onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                        >
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
@@ -537,8 +528,6 @@ export const Patients = () => {
       {/* PATIENT REGISTRATION MODAL */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? t('patients_modal_edit_title') : t('patients_modal_new_title')}>
         <form onSubmit={handlePatientSubmit} className="space-y-8 max-h-[85vh] overflow-y-auto pr-2 custom-scrollbar">
-          
-          {/* Section 1: Personal Profile */}
           <div className="space-y-5">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
                 <UserPlus size={18} className="text-primary-600" />
@@ -562,7 +551,6 @@ export const Patients = () => {
             </div>
           </div>
 
-          {/* Section 2: Clinical Baseline */}
           <div className="space-y-5">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
                 <Heart size={18} className="text-red-500" />
@@ -579,7 +567,6 @@ export const Patients = () => {
             <Textarea label={t('patients_modal_form_medicalHistory')} placeholder={t('patients_modal_form_medicalHistory_placeholder')} rows={2} value={formData.medicalHistory} onChange={e => setFormData({...formData, medicalHistory: e.target.value})} />
           </div>
 
-          {/* Section 3: Emergency Outreach */}
           <div className="space-y-5">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
                 <Activity size={18} className="text-orange-500" />
@@ -592,7 +579,6 @@ export const Patients = () => {
             </div>
           </div>
 
-          {/* Section 4: Billing & Insurance */}
           <div className="space-y-5 bg-primary-50/30 dark:bg-primary-900/10 p-5 rounded-2xl border border-primary-100 dark:border-primary-800">
             <div className="flex items-center justify-between gap-2 pb-2 border-b border-primary-100 dark:border-primary-800 mb-2">
                 <div className="flex items-center gap-2">
@@ -667,7 +653,6 @@ export const Patients = () => {
           <form onSubmit={submitAction} className="flex-1 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6">
               
-              {/* --- 1. APPOINTMENT FLOW --- */}
               {currentAction === 'appointment' && (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -692,18 +677,15 @@ export const Patients = () => {
                                     className={`relative py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-center overflow-hidden min-h-[70px]
                                       ${selected ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : isAvailable ? 'border-slate-100 dark:border-slate-800 hover:border-slate-200' : 'border-slate-50 bg-slate-50/50 opacity-60 grayscale'}`}
                                 >
-                                    {/* Availability Vertical Stripe */}
                                     <div className={`absolute top-0 bottom-0 ${isRtl ? 'right-0' : 'left-0'} w-8 flex items-center justify-center ${isAvailable ? 'bg-emerald-600' : 'bg-slate-400 shadow-inner'}`}>
                                         <span className={`rotate-180 [writing-mode:vertical-lr] text-[9px] font-black uppercase tracking-tighter text-white leading-none whitespace-nowrap`}>
                                             {isAvailable ? t('patients_modal_action_doctor_available') : 'OFF DUTY'}
                                         </span>
                                     </div>
-
                                     <div className="min-w-0">
                                         <p className="font-bold text-sm truncate text-slate-900 dark:text-white leading-tight">{doc.fullName}</p>
                                         <p className="text-[10px] text-slate-500 uppercase font-black truncate mt-1 tracking-wider">{doc.specialization}</p>
                                     </div>
-                                    
                                     {selected && (
                                       <div className={`absolute top-2 ${isRtl ? 'left-2' : 'right-2'} text-primary-600 animate-in zoom-in-50 duration-200`}>
                                         <CheckCircle size={16} />
@@ -716,23 +698,10 @@ export const Patients = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                      <Select 
-                        label={t('appointments_form_type')} 
-                        value={actionFormData.subtype} 
-                        onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})}
-                      >
-                          <option value="Consultation">
-                            {t('patients_modal_action_consultation')} 
-                            {selectedDocForFee ? ` ($${formatMoney(selectedDocForFee.consultationFee)})` : ''}
-                          </option>
-                          <option value="Follow-up">
-                            {t('patients_modal_action_followUp')} 
-                            {selectedDocForFee ? ` ($${formatMoney(selectedDocForFee.consultationFeeFollowup || 0)})` : ''}
-                          </option>
-                          <option value="Emergency">
-                            {t('patients_modal_action_emergency')} 
-                            {selectedDocForFee ? ` ($${formatMoney(selectedDocForFee.consultationFeeEmergency || 0)})` : ''}
-                          </option>
+                      <Select label={t('appointments_form_type')} value={actionFormData.subtype} onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})}>
+                          <option value="Consultation">{t('patients_modal_action_consultation')} {selectedDocForFee ? ` ($${formatMoney(selectedDocForFee.consultationFee)})` : ''}</option>
+                          <option value="Follow-up">{t('patients_modal_action_followUp')} {selectedDocForFee ? ` ($${formatMoney(selectedDocForFee.consultationFeeFollowup || 0)})` : ''}</option>
+                          <option value="Emergency">{t('patients_modal_action_emergency')} {selectedDocForFee ? ` ($${formatMoney(selectedDocForFee.consultationFeeEmergency || 0)})` : ''}</option>
                       </Select>
                       <Input type="time" label={t('time')} value={actionFormData.time} onChange={e => setActionFormData({...actionFormData, time: e.target.value})} />
                   </div>
@@ -740,15 +709,14 @@ export const Patients = () => {
                 </>
               )}
 
-              {/* --- 2. LAB TEST FLOW --- */}
               {currentAction === 'lab' && (
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 h-full min-h-[400px]">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 h-full">
                     <div className="lg:col-span-3 space-y-4 flex flex-col">
-                        <div className="relative">
+                        <div className="relative shrink-0">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                             <Input placeholder={t('patients_modal_action_search_tests_placeholder')} value={testSearch} onChange={e => setTestSearch(e.target.value)} className="pl-10" />
                         </div>
-                        <div className="flex-1 overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-xl p-2 bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
+                        <div className="max-h-[400px] overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-xl p-2 bg-slate-50/50 dark:bg-slate-900/50 space-y-2 custom-scrollbar">
                             {labTests.filter(t => t.name_en.toLowerCase().includes(testSearch.toLowerCase()) || t.name_ar.includes(testSearch)).map(test => {
                                 const inCart = selectedTests.some(t => t.id === test.id);
                                 return (
@@ -759,11 +727,7 @@ export const Patients = () => {
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <span className="font-mono font-bold text-sm text-primary-600">${formatMoney(test.cost)}</span>
-                                            <button 
-                                              type="button" 
-                                              onClick={() => inCart ? setSelectedTests(prev => prev.filter(t => t.id !== test.id)) : setSelectedTests(prev => [...prev, test])}
-                                              className={`p-1.5 rounded-lg transition-colors ${inCart ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-primary-50 text-primary-600 hover:bg-primary-100'}`}
-                                            >
+                                            <button type="button" onClick={() => inCart ? setSelectedTests(prev => prev.filter(t => t.id !== test.id)) : setSelectedTests(prev => [...prev, test])} className={`p-1.5 rounded-lg transition-colors ${inCart ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-primary-50 text-primary-600 hover:bg-primary-100'}`}>
                                                 {inCart ? <Trash2 size={16}/> : <Plus size={16}/>}
                                             </button>
                                         </div>
@@ -772,9 +736,9 @@ export const Patients = () => {
                             })}
                         </div>
                     </div>
-                    <div className="lg:col-span-2 bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col">
-                        <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-4"><ShoppingCart size={18}/> {t('Order Basket')}</h4>
-                        <div className="flex-1 overflow-y-auto space-y-3 mb-4">
+                    <div className="lg:col-span-2 bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[500px]">
+                        <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-4 shrink-0"><ShoppingCart size={18}/> {t('Order Basket')}</h4>
+                        <div className="flex-1 overflow-y-auto space-y-3 mb-4 custom-scrollbar">
                             {selectedTests.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center opacity-60">
                                     <Layers size={32} className="mb-2"/>
@@ -792,7 +756,7 @@ export const Patients = () => {
                                 ))
                             )}
                         </div>
-                        <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <div className="pt-4 border-t border-slate-200 dark:border-slate-700 shrink-0">
                             <div className="flex justify-between text-sm mb-1"><span className="text-slate-500">Subtotal</span> <span className="font-mono">${formatMoney(selectedTests.reduce((a,b)=>a+b.cost, 0))}</span></div>
                             <div className="flex justify-between font-black text-xl"><span className="text-slate-800 dark:text-white">Total</span> <span className="text-primary-600">${formatMoney(selectedTests.reduce((a,b)=>a+b.cost, 0))}</span></div>
                         </div>
@@ -800,15 +764,14 @@ export const Patients = () => {
                 </div>
               )}
 
-              {/* --- 3. NURSE SERVICE FLOW --- */}
               {currentAction === 'nurse' && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-3">
+                        <div className="space-y-3 flex flex-col">
                             <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Syringe size={16} className="text-primary-500"/> {t('patients_process_error_select_service')}</label>
-                            <div className="grid grid-cols-1 gap-2">
+                            <div className="max-h-[300px] overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-xl p-1.5 space-y-2 custom-scrollbar">
                                 {nurseServices.map(s => (
-                                    <div key={s.id} onClick={() => setSelectedService(s)} className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex justify-between items-center ${selectedService?.id === s.id ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500' : 'border-slate-100 hover:border-slate-200'}`}>
+                                    <div key={s.id} onClick={() => setSelectedService(s)} className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex justify-between items-center ${selectedService?.id === s.id ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500' : 'border-slate-100 hover:border-slate-200 bg-white dark:bg-slate-800'}`}>
                                         <div>
                                             <p className="font-bold text-sm">{language === 'ar' ? s.name_ar : s.name_en}</p>
                                             <p className="text-[10px] text-slate-400 line-clamp-1">{language === 'ar' ? s.description_ar : s.description_en}</p>
@@ -818,18 +781,14 @@ export const Patients = () => {
                                 ))}
                             </div>
                         </div>
-                        <div className="space-y-4">
-                            <div className="space-y-3">
+                        <div className="space-y-4 flex flex-col">
+                            <div className="space-y-3 flex flex-col">
                                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><User size={16} className="text-primary-500"/> {t('patients_modal_action_select_nurse')}</label>
-                                <div className="grid grid-cols-1 gap-2">
+                                <div className="max-h-[300px] overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-xl p-1.5 space-y-2 custom-scrollbar">
                                     {staff.filter(s => s.type === 'nurse').map(nurse => {
                                         const isSelected = actionFormData.staffId === nurse.id.toString();
                                         return (
-                                            <div 
-                                              key={nurse.id} 
-                                              onClick={() => setActionFormData({...actionFormData, staffId: nurse.id.toString()})} 
-                                              className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${isSelected ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500/20' : 'border-slate-100 hover:border-slate-200 bg-white dark:bg-slate-800'}`}
-                                            >
+                                            <div key={nurse.id} onClick={() => setActionFormData({...actionFormData, staffId: nurse.id.toString()})} className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${isSelected ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500/20' : 'border-slate-100 hover:border-slate-200 bg-white dark:bg-slate-800'}`}>
                                                 <div className="flex flex-col gap-0.5">
                                                     <span className="text-sm font-bold text-slate-800 dark:text-white">{nurse.fullName}</span>
                                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{nurse.department || 'Nursing Unit'}</span>
@@ -840,13 +799,12 @@ export const Patients = () => {
                                     })}
                                 </div>
                             </div>
-                            <Textarea label={t('patients_modal_action_notes')} placeholder="Instructions for nurse..." rows={4} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
+                            <Textarea label={t('patients_modal_action_notes')} placeholder="Instructions for nurse..." rows={3} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
                         </div>
                     </div>
                 </div>
               )}
 
-              {/* --- 4. ADMISSION FLOW --- */}
               {currentAction === 'admission' && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -859,11 +817,7 @@ export const Patients = () => {
                                             const isAvailable = bed.status === 'available';
                                             const isSelected = selectedBed?.id === bed.id;
                                             return (
-                                                <div 
-                                                  key={bed.id} 
-                                                  onClick={() => isAvailable && setSelectedBed(bed)}
-                                                  className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${isSelected ? 'border-primary-500 bg-primary-50 shadow-md ring-2 ring-primary-500/20' : isAvailable ? 'border-slate-100 hover:border-primary-200 cursor-pointer' : 'opacity-40 grayscale bg-slate-50 cursor-not-allowed'}`}
-                                                >
+                                                <div key={bed.id} onClick={() => isAvailable && setSelectedBed(bed)} className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${isSelected ? 'border-primary-500 bg-primary-50 shadow-md ring-2 ring-primary-500/20' : isAvailable ? 'border-slate-100 hover:border-primary-200 cursor-pointer' : 'opacity-40 grayscale bg-slate-50 cursor-not-allowed'}`}>
                                                     <Bed size={20} className={isSelected ? 'text-primary-600' : 'text-slate-400'} />
                                                     <span className="text-xs font-black">{bed.roomNumber}</span>
                                                     <span className="text-[10px] font-mono text-slate-500">${formatMoney(bed.costPerDay)}/d</span>
@@ -896,7 +850,6 @@ export const Patients = () => {
                 </div>
               )}
 
-              {/* --- 5. OPERATION FLOW --- */}
               {currentAction === 'operation' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in">
                     <div className="space-y-6">
@@ -907,7 +860,6 @@ export const Patients = () => {
                                 <p className="text-xs text-red-700 dark:text-red-400 mt-1">Surgical procedures require detailed medical justification and pre-op clearance.</p>
                             </div>
                         </div>
-
                         <div className="space-y-4">
                             <Select label={t('patients_modal_action_op_type')} value={actionFormData.subtype} onChange={e => setActionFormData({...actionFormData, subtype: e.target.value})}>
                                 <option value="">{t('patients_modal_action_select_procedure')}</option>
@@ -919,43 +871,33 @@ export const Patients = () => {
                             </Select>
                         </div>
                     </div>
-
                     <div className="space-y-4">
                         <Textarea label={t('patients_modal_action_pre_op_notes')} placeholder="Clinical indication, allergies, blood availability..." rows={8} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
-                        
                         <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                             <p className="text-xs font-black uppercase text-slate-400 mb-3 tracking-widest flex items-center gap-2"><Briefcase size={14}/> Estimate Base</p>
                             <div className="flex justify-between items-center">
                                 <span className="text-sm font-medium text-slate-600">Base Surgical Fee</span>
-                                <span className="text-2xl font-black text-slate-900 dark:text-white">
-                                    ${formatMoney(operations.find(o => o.name_en === actionFormData.subtype)?.baseCost || 0)}
-                                </span>
+                                <span className="text-2xl font-black text-slate-900 dark:text-white">${formatMoney(operations.find(o => o.name_en === actionFormData.subtype)?.baseCost || 0)}</span>
                             </div>
-                            <p className="text-[10px] text-slate-500 mt-2">Team and theater fees will be finalized in the Operations module.</p>
                         </div>
                     </div>
                 </div>
               )}
-
             </div>
 
-            {/* Footer Summary / Submit Section */}
             <div className="pt-6 mt-6 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-800 z-20">
                 <div className="flex items-center gap-3">
                     <div className="p-3 bg-primary-50 dark:bg-primary-900/30 rounded-full text-primary-600">
                         <Info size={20}/>
                     </div>
                     <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Patient</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">{t('patients_table_header_patient')}</p>
                         <p className="text-sm font-black text-slate-800 dark:text-white">{selectedPatient?.fullName}</p>
                     </div>
                 </div>
-                
                 <div className="flex gap-3 w-full sm:w-auto">
                     <Button type="button" variant="secondary" onClick={() => setIsActionModalOpen(false)}>{t('cancel')}</Button>
-                    <Button type="submit" disabled={processStatus === 'processing'} className="flex-1 sm:flex-none">
-                        {processStatus === 'processing' ? t('processing') : t('submit')}
-                    </Button>
+                    <Button type="submit" disabled={processStatus === 'processing'} className="flex-1 sm:flex-none">{processStatus === 'processing' ? t('processing') : t('submit')}</Button>
                 </div>
             </div>
           </form>
@@ -978,7 +920,7 @@ export const Patients = () => {
               </div>
             </div>
 
-            <div className="flex border-b border-slate-200 dark:border-slate-700">
+            <div className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
                 {[
                     {id: 'info', label: t('patients_modal_view_overview_tab')},
                     {id: 'visits', label: t('patients_modal_view_timeline_tab')},
@@ -988,7 +930,7 @@ export const Patients = () => {
                     <button
                         key={tab.id}
                         onClick={() => setViewTab(tab.id)}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${viewTab === tab.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${viewTab === tab.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
                         {tab.label}
                     </button>
@@ -1011,17 +953,16 @@ export const Patients = () => {
                             </div>
                             <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
                                 <span className="text-slate-500">{t('patients_modal_view_address')}</span>
-                                <span className="font-medium truncate max-w-[150px]">{selectedPatient.address || '-'}</span>
+                                <span className="font-medium truncate max-w-[150px]">{selectedPatient.address || t('patients_modal_view_na')}</span>
                             </div>
                         </div>
                     </div>
-
                     <div className="space-y-1">
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_medical_profile')}</h4>
                         <div className="text-sm space-y-2">
                             <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
                                 <span className="text-slate-500">{t('patients_modal_view_blood_group')}</span>
-                                <span className="font-bold text-red-500">{selectedPatient.bloodGroup || '-'}</span>
+                                <span className="font-bold text-red-500">{selectedPatient.bloodGroup || t('patients_modal_view_na')}</span>
                             </div>
                             <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
                                 <span className="text-slate-500">{t('patients_modal_view_allergies')}</span>
@@ -1030,18 +971,16 @@ export const Patients = () => {
                         </div>
                     </div>
                     </div>
-
                     {selectedPatient.emergencyContact && (
                         <div>
                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_emergency_contact')}</h4>
                             <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg text-sm border border-slate-100 dark:border-slate-800">
                                 <span className="font-bold text-slate-800 dark:text-white">{selectedPatient.emergencyContact.name}</span>
-                                <span className="text-slate-500"> ({selectedPatient.emergencyContact.relation})</span>
+                                <span className="text-slate-500"> ({selectedPatient.emergencyContact.relation || t('patients_modal_view_na')})</span>
                                 <div className="text-slate-600 dark:text-slate-400 mt-1">{selectedPatient.emergencyContact.phone}</div>
                             </div>
                         </div>
                     )}
-
                     {selectedPatient.insuranceDetails && selectedPatient.hasInsurance && (
                         <div>
                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_insurance_coverage')}</h4>
@@ -1050,11 +989,10 @@ export const Patients = () => {
                                     <span className="text-blue-600 dark:text-blue-400 font-bold">{selectedPatient.insuranceDetails.provider}</span>
                                     <span className="text-blue-500 text-xs">{selectedPatient.insuranceDetails.expiryDate}</span>
                                 </div>
-                                <div className="text-blue-700 dark:text-blue-300 font-mono text-xs">#{selectedPatient.insuranceDetails.policyNumber}</div>
+                                <div className="text-blue-700 dark:text-blue-300 font-mono text-xs">{t('patients_modal_view_policy_no')}: #{selectedPatient.insuranceDetails.policyNumber}</div>
                             </div>
                         </div>
                     )}
-
                     <div>
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_medical_history')}</h4>
                         <p className="text-sm bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300 italic">
@@ -1066,19 +1004,19 @@ export const Patients = () => {
 
             {viewTab === 'visits' && (
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in">
-                    {appointments.filter(a => a.patientId === selectedPatient.id).length === 0 ? (
+                    {patientVisits.length === 0 ? (
                         <p className="text-sm text-slate-400 text-center py-8">{t('patients_modal_view_no_timeline')}</p>
                     ) : (
-                        appointments.filter(a => a.patientId === selectedPatient.id).sort((a,b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime()).map(apt => (
+                        patientVisits.map(apt => (
                             <div key={apt.id} className="flex gap-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
                                 <div className="flex flex-col items-center min-w-[60px]">
                                     <span className="text-xs font-bold text-slate-500">{new Date(apt.datetime).toLocaleDateString()}</span>
-                                    <span className="text-xs text-slate-400">{new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                    <span className="text-[10px] text-slate-400 uppercase font-bold">{new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                 </div>
                                 <div>
                                     <div className="font-bold text-sm text-slate-800 dark:text-white">{apt.type}</div>
                                     <div className="text-xs text-slate-500">{t('admissions_bed_doctor', {name: apt.staffName})}</div>
-                                    <Badge color={apt.status === 'completed' ? 'green' : 'blue'} className="mt-1">{t(`appointments_status_${apt.status}`)}</Badge>
+                                    <Badge color={getStatusColor(apt.status) as any} className="mt-1">{t(`appointments_status_${apt.status}`)}</Badge>
                                 </div>
                             </div>
                         ))
@@ -1088,52 +1026,87 @@ export const Patients = () => {
 
             {viewTab === 'labs' && (
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in">
-                    {allLabRequests.filter(l => l.patient_id === selectedPatient.id).length === 0 ? (
+                    {patientLabs.length === 0 ? (
                         <p className="text-sm text-slate-400 text-center py-8">{t('lab_empty', {tab: t('patients_modal_action_lab')})}</p>
                     ) : (
-                        allLabRequests.filter(l => l.patient_id === selectedPatient.id).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(lab => (
-                            <div key={lab.id} className="flex gap-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
-                                <div className="flex flex-col items-center min-w-[60px] justify-center">
-                                    <FlaskConical size={20} className="text-orange-500 mb-1" />
-                                    <span className="text-xs font-bold text-slate-500">{new Date(lab.created_at).toLocaleDateString()}</span>
+                        patientLabs.map(lab => {
+                            const isExpanded = expandedLabId === lab.id;
+                            return (
+                                <div key={lab.id} className="flex flex-col bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800 overflow-hidden">
+                                    <div className="flex gap-4 p-3 items-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors" onClick={() => setExpandedLabId(isExpanded ? null : lab.id)}>
+                                        <div className="flex flex-col items-center min-w-[60px] justify-center">
+                                            <FlaskConical size={20} className="text-orange-500 mb-1" />
+                                            <span className="text-[10px] font-bold text-slate-500">{new Date(lab.created_at).toLocaleDateString()}</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-bold text-sm text-slate-800 dark:text-white truncate">{lab.testNames || t('patients_modal_view_lab_request_label')}</div>
+                                            <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-0.5">ID: {lab.id}</div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                            <Badge color={lab.status === 'completed' ? 'green' : 'yellow'} className="text-[10px]">{lab.status}</Badge>
+                                            {isExpanded ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>}
+                                        </div>
+                                    </div>
+                                    {isExpanded && (
+                                        <div className="p-4 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('billing_modal_create_items_label')}</h5>
+                                                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg">{lab.testNames || 'Multiple tests requested'}</div>
+                                                </div>
+                                                {lab.results && (
+                                                    <div>
+                                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('lab_modal_findings')}</h5>
+                                                        <div className="text-sm text-slate-700 dark:text-slate-300 bg-emerald-50/30 dark:bg-emerald-900/10 p-3 rounded-lg border border-emerald-100 dark:border-emerald-800 italic leading-relaxed whitespace-pre-wrap">
+                                                            {lab.results}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {lab.notes && (
+                                                    <div>
+                                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('lab_modal_notes')}</h5>
+                                                        <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed italic">
+                                                            "{lab.notes}"
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <div className="pt-2 flex justify-between items-center border-t border-slate-50 dark:border-slate-800">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase">{t('billing_table_header_amount')}</span>
+                                                    <span className="font-mono font-bold text-primary-600">${formatMoney(lab.projected_cost)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex-1">
-                                    <div className="font-bold text-sm text-slate-800 dark:text-white">{lab.testNames || t('patients_modal_view_lab_request_label')}</div>
-                                    <div className="text-xs text-slate-500">ID: {lab.id}</div>
-                                </div>
-                                <div className="flex flex-col items-end">
-                                    <Badge color={lab.status === 'completed' ? 'green' : 'yellow'}>{lab.status}</Badge>
-                                    <span className="text-xs font-mono font-bold mt-1">${formatMoney(lab.projected_cost)}</span>
-                                </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             )}
 
             {viewTab === 'financials' && (
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in">
-                    {bills.filter(b => b.patientId === selectedPatient.id).length === 0 ? (
+                    {patientFinancials.length === 0 ? (
                         <p className="text-sm text-slate-400 text-center py-8">{t('patients_modal_view_no_billing')}</p>
                     ) : (
-                        bills.filter(b => b.patientId === selectedPatient.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(bill => (
-                            <div key={bill.id} className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                        patientFinancials.map(bill => (
+                            <div key={bill.id} className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm group">
                                 <div className="flex justify-between items-start mb-2">
                                     <div>
-                                        <div className="font-bold text-sm text-slate-800 dark:text-white flex items-center gap-2">
+                                        <div className="font-bold text-sm text-slate-800 dark:text-white flex items-center gap-2 group-hover:text-primary-600 transition-colors">
                                             <DollarSign size={14} className="text-emerald-600" />
                                             {t('patients_modal_view_invoice_label')} #{bill.billNumber}
                                         </div>
-                                        <div className="text-xs text-slate-500">{formatDateSafely(bill.date)}</div>
+                                        <div className="text-[10px] text-slate-400 font-bold mt-0.5">{formatDateSafely(bill.date)}</div>
                                     </div>
-                                    <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{bill.status}</Badge>
+                                    <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{translateStatus(bill.status, t)}</Badge>
                                 </div>
                                 <div className="flex justify-between text-sm border-t border-slate-100 dark:border-slate-800 pt-2 mt-2">
-                                    <span className="text-slate-500">{t('patients_modal_view_billing_amount')}</span>
+                                    <span className="text-slate-500 font-medium">{t('billing_table_header_amount')}</span>
                                     <span className="font-bold font-mono">${formatMoney(bill.totalAmount)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">{t('billing_table_paid_amount')}</span>
+                                    <span className="text-slate-500 font-medium">{t('billing_table_paid_amount')}</span>
                                     <span className="font-bold font-mono text-emerald-600">${formatMoney(bill.paidAmount)}</span>
                                 </div>
                             </div>
@@ -1144,7 +1117,7 @@ export const Patients = () => {
 
           </div>
         )}
-        <div className="flex justify-end pt-4">
+        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-700 mt-4">
           <Button variant="secondary" onClick={() => setIsViewModalOpen(false)}>{t('close')}</Button>
         </div>
       </Modal>
@@ -1152,3 +1125,23 @@ export const Patients = () => {
     </div>
   );
 };
+
+const getStatusColor = (status: string) => {
+  const s = (status || '').toLowerCase();
+  if (s.includes('paid') || s.includes('complete') || s.includes('active') || s.includes('regis')) return 'green';
+  if (s.includes('pending') || s.includes('waiting') || s.includes('reserved') || s.includes('confirmed')) return 'yellow';
+  if (s.includes('cancelled') || s.includes('refunded') || s.includes('overdue')) return 'red';
+  return 'blue';
+};
+
+const translateStatus = (status: string, t: any) => {
+    const s = status.toLowerCase();
+    if (s === 'paid') return t('billing_status_paid');
+    if (s === 'pending') return t('billing_status_pending');
+    if (s === 'partial') return t('billing_status_partial');
+    if (s === 'overdue') return t('billing_status_overdue');
+    if (s === 'refunded') return t('billing_status_refunded');
+    return status;
+};
+
+const HashIcon = ({ size, className }: any) => <span className={className}>#</span>;

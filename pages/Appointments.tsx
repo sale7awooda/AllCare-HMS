@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
-  Plus, Play, LayoutGrid, List as ListIcon, Edit,
+  Plus, Play, LayoutGrid, List as ListIcon, Edit, Eye,
   Loader2, XCircle, CheckCircle, X, ChevronLeft, ChevronRight,
-  CalendarDays, Search, Filter, User, Hash
+  CalendarDays, Search, Filter, User, Hash, Info, Clock, Stethoscope, Briefcase
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, MedicalStaff } from '../types';
@@ -129,6 +128,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                   {apt.status === 'pending' && !isPaid && (<p className="text-xs font-semibold text-orange-500 mt-1">{t('appointments_queue_payment_needed')}</p>)}
                   {canManage && (
                     <div className="flex gap-2 mt-3">
+                        {/* FIX: Changed handleCancel to onCancel which is available as a prop */}
                         <Button size="sm" variant="danger" onClick={() => onCancel(apt.id)} icon={X} className="flex-1">{t('cancel')}</Button>
                         {isPaid && (<Button size="sm" variant={isFirstWaiting ? 'primary' : 'outline'} className="flex-1" onClick={() => onStatusUpdate(apt.id, 'in_progress', apt.patientName)} disabled={!isFirstWaiting} icon={Play}>{t('appointments_queue_start_button')}</Button>)}
                     </div>
@@ -143,7 +143,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
   );
 };
 
-const ListView = ({ appointments, onEdit, onCancel, canManage }: { appointments: Appointment[], onEdit: (apt: Appointment) => void, onCancel: (id: number) => void, canManage: boolean }) => {
+const ListView = ({ appointments, onEdit, onView, onCancel, canManage }: { appointments: Appointment[], onEdit: (apt: Appointment) => void, onView: (apt: Appointment) => void, onCancel: (id: number) => void, canManage: boolean }) => {
     const { t } = useTranslation();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
@@ -208,24 +208,36 @@ const ListView = ({ appointments, onEdit, onCancel, canManage }: { appointments:
                 {filtered.length === 0 ? (
                   <tr><td colSpan={7} className="text-center py-10 text-slate-400">{t('no_data')}</td></tr>
                 ) : (
-                  filtered.map((apt: Appointment) => (
-                    <tr key={apt.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">#{apt.dailyToken || apt.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-800 dark:text-white">{apt.patientName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{apt.staffName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(apt.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{apt.type}</td>
-                      <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={apt.status} /></td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {canManage && (
+                  filtered.map((apt: Appointment) => {
+                    const isHistorical = apt.status === 'completed' || apt.status === 'cancelled';
+                    return (
+                      <tr key={apt.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">#{apt.dailyToken || apt.id}</td>
+                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-800 dark:text-white">{apt.patientName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{apt.staffName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(apt.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{apt.type}</td>
+                        <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={apt.status} /></td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex gap-2 justify-end">
-                            <Button size="sm" variant="outline" icon={Edit} onClick={() => onEdit(apt)}>Edit</Button>
-                            {apt.status !== 'completed' && apt.status !== 'cancelled' && (<Button size="sm" variant="danger" icon={X} onClick={() => onCancel(apt.id)}>Cancel</Button>)}
+                            {isHistorical ? (
+                              <Button size="sm" variant="outline" icon={Eye} onClick={() => onView(apt)}>{t('view')}</Button>
+                            ) : (
+                              <>
+                                <Button size="sm" variant="ghost" icon={Eye} onClick={() => onView(apt)} title={t('view')} />
+                                {canManage && (
+                                  <>
+                                    <Button size="sm" variant="outline" icon={Edit} onClick={() => onEdit(apt)}>{t('edit')}</Button>
+                                    <Button size="sm" variant="danger" icon={X} onClick={() => onCancel(apt.id)} title={t('cancel')} />
+                                  </>
+                                )}
+                              </>
+                            )}
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -244,10 +256,11 @@ export const Appointments = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewDetailModalOpen, setIsViewDetailModalOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [viewingAppointment, setViewingAppointment] = useState<Appointment | null>(null);
   const [formData, setFormData] = useState({ patientId: '', staffId: '', date: formatDate(new Date()), time: '09:00', type: 'Consultation', reason: '' });
   
-  // Searchable Patient Modal State
   const [patientSearch, setPatientSearch] = useState('');
   const [showPatientResults, setShowPatientResults] = useState(false);
   const patientSearchRef = useRef<HTMLDivElement>(null);
@@ -260,11 +273,10 @@ export const Appointments = () => {
   const { user: currentUser } = useAuth();
   const canManage = hasPermission(currentUser, Permissions.MANAGE_APPOINTMENTS);
 
-  // Header Sync
   useHeader(
     t('appointments_title'),
     t('appointments_subtitle'),
-    canManage ? <Button onClick={() => { openNewModal(); }} icon={Plus}>{t('appointments_new_button')}</Button> : null
+    canManage ? <Button onClick={() => { openNewModal(); }} icon={Plus}>{t('dashboard_today')}</Button> : null
   );
 
   const loadData = async (isSilent = false) => {
@@ -281,7 +293,6 @@ export const Appointments = () => {
     loadData(); 
   }, []);
 
-  // Check for quick action trigger from Dashboard
   useEffect(() => {
     const state = location.state as any;
     if (state?.trigger === 'new' && canManage) {
@@ -296,7 +307,11 @@ export const Appointments = () => {
     setIsModalOpen(true);
   };
 
-  // Handle outside click for patient search results
+  const openViewDetailModal = (apt: Appointment) => {
+    setViewingAppointment(apt);
+    setIsViewDetailModalOpen(true);
+  };
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (patientSearchRef.current && !patientSearchRef.current.contains(e.target as Node)) {
@@ -347,10 +362,10 @@ export const Appointments = () => {
   
   const handleCancel = (id: number) => {
     setConfirmState({
-      isOpen: true, title: 'Cancel Appointment', message: 'Are you sure?',
+      isOpen: true, title: t('appointments_cancel_dialog_title'), message: t('appointments_cancel_dialog_message'),
       action: async () => {
         setProcessStatus('processing');
-        setProcessMessage('Requesting cancellation...');
+        setProcessMessage(t('appointments_process_cancelling'));
         try { 
           await api.cancelAppointment(id); 
           await loadData(true); 
@@ -359,7 +374,7 @@ export const Appointments = () => {
         } 
         catch (e: any) { 
           setProcessStatus('error'); 
-          setProcessMessage(e.response?.data?.error || e.message || 'Failed'); 
+          setProcessMessage(e.response?.data?.error || e.message || t('appointments_process_cancel_fail')); 
           setTimeout(() => setProcessStatus('idle'), 2000); 
         }
       }
@@ -371,7 +386,7 @@ export const Appointments = () => {
     if (!formData.patientId || !formData.staffId) return;
     
     setProcessStatus('processing');
-    setProcessMessage('Creating appointment record...');
+    setProcessMessage(editingAppointment ? t('appointments_process_updating') : t('appointments_process_creating'));
     try {
       const payload = { ...formData, patientId: parseInt(formData.patientId), staffId: parseInt(formData.staffId), datetime: `${formData.date}T${formData.time}` };
       if (editingAppointment) await api.updateAppointment(editingAppointment.id, payload);
@@ -381,7 +396,7 @@ export const Appointments = () => {
       setTimeout(() => { setIsModalOpen(false); setProcessStatus('idle'); }, 1500);
     } catch (e: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(e.response?.data?.error || e.message || 'Failed'); 
+      setProcessMessage(e.response?.data?.error || e.message || t('appointments_process_save_fail')); 
       setTimeout(() => setProcessStatus('idle'), 2000); 
     }
   };
@@ -418,14 +433,13 @@ export const Appointments = () => {
 
   return (
     <div className="space-y-6">
-      {/* STANDARD SIZE PROCESS HUD */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
             {processStatus === 'processing' && <Loader2 className="w-12 h-12 text-primary-600 animate-spin mb-4" />}
             {processStatus === 'success' && <CheckCircle className="w-12 h-12 text-green-600 mb-4" />}
             {processStatus === 'error' && <XCircle className="w-12 h-12 text-red-600 mb-4" />}
-            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{processStatus === 'processing' ? t('processing') : processStatus === 'success' ? t('success') : 'Failed'}</h3>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{processStatus === 'processing' ? t('processing') : processStatus === 'success' ? t('success') : t('error')}</h3>
             <p className="text-slate-500 dark:text-slate-400 mb-6">{processMessage}</p>
             {processStatus === 'error' && <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">{t('close')}</Button>}
           </div>
@@ -442,9 +456,8 @@ export const Appointments = () => {
             </div>
             <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))} />
           </div>
-          <Button size="sm" variant="secondary" onClick={() => setSelectedDate(new Date())}>{t('today')}</Button>
+          <Button size="sm" variant="secondary" onClick={() => setSelectedDate(new Date())}>{t('dashboard_today')}</Button>
           
-          {/* VIEW TOGGLES INTEGRATED INTO SAME ROW */}
           <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl shadow-inner border border-slate-200 dark:border-slate-800 shrink-0 ml-auto lg:ml-2">
             <button 
                 onClick={() => setViewMode('grid')}
@@ -465,20 +478,20 @@ export const Appointments = () => {
       </Card>
 
       {loading ? (
-        <div className="text-center py-20 text-slate-400">{t('appointments_loading')}</div>
+        <div className="text-center py-20 text-slate-400">{t('loading')}</div>
       ) : viewMode === 'grid' ? (
         <div className="flex gap-6 overflow-x-auto pb-4 custom-scrollbar -mx-6 px-6">
-          {appointmentsByDoctor.length === 0 ? (<div className="flex-1 text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl w-full"><p className="text-slate-500">{t('appointments_empty')}</p></div>) : 
+          {appointmentsByDoctor.length === 0 ? (<div className="flex-1 text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl w-full"><p className="text-slate-500">{t('appointments_list_empty')}</p></div>) : 
            appointmentsByDoctor.map(({ doctor, appointments }) => (<DoctorQueueColumn key={doctor.id} doctor={doctor} appointments={appointments} onStatusUpdate={handleStatusUpdate} onCancel={handleCancel} canManage={canManage} />))}
         </div>
       ) : (
-        <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={openEditModal} onCancel={handleCancel} canManage={canManage} /></Card>
+        <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={openEditModal} onView={openViewDetailModal} onCancel={handleCancel} canManage={canManage} /></Card>
       )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingAppointment ? t('appointments_modal_edit_title') : t('appointments_modal_new_title')}>
+      {/* NEW/EDIT MODAL */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingAppointment ? t('appointments_modal_edit_title') : t('appointments_modal_title')}>
         <form onSubmit={handleFormSubmit} className="space-y-5">
           
-          {/* SEARCHABLE PATIENT SELECT */}
           <div className="space-y-1.5" ref={patientSearchRef}>
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
               {t('appointments_form_select_patient')}
@@ -513,7 +526,7 @@ export const Appointments = () => {
                   disabled={!!editingAppointment}
                 />
                 {showPatientResults && (
-                  <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-56 overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-56 overflow-y-auto custom-scrollbar">
                     {filteredPatientsForModal.length > 0 ? (
                       filteredPatientsForModal.map(p => (
                         <button key={p.id} type="button" className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b last:border-0 border-slate-100 dark:border-slate-700 flex justify-between items-center transition-colors" onClick={() => { setFormData({ ...formData, patientId: p.id.toString() }); setPatientSearch(p.fullName); setShowPatientResults(false); }}>
@@ -525,7 +538,7 @@ export const Appointments = () => {
                         </button>
                       ))
                     ) : (
-                        <div className="p-4 text-center text-slate-400 text-xs italic">No patients found.</div>
+                        <div className="p-4 text-center text-slate-400 text-xs italic">{t('no_data')}</div>
                     )}
                   </div>
                 )}
@@ -540,22 +553,22 @@ export const Appointments = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('date')} type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
-            <Input label={t('time')} type="time" required value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
+            <Input label={t('appointments_form_time')} type="time" required value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
           </div>
 
           <Select label={t('appointments_form_type')} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
             <option value="Consultation">
-              Consultation {selectedDoctorForFee ? ` ($${selectedDoctorForFee.consultationFee})` : ''}
+              {t('patients_modal_action_consultation')} {selectedDoctorForFee ? ` ($${selectedDoctorForFee.consultationFee})` : ''}
             </option>
             <option value="Follow-up">
-              Follow-up {selectedDoctorForFee ? ` ($${selectedDoctorForFee.consultationFeeFollowup || 0})` : ''}
+              {t('patients_modal_action_followUp')} {selectedDoctorForFee ? ` ($${selectedDoctorForFee.consultationFeeFollowup || 0})` : ''}
             </option>
             <option value="Emergency">
-              Emergency {selectedDoctorForFee ? ` ($${selectedDoctorForFee.consultationFeeEmergency || 0})` : ''}
+              {t('patients_modal_action_emergency')} {selectedDoctorForFee ? ` ($${selectedDoctorForFee.consultationFeeEmergency || 0})` : ''}
             </option>
           </Select>
 
-          <Textarea label={t('reason')} rows={3} value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
+          <Textarea label={t('appointments_form_reason')} rows={3} value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
           
           <div className="flex justify-end pt-4 gap-3 border-t">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button>
@@ -564,6 +577,65 @@ export const Appointments = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={isViewDetailModalOpen} onClose={() => setIsViewDetailModalOpen(false)} title={t('appointments_modal_view_title')}>
+        {viewingAppointment && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
+               <div className="w-14 h-14 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 font-black text-xl">
+                  {viewingAppointment.patientName.charAt(0)}
+               </div>
+               <div className="flex-1">
+                  <h3 className="font-black text-lg text-slate-900 dark:text-white leading-tight">{viewingAppointment.patientName}</h3>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">ID: {viewingAppointment.dailyToken ? `#${viewingAppointment.dailyToken}` : 'N/A'}</p>
+               </div>
+               <StatusBadge status={viewingAppointment.status} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 border rounded-xl">
+                  <div className="p-2 bg-slate-50 dark:bg-slate-900 rounded-lg text-slate-400"><Stethoscope size={18}/></div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('nav_hr')}</p>
+                    <p className="text-sm font-bold">{viewingAppointment.staffName}</p>
+                  </div>
+               </div>
+               <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 border rounded-xl">
+                  <div className="p-2 bg-slate-50 dark:bg-slate-900 rounded-lg text-slate-400"><Clock size={18}/></div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('date')}</p>
+                    <p className="text-sm font-bold">{new Date(viewingAppointment.datetime).toLocaleString()}</p>
+                  </div>
+               </div>
+               <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 border rounded-xl">
+                  <div className="p-2 bg-slate-50 dark:bg-slate-900 rounded-lg text-slate-400"><Briefcase size={18}/></div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('appointments_form_type')}</p>
+                    <p className="text-sm font-bold">{viewingAppointment.type}</p>
+                  </div>
+               </div>
+               <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 border rounded-xl">
+                  <div className="p-2 bg-slate-50 dark:bg-slate-900 rounded-lg text-slate-400"><Hash size={18}/></div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('patients_modal_view_billing_status')}</p>
+                    <p className="text-sm font-bold capitalize">{viewingAppointment.billingStatus}</p>
+                  </div>
+               </div>
+            </div>
+
+            <div className="space-y-2">
+               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('patients_modal_action_reason')}</h4>
+               <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border italic text-sm text-slate-600 dark:text-slate-300 min-h-[80px]">
+                  "{viewingAppointment.reason || 'No specific reason recorded.'}"
+               </div>
+            </div>
+
+            <div className="pt-4 flex justify-end">
+              <Button variant="secondary" onClick={() => setIsViewDetailModalOpen(false)}>{t('close')}</Button>
+            </div>
+          </div>
+        )}
       </Modal>
       
       <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({...confirmState, isOpen: false})} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message} />

@@ -48,10 +48,10 @@ app.use(cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json());
 
-// Rate Limiting
+// Rate Limiting - Increased limit to prevent 429s during burst loads
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 300,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 2000, // Increased from 300
   standardHeaders: true,
   legacyHeaders: false,
 });

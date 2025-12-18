@@ -152,30 +152,6 @@ export const Dashboard = () => {
     </div>
   );
 
-  const ActionButton = ({ icon: Icon, label, color, onClick }: any) => {
-    const colorClasses: any = {
-      blue: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 group-hover:bg-blue-600',
-      violet: 'bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400 group-hover:bg-violet-600',
-      emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 group-hover:bg-emerald-600',
-      orange: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 group-hover:bg-orange-600',
-      pink: 'bg-pink-50 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400 group-hover:bg-pink-600',
-      cyan: 'bg-cyan-50 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400 group-hover:bg-cyan-600',
-    };
-
-    return (
-      <button 
-        onClick={onClick}
-        type="button"
-        className="flex flex-col items-center justify-center gap-2.5 p-3.5 rounded-2xl border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 group transition-all duration-300 animate-in fade-in zoom-in-95"
-      >
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm ${colorClasses[color]}`}>
-          <Icon size={22} className="group-hover:text-white transition-colors" />
-        </div>
-        <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider group-hover:text-slate-900 dark:group-hover:text-white text-center">{label}</span>
-      </button>
-    );
-  };
-
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
@@ -186,46 +162,6 @@ export const Dashboard = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
-      {/* Quick Actions Grid - Enhanced to trigger creation modals on destination pages */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        <ActionButton 
-          icon={Plus} 
-          label={t('dashboard_action_admission')} 
-          color="blue" 
-          onClick={() => navigate('/admissions', { state: { trigger: 'new' } })} 
-        />
-        <ActionButton 
-          icon={Calendar} 
-          label={t('dashboard_action_visit')} 
-          color="violet" 
-          onClick={() => navigate('/appointments', { state: { trigger: 'new' } })} 
-        />
-        <ActionButton 
-          icon={Users} 
-          label={t('dashboard_action_register')} 
-          color="emerald" 
-          onClick={() => navigate('/patients', { state: { trigger: 'new' } })} 
-        />
-        <ActionButton 
-          icon={FlaskConical} 
-          label={t('dashboard_action_lab')} 
-          color="orange" 
-          onClick={() => navigate('/laboratory')} 
-        />
-        <ActionButton 
-          icon={Wallet} 
-          label={t('dashboard_action_invoice')} 
-          color="pink" 
-          onClick={() => navigate('/billing', { state: { trigger: 'new' } })} 
-        />
-        <ActionButton 
-          icon={Activity} 
-          label={t('dashboard_action_schedule')} 
-          color="cyan" 
-          onClick={() => navigate('/operations')} 
-        />
-      </div>
-
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title={t('dashboard_stat_total_patients')} value={stats.patients.toLocaleString()} icon={Users} trend="+5.2%" colorClass="from-blue-500 to-blue-600" />

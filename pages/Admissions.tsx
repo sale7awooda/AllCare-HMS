@@ -6,7 +6,7 @@ import {
   Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, AlertTriangle,
   HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, 
   DollarSign, Loader2, XCircle, Sparkles, Thermometer, ChevronRight, X, Info, Save, Trash2,
-  ExternalLink
+  ExternalLink, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
@@ -39,6 +39,7 @@ export const Admissions = () => {
   const [selectedBedForAdmission, setSelectedBedForAdmission] = useState<any>(null);
   const [inpatientDetails, setInpatientDetails] = useState<any>(null);
   const [careTab, setCareTab] = useState<'overview' | 'notes' | 'discharge'>('overview');
+  const [expandedBillId, setExpandedBillId] = useState<number | null>(null);
   
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const [showPatientResults, setShowPatientResults] = useState(false);
@@ -67,7 +68,6 @@ export const Admissions = () => {
       setPatients(patientsData);
       setStaff(staffData);
       
-      // Check for trigger after data is loaded
       const state = location.state as any;
       if (state?.trigger === 'new') {
         const availableBed = bedsData.find((b: any) => b.status === 'available');
@@ -79,7 +79,6 @@ export const Admissions = () => {
 
   useEffect(() => { loadData(); }, []);
 
-  // Handle outside click for patient search
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (patientSearchRef.current && !patientSearchRef.current.contains(e.target as Node)) {
@@ -117,6 +116,7 @@ export const Admissions = () => {
           const details = await api.getInpatientDetails(admission.id);
           setInpatientDetails(details);
           setCareTab('overview');
+          setExpandedBillId(null);
           setIsCareModalOpen(true);
         } catch (e) {
           console.error(e);
@@ -247,16 +247,12 @@ export const Admissions = () => {
 
   const handleDischarge = () => {
     if (!inpatientDetails) return;
-
-    // FE CHECK: Check for any pending balance before showing confirmation
     const totalDue = inpatientDetails.unpaidBills?.reduce((sum: number, b: any) => sum + (b.total_amount - (b.paid_amount || 0)), 0) || 0;
-    
     if (totalDue > 0.01) {
       setProcessStatus('error');
       setProcessMessage(`Patient discharge blocked. There is an outstanding balance of $${totalDue.toLocaleString()}. Please settle all invoices in the Billing section before proceeding.`);
       return;
     }
-
     setConfirmState({
       isOpen: true, 
       title: t('admissions_dialog_discharge_title'), 
@@ -293,7 +289,6 @@ export const Admissions = () => {
 
   return (
     <div className="space-y-6">
-      {/* STANDARD SIZE PROCESS HUD */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
@@ -335,7 +330,6 @@ export const Admissions = () => {
                 </div>
                 <div className={`w-3 h-3 rounded-full shrink-0 shadow-sm ${isOccupied ? 'bg-red-500 animate-pulse' : isReserved ? 'bg-blue-500' : bed.status === 'cleaning' ? 'bg-purple-500' : 'bg-green-500'}`} />
               </div>
-              
               <div className="flex-1 flex flex-col justify-center items-center w-full">
                 {isOccupied || isReserved ? (
                   <div className="w-full text-center">
@@ -357,7 +351,6 @@ export const Admissions = () => {
         })}
       </div>
       
-      {/* MODAL: NEW ADMISSION / RESERVE */}
       <Modal isOpen={isAdmitModalOpen} onClose={() => setIsAdmitModalOpen(false)} title={t('admissions_modal_reserve_title', { room: selectedBedForAdmission?.roomNumber })}>
         <form onSubmit={handleAdmitSubmit} className="space-y-5">
           <div className="relative space-y-1.5" ref={patientSearchRef}>
@@ -396,19 +389,15 @@ export const Admissions = () => {
               </div>
             )}
           </div>
-
           <Select label={t('patients_modal_action_assign_doctor')} required value={admitForm.doctorId} onChange={e => setAdmitForm({...admitForm, doctorId: e.target.value})}>
             <option value="">{t('patients_modal_action_select_doctor')}</option>
             {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(doc => <option key={doc.id} value={doc.id}>{doc.fullName} ({doc.specialization})</option>)}
           </Select>
-
           <div className="grid grid-cols-2 gap-4">
             <Input label={t('patients_modal_action_admission_date')} type="date" required value={admitForm.entryDate} onChange={e => setAdmitForm({...admitForm, entryDate: e.target.value})} />
             <Input label={t('patients_modal_action_required_deposit')} type="number" required value={admitForm.deposit} onChange={e => setAdmitForm({...admitForm, deposit: e.target.value})} prefix={<DollarSign size={14}/>} />
           </div>
-
           <Textarea label={t('admissions_care_admission_note')} rows={2} placeholder="Initial clinical summary..." value={admitForm.notes} onChange={e => setAdmitForm({...admitForm, notes: e.target.value})} />
-          
           <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3">
             <Button type="button" variant="secondary" onClick={() => setIsAdmitModalOpen(false)}>{t('cancel')}</Button>
             <Button type="submit" disabled={!selectedPatientForAdmission || !admitForm.doctorId}>{t('admissions_modal_reserve_button')}</Button>
@@ -416,7 +405,6 @@ export const Admissions = () => {
         </form>
       </Modal>
 
-      {/* MODAL: MANAGE RESERVED ADMISSION */}
       <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title="Manage Reservation">
         {selectedAdmission && (
           <div className="space-y-6">
@@ -428,7 +416,6 @@ export const Admissions = () => {
                   <div className="flex items-center gap-1.5"><Bed size={16}/> Room {selectedAdmission.roomNumber}</div>
                 </div>
              </div>
-
              <div className="space-y-3">
                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Payment Status</h4>
                <div className="flex justify-between items-center p-4 bg-white dark:bg-slate-800 border rounded-2xl">
@@ -449,7 +436,6 @@ export const Admissions = () => {
                  </p>
                )}
              </div>
-
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 border-t dark:border-slate-700">
                 <Button variant="danger" icon={X} onClick={handleCancelAdmission} className="w-full">{t('admissions_bed_cancel_reservation')}</Button>
                 <Button 
@@ -465,7 +451,6 @@ export const Admissions = () => {
         )}
       </Modal>
 
-      {/* MODAL: ACTIVE INPATIENT CARE */}
       <Modal isOpen={isCareModalOpen} onClose={() => setIsCareModalOpen(false)} title={t('admissions_modal_care_title')}>
         {inpatientDetails && (
           <div className="space-y-6">
@@ -485,7 +470,6 @@ export const Admissions = () => {
                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dr. {inpatientDetails.doctorName}</p>
                 </div>
             </div>
-
             <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
               {[
                 { id: 'overview', label: 'Stay Overview', icon: Info },
@@ -501,7 +485,6 @@ export const Admissions = () => {
                 </button>
               ))}
             </div>
-
             {careTab === 'overview' && (
                 <div className="space-y-6 animate-in fade-in">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -518,31 +501,64 @@ export const Admissions = () => {
                             <p className="font-black text-primary-700 dark:text-primary-400 text-2xl">${(inpatientDetails.daysStayed * inpatientDetails.costPerDay).toLocaleString()}</p>
                         </div>
                     </div>
-
                     <div className="space-y-3">
                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Active Medical Bills</h4>
-                       <div className="bg-white dark:bg-slate-800 border rounded-2xl overflow-hidden divide-y">
+                       <div className="space-y-3 bg-white dark:bg-slate-800 rounded-2xl overflow-hidden">
                           {inpatientDetails.unpaidBills?.length === 0 ? (
                             <div className="p-6 text-center text-slate-400 italic text-sm">No outstanding bills for this stay.</div>
                           ) : (
-                            inpatientDetails.unpaidBills.map((bill: any) => (
-                              <div key={bill.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
-                                 <div>
-                                   <p className="font-bold text-sm">Bill #{bill.bill_number}</p>
-                                   <p className="text-[10px] text-slate-400 font-medium">{new Date(bill.bill_date).toLocaleDateString()}</p>
-                                 </div>
-                                 <div className="text-right">
-                                   <p className="font-black text-rose-600 font-mono">${(bill.total_amount - (bill.paid_amount || 0)).toLocaleString()}</p>
-                                   <button onClick={() => navigate('/billing')} className="text-[10px] font-black uppercase text-primary-600 hover:underline">Pay Now</button>
-                                 </div>
-                              </div>
-                            ))
+                            inpatientDetails.unpaidBills.map((bill: any) => {
+                              const isExpanded = expandedBillId === bill.id;
+                              return (
+                                <div key={bill.id} className="border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden transition-all shadow-sm">
+                                  <div 
+                                    className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
+                                    onClick={() => setExpandedBillId(isExpanded ? null : bill.id)}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className={`p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 transition-colors ${isExpanded ? 'text-primary-600' : ''}`}>
+                                        <DollarSign size={16}/>
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-sm">Bill #{bill.bill_number}</p>
+                                        <p className="text-[10px] text-slate-400 font-medium">{new Date(bill.bill_date).toLocaleDateString()}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                      <div className="text-right">
+                                        <p className="font-black text-rose-600 font-mono">${(bill.total_amount - (bill.paid_amount || 0)).toLocaleString()}</p>
+                                        <button onClick={(e) => { e.stopPropagation(); navigate('/billing'); }} className="text-[10px] font-black uppercase text-primary-600 hover:underline">Pay Now</button>
+                                      </div>
+                                      {isExpanded ? <ChevronUp size={16} className="text-slate-300"/> : <ChevronDown size={16} className="text-slate-300"/>}
+                                    </div>
+                                  </div>
+                                  {isExpanded && (
+                                    <div className="px-4 pb-4 pt-1 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-50 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
+                                      <div className="space-y-3 pt-3">
+                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('billing_modal_create_items_label')}</h5>
+                                        <div className="space-y-2">
+                                          {(bill.items || []).map((item: any, idx: number) => (
+                                            <div key={idx} className="flex justify-between items-center text-xs">
+                                              <span className="text-slate-600 dark:text-slate-400 font-medium">{item.description}</span>
+                                              <span className="font-mono font-bold text-slate-800 dark:text-slate-200">${item.amount.toLocaleString()}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                                          <span className="text-[10px] font-black text-slate-400 uppercase">Total Invoice</span>
+                                          <span className="font-mono font-black text-slate-900 dark:text-white">${bill.total_amount.toLocaleString()}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
                           )}
                        </div>
                     </div>
                 </div>
             )}
-
             {careTab === 'notes' && (
               <div className="space-y-6 animate-in fade-in">
                  <form onSubmit={handleAddNote} className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
@@ -556,7 +572,6 @@ export const Admissions = () => {
                     <Textarea label="Observations" rows={3} required placeholder="Enter clinical notes and progress..." value={noteForm.note} onChange={e => setNoteForm({...noteForm, note: e.target.value})} />
                     <Button type="submit" className="w-full" icon={Save}>Add Note to Chart</Button>
                  </form>
-
                  <div className="space-y-4 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
                     {inpatientDetails.notes?.length === 0 ? (
                       <div className="p-10 text-center text-slate-300 font-bold italic">No notes recorded yet.</div>
@@ -581,7 +596,6 @@ export const Admissions = () => {
                  </div>
               </div>
             )}
-
             {careTab === 'discharge' && (
                 <div className="space-y-6 animate-in fade-in">
                     {totalOutstandingBalance > 0.01 ? (
@@ -611,7 +625,6 @@ export const Admissions = () => {
                           </div>
                       </div>
                     )}
-                    
                     <div className="space-y-4">
                        <Select label={t('admissions_care_discharge_status')} value={dischargeForm.status} onChange={e => setDischargeForm({...dischargeForm, status: e.target.value})}>
                           <option value="Recovered">Recovered / Healthy</option>

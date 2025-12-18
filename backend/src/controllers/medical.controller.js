@@ -326,6 +326,12 @@ exports.getInpatientDetails = (req, res) => {
     }
 
     const unpaidBills = db.prepare(`SELECT id, bill_number, total_amount, paid_amount, bill_date FROM billing WHERE patient_id = ? AND status IN ('pending', 'partial')`).all(admission.patient_id);
+    
+    // Enrich unpaid bills with their line items
+    const billsWithItems = unpaidBills.map(bill => {
+        const items = db.prepare('SELECT description, amount FROM billing_items WHERE billing_id = ?').all(bill.id);
+        return { ...bill, items };
+    });
 
     res.json({
       ...admission,
@@ -333,9 +339,10 @@ exports.getInpatientDetails = (req, res) => {
       daysStayed,
       estimatedBill: estimatedAccommodationCost,
       depositPaid: depositPaid,
-      unpaidBills: unpaidBills,
+      unpaidBills: billsWithItems,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to fetch inpatient details' });
   }
 };
