@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { Role } from '../types';
@@ -19,7 +18,8 @@ import {
   PhoneCall,
   Stethoscope,
   Database,
-  RefreshCw
+  RefreshCw,
+  Server
 } from 'lucide-react';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
@@ -69,9 +69,20 @@ export const Login: React.FC = () => {
     setLoading(true);
     setError('');
     
+    // Safety timeout: stop spinner if request takes too long (15s)
+    const timeoutId = setTimeout(() => {
+      if (isMounted.current && loading) {
+        setLoading(false);
+        setError('Connection timed out. Please check your network or try again.');
+      }
+    }, 15000);
+
     try {
       const response = await api.login(username, password);
       
+      // Clear safety timeout immediately upon response
+      clearTimeout(timeoutId);
+
       // Strict validation of response
       if (response && response.user && response.token) {
           // Success: AuthContext will update, causing this component to unmount.
@@ -81,18 +92,27 @@ export const Login: React.FC = () => {
           throw new Error('Invalid response received from server.');
       }
     } catch (err: any) {
+      clearTimeout(timeoutId);
       console.error("Login failed:", err);
+      
       if (isMounted.current) {
-          if (err.code === 'ERR_NETWORK' || !err.response) {
-            // Check if error message is our custom HTML error
-            if (err.message && err.message.includes('HTML')) {
-                setError('Server configuration error. API unreachable.');
-            } else {
-                setError(t('login_status_offline'));
-            }
+          const errorMessage = err.message || '';
+          
+          // Heuristic to detect HTML error pages (e.g. 404/500 from proxy)
+          const isHtmlError = errorMessage.trim().startsWith('<') || errorMessage.includes('DOCTYPE');
+          
+          // Heuristic for network errors
+          const isNetworkError = errorMessage === 'Failed to fetch' || errorMessage.includes('NetworkError');
+
+          if (isHtmlError) {
+             setError('Service unreachable. The backend may be offline or misconfigured.');
+          } else if (isNetworkError) {
+             setError(t('login_status_offline'));
           } else {
-            setError(err.response?.data?.error || t('login_error_auth_failed'));
+             // Display the actual API error message (e.g. "Invalid credentials")
+             setError(errorMessage || t('login_error_auth_failed'));
           }
+          
           setLoading(false);
       }
     }
