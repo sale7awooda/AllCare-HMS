@@ -8,6 +8,7 @@
   "nav_admissions": "Admissions",
   "nav_laboratory": "Laboratory",
   "nav_operations": "Operations",
+  "nav_pharmacy": "Pharmacy",
   "nav_management": "Management",
   "nav_billing": "Billing",
   "nav_hr": "HR",
@@ -825,5 +826,6 @@
   "billing_modal_expense_method": "Paid Using",
   "billing_modal_expense_description": "Expense Details",
   "billing_modal_expense_save": "Save Expense",
-  "billing_table_paid_amount": "Paid Amount"
+  "billing_table_paid_amount": "Paid Amount",
+  "nav_pharmacy": "Pharmacy"
 }

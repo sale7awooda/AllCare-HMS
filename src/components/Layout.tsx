@@ -42,7 +42,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         { labelKey: 'nav_admissions', path: '/admissions', icon: Bed },
         { labelKey: 'nav_laboratory', path: '/laboratory', icon: FlaskConical },
         { labelKey: 'nav_operations', path: '/operations', icon: Activity },
-        { labelKey: 'Pharmacy', path: '/pharmacy', icon: Pill },
+        { labelKey: 'nav_pharmacy', path: '/pharmacy', icon: Pill },
     ]},
     { titleKey: 'nav_management', items: [
         { labelKey: 'nav_billing', path: '/billing', icon: Receipt },
