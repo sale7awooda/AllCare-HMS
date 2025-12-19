@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -20,10 +21,18 @@ import { api } from './services/api';
 import { useTranslation } from './context/TranslationContext';
 import { AuthContext } from './context/AuthContext';
 import { HeaderProvider } from './context/HeaderContext';
+import { Pharmacy } from './pages/Pharmacy';
 
 function AppContent() {
-  const { user, isAuthChecking } = React.useContext(AuthContext)!;
+  const auth = React.useContext(AuthContext);
   const { t } = useTranslation();
+
+  // If context is undefined (shouldn't happen with provider), handle gracefully
+  if (!auth) {
+      return <div className="min-h-screen flex items-center justify-center text-gray-500 bg-slate-50 dark:bg-slate-950">Initializing...</div>;
+  }
+
+  const { user, isAuthChecking } = auth;
 
   if (isAuthChecking) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500 bg-slate-50 dark:bg-slate-950">{t('app_loading')}</div>;
@@ -50,6 +59,7 @@ function AppContent() {
             <Route path="/records" element={<Records />} /> 
             <Route path="/settings" element={<Settings />} /> 
             <Route path="/configuration" element={<Configuration />} /> 
+            <Route path="/pharmacy" element={<Pharmacy />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Layout>

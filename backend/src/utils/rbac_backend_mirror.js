@@ -1,4 +1,3 @@
-
 // This file is a mirror of the frontend's src/utils/rbac.ts for backend (Node.js) consumption.
 
 const Permissions = {

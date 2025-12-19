@@ -1,6 +1,59 @@
 
 const { db } = require('../config/database');
 
+// --- LABS ---
+
+exports.getLabRequests = (req, res) => {
+    try {
+        const rows = db.prepare(`
+            SELECT l.*, p.full_name as patientName, p.patient_id 
+            FROM lab_requests l 
+            JOIN patients p ON l.patient_id = p.id 
+            ORDER BY l.created_at DESC
+        `).all();
+        
+        // Transform JSON test_ids to readable string for legacy frontend support or use directly
+        const tests = db.prepare('SELECT id, name_en, name_ar FROM lab_tests').all();
+        const testMap = tests.reduce((acc, t) => ({...acc, [t.id]: t.name_en}), {});
+        
+        const mapped = rows.map(r => {
+            let names = '';
+            try {
+                const ids = JSON.parse(r.test_ids);
+                names = ids.map(id => testMap[id] || 'Unknown').join(', ');
+            } catch(e) {}
+            return { ...r, testNames: names };
+        });
+        res.json(mapped);
+    } catch(e) { res.status(500).json({error: e.message}); }
+};
+
+exports.createLabRequest = (req, res) => {
+    const { patientId, testIds, totalCost, patientName } = req.body; 
+    try {
+        const tx = db.transaction(() => {
+            const billNum = Math.floor(10000000 + Math.random() * 90000000).toString();
+            const bill = db.prepare("INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date) VALUES (?, ?, ?, 'pending', datetime('now'))").run(billNum, patientId, totalCost);
+            db.prepare("INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)").run(bill.lastInsertRowid, `Lab Request (Multi)`, totalCost);
+            
+            db.prepare(`
+                INSERT INTO lab_requests (patient_id, test_ids, status, projected_cost, bill_id, created_at)
+                VALUES (?, ?, 'pending', ?, ?, datetime('now'))
+            `).run(patientId, JSON.stringify(testIds), totalCost, bill.lastInsertRowid);
+        });
+        tx();
+        res.json({success: true});
+    } catch(e) { res.status(500).json({error: e.message}); }
+};
+
+exports.completeLabRequest = (req, res) => {
+    const { results, notes } = req.body;
+    try {
+        db.prepare("UPDATE lab_requests SET status = 'completed', results = ?, notes = ? WHERE id = ?").run(results, notes, req.params.id);
+        res.json({success: true});
+    } catch(e) { res.status(500).json({error: e.message}); }
+};
+
 // --- OPERATIONS ---
 
 exports.createOperation = (req, res) => {
@@ -368,4 +421,11 @@ exports.cancelAdmission = (req, res) => {
     } catch(e) {
         res.status(400).json({ error: e.message });
     }
+};
+
+exports.markBedClean = (req, res) => {
+    try {
+        db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(req.params.id);
+        res.json({success: true});
+    } catch(e) { res.status(500).json({error: e.message}); }
 };
