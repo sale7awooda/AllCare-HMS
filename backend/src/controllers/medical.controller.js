@@ -225,6 +225,28 @@ exports.getActiveAdmissions = (req, res) => {
   }
 };
 
+exports.getAdmissionHistory = (req, res) => {
+  try {
+    const admissions = db.prepare(`
+      SELECT 
+        a.id, a.patient_id, a.bed_id, a.doctor_id, a.entry_date, a.discharge_date, a.actual_discharge_date, 
+        a.status, a.discharge_status, a.projected_cost,
+        p.full_name as patientName, p.patient_id as patientCode,
+        b.room_number as roomNumber, b.type as bedType,
+        m.full_name as doctorName
+      FROM admissions a
+      JOIN patients p ON a.patient_id = p.id
+      JOIN beds b ON a.bed_id = b.id
+      LEFT JOIN medical_staff m ON a.doctor_id = m.id
+      ORDER BY a.entry_date DESC
+    `).all();
+    
+    res.json(admissions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.createAdmission = (req, res) => {
     const { patientId, bedId, doctorId, entryDate, deposit, notes } = req.body;
 

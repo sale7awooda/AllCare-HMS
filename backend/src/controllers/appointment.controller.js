@@ -131,7 +131,10 @@ exports.cancel = (req, res) => {
     if (!appt) throw new Error('Appointment not found');
     db.prepare("UPDATE appointments SET status = 'cancelled' WHERE id = ?").run(id);
     if (appt.bill_id) {
-      db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ? AND status = 'pending'").run(appt.bill_id);
+      // Allow cancellation of the bill regardless of current status (pending or paid)
+      // This ensures paid bills for cancelled appointments are marked as cancelled 
+      // (making them eligible for refund in the Billing module)
+      db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ?").run(appt.bill_id);
     }
   });
   try {

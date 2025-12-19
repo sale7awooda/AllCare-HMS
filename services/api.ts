@@ -101,6 +101,7 @@ export const api = {
   updateExpense: (id, data) => put(`/treasury/expenses/${id}`, data),
 
   getActiveAdmissions: () => get('/admissions'),
+  getAdmissionHistory: () => get('/admissions/history'),
   getInpatientDetails: (id) => get(`/admissions/${id}`),
   createAdmission: (data) => post('/admissions', data),
   confirmAdmissionDeposit: (id) => post(`/admissions/${id}/confirm`),

@@ -7,7 +7,7 @@ import {
   Wallet, FileText, CheckCircle, Trash2,
   ChevronLeft, ChevronRight, Search, Filter,
   Landmark, ArrowUpRight, ArrowDownRight, Coins, X, Edit, TrendingUp,
-  Banknote, ShieldCheck
+  Banknote, ShieldCheck, RotateCcw, Ban
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Bill, Patient, PaymentMethod, TaxRate, Transaction, InsuranceProvider } from '../types';
@@ -80,6 +80,7 @@ export const Billing = () => {
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   
   // Confirmation Dialog
@@ -112,6 +113,14 @@ export const Billing = () => {
     policyNumber: '',
     expiryDate: '',
     transactionId: ''
+  });
+
+  // Refund Form State
+  const [refundForm, setRefundForm] = useState({
+    amount: '',
+    reason: '',
+    method: 'Cash',
+    date: new Date().toISOString().split('T')[0]
   });
 
   // Expense Form State
@@ -189,11 +198,18 @@ export const Billing = () => {
       ];
       setCatalogItems(catalog);
 
-      const activeBills = billsArr.filter(x => x.status !== 'cancelled');
+      // Pending Collection Calculation: 
+      // Only include bills that are 'pending' or 'partial'.
+      // Do NOT include 'refunded' or 'cancelled'.
+      const pendingBills = billsArr.filter(b => b.status === 'pending' || b.status === 'partial');
+      const pendingTotal = pendingBills.reduce((acc, curr) => acc + (curr.totalAmount - curr.paidAmount), 0);
+
+      // Total Revenue is purely based on transactions (Income) or paidAmount sum
+      const activeBills = billsArr.filter(x => x.status !== 'cancelled'); 
       const totalRev = activeBills.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0);
-      const pendingTotal = activeBills.reduce((acc, curr) => acc + ((curr.totalAmount || 0) - (curr.paidAmount || 0)), 0);
-      const paidInvoicesCount = activeBills.filter(x => x.status === 'paid').length;
-      const pendingInvoicesCount = activeBills.filter(x => x.status === 'pending' || x.status === 'partial').length;
+      
+      const paidInvoicesCount = billsArr.filter(x => x.status === 'paid').length;
+      const pendingInvoicesCount = pendingBills.length;
 
       const revenueByTypeMap: Record<string, number> = {};
       activeBills.forEach(bill => {
@@ -354,6 +370,57 @@ export const Billing = () => {
     } finally { 
         setIsProcessing(false); 
     }
+  };
+
+  const openRefundModal = (bill: Bill) => {
+    setPayingBill(bill);
+    setRefundForm({
+      amount: (bill.paidAmount || 0).toString(),
+      reason: '',
+      method: 'Cash',
+      date: new Date().toISOString().split('T')[0]
+    });
+    setIsRefundModalOpen(true);
+  };
+
+  const handleRefundSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payingBill) return;
+    setIsProcessing(true);
+    try {
+      await api.processRefund(payingBill.id, {
+        amount: parseFloat(refundForm.amount),
+        reason: refundForm.reason,
+        date: refundForm.date,
+        method: refundForm.method
+      });
+      setIsRefundModalOpen(false);
+      setPayingBill(null);
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.error || t('billing_refund_failed'));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCancelService = (bill: Bill) => {
+    setConfirmState({
+      isOpen: true,
+      title: t('billing_action_cancel_process'),
+      message: "Are you sure you want to cancel the service associated with this invoice? This action is required before a refund can be processed.",
+      action: async () => {
+        setIsProcessing(true);
+        try {
+          await api.cancelService(bill.id);
+          loadData();
+        } catch (e: any) {
+          alert(e.response?.data?.error || t('billing_cancel_service_failed'));
+        } finally {
+          setIsProcessing(false);
+        }
+      }
+    });
   };
 
   const handleExpenseSubmit = async (e: React.FormEvent) => {
@@ -557,17 +624,43 @@ export const Billing = () => {
                        paginatedBills.length === 0 ? <tr><td colSpan={6} className="text-center py-10 text-slate-400">{t('billing_table_empty')}</td></tr> : 
                        paginatedBills.map(bill => {
                         const paidPercent = bill.totalAmount > 0 ? (bill.paidAmount / bill.totalAmount) * 100 : 0;
+                        const isCancelled = bill.status === 'cancelled' || bill.serviceStatus === 'cancelled';
+                        const isPaid = (bill.paidAmount || 0) > 0;
+                        const isCompleted = bill.serviceStatus === 'completed';
+                        
+                        // Strict Refund Rules: 
+                        // 1. Must be Paid (at least partially)
+                        // 2. Service MUST be Cancelled (either manually or via other flow)
+                        // 3. Service MUST NOT be Completed
+                        const canRefund = isPaid && isCancelled && !isCompleted;
+                        
+                        // Cancel Service Rule:
+                        // Allows user to cancel service from here if it is NOT yet cancelled and NOT completed.
+                        const canCancelService = !isCancelled && !isCompleted;
+
                         return (
-                          <tr key={bill.id} className={bill.status === 'cancelled' ? 'opacity-50 grayscale' : ''}>
+                          <tr key={bill.id} className={isCancelled ? 'bg-slate-50/50 dark:bg-slate-900/20' : ''}>
                             <td className="px-6 py-4 whitespace-nowrap"><div className="font-bold">{bill.billNumber}</div><div className="text-sm text-slate-500">{new Date(bill.date).toLocaleDateString()}</div></td>
                             <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium">{bill.patientName}</div><div className="text-xs text-slate-500">ID: {bill.patientId}</div></td>
-                            <td className="px-6 py-4 whitespace-nowrap"><div className="flex flex-col gap-1"><Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : bill.status === 'cancelled' ? 'gray' : 'red'}>{translateStatus(bill.status)}</Badge><Badge color="gray">{translateBillType(getBillType(bill))}</Badge></div></td>
-                            <td className="px-6 py-4 whitespace-nowrap min-w-[150px]"><div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5"><div className="bg-primary-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${paidPercent}%` }}></div></div><p className="text-right text-[10px] mt-1 text-slate-500 font-bold font-mono">${(bill.paidAmount || 0).toLocaleString()} / ${(bill.totalAmount || 0).toLocaleString()}</p></td>
+                            <td className="px-6 py-4 whitespace-nowrap"><div className="flex flex-col gap-1"><Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : isCancelled ? 'red' : 'orange'}>{translateStatus(bill.status)}</Badge><Badge color="gray">{translateBillType(getBillType(bill))}</Badge></div></td>
+                            <td className="px-6 py-4 whitespace-nowrap min-w-[150px]"><div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5"><div className={`h-2.5 rounded-full transition-all duration-500 ${isCancelled ? 'bg-red-400' : 'bg-primary-500'}`} style={{ width: `${paidPercent}%` }}></div></div><p className="text-right text-[10px] mt-1 text-slate-500 font-bold font-mono">${(bill.paidAmount || 0).toLocaleString()} / ${(bill.totalAmount || 0).toLocaleString()}</p></td>
                             <td className="px-6 py-4 whitespace-nowrap text-right font-mono font-bold">${bill.totalAmount.toLocaleString()}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div className="flex justify-end gap-2">
                                     <Button size="sm" variant="outline" icon={FileText} onClick={() => setSelectedBill(bill)}>{t('billing_action_view_invoice')}</Button>
-                                    {canManageBilling && bill.status !== 'cancelled' && (<>{(bill.status === 'pending' || bill.status === 'partial') && <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>}</>)}
+                                    {canManageBilling && (
+                                      <>
+                                        {!isCancelled && (bill.status === 'pending' || bill.status === 'partial') && (
+                                          <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>
+                                        )}
+                                        {canCancelService && (
+                                          <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => handleCancelService(bill)} icon={Ban}>{t('cancel')}</Button>
+                                        )}
+                                        {canRefund && (
+                                          <Button size="sm" variant="secondary" onClick={() => openRefundModal(bill)} icon={RotateCcw}>{t('billing_action_refund')}</Button>
+                                        )}
+                                      </>
+                                    )}
                                 </div>
                             </td>
                           </tr>
@@ -578,8 +671,22 @@ export const Billing = () => {
                 </div>
                 {!loading && (
                   <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4">
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-slate-500">{t('patients_pagination_showing')} {paginatedBills.length} {t('patients_pagination_of')} {filteredBills.length}</span>
+                    <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
+                      <span>{t('patients_pagination_showing')} {paginatedBills.length} {t('patients_pagination_of')} {filteredBills.length}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs whitespace-nowrap">{t('patients_pagination_rows')}</span>
+                        <select 
+                          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                          value={itemsPerPage}
+                          onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                        >
+                          <option value={10}>10</option>
+                          <option value={15}>15</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
@@ -591,6 +698,7 @@ export const Billing = () => {
         </div>
       )}
 
+      {/* ... Treasury Tab Content ... */}
       {activeTab === 'treasury' && (
           <div className="space-y-6 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -733,6 +841,35 @@ export const Billing = () => {
                 {paymentForm.method.toLowerCase() !== 'cash' && paymentForm.method.toLowerCase() !== 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><Input label={t('billing_modal_payment_ref')} value={paymentForm.transactionId} onChange={e => setPaymentForm({...paymentForm, transactionId: e.target.value})} required /><Input label={t('date')} type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required /></div>)}
             </div>
             <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3"><Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)}>{t('cancel')}</Button><Button type="submit" icon={isProcessing ? undefined : CheckCircle} disabled={isProcessing}>{isProcessing ? t('processing') : t('billing_modal_payment_confirm_button')}</Button></div>
+          </form>
+        )}
+      </Modal>
+
+      <Modal isOpen={isRefundModalOpen} onClose={() => setIsRefundModalOpen(false)} title={t('billing_modal_refund_title')}>
+        {payingBill && (
+          <form onSubmit={handleRefundSubmit} className="space-y-6">
+            <div className="text-center p-6 bg-rose-50 dark:bg-rose-900/20 rounded-2xl border border-rose-100 dark:border-rose-800">
+               <p className="text-xs font-black text-rose-400 uppercase tracking-widest mb-1">{t('billing_modal_refund_total_paid')}</p>
+               <p className="text-4xl font-black text-rose-600 font-mono tracking-tighter">${(payingBill.paidAmount || 0).toLocaleString()}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <Input label={t('billing_modal_refund_amount')} type="number" value={refundForm.amount} onChange={e => setRefundForm({...refundForm, amount: e.target.value})} required max={payingBill.paidAmount} />
+               <Select label={t('billing_modal_refund_method')} value={refundForm.method} onChange={e => setRefundForm({...refundForm, method: e.target.value})} required>
+                  {getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}
+               </Select>
+            </div>
+            <Select label={t('billing_modal_refund_reason')} value={refundForm.reason} onChange={e => setRefundForm({...refundForm, reason: e.target.value})} required>
+               <option value="">Select Reason...</option>
+               <option value="Service Not Performed">{t('billing_modal_refund_reason_service')}</option>
+               <option value="Incorrect Pricing">{t('billing_modal_refund_reason_overcharged')}</option>
+               <option value="Double Payment">{t('billing_modal_refund_reason_duplicate')}</option>
+               <option value="Customer Request">{t('billing_modal_refund_reason_satisfaction')}</option>
+               <option value="Other">{t('billing_modal_refund_reason_other')}</option>
+            </Select>
+            <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3">
+               <Button type="button" variant="secondary" onClick={() => setIsRefundModalOpen(false)}>{t('cancel')}</Button>
+               <Button type="submit" variant="danger" icon={RotateCcw} disabled={isProcessing}>{isProcessing ? t('processing') : t('billing_modal_refund_confirm')}</Button>
+            </div>
           </form>
         )}
       </Modal>
