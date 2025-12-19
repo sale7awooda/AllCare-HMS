@@ -75,24 +75,36 @@ export const Login: React.FC = () => {
     setLoading(true);
     setError('');
     
+    // Safety timeout: stop spinner if request takes too long (10s)
+    // FIX: Removed 'loading' check from closure to prevent stale state bug
+    const timeoutId = setTimeout(() => {
+      if (isMounted.current) {
+        setLoading(false);
+        setError('Connection timed out. The backend server appears to be unresponsive.');
+      }
+    }, 10000);
+
     try {
       const response = await api.login(username, password);
       
+      clearTimeout(timeoutId);
+
       if (response && response.user && response.token) {
           login(response.user, response.token);
       } else {
-          throw new Error('Invalid server response structure.');
+          throw new Error('Invalid response structure from server.');
       }
     } catch (err: any) {
+      clearTimeout(timeoutId);
       console.error("Login failed:", err);
       
       if (isMounted.current) {
           const msg = err.message || '';
           
-          if (msg.includes('NETWORK_ERROR') || msg.includes('API_NOT_FOUND')) {
-             setError('CRITICAL: Backend offline. Please run "npm run start" or ensure the Node.js process is active in your terminal.');
+          if (msg.includes('NETWORK_ERROR') || msg.includes('API_NOT_FOUND') || msg.includes('Failed to fetch')) {
+             setError('CRITICAL: Backend unavailable. Ensure "npm run backend" is running.');
              setServerStatus('offline');
-          } else if (msg.includes('Invalid credentials')) {
+          } else if (msg.includes('Invalid credentials') || msg.includes('401')) {
              setError(t('login_error_auth_failed'));
           } else {
              setError(msg || t('login_error_auth_failed'));
@@ -167,12 +179,12 @@ export const Login: React.FC = () => {
                ) : serverStatus === 'connecting' ? (
                  <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
                     <RefreshCw size={10} className="animate-spin" />
-                    <span className="text-[8px] font-black uppercase">Checking</span>
+                    <span className="text-[8px] font-black uppercase">Check</span>
                  </div>
                ) : (
                  <button onClick={checkServer} className="flex items-center gap-1.5 px-2 py-1 bg-rose-50 text-rose-600 rounded-full border border-rose-100 hover:bg-rose-100 transition-colors animate-pulse">
                     <WifiOff size={10} />
-                    <span className="text-[8px] font-black uppercase">Offline - Retry</span>
+                    <span className="text-[8px] font-black uppercase">Offline</span>
                  </button>
                )}
             </div>
@@ -196,7 +208,7 @@ export const Login: React.FC = () => {
                 <div className="p-3 rounded-xl bg-red-50 border border-red-100 flex flex-col gap-2 text-red-600 text-[11px] font-bold animate-in shake duration-300">
                   <div className="flex items-center gap-2">
                     <AlertCircle size={14} className="shrink-0" />
-                    <span>Error Detected</span>
+                    <span>Login Failed</span>
                   </div>
                   <p className="font-medium opacity-90 leading-relaxed">{error}</p>
                 </div>
@@ -258,7 +270,7 @@ export const Login: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={loading || !username || !password || serverStatus === 'offline'}
+                disabled={loading || !username || !password}
                 className="w-full py-3 px-4 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-primary-500/25 transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
               >
                 {loading ? (
