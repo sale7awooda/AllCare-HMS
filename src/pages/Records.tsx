@@ -94,8 +94,6 @@ export const Records = () => {
     fetchData();
   }, []);
 
-  // ... [Filtering and Exports logic remain the same] ...
-  
   const filteredRecords = useMemo(() => records.filter(r => {
       const search = searchTerm.toLowerCase();
       const matchesSearch = 
@@ -110,7 +108,6 @@ export const Records = () => {
   }), [records, searchTerm, filterType, statusFilter]);
 
   const handleExportExcel = () => {
-    // ... [Export logic] ...
     const headers = ["Type", "Date", "Reference", "Entity", "Associate", "Status", "Value"];
     const rows = filteredRecords.map(r => [
       r.type, 
@@ -131,7 +128,6 @@ export const Records = () => {
     setShowExportMenu(false);
   };
 
-  // Sync Header
   useHeader(
     t('records_title'),
     t('records_subtitle'),
@@ -175,9 +171,8 @@ export const Records = () => {
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
+      {/* ... [Rest of the file remains same] ... */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
-        {/* ... [Stats Cards JSX] ... */}
         <Card className="!py-2.5 !px-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Logs</p>
           <p className="text-xl font-black text-slate-800 dark:text-white leading-tight">{records.length.toLocaleString()}</p>
@@ -201,8 +196,48 @@ export const Records = () => {
       </div>
 
       <Card className="!p-0 overflow-hidden shadow-soft border-slate-200 dark:border-slate-700 print:shadow-none print:border-0">
-        {/* ... [Search Bar] ... */}
-        
+        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 no-print">
+          <div className="relative flex-1 group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors w-4 h-4" />
+            <input 
+              type="text" 
+              placeholder={t('records_search_placeholder')} 
+              className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all" 
+              value={searchTerm} 
+              onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            />
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1 lg:pb-0">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
+              <Filter size={14} className="text-slate-400" />
+              <select 
+                className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer" 
+                value={filterType} 
+                onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}
+              >
+                <option value="All">{t('records_filter_all')}</option>
+                <option value="Patient">Patients</option>
+                <option value="Appointment">Appointments</option>
+                <option value="Bill">Invoices</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
+              <Clock size={14} className="text-slate-400" />
+              <select 
+                className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer" 
+                value={statusFilter} 
+                onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              >
+                <option value="All">All Statuses</option>
+                <option value="Paid">Paid / Settled</option>
+                <option value="Pending">Pending</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
             <thead className="bg-slate-50 dark:bg-slate-900/80">
@@ -251,7 +286,34 @@ export const Records = () => {
             </tbody>
           </table>
         </div>
-        {/* ... [Pagination] ... */}
+
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-900/30 no-print">
+           <div className="flex flex-col sm:flex-row items-center gap-4">
+             <div className="text-xs text-slate-500 font-medium">
+               Showing <span className="font-bold text-slate-900 dark:text-white">{paginatedRecords.length}</span> of <span className="font-bold text-slate-900 dark:text-white">{filteredRecords.length}</span> records
+             </div>
+             <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+               <span>{t('patients_pagination_rows')}</span>
+               <select 
+                 className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 outline-none cursor-pointer"
+                 value={itemsPerPage}
+                 onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+               >
+                 <option value={10}>10</option>
+                 <option value={15}>15</option>
+                 <option value={20}>20</option>
+                 <option value={50}>50</option>
+               </select>
+             </div>
+           </div>
+           <div className="flex items-center gap-2">
+             <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} icon={ChevronLeft}>Prev</Button>
+             <div className="flex items-center gap-1 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border text-xs font-bold shadow-sm">
+                {currentPage} / {totalPages || 1}
+             </div>
+             <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages}>Next <ChevronRight size={14} className="ml-1"/></Button>
+           </div>
+        </div>
       </Card>
 
       <Modal 
@@ -259,7 +321,6 @@ export const Records = () => {
         onClose={() => setIsModalOpen(false)} 
         title={`Record Analysis: ${selectedRecord?.reference}`}
       >
-        {/* ... [Modal Content - uses getStatusColor] ... */}
         {selectedRecord && (
           <div className="space-y-8 animate-in fade-in zoom-in-95 duration-200 print-content">
             <div className="flex flex-wrap items-center gap-3 p-4 bg-primary-50 dark:bg-primary-900/20 rounded-2xl border border-primary-100 dark:border-primary-800/50">
@@ -279,7 +340,88 @@ export const Records = () => {
               </div>
             </div>
             
-            {/* ... rest of modal ... */}
+            {/* ... [Modal Details remain same] ... */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <RecordDetailItem label="Reference ID" value={selectedRecord.reference} icon={HashIcon} />
+              <RecordDetailItem label="Original Database ID" value={selectedRecord.originalId} icon={Database} />
+              {selectedRecord.associateEntity && (
+                <RecordDetailItem label="Associate Entity" value={selectedRecord.associateEntity} icon={User} />
+              )}
+              {selectedRecord.value !== undefined && (
+                <RecordDetailItem label="Transaction Value" value={`$${selectedRecord.value.toLocaleString()}`} icon={DollarSign} />
+              )}
+            </div>
+
+            <div className="space-y-3">
+               <h4 className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest px-1">
+                 <Info size={14}/> Contextual Data
+               </h4>
+               <div className="bg-slate-50 dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 min-h-[100px]">
+                  {selectedRecord.type === 'Bill' && (
+                    <div className="space-y-4">
+                       <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700">
+                          <span className="text-sm font-bold">Line Items</span>
+                          <span className="text-xs text-slate-500">{(selectedRecord.details?.items || []).length} items</span>
+                       </div>
+                       <div className="space-y-2">
+                          {(selectedRecord.details?.items || []).map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-center text-sm">
+                               <span className="text-slate-600 dark:text-slate-400">{item.description}</span>
+                               <span className="font-mono font-bold">${item.amount.toLocaleString()}</span>
+                            </div>
+                          ))}
+                       </div>
+                       <div className="flex justify-between pt-4 border-t border-slate-200 dark:border-slate-700 font-black text-lg">
+                          <span>Total Amount</span>
+                          <span className="text-primary-600">${selectedRecord.value?.toLocaleString()}</span>
+                       </div>
+                    </div>
+                  )}
+
+                  {selectedRecord.type === 'Appointment' && (
+                    <div className="grid grid-cols-2 gap-6">
+                       <div>
+                          <p className="text-xs text-slate-400 font-bold mb-1">Service Type</p>
+                          <p className="text-sm font-bold">{selectedRecord.details?.type}</p>
+                       </div>
+                       <div>
+                          <p className="text-xs text-slate-400 font-bold mb-1">Queue Status</p>
+                          <p className="text-sm font-bold">{selectedRecord.status}</p>
+                       </div>
+                       <div className="col-span-2">
+                          <p className="text-xs text-slate-400 font-bold mb-1">Reason for visit</p>
+                          <p className="text-sm italic text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 p-3 rounded-lg border">
+                             "{selectedRecord.details?.reason || 'No reason provided'}"
+                          </p>
+                       </div>
+                    </div>
+                  )}
+
+                  {selectedRecord.type === 'Patient' && (
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                       <div className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                          <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase">Age</p>
+                          <p className="font-black text-lg">{selectedRecord.details?.age}</p>
+                       </div>
+                       <div className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                          <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase">Gender</p>
+                          <p className="font-black text-lg capitalize">{selectedRecord.details?.gender}</p>
+                       </div>
+                       <div className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                          <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase">Blood</p>
+                          <p className="font-black text-lg text-red-500">{selectedRecord.details?.bloodGroup || '-'}</p>
+                       </div>
+                    </div>
+                  )}
+               </div>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100 dark:border-slate-700 flex justify-between gap-3 no-print">
+               <Button variant="ghost" icon={Printer} onClick={() => window.print()}>Print Entry Details</Button>
+               <div className="flex gap-2">
+                 <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Dismiss</Button>
+               </div>
+            </div>
           </div>
         )}
       </Modal>

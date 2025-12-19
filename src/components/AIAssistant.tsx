@@ -1,4 +1,1 @@
-// This component is deprecated and not in use.
-export const AIAssistant = () => {
-  return null;
-};
+// This file is safe to delete. The component has been removed from the Layout.
