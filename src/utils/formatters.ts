@@ -18,14 +18,24 @@ export const formatDateSafely = (dateStr: any): string => {
   return d.toLocaleDateString();
 };
 
+export const calculateDurationDays = (startDate: string, endDate?: string): number => {
+    if (!startDate) return 0;
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : new Date();
+    const diff = Math.abs(end.getTime() - start.getTime());
+    // Use Math.ceil to ensure even a stay of a few hours counts as 1 day (standard hospital policy)
+    return Math.ceil(diff / (1000 * 60 * 60 * 24)) || 1;
+};
+
 export const getStatusColor = (status: string): "green" | "yellow" | "red" | "blue" | "gray" | "orange" | "purple" => {
   const s = (status || '').toLowerCase();
   if (s.includes('paid') || s.includes('complete') || s.includes('active') || s.includes('recover') || s.includes('approved')) return 'green';
   if (s.includes('pending') || s.includes('waiting') || s.includes('reserved') || s.includes('confirm') || s.includes('partial')) return 'yellow';
   if (s.includes('cancelled') || s.includes('refund') || s.includes('overdue') || s.includes('reject') || s.includes('decease') || s.includes('ama')) return 'red';
-  if (s.includes('admitted') || s.includes('inpatient')) return 'purple';
-  if (s.includes('outpatient')) return 'blue';
+  if (s.includes('admitted') || s.includes('inpatient') || s.includes('occupied')) return 'red';
+  if (s.includes('outpatient') || s.includes('available')) return 'green';
   if (s.includes('emergency')) return 'orange';
+  if (s.includes('cleaning') || s.includes('maintenance')) return 'purple';
   return 'blue'; // Default
 };
 
