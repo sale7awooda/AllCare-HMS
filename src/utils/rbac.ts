@@ -32,9 +32,6 @@ export const Permissions = {
   VIEW_OPERATIONS: 'VIEW_OPERATIONS', // View operation schedule
   MANAGE_OPERATIONS: 'MANAGE_OPERATIONS', // Schedule operations, assign doctors, update details
   DELETE_OPERATIONS: 'DELETE_OPERATIONS', // Delete operation records
-
-  VIEW_PHARMACY: 'VIEW_PHARMACY', // View pharmacy inventory
-  MANAGE_PHARMACY: 'MANAGE_PHARMACY', // Add stock, dispense
   
   VIEW_REPORTS: 'VIEW_REPORTS', // Access various system reports
   MANAGE_REPORTS: 'MANAGE_REPORTS', // Generate/export reports
@@ -45,6 +42,9 @@ export const Permissions = {
   MANAGE_SETTINGS: 'MANAGE_SETTINGS', // Update general settings
   
   MANAGE_CONFIGURATION: 'MANAGE_CONFIGURATION', // Admin-level permission to manage user roles, permissions, departments etc.
+
+  VIEW_PHARMACY: 'VIEW_PHARMACY', // Access pharmacy inventory and dispensing
+  MANAGE_PHARMACY: 'MANAGE_PHARMACY', // Add stock, dispense drugs
 } as const;
 
 export type Permission = typeof Permissions[keyof typeof Permissions];
@@ -60,11 +60,11 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, Permissions.DELETE_ADMISSIONS,
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, Permissions.DELETE_LABORATORY,
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, Permissions.DELETE_OPERATIONS,
-    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY,
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
     Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
-    Permissions.MANAGE_CONFIGURATION // Full control
+    Permissions.MANAGE_CONFIGURATION, // Full control
+    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY
   ],
   manager: [ // Broad view and management
     Permissions.VIEW_DASHBOARD, 
@@ -75,10 +75,10 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, 
-    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY,
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
     Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
+    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY
   ],
   receptionist: [
     Permissions.VIEW_DASHBOARD, 
@@ -114,8 +114,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_LABORATORY,
     Permissions.VIEW_OPERATIONS,
     Permissions.VIEW_ADMISSIONS,
-    Permissions.VIEW_PHARMACY,
     Permissions.VIEW_SETTINGS,
+    Permissions.VIEW_PHARMACY
   ],
   nurse: [
     Permissions.VIEW_DASHBOARD,
@@ -125,15 +125,16 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_LABORATORY,
     Permissions.VIEW_OPERATIONS,
     Permissions.VIEW_SETTINGS,
+    Permissions.VIEW_PHARMACY
   ],
   pharmacist: [
     Permissions.VIEW_DASHBOARD,
     Permissions.VIEW_PATIENTS, 
     Permissions.VIEW_BILLING, 
-    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY,
     Permissions.VIEW_LABORATORY, 
     Permissions.VIEW_SETTINGS,
-    Permissions.VIEW_RECORDS
+    Permissions.VIEW_RECORDS,
+    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY
   ],
   hr: [ 
     Permissions.VIEW_DASHBOARD,
@@ -175,11 +176,11 @@ export const canAccessRoute = (user: User | null, path: string): boolean => {
     case '/admissions': return hasPermission(user, Permissions.VIEW_ADMISSIONS);
     case '/laboratory': return hasPermission(user, Permissions.VIEW_LABORATORY);
     case '/operations': return hasPermission(user, Permissions.VIEW_OPERATIONS);
-    case '/pharmacy': return hasPermission(user, Permissions.VIEW_PHARMACY);
     case '/reports': return hasPermission(user, Permissions.VIEW_REPORTS);
     case '/records': return hasPermission(user, Permissions.VIEW_RECORDS);
     case '/settings': return hasPermission(user, Permissions.VIEW_SETTINGS);
     case '/configuration': return hasPermission(user, Permissions.MANAGE_CONFIGURATION);
+    case '/pharmacy': return hasPermission(user, Permissions.VIEW_PHARMACY);
     default: return false; 
   }
 };

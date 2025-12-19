@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, CalendarDays, Receipt, LogOut, X, Activity, Settings, 
-  Lock, FlaskConical, Bed, ClipboardList, Wrench, Briefcase, Database, ChevronLeft, ChevronRight, Menu, Pill
+  Lock, FlaskConical, Bed, ClipboardList, Wrench, Briefcase, Database, ChevronLeft, ChevronRight, Menu
 } from 'lucide-react';
 import { canAccessRoute } from '../utils/rbac';
 import { Tooltip } from './UI';
@@ -41,7 +42,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         { labelKey: 'nav_admissions', path: '/admissions', icon: Bed },
         { labelKey: 'nav_laboratory', path: '/laboratory', icon: FlaskConical },
         { labelKey: 'nav_operations', path: '/operations', icon: Activity },
-        { labelKey: 'nav_pharmacy', path: '/pharmacy', icon: Pill },
     ]},
     { titleKey: 'nav_management', items: [
         { labelKey: 'nav_billing', path: '/billing', icon: Receipt },

@@ -10,7 +10,6 @@ import { Staff } from './pages/Staff';
 import { Admissions } from './pages/Admissions';
 import { Laboratory } from './pages/Laboratory';
 import { Operations } from './pages/Operations';
-import { Pharmacy } from './pages/Pharmacy';
 import { Configuration } from './pages/Configuration';
 import { Settings } from './pages/Settings'; 
 import { Reports } from './pages/Reports'; 
@@ -45,7 +44,6 @@ function AppContent() {
             <Route path="/admissions" element={<Admissions />} /> 
             <Route path="/laboratory" element={<Laboratory />} /> 
             <Route path="/operations" element={<Operations />} /> 
-            <Route path="/pharmacy" element={<Pharmacy />} />
             <Route path="/billing" element={<Billing />} />
             <Route path="/hr" element={<Staff />} /> 
             <Route path="/reports" element={<Reports />} /> 

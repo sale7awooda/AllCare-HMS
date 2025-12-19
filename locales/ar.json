@@ -8,7 +8,6 @@
   "nav_admissions": "التنويم",
   "nav_laboratory": "المختبر",
   "nav_operations": "العمليات",
-  "nav_pharmacy": "الصيدلية",
   "nav_management": "الإدارة",
   "nav_billing": "الفواتير",
   "nav_hr": "الموارد البشرية",
@@ -611,4 +610,26 @@
   "operations_requests_empty": "لا توجد طلبات عمليات معلقة.",
   "operations_requests_empty_searched": "لا توجد نتائج بحث.",
   "operations_card_awaiting_payment": "في انتظار الدفع",
-  "operations_card_needs_estimation": "
+  "operations_card_needs_estimation": "--- START OF FILE context/AuthContext.tsx ---
+
+
+import React, { createContext, useContext } from 'react';
+import { User } from '../types';
+
+interface AuthContextType {
+  user: User | null;
+  isAuthChecking: boolean;
+  login: (user: User, token: string) => void;
+  logout: () => void;
+}
+
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+}

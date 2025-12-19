@@ -176,8 +176,8 @@ export const api = {
   // Pharmacy
   getPharmacyInventory: () => get('/pharmacy/inventory'),
   addPharmacyInventory: (data: any) => post('/pharmacy/inventory', data),
-  updatePharmacyInventory: (id: number, data: any) => put(`/pharmacy/inventory/${id}`, data),
-  deletePharmacyInventory: (id: number) => del(`/pharmacy/inventory/${id}`),
+  updatePharmacyInventory: (id: number | string, data: any) => put(`/pharmacy/inventory/${id}`, data),
+  deletePharmacyInventory: (id: number | string) => del(`/pharmacy/inventory/${id}`),
   dispenseDrugs: (data: any) => post('/pharmacy/dispense', data),
 
   // Config

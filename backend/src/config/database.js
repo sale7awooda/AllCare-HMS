@@ -186,11 +186,10 @@ const initDB = (forceReset = false) => {
       generic_name TEXT,
       category TEXT,
       stock_level INTEGER DEFAULT 0,
-      reorder_level INTEGER DEFAULT 10,
-      unit_price REAL,
+      unit_price REAL DEFAULT 0,
       expiry_date DATE,
       batch_number TEXT,
-      supplier TEXT,
+      reorder_level INTEGER DEFAULT 10,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
@@ -232,24 +231,6 @@ const seedData = () => {
       stmt.run(d.u, h, d.n, d.r);
   });
 
-  const drugCount = db.prepare('SELECT count(*) as count FROM pharmacy_inventory').get().count;
-  if (drugCount === 0) {
-    const drugs = [
-      { n: 'Panadol Extra', g: 'Paracetamol', c: 'Analgesic', s: 500, p: 2.5, e: '2026-12-31' },
-      { n: 'Amoxil 500mg', g: 'Amoxicillin', c: 'Antibiotic', s: 200, p: 15.0, e: '2025-06-30' },
-      { n: 'Brufen 400mg', g: 'Ibuprofen', c: 'NSAID', s: 300, p: 5.0, e: '2026-03-15' },
-      { n: 'Augmentin 1g', g: 'Amox/Clav', c: 'Antibiotic', s: 100, p: 35.0, e: '2025-09-20' },
-      { n: 'Omeprazole 20mg', g: 'Omeprazole', c: 'PPI', s: 150, p: 10.0, e: '2026-01-10' },
-      { n: 'Metformin 500mg', g: 'Metformin', c: 'Antidiabetic', s: 400, p: 8.0, e: '2027-02-28' },
-      { n: 'Cipro 500mg', g: 'Ciprofloxacin', c: 'Antibiotic', s: 80, p: 18.0, e: '2025-11-15' },
-      { n: 'Aspirin 81mg', g: 'Acetylsalicylic Acid', c: 'Antiplatelet', s: 600, p: 3.0, e: '2026-08-01' }
-    ];
-    const dStmt = db.prepare('INSERT INTO pharmacy_inventory (name, generic_name, category, stock_level, unit_price, expiry_date, batch_number) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    drugs.forEach((d, i) => dStmt.run(d.n, d.g, d.c, d.s, d.p, d.e, `BATCH-${1000+i}`));
-  }
-
-  // ... (rest of seeding code for departments, specs, labs, etc.)
-  // Keeping existing seeds intact
   const bankCount = db.prepare('SELECT count(*) as count FROM banks').get().count;
   if (bankCount === 0) {
     const banks = [
