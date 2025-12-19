@@ -76,6 +76,8 @@ export const Staff = () => {
   const [payroll, setPayroll] = useState<PayrollRecord[]>([]);
   const [financials, setFinancials] = useState<FinancialAdjustment[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [specializations, setSpecializations] = useState<any[]>([]);
   
   // UI States
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,11 +104,16 @@ export const Staff = () => {
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [data, pms] = await Promise.all([
-        api.getStaff(), api.getPaymentMethods()
+      const [data, pms, depts, specs] = await Promise.all([
+        api.getStaff(), 
+        api.getPaymentMethods(),
+        api.getDepartments(),
+        api.getSpecializations()
       ]);
       setStaff(Array.isArray(data) ? data : []);
       setPaymentMethods(Array.isArray(pms) ? pms : []);
+      setDepartments(Array.isArray(depts) ? depts : []);
+      setSpecializations(Array.isArray(specs) ? specs : []);
     } catch (e) { console.error(e); } finally { if (!isBackground) setLoading(false); }
   };
 
@@ -163,6 +170,8 @@ export const Staff = () => {
         consultationFeeFollowup: s.consultationFeeFollowup?.toString() || '',
         consultationFeeEmergency: s.consultationFeeEmergency?.toString() || '',
         address: s.address || '', 
+        department: s.department || '',
+        specialization: s.specialization || '',
         ...bankDetailsParsed 
       } : { 
         fullName: '', 
@@ -177,6 +186,8 @@ export const Staff = () => {
         consultationFeeEmergency: '',
         joinDate: new Date().toISOString().split('T')[0], 
         address: '', 
+        department: '',
+        specialization: '',
         ...bankDetailsParsed 
       });
       setIsModalOpen(true);
@@ -605,6 +616,20 @@ export const Staff = () => {
                 <option value="staff">Other Staff</option>
             </Select>
           </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <Select label={t('staff_form_department')} value={staffForm.department} onChange={e => setStaffForm({...staffForm, department: e.target.value})}>
+                <option value="">{t('staff_form_department')}</option>
+                {departments.map(d => <option key={d.id} value={d.name_en}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
+             </Select>
+             <Select label={t('staff_form_specialization')} value={staffForm.specialization} onChange={e => setStaffForm({...staffForm, specialization: e.target.value})}>
+                <option value="">{t('staff_form_specialization')}</option>
+                {specializations
+                  .filter(s => !s.related_role || s.related_role === staffForm.type)
+                  .map(s => <option key={s.id} value={s.name_en}>{language === 'ar' ? s.name_ar : s.name_en}</option>)}
+             </Select>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label={t('patients_modal_form_address')} value={staffForm.address} onChange={e => setStaffForm({...staffForm, address: e.target.value})} prefix={<MapPin size={14}/>} />
             <Select label="Employee Status" value={staffForm.status} onChange={e => setStaffForm({...staffForm, status: e.target.value})}>

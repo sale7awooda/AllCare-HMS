@@ -55,7 +55,8 @@ export const Patients = () => {
   
   const [actionFormData, setActionFormData] = useState({
     staffId: '',
-    date: new Date().toISOString().split('T')[0],
+    // Use local date string to avoid timezone shifts on initialization
+    date: new Date().toLocaleDateString('en-CA'),
     time: new Date().toTimeString().slice(0, 5), 
     notes: '',
     subtype: 'Consultation',
@@ -138,13 +139,11 @@ export const Patients = () => {
     }
   };
 
-  // FIX: Load data only once on mount to avoid triggering redundant fetches on location change
   useEffect(() => {
     loadData();
     loadCatalogs();
   }, []);
 
-  // FIX: Handle triggers separately from data loading
   useEffect(() => {
     const state = location.state as any;
     if (state?.trigger === 'new' && hasPermissionToCreate) {
@@ -213,7 +212,7 @@ export const Patients = () => {
     setCurrentAction(action);
     setActionFormData({
       staffId: '',
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toLocaleDateString('en-CA'),
       time: new Date().toTimeString().slice(0, 5), 
       notes: '',
       subtype: 'Consultation', 
@@ -245,10 +244,16 @@ export const Patients = () => {
   };
 
   const isDoctorAvailableOnDate = (doctor: MedicalStaff, dateString: string) => {
-    if (!doctor.availableDays || doctor.availableDays.length === 0) return true;
-    const date = new Date(dateString);
+    if (doctor.availableDays && doctor.availableDays.length === 0) return false;
+    if (!doctor.availableDays) return true; // Fallback if undefined
+
+    // Robust parsing to avoid timezone shifts: manually construct local date
+    const [y, m, d] = dateString.split('-').map(Number);
+    const date = new Date(y, m - 1, d); // Month is 0-indexed
+    
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const currentDayName = dayNames[date.getDay()];
+    
     return doctor.availableDays.includes(currentDayName);
   };
 
@@ -377,8 +382,10 @@ export const Patients = () => {
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
 
   const getFilteredDoctors = () => {
-    if (selectedSpecialty) return staff.filter(s => s.type === 'doctor' && s.specialization === selectedSpecialty);
-    return staff.filter(s => s.type === 'doctor');
+    // FIX: Removed status check to show all doctors as requested
+    let docs = staff.filter(s => s.type === 'doctor');
+    if (selectedSpecialty) docs = docs.filter(s => s.specialization === selectedSpecialty);
+    return docs;
   };
 
   const patientVisits = useMemo(() => selectedPatient ? appointments.filter(a => a.patientId === selectedPatient.id).sort((a,b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime()) : [], [selectedPatient, appointments]);
@@ -678,18 +685,25 @@ export const Patients = () => {
                             return (
                                 <div 
                                     key={doc.id} 
+                                    // FIX: Allow selection even if unavailable
                                     onClick={() => setActionFormData({...actionFormData, staffId: doc.id.toString()})} 
-                                    className={`relative py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-center overflow-hidden min-h-[70px]
-                                      ${selected ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : isAvailable ? 'border-slate-100 dark:border-slate-800 hover:border-slate-200' : 'border-slate-50 bg-slate-50/50 opacity-60 grayscale'}`}
+                                    className={`relative py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-center overflow-hidden min-h-[70px] group
+                                      ${selected 
+                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+                                        : isAvailable 
+                                          ? 'border-emerald-100 bg-emerald-50/10 hover:border-emerald-300 dark:border-emerald-900/30' 
+                                          : 'border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-900 hover:border-slate-300'
+                                      }`}
                                 >
-                                    <div className={`absolute top-0 bottom-0 ${isRtl ? 'right-0' : 'left-0'} w-8 flex items-center justify-center ${isAvailable ? 'bg-emerald-600' : 'bg-slate-400 shadow-inner'}`}>
-                                        <span className={`rotate-180 [writing-mode:vertical-lr] text-[9px] font-black uppercase tracking-tighter text-white leading-none whitespace-nowrap`}>
+                                    <div className={`absolute top-0 bottom-0 ${isRtl ? 'right-0' : 'left-0'} w-8 flex items-center justify-center transition-colors ${selected ? 'bg-primary-500 text-white' : isAvailable ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'}`}>
+                                        <span className={`rotate-180 [writing-mode:vertical-lr] text-[9px] font-black uppercase tracking-tighter leading-none whitespace-nowrap`}>
                                             {isAvailable ? t('patients_modal_action_doctor_available') : 'OFF DUTY'}
                                         </span>
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="font-bold text-sm truncate text-slate-900 dark:text-white leading-tight">{doc.fullName}</p>
+                                        <p className={`font-bold text-sm truncate leading-tight ${selected ? 'text-primary-900 dark:text-white' : 'text-slate-700 dark:text-slate-200'}`}>{doc.fullName}</p>
                                         <p className="text-[10px] text-slate-500 uppercase font-black truncate mt-1 tracking-wider">{doc.specialization}</p>
+                                        {!isAvailable && <p className="text-[9px] text-red-500 font-bold mt-0.5">Unavailable Today</p>}
                                     </div>
                                     {selected && (
                                       <div className={`absolute top-2 ${isRtl ? 'left-2' : 'right-2'} text-primary-600 animate-in zoom-in-50 duration-200`}>
