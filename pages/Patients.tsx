@@ -539,7 +539,7 @@ export const Patients = () => {
 
       {/* PATIENT REGISTRATION MODAL */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? t('patients_modal_edit_title') : t('patients_modal_new_title')}>
-        <form onSubmit={handlePatientSubmit} className="space-y-8 max-h-[85vh] overflow-y-auto pr-2 custom-scrollbar">
+        <form onSubmit={handlePatientSubmit} className="space-y-8">
           <div className="space-y-5">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
                 <UserPlus size={18} className="text-primary-600" />
@@ -685,14 +685,13 @@ export const Patients = () => {
                             return (
                                 <div 
                                     key={doc.id} 
-                                    // FIX: Allow selection even if unavailable
-                                    onClick={() => setActionFormData({...actionFormData, staffId: doc.id.toString()})} 
-                                    className={`relative py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-center overflow-hidden min-h-[70px] group
+                                    onClick={() => isAvailable && setActionFormData({...actionFormData, staffId: doc.id.toString()})} 
+                                    className={`relative py-3 ${isRtl ? 'pl-4 pr-10' : 'pr-4 pl-10'} rounded-xl border-2 transition-all flex flex-col justify-center overflow-hidden min-h-[70px] group
                                       ${selected 
-                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 cursor-default' 
                                         : isAvailable 
-                                          ? 'border-emerald-100 bg-emerald-50/10 hover:border-emerald-300 dark:border-emerald-900/30' 
-                                          : 'border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-900 hover:border-slate-300'
+                                          ? 'border-emerald-100 bg-emerald-50/10 hover:border-emerald-300 dark:border-emerald-900/30 cursor-pointer' 
+                                          : 'border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-900 opacity-50 cursor-not-allowed grayscale'
                                       }`}
                                 >
                                     <div className={`absolute top-0 bottom-0 ${isRtl ? 'right-0' : 'left-0'} w-8 flex items-center justify-center transition-colors ${selected ? 'bg-primary-500 text-white' : isAvailable ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'}`}>
