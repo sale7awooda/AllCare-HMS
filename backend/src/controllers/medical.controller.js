@@ -1,6 +1,81 @@
 
 const { db } = require('../config/database');
 
+// --- OPERATIONS ---
+
+exports.createOperation = (req, res) => {
+    const { patientId, operationName, doctorId, notes } = req.body;
+    try {
+        const info = db.prepare(`
+            INSERT INTO operations (patient_id, operation_name, doctor_id, notes, status, created_at)
+            VALUES (?, ?, ?, ?, 'requested', datetime('now'))
+        `).run(patientId, operationName, doctorId, notes);
+        res.json({ id: info.lastInsertRowid, success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.processOperationRequest = (req, res) => {
+    const { id } = req.params;
+    const { details, totalCost } = req.body; // details is costForm from frontend
+    
+    const tx = db.transaction(() => {
+        const op = db.prepare('SELECT * FROM operations WHERE id = ?').get(id);
+        if (!op) throw new Error('Operation not found');
+
+        // Create Bill
+        const billNum = Math.floor(10000000 + Math.random() * 90000000).toString();
+        const bill = db.prepare(`
+            INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date)
+            VALUES (?, ?, ?, 'pending', datetime('now'))
+        `).run(billNum, op.patient_id, totalCost);
+
+        const billId = bill.lastInsertRowid;
+
+        // Add bill items
+        const itemsStmt = db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)');
+        
+        // Surgeon Fee
+        if (details.surgeonFee > 0) itemsStmt.run(billId, `Surgeon Fee: ${op.operation_name}`, details.surgeonFee);
+        // Theater Fee
+        if (details.theaterFee > 0) itemsStmt.run(billId, `Theater Fee: ${op.operation_name}`, details.theaterFee);
+        // Consumables Summary
+        const consTotal = details.consumables?.reduce((s, i) => s + i.cost, 0) || 0;
+        if (consTotal > 0) itemsStmt.run(billId, `Surgical Consumables`, consTotal);
+        // Equipment Summary
+        const eqTotal = details.equipment?.reduce((s, i) => s + i.cost, 0) || 0;
+        if (eqTotal > 0) itemsStmt.run(billId, `Equipment Usage`, eqTotal);
+        
+        // Update Operation
+        db.prepare(`
+            UPDATE operations 
+            SET status = 'pending_payment', 
+                projected_cost = ?, 
+                bill_id = ?, 
+                cost_details = ? 
+            WHERE id = ?
+        `).run(totalCost, billId, JSON.stringify(details), id);
+    });
+
+    try {
+        tx();
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+exports.confirmOperation = (req, res) => {
+    const { id } = req.params;
+    try {
+        db.prepare("UPDATE operations SET status = 'confirmed' WHERE id = ?").run(id);
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
 exports.completeOperation = (req, res) => {
     const { id } = req.params;
     try {
@@ -14,9 +89,7 @@ exports.completeOperation = (req, res) => {
 exports.payOperationShare = (req, res) => {
     const { id } = req.params;
     const { targetType, targetIndex, amount, method, notes } = req.body; 
-    // targetType: 'surgeon' | 'participant'
-    // targetIndex: index in participants array (if targetType is participant)
-
+    
     const tx = db.transaction(() => {
         const op = db.prepare('SELECT * FROM operations WHERE id = ?').get(id);
         if (!op) throw new Error('Operation not found');
@@ -33,7 +106,6 @@ exports.payOperationShare = (req, res) => {
             details.surgeonPaidDate = new Date().toISOString();
             payeeName = 'Lead Surgeon'; 
             
-            // Try to resolve surgeon name
             const doctor = db.prepare('SELECT full_name FROM medical_staff WHERE id = ?').get(op.doctor_id);
             if(doctor) payeeName = doctor.full_name;
 
@@ -50,10 +122,8 @@ exports.payOperationShare = (req, res) => {
             throw new Error('Invalid target type');
         }
 
-        // 1. Update Operation JSON
         db.prepare('UPDATE operations SET cost_details = ? WHERE id = ?').run(JSON.stringify(details), id);
 
-        // 2. Create Expense Transaction
         db.prepare(`
             INSERT INTO transactions (type, category, amount, method, reference_id, date, description)
             VALUES ('expense', 'Operation Payout', ?, ?, ?, datetime('now'), ?)
@@ -166,13 +236,11 @@ exports.getInpatientDetails = (req, res) => {
 
     if (!admission) return res.status(404).json({ error: 'Admission not found' });
 
-    // Calculate days stayed
     const start = new Date(admission.entry_date);
     const end = admission.actual_discharge_date ? new Date(admission.actual_discharge_date) : new Date();
     const diffTime = Math.abs(end - start);
     const daysStayed = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
 
-    // Get Notes
     const notes = db.prepare(`
       SELECT n.*, m.full_name as doctorName 
       FROM inpatient_notes n
@@ -181,13 +249,11 @@ exports.getInpatientDetails = (req, res) => {
       ORDER BY n.created_at DESC
     `).all(id).map(n => ({...n, vitals: JSON.parse(n.vitals || '{}')}));
 
-    // Get Unpaid Bills for this patient
     const unpaidBills = db.prepare(`
         SELECT * FROM billing 
         WHERE patient_id = ? AND status IN ('pending', 'partial')
     `).all(admission.patient_id);
     
-    // Fetch items for those bills
     const billsWithItems = unpaidBills.map(b => {
         const items = db.prepare('SELECT * FROM billing_items WHERE billing_id = ?').all(b.id);
         return { ...b, items };
@@ -200,7 +266,7 @@ exports.getInpatientDetails = (req, res) => {
 };
 
 exports.addInpatientNote = (req, res) => {
-  const { id } = req.params; // Admission ID
+  const { id } = req.params;
   const { doctorId, note, vitals } = req.body;
   
   try {
@@ -222,14 +288,12 @@ exports.dischargePatient = (req, res) => {
     const adm = db.prepare('SELECT * FROM admissions WHERE id = ?').get(id);
     if (!adm) throw new Error('Admission not found');
 
-    // 1. Calculate Final Accommodation Cost
     const bed = db.prepare('SELECT * FROM beds WHERE id = ?').get(adm.bed_id);
     const start = new Date(adm.entry_date);
     const end = new Date();
     const days = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) || 1;
     const accommodationCost = days * bed.cost_per_day;
 
-    // 2. Create Final Bill
     const billNum = Math.floor(10000000 + Math.random() * 90000000).toString();
     const bill = db.prepare(`
         INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date, is_settlement_bill, settlement_for_patient_id)
@@ -242,7 +306,6 @@ exports.dischargePatient = (req, res) => {
         accommodationCost
     );
 
-    // 3. Update Admission
     db.prepare(`
         UPDATE admissions 
         SET status = 'discharged', 
@@ -252,10 +315,7 @@ exports.dischargePatient = (req, res) => {
         WHERE id = ?
     `).run(dischargeNotes, dischargeStatus, id);
 
-    // 4. Update Bed
     db.prepare("UPDATE beds SET status = 'cleaning' WHERE id = ?").run(adm.bed_id);
-    
-    // 5. Update Patient Type
     db.prepare("UPDATE patients SET type = 'outpatient' WHERE id = ?").run(adm.patient_id);
   });
 
@@ -273,7 +333,6 @@ exports.confirmAdmissionDeposit = (req, res) => {
         const adm = db.prepare('SELECT * FROM admissions WHERE id = ?').get(id);
         if(!adm) throw new Error('Admission not found');
         
-        // Check if deposit bill is paid
         const bill = db.prepare('SELECT status, paid_amount, total_amount FROM billing WHERE id = ?').get(adm.bill_id);
         if (bill.status !== 'paid' && bill.paid_amount < bill.total_amount) {
             throw new Error('Deposit bill is not paid yet.');
