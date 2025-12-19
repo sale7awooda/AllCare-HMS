@@ -33,7 +33,7 @@ export const Admissions = () => {
 
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
-  const [confirmState, setConfirmState] = useState<any>({ isOpen: false, title: '', message: '', action: () => {}, type: 'danger' });
+  const [confirmState, setConfirmState] = useState<any>({ isOpen: false, title: '', message: '', action: () => {}, type: 'danger', confirmLabel: 'Confirm' });
   
   const [isCareModalOpen, setIsCareModalOpen] = useState(false);
   const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false);
@@ -97,7 +97,7 @@ export const Admissions = () => {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (patientSearchRef.current && !patientSearchRef.current.contains(event?.target as Node)) {
+      if (patientSearchRef.current && !patientSearchRef.current.contains(e.target as Node)) {
         setShowPatientResults(false);
       }
     };
@@ -105,11 +105,6 @@ export const Admissions = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // --- ADDED MISSING LOGIC BLOCKS ---
-
-  /**
-   * Filtered admission history based on UI search/status filters
-   */
   const filteredHistory = useMemo(() => {
     return history.filter(h => {
       const matchSearch = h.patientName.toLowerCase().includes(historyFilter.search.toLowerCase()) || 
@@ -120,9 +115,6 @@ export const Admissions = () => {
     });
   }, [history, historyFilter]);
 
-  /**
-   * Generates and downloads a CSV export of filtered history records
-   */
   const handleExportHistory = () => {
     const headers = ["Admission ID", "Patient", "Room", "Type", "Doctor", "Entry Date", "Discharge Date", "Status", "Outcome", "Est. Cost"];
     const rows = filteredHistory.map(h => [
@@ -146,9 +138,6 @@ export const Admissions = () => {
     document.body.removeChild(link);
   };
 
-  /**
-   * Confirms arrival for a reserved admission after payment verification
-   */
   const handleConfirmAdmission = async () => {
     if (!selectedAdmission) return;
     setProcessStatus('processing');
@@ -164,9 +153,6 @@ export const Admissions = () => {
     }
   };
 
-  /**
-   * Opens cancellation dialog for a reserved admission
-   */
   const handleCancelAdmission = () => {
     if (!selectedAdmission) return;
     setConfirmState({
@@ -190,9 +176,6 @@ export const Admissions = () => {
     });
   };
 
-  /**
-   * Submits a new clinical note with vitals to the patient's inpatient record
-   */
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inpatientDetails || !noteForm.note) return;
@@ -221,15 +204,10 @@ export const Admissions = () => {
     }
   };
 
-  /**
-   * Calculates total financial liability for active inpatient
-   */
   const totalOutstandingBalance = useMemo(() => {
     if (!inpatientDetails?.unpaidBills) return 0;
     return inpatientDetails.unpaidBills.reduce((sum: number, b: any) => sum + (b.total_amount - (b.paid_amount || 0)), 0);
   }, [inpatientDetails]);
-
-  // --- END ADDED LOGIC ---
 
   const wardStats = useMemo(() => {
     const total = beds.length || 0;
@@ -322,7 +300,8 @@ export const Admissions = () => {
     }
   };
 
-  const handleDischargeRequest = () => {
+  // Fixed function name to handleDischarge
+  const handleDischarge = () => {
     if (!inpatientDetails) return;
     if (totalOutstandingBalance > 0.01) {
       setProcessStatus('error');
@@ -351,6 +330,15 @@ export const Admissions = () => {
       }
     });
   };
+
+  // Fixed scoping and dependency for filtered patients
+  const filteredPatientsForAdmission = useMemo(() => {
+    return patients.filter(p => {
+        const matchesSearch = p.fullName.toLowerCase().includes(patientSearchTerm.toLowerCase()) || (p.patientId && p.patientId.toLowerCase().includes(patientSearchTerm.toLowerCase()));
+        const isAlreadyAdmitted = activeAdmissions.some(a => a.patientId === p.id);
+        return matchesSearch && !isAlreadyAdmitted && p.type !== 'inpatient';
+    }).slice(0, 5);
+  }, [patients, patientSearchTerm, activeAdmissions]);
 
   return (
     <div className="space-y-6">
@@ -529,59 +517,72 @@ export const Admissions = () => {
             </div>
         </Card>
       )}
-      
+
+      {/* CONSOLIDATED ADMIT MODAL */}
       <Modal isOpen={isAdmitModalOpen} onClose={() => setIsAdmitModalOpen(false)} title={`New Admission Request: ${selectedBedForAdmission?.roomNumber}`}>
-        <form onSubmit={handleAdmitSubmit} className="space-y-5">
-          <div className="relative space-y-1.5" ref={patientSearchRef}>
-            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">{t('patients_table_header_patient')}</label>
-            {selectedPatientForAdmission ? (
-              <div className="flex items-center justify-between p-3.5 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-2xl">
-                 <div className="flex flex-col">
-                   <span className="font-black text-primary-900 dark:text-primary-100">{selectedPatientForAdmission.fullName}</span>
-                   <span className="text-[10px] text-primary-600 dark:text-primary-400 font-black tracking-widest uppercase">ID: {selectedPatientForAdmission.patientId}</span>
-                 </div>
-                 <button type="button" onClick={() => { setSelectedPatientForAdmission(null); setPatientSearchTerm(''); }} className="p-1.5 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-full transition-colors">
-                   <X size={16} className="text-primary-600" />
-                 </button>
-              </div>
-            ) : (
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input 
-                  type="text"
-                  placeholder={t('patients_search_placeholder')}
-                  className="pl-9 pr-4 py-3 w-full rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
-                  value={patientSearchTerm}
-                  onChange={e => {setPatientSearchTerm(e.target.value); setShowPatientResults(true); }}
-                  onFocus={() => setShowPatientResults(true)}
-                />
-                {showPatientResults && filteredPatientsForAdmission.length > 0 && (
-                  <div className="absolute z-50 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl mt-1 shadow-2xl overflow-hidden animate-in fade-in duration-200">
-                    {filteredPatientsForAdmission.map(p => (
-                      <div key={p.id} className="p-3.5 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b last:border-0 border-slate-100 dark:border-slate-700 flex justify-between items-center" onClick={() => { setSelectedPatientForAdmission(p); setShowPatientResults(false); }}>
-                        <span className="font-bold text-sm">{p.fullName}</span>
-                        <ChevronRight size={14} className="text-slate-300" />
+         <form onSubmit={handleAdmitSubmit} className="space-y-6">
+            <div className="relative space-y-1.5" ref={patientSearchRef}>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Patient Registry</label>
+                {selectedPatientForAdmission ? (
+                  <div className="flex items-center justify-between p-4 bg-primary-50 dark:bg-primary-900/20 border-2 border-primary-200 dark:border-primary-800 rounded-3xl shadow-sm animate-in zoom-in-95">
+                     <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-primary-600 font-black text-xl shadow-sm">
+                          {selectedPatientForAdmission.fullName.charAt(0)}
+                       </div>
+                       <div className="flex flex-col">
+                         <span className="font-black text-primary-900 dark:text-primary-100 leading-none mb-1">{selectedPatientForAdmission.fullName}</span>
+                         <span className="text-[10px] text-primary-600 dark:text-primary-400 font-black tracking-widest uppercase">{selectedPatientForAdmission.patientId}</span>
+                       </div>
+                     </div>
+                     <button type="button" onClick={() => { setSelectedPatientForAdmission(null); setPatientSearchTerm(''); }} className="p-2 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-xl transition-colors">
+                       <Trash2 size={18} className="text-primary-600" />
+                     </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    <input 
+                      type="text"
+                      placeholder="Search name, phone or ID..."
+                      className="pl-12 pr-4 py-4 w-full rounded-3xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all shadow-sm"
+                      value={patientSearchTerm}
+                      onChange={e => {setPatientSearchTerm(e.target.value); setShowPatientResults(true); }}
+                      onFocus={() => setShowPatientResults(true)}
+                    />
+                    {showPatientResults && filteredPatientsForAdmission.length > 0 && (
+                      <div className="absolute z-50 w-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-3xl mt-2 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                        {filteredPatientsForAdmission.map(p => (
+                          <div key={p.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b last:border-0 border-slate-100 dark:border-slate-700 flex justify-between items-center transition-colors group" onClick={() => { setSelectedPatientForAdmission(p); setShowPatientResults(false); }}>
+                            <div>
+                                <p className="font-black text-sm group-hover:text-primary-600 transition-colors">{p.fullName}</p>
+                                <p className="text-[10px] text-slate-400 uppercase font-bold">{p.patientId}</p>
+                            </div>
+                            <ChevronRight size={18} className="text-slate-300 group-hover:text-primary-400" />
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
-              </div>
-            )}
-          </div>
-          <Select label={t('patients_modal_action_assign_doctor')} required value={admitForm.doctorId} onChange={e => setAdmitForm({...admitForm, doctorId: e.target.value})}>
-            <option value="">{t('patients_modal_action_select_doctor')}</option>
-            {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(doc => <option key={doc.id} value={doc.id}>{doc.fullName} ({doc.specialization})</option>)}
-          </Select>
-          <div className="grid grid-cols-2 gap-4">
-            <Input label={t('patients_modal_action_admission_date')} type="date" required value={admitForm.entryDate} onChange={e => setAdmitForm({...admitForm, entryDate: e.target.value})} />
-            <Input label={t('patients_modal_action_required_deposit')} type="number" required value={admitForm.deposit} onChange={e => setAdmitForm({...admitForm, deposit: e.target.value})} prefix={<DollarSign size={14}/>} />
-          </div>
-          <Textarea label={t('admissions_care_admission_note')} rows={2} placeholder="Initial clinical summary..." value={admitForm.notes} onChange={e => setAdmitForm({...admitForm, notes: e.target.value})} />
-          <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3">
-            <Button type="button" variant="secondary" onClick={() => setIsAdmitModalOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit" disabled={!selectedPatientForAdmission || !admitForm.doctorId}>{t('admissions_modal_reserve_button')}</Button>
-          </div>
-        </form>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Select label="Admitting Physician" required value={admitForm.doctorId} onChange={e => setAdmitForm({...admitForm, doctorId: e.target.value})}>
+                    <option value="">Choose Physician...</option>
+                    {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(doc => <option key={doc.id} value={doc.id}>{doc.fullName} ({doc.specialization})</option>)}
+                </Select>
+                <Input label="Entry Date" type="date" required value={admitForm.entryDate} onChange={e => setAdmitForm({...admitForm, entryDate: e.target.value})} />
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
+                <div className="flex justify-between items-center"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><DollarSign size={14}/> Financials</h4><Badge color="blue" className="text-[9px] font-black uppercase">${selectedBedForAdmission?.costPerDay}/DAY</Badge></div>
+                <Input label="Pre-Admission Deposit" type="number" required value={admitForm.deposit} onChange={e => setAdmitForm({...admitForm, deposit: e.target.value})} />
+                <p className="text-[10px] text-slate-500 font-medium italic">Standard hospital policy requires a minimum deposit equivalent to 2 days of ward charges.</p>
+            </div>
+            <Textarea label="Initial Diagnosis / Reason" rows={3} placeholder="Brief clinical indication for admission..." value={admitForm.notes} onChange={e => setAdmitForm({...admitForm, notes: e.target.value})} />
+            <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3">
+                <Button type="button" variant="secondary" onClick={() => setIsAdmitModalOpen(false)}>{t('cancel')}</Button>
+                <Button type="submit" disabled={!selectedPatientForAdmission || !admitForm.doctorId} className="px-8 shadow-lg shadow-primary-500/20">Authorize Admission</Button>
+            </div>
+         </form>
       </Modal>
 
       <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title="Validate Reservation">
@@ -847,123 +848,12 @@ export const Admissions = () => {
                 </div>
               )}
             </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 shrink-0 no-print">
+               <Button variant="secondary" onClick={() => setIsCareModalOpen(false)}>{t('close')}</Button>
+            </div>
           </div>
         )}
-      </Modal>
-
-      <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title="Validate Reservation">
-        {selectedAdmission && (
-          <div className="space-y-6">
-             <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-3xl border border-blue-200 dark:border-blue-800 text-center">
-                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3">Reservation Holder</p>
-                <h3 className="text-3xl font-black text-blue-900 dark:text-blue-100 leading-tight">{selectedAdmission.patientName}</h3>
-                <div className="flex items-center justify-center gap-4 mt-6">
-                  <Badge color="blue" className="px-3 py-1 font-black uppercase text-[10px]">Room {selectedAdmission.roomNumber}</Badge>
-                  <Badge color="gray" className="px-3 py-1 font-black uppercase text-[10px]">{new Date(selectedAdmission.entry_date).toLocaleDateString()}</Badge>
-                </div>
-             </div>
-             <div className="space-y-4">
-               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Payment Verification</h4>
-               <div className="flex justify-between items-center p-5 bg-white dark:bg-slate-800 border-2 rounded-3xl shadow-sm border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${selectedAdmission.billStatus === 'paid' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600 animate-pulse'}`}>
-                       {selectedAdmission.billStatus === 'paid' ? <CheckCircle size={24}/> : <Clock size={24}/>}
-                    </div>
-                    <div>
-                      <p className="font-black text-sm text-slate-800 dark:text-white">Admission Deposit</p>
-                      <p className={`text-[10px] font-black uppercase ${selectedAdmission.billStatus === 'paid' ? 'text-emerald-500' : 'text-amber-500'}`}>{selectedAdmission.billStatus}</p>
-                    </div>
-                  </div>
-                  <span className="font-mono font-black text-xl text-primary-600">${selectedAdmission.projected_cost.toLocaleString()}</span>
-               </div>
-               {selectedAdmission.billStatus !== 'paid' && (
-                 <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/50 flex items-start gap-3">
-                    <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-700 dark:text-amber-400 font-bold leading-relaxed">
-                      Admission cannot be activated. The deposit invoice must be settled in the Billing module first.
-                    </p>
-                 </div>
-               )}
-             </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 border-t dark:border-slate-700">
-                <Button variant="danger" icon={X} onClick={handleCancelAdmission} className="w-full">Release Reservation</Button>
-                <Button 
-                  icon={CheckCircle} 
-                  disabled={selectedAdmission.billStatus !== 'paid'} 
-                  onClick={handleConfirmAdmission}
-                  className="w-full shadow-lg shadow-primary-500/20"
-                >
-                  Activate Stay
-                </Button>
-             </div>
-          </div>
-        )}
-      </Modal>
-
-      <Modal isOpen={isAdmitModalOpen} onClose={() => setIsAdmitModalOpen(false)} title={`New Admission Request: ${selectedBedForAdmission?.roomNumber}`}>
-         <form onSubmit={handleAdmitSubmit} className="space-y-6">
-            <div className="relative space-y-1.5" ref={patientSearchRef}>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Patient Registry</label>
-                {selectedPatientForAdmission ? (
-                  <div className="flex items-center justify-between p-4 bg-primary-50 dark:bg-primary-900/20 border-2 border-primary-200 dark:border-primary-800 rounded-3xl shadow-sm animate-in zoom-in-95">
-                     <div className="flex items-center gap-4">
-                       <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-primary-600 font-black text-xl shadow-sm">
-                          {selectedPatientForAdmission.fullName.charAt(0)}
-                       </div>
-                       <div className="flex flex-col">
-                         <span className="font-black text-primary-900 dark:text-primary-100 leading-none mb-1">{selectedPatientForAdmission.fullName}</span>
-                         <span className="text-[10px] text-primary-600 dark:text-primary-400 font-black tracking-widest uppercase">{selectedPatientForAdmission.patientId}</span>
-                       </div>
-                     </div>
-                     <button type="button" onClick={() => { setSelectedPatientForAdmission(null); setPatientSearchTerm(''); }} className="p-2 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-xl transition-colors">
-                       <Trash2 size={18} className="text-primary-600" />
-                     </button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                    <input 
-                      type="text"
-                      placeholder="Search name, phone or ID..."
-                      className="pl-12 pr-4 py-4 w-full rounded-3xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all shadow-sm"
-                      value={patientSearchTerm}
-                      onChange={e => {setPatientSearchTerm(e.target.value); setShowPatientResults(true); }}
-                      onFocus={() => setShowPatientResults(true)}
-                    />
-                    {showPatientResults && filteredPatientsForAdmission.length > 0 && (
-                      <div className="absolute z-50 w-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-3xl mt-2 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
-                        {filteredPatientsForAdmission.map(p => (
-                          <div key={p.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b last:border-0 border-slate-100 dark:border-slate-700 flex justify-between items-center transition-colors group" onClick={() => { setSelectedPatientForAdmission(p); setShowPatientResults(false); }}>
-                            <div>
-                                <p className="font-black text-sm group-hover:text-primary-600 transition-colors">{p.fullName}</p>
-                                <p className="text-[10px] text-slate-400 uppercase font-bold">{p.patientId}</p>
-                            </div>
-                            <ChevronRight size={18} className="text-slate-300 group-hover:text-primary-400" />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Select label="Admitting Physician" required value={admitForm.doctorId} onChange={e => setAdmitForm({...admitForm, doctorId: e.target.value})}>
-                    <option value="">Choose Physician...</option>
-                    {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(doc => <option key={doc.id} value={doc.id}>{doc.fullName} ({doc.specialization})</option>)}
-                </Select>
-                <Input label="Entry Date" type="date" required value={admitForm.entryDate} onChange={e => setAdmitForm({...admitForm, entryDate: e.target.value})} />
-            </div>
-            <div className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
-                <div className="flex justify-between items-center"><h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><DollarSign size={14}/> Financials</h4><Badge color="blue" className="text-[9px] font-black uppercase">${selectedBedForAdmission?.costPerDay}/DAY</Badge></div>
-                <Input label="Pre-Admission Deposit" type="number" required value={admitForm.deposit} onChange={e => setAdmitForm({...admitForm, deposit: e.target.value})} />
-                <p className="text-[10px] text-slate-500 font-medium italic">Standard hospital policy requires a minimum deposit equivalent to 2 days of ward charges.</p>
-            </div>
-            <Textarea label="Initial Diagnosis / Reason" rows={3} placeholder="Brief clinical indication for admission..." value={admitForm.notes} onChange={e => setAdmitForm({...admitForm, notes: e.target.value})} />
-            <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3">
-                <Button type="button" variant="secondary" onClick={() => setIsAdmitModalOpen(false)}>{t('cancel')}</Button>
-                <Button type="submit" disabled={!selectedPatientForAdmission || !admitForm.doctorId} className="px-8 shadow-lg shadow-primary-500/20">Authorize Admission</Button>
-            </div>
-         </form>
       </Modal>
 
       <ConfirmationDialog 

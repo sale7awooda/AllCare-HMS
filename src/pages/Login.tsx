@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { Role } from '../types';
@@ -19,7 +20,9 @@ import {
   Stethoscope,
   Database,
   RefreshCw,
-  Server
+  Server,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
@@ -34,7 +37,6 @@ export const Login: React.FC = () => {
   const [serverStatus, setServerStatus] = useState<'connecting' | 'online' | 'offline'>('connecting');
   const { t } = useTranslation();
   
-  // Ref to track if component is mounted to prevent state updates after unmount
   const isMounted = useRef(true);
 
   const [hospitalInfo] = useState(() => ({
@@ -46,18 +48,22 @@ export const Login: React.FC = () => {
   const [activeProfile, setActiveProfile] = useState<Role | null>(null);
   const [passwordVisible, setPasswordVisible] = useState(false);
 
+  const checkServer = async () => {
+    if (isMounted.current) setServerStatus('connecting');
+    try {
+      // Use a public endpoint to check if the Node backend is responding
+      await api.getPublicSettings();
+      if (isMounted.current) setServerStatus('online');
+    } catch (e: any) {
+      console.error("Server check failed:", e);
+      if (isMounted.current) setServerStatus('offline');
+    }
+  };
+
   useEffect(() => {
     isMounted.current = true;
-    const checkServer = async () => {
-      try {
-        await api.getPublicSettings();
-        if (isMounted.current) setServerStatus('online');
-      } catch (e) {
-        if (isMounted.current) setServerStatus('offline');
-      }
-    };
     checkServer();
-    const interval = setInterval(checkServer, 10000);
+    const interval = setInterval(checkServer, 15000);
     return () => { 
         clearInterval(interval); 
         isMounted.current = false; 
@@ -69,48 +75,27 @@ export const Login: React.FC = () => {
     setLoading(true);
     setError('');
     
-    // Safety timeout: stop spinner if request takes too long (15s)
-    const timeoutId = setTimeout(() => {
-      if (isMounted.current && loading) {
-        setLoading(false);
-        setError('Connection timed out. Please check your network or try again.');
-      }
-    }, 15000);
-
     try {
       const response = await api.login(username, password);
       
-      // Clear safety timeout immediately upon response
-      clearTimeout(timeoutId);
-
-      // Strict validation of response
       if (response && response.user && response.token) {
-          // Success: AuthContext will update, causing this component to unmount.
-          // We do not set loading false here to prevent flicker before unmount.
           login(response.user, response.token);
       } else {
-          throw new Error('Invalid response received from server.');
+          throw new Error('Invalid server response structure.');
       }
     } catch (err: any) {
-      clearTimeout(timeoutId);
       console.error("Login failed:", err);
       
       if (isMounted.current) {
-          const errorMessage = err.message || '';
+          const msg = err.message || '';
           
-          // Heuristic to detect HTML error pages (e.g. 404/500 from proxy)
-          const isHtmlError = errorMessage.trim().startsWith('<') || errorMessage.includes('DOCTYPE');
-          
-          // Heuristic for network errors
-          const isNetworkError = errorMessage === 'Failed to fetch' || errorMessage.includes('NetworkError');
-
-          if (isHtmlError) {
-             setError('Service unreachable. The backend may be offline or misconfigured.');
-          } else if (isNetworkError) {
-             setError(t('login_status_offline'));
+          if (msg.includes('NETWORK_ERROR') || msg.includes('API_NOT_FOUND')) {
+             setError('CRITICAL: Backend offline. Please run "npm run start" or ensure the Node.js process is active in your terminal.');
+             setServerStatus('offline');
+          } else if (msg.includes('Invalid credentials')) {
+             setError(t('login_error_auth_failed'));
           } else {
-             // Display the actual API error message (e.g. "Invalid credentials")
-             setError(errorMessage || t('login_error_auth_failed'));
+             setError(msg || t('login_error_auth_failed'));
           }
           
           setLoading(false);
@@ -163,18 +148,35 @@ export const Login: React.FC = () => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
       
-      {/* Dynamic Background Layer */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-cyan-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950" />
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light" />
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 blur-3xl animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-400/10 blur-3xl animate-pulse delay-700" />
       </div>
 
       <div className="relative z-10 w-full max-w-[380px] px-4">
         <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/60 dark:border-slate-800/60 rounded-3xl shadow-2xl overflow-hidden ring-1 ring-slate-900/5 transition-all">
           
-          <div className="px-6 pt-6 pb-4 text-center border-b border-slate-100 dark:border-slate-800">
+          <div className="px-6 pt-6 pb-4 text-center border-b border-slate-100 dark:border-slate-800 relative">
+            {/* Status Indicator */}
+            <div className="absolute top-4 right-4 group">
+               {serverStatus === 'online' ? (
+                 <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 animate-in fade-in zoom-in">
+                    <Wifi size={10} />
+                    <span className="text-[8px] font-black uppercase">Live</span>
+                 </div>
+               ) : serverStatus === 'connecting' ? (
+                 <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                    <RefreshCw size={10} className="animate-spin" />
+                    <span className="text-[8px] font-black uppercase">Checking</span>
+                 </div>
+               ) : (
+                 <button onClick={checkServer} className="flex items-center gap-1.5 px-2 py-1 bg-rose-50 text-rose-600 rounded-full border border-rose-100 hover:bg-rose-100 transition-colors animate-pulse">
+                    <WifiOff size={10} />
+                    <span className="text-[8px] font-black uppercase">Offline - Retry</span>
+                 </button>
+               )}
+            </div>
+
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/20 mb-3 text-white">
               <Activity size={24} />
             </div>
@@ -185,19 +187,18 @@ export const Login: React.FC = () => {
                 <MapPin size={10} className="text-primary-500" />
                 <span>{hospitalInfo.address}</span>
               </div>
-              <div className="flex items-center justify-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11px] font-medium">
-                <PhoneCall size={10} className="text-primary-500" />
-                <span>{hospitalInfo.phone}</span>
-              </div>
             </div>
           </div>
 
           <div className="p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="p-2.5 rounded-xl bg-red-50 border border-red-100 flex items-center gap-2 text-red-600 text-xs font-bold animate-in shake duration-300">
-                  <AlertCircle size={14} className="shrink-0" />
-                  {error}
+                <div className="p-3 rounded-xl bg-red-50 border border-red-100 flex flex-col gap-2 text-red-600 text-[11px] font-bold animate-in shake duration-300">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>Error Detected</span>
+                  </div>
+                  <p className="font-medium opacity-90 leading-relaxed">{error}</p>
                 </div>
               )}
 
@@ -257,7 +258,7 @@ export const Login: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={loading || !username || !password}
+                disabled={loading || !username || !password || serverStatus === 'offline'}
                 className="w-full py-3 px-4 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-primary-500/25 transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
               >
                 {loading ? (
@@ -291,11 +292,8 @@ export const Login: React.FC = () => {
         <div className="mt-6 flex flex-col items-center gap-1.5">
            <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-600 text-[9px] font-bold uppercase tracking-widest">
               <Database size={10} />
-              <span>{t('login_footer_text')}</span>
+              <span>System Integrity Check Active</span>
            </div>
-           <p className="text-slate-400 dark:text-slate-500 text-[9px] font-bold uppercase tracking-tight">
-             {t('login_developer_credit')} • 0909018730
-           </p>
         </div>
       </div>
     </div>

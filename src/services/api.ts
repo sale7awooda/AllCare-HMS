@@ -13,11 +13,13 @@ const getHeaders = () => {
 const handleResponse = async (response: Response) => {
   if (response.status === 401) {
     localStorage.removeItem('token');
-    // Optional: Redirect to login or dispatch event
-    // window.location.href = '/login'; 
-    throw new Error('Session expired. Please login again.');
+    throw new Error('SESSION_EXPIRED');
   }
   
+  if (response.status === 404) {
+    throw new Error('API_NOT_FOUND: The backend server might be offline or the endpoint is incorrect.');
+  }
+
   // Handle empty responses (like 204 No Content)
   if (response.status === 204) {
       return null;
@@ -27,14 +29,13 @@ const handleResponse = async (response: Response) => {
   if (contentType && contentType.indexOf("application/json") !== -1) {
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || data.message || 'API Error');
+      throw new Error(data.error || data.message || 'API_ERROR');
     }
     return data;
   } else {
-    // Handle non-JSON responses if needed, or error out
     if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || 'API Error');
+        throw new Error(text || 'API_ERROR');
     }
     return response.text(); 
   }
@@ -48,8 +49,17 @@ const request = async (method: string, endpoint: string, body?: any) => {
   if (body) {
     config.body = JSON.stringify(body);
   }
-  const response = await fetch(`${API_URL}${endpoint}`, config);
-  return handleResponse(response);
+  
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, config);
+    return await handleResponse(response);
+  } catch (error: any) {
+    // Catch actual network errors (CORS, Connection Refused, DNS)
+    if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+      throw new Error('NETWORK_ERROR: Unable to connect to the backend. Please ensure the Node.js server is running on port 3000.');
+    }
+    throw error;
+  }
 };
 
 const get = (endpoint: string) => request('GET', endpoint);
@@ -57,6 +67,7 @@ const post = (endpoint: string, body?: any) => request('POST', endpoint, body);
 const put = (endpoint: string, body?: any) => request('PUT', endpoint, body);
 const del = (endpoint: string) => request('DELETE', endpoint);
 
+// Added missing upload helper
 const upload = async (endpoint: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -72,6 +83,7 @@ const upload = async (endpoint: string, file: File) => {
     return handleResponse(response);
 };
 
+// Added missing download helper
 const download = async (endpoint: string) => {
     const token = localStorage.getItem('token');
     const response = await fetch(`${API_URL}${endpoint}`, {
