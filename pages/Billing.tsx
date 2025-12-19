@@ -7,7 +7,7 @@ import {
   Wallet, FileText, CheckCircle, Trash2,
   ChevronLeft, ChevronRight, Search, Filter,
   Landmark, ArrowUpRight, ArrowDownRight, Coins, X, Edit, TrendingUp,
-  Banknote, ShieldCheck, RotateCcw, Ban
+  Banknote, ShieldCheck, RotateCcw, Ban, Activity, Stethoscope
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Bill, Patient, PaymentMethod, TaxRate, Transaction, InsuranceProvider } from '../types';
@@ -19,7 +19,7 @@ import { useHeader } from '../context/HeaderContext';
 export const Billing = () => {
   const { t, language } = useTranslation();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<'invoices' | 'treasury'>('invoices');
+  const [activeTab, setActiveTab] = useState<'invoices' | 'treasury' | 'operations'>('invoices');
   const [bills, setBills] = useState<Bill[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -27,6 +27,7 @@ export const Billing = () => {
   const [catalogItems, setCatalogItems] = useState<{label: string, cost: number}[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
+  const [operations, setOperations] = useState<any[]>([]); // Added for ops breakdown
   
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -40,9 +41,9 @@ export const Billing = () => {
     t('billing_subtitle'),
     activeTab === 'invoices' ? (
       canManageBilling && <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('billing_create_invoice_button')}</Button>
-    ) : (
+    ) : activeTab === 'treasury' ? (
       <Button onClick={() => openExpenseModal()} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button>
-    )
+    ) : null
   );
 
   // Pagination & Filtering State
@@ -82,6 +83,7 @@ export const Billing = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isPayShareModalOpen, setIsPayShareModalOpen] = useState(false); // New modal for share payment
   
   // Confirmation Dialog
   const [confirmState, setConfirmState] = useState<{
@@ -94,6 +96,10 @@ export const Billing = () => {
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
   const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
+
+  // Operation Share Payment State
+  const [selectedShare, setSelectedShare] = useState<any>(null);
+  const [sharePaymentForm, setSharePaymentForm] = useState({ method: 'Cash', notes: '' });
 
   // Create Invoice Form
   const [createForm, setCreateForm] = useState({
@@ -168,7 +174,7 @@ export const Billing = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [b, p, pm, taxes, labs, services, trans, ins, ops, beds] = await Promise.all([
+      const [b, p, pm, taxes, labs, services, trans, ins, ops_catalog, beds, ops] = await Promise.all([
         api.getBills(), 
         api.getPatients(),
         api.getPaymentMethods(),
@@ -177,8 +183,9 @@ export const Billing = () => {
         api.getNurseServices(),
         api.getTransactions(),
         api.getInsuranceProviders(),
-        api.getOperations(),
-        api.getBeds()
+        api.getOperations(), // Catalog
+        api.getBeds(),
+        api.getScheduledOperations() // Actual scheduled/completed operations
       ]);
       
       const billsArr = Array.isArray(b) ? b : [];
@@ -189,22 +196,21 @@ export const Billing = () => {
       const transactionsArr = Array.isArray(trans) ? trans : [];
       setTransactions(transactionsArr);
       setInsuranceProviders(Array.isArray(ins) ? ins : []);
+      setOperations(Array.isArray(ops) ? ops : []);
 
       const catalog = [
         ...(Array.isArray(labs) ? labs.map((l: any) => ({ label: `${t('nav_laboratory')}: ${language === 'ar' ? l.name_ar : l.name_en}`, cost: l.cost })) : []),
         ...(Array.isArray(services) ? services.map((s: any) => ({ label: `${t('billing_type_procedure')}: ${language === 'ar' ? s.name_ar : s.name_en}`, cost: s.cost })) : []),
-        ...(Array.isArray(ops) ? ops.map((o: any) => ({ label: `${t('nav_operations')}: ${language === 'ar' ? o.name_ar : o.name_en}`, cost: o.base_cost })) : []),
+        ...(Array.isArray(ops_catalog) ? ops_catalog.map((o: any) => ({ label: `${t('nav_operations')}: ${language === 'ar' ? o.name_ar : o.name_en}`, cost: o.base_cost })) : []),
         ...(Array.isArray(beds) ? beds.map((bd: any) => ({ label: `${t('admissions_care_daily_rate')}: ${bd.roomNumber} (${bd.type})`, cost: bd.costPerDay })) : [])
       ];
       setCatalogItems(catalog);
 
-      // Pending Collection Calculation: 
-      // Only include bills that are 'pending' or 'partial'.
-      // Do NOT include 'refunded' or 'cancelled'.
+      // Pending Collection Calculation
       const pendingBills = billsArr.filter(b => b.status === 'pending' || b.status === 'partial');
       const pendingTotal = pendingBills.reduce((acc, curr) => acc + (curr.totalAmount - curr.paidAmount), 0);
 
-      // Total Revenue is purely based on transactions (Income) or paidAmount sum
+      // Total Revenue
       const activeBills = billsArr.filter(x => x.status !== 'cancelled'); 
       const totalRev = activeBills.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0);
       
@@ -261,20 +267,14 @@ export const Billing = () => {
       return paymentMethods.filter(p => p.isActive);
   };
 
-  const handleAddItem = () => {
-    setCreateForm({ ...createForm, items: [...createForm.items, { description: '', amount: '' }] });
-  };
-
-  const handleRemoveItem = (index: number) => {
-    setCreateForm({ ...createForm, items: createForm.items.filter((_, i) => i !== index) });
-  };
-
+  // ... (Previous Create/Payment/Refund Handlers remain unchanged) ...
+  const handleAddItem = () => { setCreateForm({ ...createForm, items: [...createForm.items, { description: '', amount: '' }] }); };
+  const handleRemoveItem = (index: number) => { setCreateForm({ ...createForm, items: createForm.items.filter((_, i) => i !== index) }); };
   const handleItemChange = (index: number, field: 'description' | 'amount', value: string) => {
     const newItems = [...createForm.items];
     newItems[index] = { ...newItems[index], [field]: value };
     setCreateForm({ ...createForm, items: newItems });
   };
-
   const handleCatalogSelect = (index: number, value: string) => {
     if (!value) return;
     const item = catalogItems.find(i => i.label === value);
@@ -284,15 +284,10 @@ export const Billing = () => {
         setCreateForm({ ...createForm, items: newItems });
     }
   };
-
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createForm.patientId) return;
-
-    let formattedItems = createForm.items
-      .filter(i => i.description && i.amount)
-      .map(i => ({ description: i.description, amount: parseFloat(i.amount) }));
-
+    let formattedItems = createForm.items.filter(i => i.description && i.amount).map(i => ({ description: i.description, amount: parseFloat(i.amount) }));
     if (formattedItems.length > 0) {
       setIsProcessing(true);
       let total = formattedItems.reduce((sum, i) => sum + i.amount, 0);
@@ -304,14 +299,8 @@ export const Billing = () => {
               total += taxAmount;
           }
       }
-
       try {
-        await api.createBill({ 
-          patientId: parseInt(createForm.patientId), 
-          patientName: createForm.patientName, 
-          totalAmount: total, 
-          items: formattedItems 
-        });
+        await api.createBill({ patientId: parseInt(createForm.patientId), patientName: createForm.patientName, totalAmount: total, items: formattedItems });
         setIsCreateModalOpen(false);
         setCreateForm({ patientId: '', patientName: '', items: [{ description: '', amount: '' }], selectedTaxId: '' });
         setPatientSearch('');
@@ -319,36 +308,22 @@ export const Billing = () => {
       } catch(e) { console.error(e); } finally { setIsProcessing(false); }
     }
   };
-
   const openPaymentModal = (bill: Bill) => {
     setPayingBill(bill);
     const patient = patients.find(p => p.id === bill.patientId);
     const remaining = bill.totalAmount - (bill.paidAmount || 0);
-    
     let defaultMethod = '';
     const activePMs = getFilteredPaymentMethods();
     if (activePMs.length > 0) {
         const cashMethod = activePMs.find(p => p.name_en.toLowerCase() === 'cash');
         const insuranceMethod = activePMs.find(p => p.name_en.toLowerCase() === 'insurance');
-        
         if (patient?.hasInsurance && insuranceMethod) defaultMethod = insuranceMethod.name_en;
         else if (cashMethod) defaultMethod = cashMethod.name_en;
         else defaultMethod = activePMs[0].name_en;
     }
-
-    setPaymentForm({ 
-        amount: remaining.toString(), 
-        method: defaultMethod,
-        date: new Date().toISOString().split('T')[0],
-        notes: '',
-        transactionId: '',
-        insuranceProvider: patient?.hasInsurance ? patient?.insuranceDetails?.provider || '' : '',
-        policyNumber: patient?.hasInsurance ? patient?.insuranceDetails?.policyNumber || '' : '',
-        expiryDate: patient?.hasInsurance ? patient?.insuranceDetails?.expiryDate || '' : ''
-    });
+    setPaymentForm({ amount: remaining.toString(), method: defaultMethod, date: new Date().toISOString().split('T')[0], notes: '', transactionId: '', insuranceProvider: patient?.hasInsurance ? patient?.insuranceDetails?.provider || '' : '', policyNumber: patient?.hasInsurance ? patient?.insuranceDetails?.policyNumber || '' : '', expiryDate: patient?.hasInsurance ? patient?.insuranceDetails?.expiryDate || '' : '' });
     setIsPaymentModalOpen(true);
   };
-
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!payingBill) return;
@@ -359,51 +334,29 @@ export const Billing = () => {
     } else if (paymentForm.method.toLowerCase() !== 'cash') {
         payload.details = { ...payload.details, transactionId: paymentForm.transactionId };
     }
-
     try {
       await api.recordPayment(payingBill.id, payload);
       setIsPaymentModalOpen(false);
       setPayingBill(null);
       loadData();
-    } catch (err: any) { 
-        alert(err.response?.data?.error || t('billing_payment_failed')); 
-    } finally { 
-        setIsProcessing(false); 
-    }
+    } catch (err: any) { alert(err.response?.data?.error || t('billing_payment_failed')); } finally { setIsProcessing(false); }
   };
-
   const openRefundModal = (bill: Bill) => {
     setPayingBill(bill);
-    setRefundForm({
-      amount: (bill.paidAmount || 0).toString(),
-      reason: '',
-      method: 'Cash',
-      date: new Date().toISOString().split('T')[0]
-    });
+    setRefundForm({ amount: (bill.paidAmount || 0).toString(), reason: '', method: 'Cash', date: new Date().toISOString().split('T')[0] });
     setIsRefundModalOpen(true);
   };
-
   const handleRefundSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!payingBill) return;
     setIsProcessing(true);
     try {
-      await api.processRefund(payingBill.id, {
-        amount: parseFloat(refundForm.amount),
-        reason: refundForm.reason,
-        date: refundForm.date,
-        method: refundForm.method
-      });
+      await api.processRefund(payingBill.id, { amount: parseFloat(refundForm.amount), reason: refundForm.reason, date: refundForm.date, method: refundForm.method });
       setIsRefundModalOpen(false);
       setPayingBill(null);
       loadData();
-    } catch (err: any) {
-      alert(err.response?.data?.error || t('billing_refund_failed'));
-    } finally {
-      setIsProcessing(false);
-    }
+    } catch (err: any) { alert(err.response?.data?.error || t('billing_refund_failed')); } finally { setIsProcessing(false); }
   };
-
   const handleCancelService = (bill: Bill) => {
     setConfirmState({
       isOpen: true,
@@ -411,64 +364,112 @@ export const Billing = () => {
       message: "Are you sure you want to cancel the service associated with this invoice? This action is required before a refund can be processed.",
       action: async () => {
         setIsProcessing(true);
-        try {
-          await api.cancelService(bill.id);
-          loadData();
-        } catch (e: any) {
-          alert(e.response?.data?.error || t('billing_cancel_service_failed'));
-        } finally {
-          setIsProcessing(false);
-        }
+        try { await api.cancelService(bill.id); loadData(); } catch (e: any) { alert(e.response?.data?.error || t('billing_cancel_service_failed')); } finally { setIsProcessing(false); }
       }
     });
   };
-
   const handleExpenseSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsProcessing(true);
       try {
           const payload = { ...expenseForm, amount: parseFloat(expenseForm.amount) };
-          if (editingExpenseId) {
-            await api.updateExpense(editingExpenseId, payload);
-          } else {
-            await api.addExpense(payload);
-          }
+          if (editingExpenseId) await api.updateExpense(editingExpenseId, payload);
+          else await api.addExpense(payload);
           setIsExpenseModalOpen(false);
           setEditingExpenseId(null);
           loadData();
-      } catch(err: any) { 
-          alert(err.response?.data?.error || (editingExpenseId ? "Failed to update expense." : t('billing_expense_failed'))); 
-      } finally { 
-          setIsProcessing(false); 
-      }
+      } catch(err: any) { alert(err.response?.data?.error || (editingExpenseId ? "Failed to update expense." : t('billing_expense_failed'))); } finally { setIsProcessing(false); }
   };
-
   const openExpenseModal = (tx?: Transaction) => {
       const activePMs = getFilteredPaymentMethods();
       const cashMethod = activePMs.find(p => p.name_en.toLowerCase() === 'cash')?.name_en || (activePMs[0]?.name_en || 'Cash');
-
       if (tx) {
         setEditingExpenseId(tx.id);
-        setExpenseForm({
-            category: tx.category || 'General',
-            amount: tx.amount.toString(),
-            method: tx.method || cashMethod,
-            date: tx.date ? (tx.date.includes('T') ? tx.date.split('T')[0] : tx.date.split(' ')[0]) : new Date().toISOString().split('T')[0],
-            description: tx.description || ''
-        });
+        setExpenseForm({ category: tx.category || 'General', amount: tx.amount.toString(), method: tx.method || cashMethod, date: tx.date ? (tx.date.includes('T') ? tx.date.split('T')[0] : tx.date.split(' ')[0]) : new Date().toISOString().split('T')[0], description: tx.description || '' });
       } else {
         setEditingExpenseId(null);
-        setExpenseForm({ 
-            category: 'General', 
-            amount: '', 
-            method: cashMethod, 
-            date: new Date().toISOString().split('T')[0], 
-            description: '' 
-        });
+        setExpenseForm({ category: 'General', amount: '', method: cashMethod, date: new Date().toISOString().split('T')[0], description: '' });
       }
       setIsExpenseModalOpen(true);
   };
 
+  // --- OPERATIONS SHARE LOGIC ---
+  const operationsShares = useMemo(() => {
+    const allShares: any[] = [];
+    operations.forEach((op) => {
+        if (op.costDetails) {
+            // Surgeon Share
+            const surgeonFee = op.costDetails.surgeonFee || 0;
+            if (surgeonFee > 0) {
+                allShares.push({
+                    opId: op.id,
+                    opName: op.operation_name,
+                    date: op.created_at,
+                    patientName: op.patientName,
+                    role: 'Lead Surgeon',
+                    staffName: op.doctorName || 'Assigned Surgeon',
+                    amount: surgeonFee,
+                    isPaid: op.costDetails.surgeonPaid,
+                    paidDate: op.costDetails.surgeonPaidDate,
+                    targetType: 'surgeon'
+                });
+            }
+            
+            // Participants Shares
+            if (Array.isArray(op.costDetails.participants)) {
+                op.costDetails.participants.forEach((part: any, idx: number) => {
+                    if (part.fee > 0) {
+                        allShares.push({
+                            opId: op.id,
+                            opName: op.operation_name,
+                            date: op.created_at,
+                            patientName: op.patientName,
+                            role: part.role,
+                            staffName: part.name,
+                            amount: part.fee,
+                            isPaid: part.isPaid,
+                            paidDate: part.paidDate,
+                            targetType: 'participant',
+                            targetIndex: idx
+                        });
+                    }
+                });
+            }
+        }
+    });
+    return allShares.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [operations]);
+
+  const openPayShareModal = (share: any) => {
+      setSelectedShare(share);
+      const activePMs = getFilteredPaymentMethods();
+      const defaultMethod = activePMs.find(p => p.name_en.toLowerCase() === 'cash')?.name_en || (activePMs[0]?.name_en || 'Cash');
+      setSharePaymentForm({ method: defaultMethod, notes: '' });
+      setIsPayShareModalOpen(true);
+  };
+
+  const handlePayShareSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!selectedShare) return;
+      setIsProcessing(true);
+      try {
+          await api.payOperationShare(selectedShare.opId, {
+              targetType: selectedShare.targetType,
+              targetIndex: selectedShare.targetIndex,
+              amount: selectedShare.amount,
+              method: sharePaymentForm.method,
+              notes: sharePaymentForm.notes
+          });
+          setIsPayShareModalOpen(false);
+          loadData();
+      } catch (err: any) {
+          alert(err.response?.data?.error || "Failed to process share payment.");
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
+  // --- FILTERING ---
   const filteredBills = useMemo(() => {
     return bills.filter(bill => {
       const matchesSearch = bill.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase());
@@ -580,6 +581,7 @@ export const Billing = () => {
           {[
               { id: 'invoices', label: t('billing_tab_invoices'), icon: FileText },
               { id: 'treasury', label: t('billing_tab_treasury'), icon: Landmark },
+              { id: 'operations', label: 'Operations Breakdown', icon: Activity },
           ].map(tab => (
               <button
                 key={tab.id}
@@ -698,7 +700,7 @@ export const Billing = () => {
         </div>
       )}
 
-      {/* ... Treasury Tab Content ... */}
+      {/* --- TREASURY TAB --- */}
       {activeTab === 'treasury' && (
           <div className="space-y-6 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -751,6 +753,59 @@ export const Billing = () => {
                   </div>
               </Card>
           </div>
+      )}
+
+      {/* --- OPERATIONS BREAKDOWN TAB --- */}
+      {activeTab === 'operations' && (
+          <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden animate-in fade-in">
+              <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+                  <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2"><Activity size={18} className="text-primary-600"/> Surgical Team Payouts</h3>
+                  <p className="text-xs text-slate-500 mt-1">Track and disperse payments for surgeons and staff for completed operations.</p>
+              </div>
+              <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                      <thead className="bg-slate-50 dark:bg-slate-900">
+                          <tr>
+                              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Operation Info</th>
+                              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Role</th>
+                              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Staff Name</th>
+                              <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Share Amount</th>
+                              <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase">Status</th>
+                              <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Action</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">
+                          {operationsShares.length === 0 ? (
+                              <tr><td colSpan={6} className="text-center py-10 text-slate-400 font-medium">No payable operations found.</td></tr>
+                          ) : (
+                              operationsShares.map((share: any, index: number) => (
+                                  <tr key={`${share.opId}-${index}`} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                      <td className="px-6 py-4">
+                                          <div className="font-bold text-sm text-slate-800 dark:text-white">{share.opName}</div>
+                                          <div className="text-xs text-slate-500">{new Date(share.date).toLocaleDateString()} • {share.patientName}</div>
+                                      </td>
+                                      <td className="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500">{share.role}</td>
+                                      <td className="px-6 py-4 text-sm font-bold flex items-center gap-2">
+                                          <Stethoscope size={14} className="text-slate-400"/>
+                                          {share.staffName}
+                                      </td>
+                                      <td className="px-6 py-4 text-right font-mono font-bold text-emerald-600">${share.amount.toLocaleString()}</td>
+                                      <td className="px-6 py-4 text-center">
+                                          <Badge color={share.isPaid ? 'green' : 'yellow'}>{share.isPaid ? 'Paid' : 'Unpaid'}</Badge>
+                                          {share.isPaid && <div className="text-[9px] text-slate-400 mt-1">{new Date(share.paidDate).toLocaleDateString()}</div>}
+                                      </td>
+                                      <td className="px-6 py-4 text-right">
+                                          {!share.isPaid && canManageBilling && (
+                                              <Button size="sm" onClick={() => openPayShareModal(share)}>Pay Share</Button>
+                                          )}
+                                      </td>
+                                  </tr>
+                              ))
+                          )}
+                      </tbody>
+                  </table>
+              </div>
+          </Card>
       )}
 
       {/* --- MODALS --- */}
@@ -900,6 +955,29 @@ export const Billing = () => {
             <Button type="submit" disabled={isProcessing}>{isProcessing ? t('processing') : (editingExpenseId ? t('save') : t('billing_modal_expense_save'))}</Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={isPayShareModalOpen} onClose={() => setIsPayShareModalOpen(false)} title="Process Share Payout">
+        {selectedShare && (
+            <form onSubmit={handlePayShareSubmit} className="space-y-6">
+                <div className="p-5 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-800 text-center">
+                    <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">Paying {selectedShare.role}</p>
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{selectedShare.staffName}</h3>
+                    <p className="text-4xl font-black text-emerald-600 font-mono tracking-tighter">${selectedShare.amount.toLocaleString()}</p>
+                </div>
+                
+                <Select label={t('billing_modal_payment_method')} value={sharePaymentForm.method} onChange={e => setSharePaymentForm({...sharePaymentForm, method: e.target.value})}>
+                    {getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}
+                </Select>
+                
+                <Textarea label="Payout Notes" rows={2} value={sharePaymentForm.notes} onChange={e => setSharePaymentForm({...sharePaymentForm, notes: e.target.value})} placeholder="Check number, transaction reference..." />
+                
+                <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700">
+                    <Button type="button" variant="secondary" onClick={() => setIsPayShareModalOpen(false)}>{t('cancel')}</Button>
+                    <Button type="submit" disabled={isProcessing} icon={CheckCircle}>{isProcessing ? t('processing') : 'Confirm Payout'}</Button>
+                </div>
+            </form>
+        )}
       </Modal>
 
       <Modal isOpen={!!selectedBill} onClose={() => setSelectedBill(null)} title={t('billing_modal_preview_title')}>

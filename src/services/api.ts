@@ -173,6 +173,13 @@ export const api = {
   markBedClean: (id: number | string) => put(`/config/beds/${id}/clean`),
   getAdmissionHistory: () => get('/medical/admissions/history'),
 
+  // Pharmacy
+  getPharmacyInventory: () => get('/pharmacy/inventory'),
+  addPharmacyInventory: (data: any) => post('/pharmacy/inventory', data),
+  updatePharmacyInventory: (id: number, data: any) => put(`/pharmacy/inventory/${id}`, data),
+  deletePharmacyInventory: (id: number) => del(`/pharmacy/inventory/${id}`),
+  dispenseDrugs: (data: any) => post('/pharmacy/dispense', data),
+
   // Config
   getPublicSettings: () => get('/config/public-settings'),
   getSystemSettings: () => get('/config/settings'),
