@@ -71,14 +71,15 @@ export const Admissions = () => {
       const [bedsData, admissionsData, patientsData, staffData] = await Promise.all([
         api.getBeds(), api.getActiveAdmissions(), api.getPatients(), api.getStaff(),
       ]);
-      setBeds(bedsData);
-      setActiveAdmissions(admissionsData);
-      setPatients(patientsData);
-      setStaff(staffData);
+      // Safety check: ensure we always set arrays to prevent crashes
+      setBeds(Array.isArray(bedsData) ? bedsData : []);
+      setActiveAdmissions(Array.isArray(admissionsData) ? admissionsData : []);
+      setPatients(Array.isArray(patientsData) ? patientsData : []);
+      setStaff(Array.isArray(staffData) ? staffData : []);
       
       const state = location.state as any;
       if (state?.trigger === 'new') {
-        const availableBed = bedsData.find((b: any) => b.status === 'available');
+        const availableBed = (Array.isArray(bedsData) ? bedsData : []).find((b: any) => b.status === 'available');
         if (availableBed) handleBedClick(availableBed);
       }
     } catch (e) { console.error(e); } finally { if (!silent) setLoading(false); }
@@ -90,7 +91,8 @@ export const Admissions = () => {
     if (activeTab === 'records') {
         setLoading(true);
         api.getAdmissionHistory()
-           .then(setHistory)
+           .then(data => setHistory(Array.isArray(data) ? data : []))
+           .catch(err => { console.error(err); setHistory([]); })
            .finally(() => setLoading(false));
     }
   }, [activeTab]);
@@ -106,6 +108,7 @@ export const Admissions = () => {
   }, []);
 
   const filteredHistory = useMemo(() => {
+    if (!Array.isArray(history)) return [];
     return history.filter(h => {
       const matchSearch = h.patientName.toLowerCase().includes(historyFilter.search.toLowerCase()) || 
                           h.roomNumber.toLowerCase().includes(historyFilter.search.toLowerCase()) ||
@@ -210,6 +213,9 @@ export const Admissions = () => {
   }, [inpatientDetails]);
 
   const wardStats = useMemo(() => {
+    // Defensive check
+    if (!Array.isArray(beds)) return { total: 0, occupied: 0, cleaning: 0, available: 0, reserved: 0, occupancyRate: 0 };
+    
     const total = beds.length || 0;
     const occupied = beds.filter(b => b.status === 'occupied').length;
     const cleaning = beds.filter(b => b.status === 'cleaning').length;
@@ -222,7 +228,7 @@ export const Admissions = () => {
 
   const handleBedClick = async (bed: any) => {
     if (bed.status === 'reserved') {
-      const admission = activeAdmissions.find(a => a.bedId === bed.id && a.status === 'reserved');
+      const admission = Array.isArray(activeAdmissions) ? activeAdmissions.find(a => a.bedId === bed.id && a.status === 'reserved') : null;
       if (admission) { 
         setSelectedAdmission(admission); 
         setIsConfirmModalOpen(true); 
@@ -231,7 +237,7 @@ export const Admissions = () => {
     }
     
     if (bed.status === 'occupied') {
-      const admission = activeAdmissions.find(a => a.bedId === bed.id && a.status === 'active');
+      const admission = Array.isArray(activeAdmissions) ? activeAdmissions.find(a => a.bedId === bed.id && a.status === 'active') : null;
       if (admission) {
         setProcessStatus('processing');
         setProcessMessage('Accessing patient chart...');
@@ -331,11 +337,15 @@ export const Admissions = () => {
     });
   };
 
-  // Fixed scoping and dependency for filtered patients
+  // Safe usage of array methods
   const filteredPatientsForAdmission = useMemo(() => {
+    if (!Array.isArray(patients)) return [];
     return patients.filter(p => {
         const matchesSearch = p.fullName.toLowerCase().includes(patientSearchTerm.toLowerCase()) || (p.patientId && p.patientId.toLowerCase().includes(patientSearchTerm.toLowerCase()));
-        const isAlreadyAdmitted = activeAdmissions.some(a => a.patientId === p.id);
+        
+        // Defensive check for activeAdmissions
+        const isAlreadyAdmitted = Array.isArray(activeAdmissions) && activeAdmissions.some(a => a.patientId === p.id);
+        
         return matchesSearch && !isAlreadyAdmitted && p.type !== 'inpatient';
     }).slice(0, 5);
   }, [patients, patientSearchTerm, activeAdmissions]);
@@ -391,8 +401,8 @@ export const Admissions = () => {
       {activeTab === 'ward' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
           {loading ? <div className="col-span-full py-20 text-center animate-pulse"><Bed className="mx-auto text-slate-300 mb-2" size={40}/><p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Syncing Floor Plan...</p></div> : 
-          beds.map(bed => {
-            const admission = activeAdmissions.find(a => a.bedId === bed.id);
+          (Array.isArray(beds) ? beds : []).map(bed => {
+            const admission = Array.isArray(activeAdmissions) ? activeAdmissions.find(a => a.bedId === bed.id) : null;
             const status = bed.status;
             const days = admission ? calculateDurationDays(admission.entry_date) : 0;
 
@@ -568,7 +578,7 @@ export const Admissions = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Select label="Admitting Physician" required value={admitForm.doctorId} onChange={e => setAdmitForm({...admitForm, doctorId: e.target.value})}>
                     <option value="">Choose Physician...</option>
-                    {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(doc => <option key={doc.id} value={doc.id}>{doc.fullName} ({doc.specialization})</option>)}
+                    {(Array.isArray(staff) ? staff : []).filter(s => s.type === 'doctor' && s.status === 'active').map(doc => <option key={doc.id} value={doc.id}>{doc.fullName} ({doc.specialization})</option>)}
                 </Select>
                 <Input label="Entry Date" type="date" required value={admitForm.entryDate} onChange={e => setAdmitForm({...admitForm, entryDate: e.target.value})} />
             </div>
@@ -665,7 +675,7 @@ export const Admissions = () => {
                 <button 
                   key={tab.id} 
                   onClick={() => setCareTab(tab.id as any)} 
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${careTab === tab.id ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-lg scale-[1.02]' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${careTab === tab.id ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-lg scale-[1.02]' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                   <tab.icon size={16}/> {tab.label}
                 </button>
@@ -718,13 +728,15 @@ export const Admissions = () => {
                                       {isExpanded && (
                                         <div className="px-6 pb-6 pt-2 bg-slate-50/50 dark:bg-slate-950/40 animate-in slide-in-from-top-2 border-t border-slate-50 dark:border-slate-800">
                                             <div className="space-y-3 pt-4">
-                                              <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Breakdown</h5>
-                                              {(bill.items || []).map((item: any, idx: number) => (
-                                                <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-600 dark:text-slate-400">
-                                                  <span>{item.description}</span>
-                                                  <span className="font-mono">${formatMoney(item.amount)}</span>
-                                                </div>
-                                              ))}
+                                              <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('billing_modal_create_items_label')}</h5>
+                                              <div className="space-y-2">
+                                                {(bill.items || []).map((item: any, idx: number) => (
+                                                  <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-600 dark:text-slate-400">
+                                                    <span>{item.description}</span>
+                                                    <span className="font-mono">${formatMoney(item.amount)}</span>
+                                                  </div>
+                                                ))}
+                                              </div>
                                               <div className="pt-3 mt-3 border-t flex justify-between items-center">
                                                 <Button size="sm" variant="primary" onClick={() => navigate('/billing')} className="text-[10px] h-8 font-black uppercase">Clear Invoice</Button>
                                                 <p className="font-black text-slate-900 dark:text-white font-mono">Total: ${formatMoney(bill.total_amount)}</p>
