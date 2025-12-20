@@ -1,9 +1,5 @@
-// If we are in production, use relative path (same domain). 
-// If dev, use the proxy defined in vite.config.js.
-// Or fall back to the specific URL if needed.
-const API_URL = (import.meta as any).env.PROD 
-  ? '/api' 
-  : '/api'; // Vite proxy handles the redirection to https://allcare.up.railway.app
+
+const API_URL = '/api';
 
 // Helper function to get headers
 const getHeaders = () => {
@@ -17,13 +13,11 @@ const getHeaders = () => {
 const handleResponse = async (response: Response) => {
   if (response.status === 401) {
     localStorage.removeItem('token');
-    throw new Error('SESSION_EXPIRED');
+    // Optional: Redirect to login or dispatch event
+    // window.location.href = '/login'; 
+    throw new Error('Session expired. Please login again.');
   }
   
-  if (response.status === 404) {
-    throw new Error('API_NOT_FOUND: The backend server might be offline or the endpoint is incorrect.');
-  }
-
   // Handle empty responses (like 204 No Content)
   if (response.status === 204) {
       return null;
@@ -33,13 +27,14 @@ const handleResponse = async (response: Response) => {
   if (contentType && contentType.indexOf("application/json") !== -1) {
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || data.message || 'API_ERROR');
+      throw new Error(data.error || data.message || 'API Error');
     }
     return data;
   } else {
+    // Handle non-JSON responses if needed, or error out
     if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || 'API_ERROR');
+        throw new Error(text || 'API Error');
     }
     return response.text(); 
   }
@@ -50,34 +45,11 @@ const request = async (method: string, endpoint: string, body?: any) => {
     method,
     headers: getHeaders(),
   };
-  
   if (body) {
     config.body = JSON.stringify(body);
   }
-
-  // Add a 10-second timeout signal to fail fast if backend is stuck
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), 10000);
-  config.signal = controller.signal;
-  
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, config);
-    clearTimeout(id);
-    return await handleResponse(response);
-  } catch (error: any) {
-    clearTimeout(id);
-    
-    // Convert abort error to readable message
-    if (error.name === 'AbortError') {
-      throw new Error('NETWORK_TIMEOUT: Server took too long to respond.');
-    }
-
-    // Catch actual network errors (CORS, Connection Refused, DNS)
-    if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
-      throw new Error('NETWORK_ERROR: Unable to connect to the backend. Ensure your Railway server is running and accessible.');
-    }
-    throw error;
-  }
+  const response = await fetch(`${API_URL}${endpoint}`, config);
+  return handleResponse(response);
 };
 
 const get = (endpoint: string) => request('GET', endpoint);
@@ -90,67 +62,45 @@ const upload = async (endpoint: string, file: File) => {
     formData.append('file', file);
     const token = localStorage.getItem('token');
     
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 30000); // Longer timeout for uploads
-
-    try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formData,
-        signal: controller.signal
-      });
-      clearTimeout(id);
-      return handleResponse(response);
-    } catch (error: any) {
-      clearTimeout(id);
-      if (error.name === 'AbortError') throw new Error('Upload timed out');
-      throw error;
-    }
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+    return handleResponse(response);
 };
 
 const download = async (endpoint: string) => {
     const token = localStorage.getItem('token');
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 30000); // Longer timeout for downloads
-
-    try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
-          method: 'GET',
-          headers: {
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          signal: controller.signal
-      });
-      clearTimeout(id);
-      
-      if (!response.ok) throw new Error('Download failed');
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = 'download';
-      if (contentDisposition) {
-          const matches = /filename="([^"]*)"/.exec(contentDisposition);
-          if (matches != null && matches[1]) { 
-              filename = matches[1]; 
-          }
-      }
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error: any) {
-      clearTimeout(id);
-      if (error.name === 'AbortError') throw new Error('Download timed out');
-      throw error;
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'GET',
+        headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+    });
+    
+    if (!response.ok) throw new Error('Download failed');
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // Attempt to extract filename from content-disposition header if available
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = 'download';
+    if (contentDisposition) {
+        const matches = /filename="([^"]*)"/.exec(contentDisposition);
+        if (matches != null && matches[1]) { 
+            filename = matches[1]; 
+        }
     }
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
 };
 
 export const api = {
@@ -226,8 +176,8 @@ export const api = {
   // Pharmacy
   getPharmacyInventory: () => get('/pharmacy/inventory'),
   addPharmacyInventory: (data: any) => post('/pharmacy/inventory', data),
-  updatePharmacyInventory: (id: number | string, data: any) => put(`/pharmacy/inventory/${id}`, data),
-  deletePharmacyInventory: (id: number | string) => del(`/pharmacy/inventory/${id}`),
+  updatePharmacyInventory: (id: number, data: any) => put(`/pharmacy/inventory/${id}`, data),
+  deletePharmacyInventory: (id: number) => del(`/pharmacy/inventory/${id}`),
   dispenseDrugs: (data: any) => post('/pharmacy/dispense', data),
 
   // Config

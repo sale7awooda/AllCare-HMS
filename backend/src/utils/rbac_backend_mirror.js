@@ -1,3 +1,4 @@
+
 // This file is a mirror of the frontend's src/utils/rbac.ts for backend (Node.js) consumption.
 
 const Permissions = {
@@ -30,6 +31,9 @@ const Permissions = {
   VIEW_OPERATIONS: 'VIEW_OPERATIONS', 
   MANAGE_OPERATIONS: 'MANAGE_OPERATIONS', 
   DELETE_OPERATIONS: 'DELETE_OPERATIONS', 
+
+  VIEW_PHARMACY: 'VIEW_PHARMACY',
+  MANAGE_PHARMACY: 'MANAGE_PHARMACY',
   
   VIEW_REPORTS: 'VIEW_REPORTS', 
   MANAGE_REPORTS: 'MANAGE_REPORTS', 
@@ -40,9 +44,6 @@ const Permissions = {
   MANAGE_SETTINGS: 'MANAGE_SETTINGS', 
   
   MANAGE_CONFIGURATION: 'MANAGE_CONFIGURATION', 
-
-  VIEW_PHARMACY: 'VIEW_PHARMACY',
-  MANAGE_PHARMACY: 'MANAGE_PHARMACY',
 };
 
 const ROLE_PERMISSIONS = {
@@ -55,11 +56,11 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, Permissions.DELETE_ADMISSIONS,
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, Permissions.DELETE_LABORATORY,
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, Permissions.DELETE_OPERATIONS,
+    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY,
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
     Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
-    Permissions.MANAGE_CONFIGURATION,
-    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY
+    Permissions.MANAGE_CONFIGURATION
   ],
   manager: [ 
     Permissions.VIEW_DASHBOARD, 
@@ -70,10 +71,10 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, 
+    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY,
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
     Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS,
-    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY
   ],
   receptionist: [
     Permissions.VIEW_DASHBOARD, 
@@ -97,9 +98,9 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_DASHBOARD,
     Permissions.VIEW_PATIENTS,
     Permissions.VIEW_BILLING,
+    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY,
     Permissions.VIEW_SETTINGS,
-    Permissions.VIEW_RECORDS,
-    Permissions.VIEW_PHARMACY, Permissions.MANAGE_PHARMACY
+    Permissions.VIEW_RECORDS
   ],
   accountant: [
     Permissions.VIEW_DASHBOARD, 
@@ -117,8 +118,8 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_LABORATORY,
     Permissions.VIEW_OPERATIONS,
     Permissions.VIEW_ADMISSIONS,
+    Permissions.VIEW_PHARMACY,
     Permissions.VIEW_SETTINGS,
-    Permissions.VIEW_PHARMACY
   ],
   nurse: [
     Permissions.VIEW_DASHBOARD,
@@ -128,7 +129,6 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_LABORATORY,
     Permissions.VIEW_OPERATIONS,
     Permissions.VIEW_SETTINGS,
-    Permissions.VIEW_PHARMACY
   ],
   hr: [ 
     Permissions.VIEW_DASHBOARD,

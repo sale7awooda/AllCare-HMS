@@ -1,10 +1,9 @@
 
 const express = require('express');
 const router = express.Router();
-const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { authorizeRoles } = require('../middleware/auth');
 const { validate, schemas } = require('../middleware/validation');
 const { Permissions } = require('../utils/rbac_backend_mirror');
-const multer = require('multer');
 
 const authController = require('../controllers/auth.controller');
 const patientController = require('../controllers/patient.controller');
@@ -17,12 +16,12 @@ const pharmacyController = require('../controllers/pharmacy.controller');
 
 // --- Auth ---
 router.post('/auth/login', validate(schemas.login), authController.login);
-router.get('/auth/me', authenticateToken, authController.me);
-router.put('/auth/profile', authenticateToken, authController.updateProfile);
-router.put('/auth/change-password', authenticateToken, authController.changePassword);
+router.get('/auth/me', require('../middleware/auth').authenticateToken, authController.me);
+router.put('/auth/profile', require('../middleware/auth').authenticateToken, authController.updateProfile);
+router.put('/auth/change-password', require('../middleware/auth').authenticateToken, authController.changePassword);
 
 // Middleware for protected routes
-router.use(authenticateToken);
+router.use(require('../middleware/auth').authenticateToken);
 
 // --- Patients ---
 router.get('/patients', authorizeRoles(Permissions.VIEW_PATIENTS), patientController.getAll);
@@ -64,13 +63,59 @@ router.post('/staff/financials', authorizeRoles(Permissions.MANAGE_HR), staffCon
 
 // --- Medical (Labs, Ops, Admissions) ---
 // Medical: Labs
-router.get('/medical/lab/requests', authorizeRoles(Permissions.VIEW_LABORATORY), medicalController.getLabRequests);
-router.post('/medical/lab/requests', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.createLabRequest);
-router.post('/medical/lab/requests/:id/complete', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.completeLabRequest);
+router.get('/medical/lab/requests', authorizeRoles(Permissions.VIEW_LABORATORY), (req, res) => {
+    try {
+        const { db } = require('../config/database');
+        const rows = db.prepare(`
+            SELECT l.*, p.full_name as patientName, p.patient_id 
+            FROM lab_requests l 
+            JOIN patients p ON l.patient_id = p.id 
+            ORDER BY l.created_at DESC
+        `).all();
+        // Transform JSON test_ids to readable string for legacy frontend support or use directly
+        const tests = db.prepare('SELECT id, name_en, name_ar FROM lab_tests').all();
+        const testMap = tests.reduce((acc, t) => ({...acc, [t.id]: t.name_en}), {});
+        
+        const mapped = rows.map(r => {
+            let names = '';
+            try {
+                const ids = JSON.parse(r.test_ids);
+                names = ids.map(id => testMap[id] || 'Unknown').join(', ');
+            } catch(e) {}
+            return { ...r, testNames: names };
+        });
+        res.json(mapped);
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+router.post('/medical/lab/requests', authorizeRoles(Permissions.MANAGE_LABORATORY), (req, res) => {
+    const { patientId, testIds, totalCost, patientName } = req.body; // testIds is array of ints
+    try {
+        const { db } = require('../config/database');
+        const tx = db.transaction(() => {
+            const billNum = Math.floor(10000000 + Math.random() * 90000000).toString();
+            const bill = db.prepare("INSERT INTO billing (bill_number, patient_id, total_amount, status) VALUES (?, ?, ?, 'pending')").run(billNum, patientId, totalCost);
+            db.prepare("INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)").run(bill.lastInsertRowid, `Lab Request (Multi)`, totalCost);
+            
+            db.prepare(`
+                INSERT INTO lab_requests (patient_id, test_ids, status, projected_cost, bill_id)
+                VALUES (?, ?, 'pending', ?, ?)
+            `).run(patientId, JSON.stringify(testIds), totalCost, bill.lastInsertRowid);
+        });
+        tx();
+        res.json({success: true});
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+router.post('/medical/lab/requests/:id/complete', authorizeRoles(Permissions.MANAGE_LABORATORY), (req, res) => {
+    const { results, notes } = req.body;
+    try {
+        const { db } = require('../config/database');
+        db.prepare("UPDATE lab_requests SET status = 'completed', results = ?, notes = ? WHERE id = ?").run(results, notes, req.params.id);
+        res.json({success: true});
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
 
 // Medical: Operations
 router.get('/medical/operations', authorizeRoles(Permissions.VIEW_OPERATIONS), (req, res) => {
-    // Keep this one simple inline or move if it grows complexity
     try {
         const { db } = require('../config/database');
         const rows = db.prepare(`
@@ -170,12 +215,18 @@ router.post('/config/beds', authorizeRoles(Permissions.MANAGE_CONFIGURATION), co
 router.put('/config/beds/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.updateBed);
 router.delete('/config/beds/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.deleteBed);
 
-router.put('/config/beds/:id/clean', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.markBedClean);
+router.put('/config/beds/:id/clean', authorizeRoles(Permissions.MANAGE_ADMISSIONS), (req, res) => {
+    try {
+        const { db } = require('../config/database');
+        db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(req.params.id);
+        res.json({success: true});
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
 
 // Diagnostics
 router.get('/config/health', authorizeRoles(Permissions.VIEW_SETTINGS), configController.getSystemHealth);
 router.get('/config/backup/download', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.downloadBackup);
-router.post('/config/backup/restore', authorizeRoles(Permissions.MANAGE_CONFIGURATION), multer({ dest: 'uploads/' }).single('file'), configController.restoreBackup);
+router.post('/config/backup/restore', authorizeRoles(Permissions.MANAGE_CONFIGURATION), require('multer')({ dest: 'uploads/' }).single('file'), configController.restoreBackup);
 router.post('/config/reset', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configController.resetDatabase);
 
 module.exports = router;

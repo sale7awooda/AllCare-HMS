@@ -4,8 +4,6 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "backend": "cd backend && node server.js",
-    "full-dev": "npm run backend & npm run dev",
     "build": "vite build && mkdir -p backend/public && rm -rf backend/public/* && cp -r dist/* backend/public && cp -r locales backend/public/ && cd backend && npm install && npm rebuild better-sqlite3",
     "start": "cd backend && node server.js"
   },

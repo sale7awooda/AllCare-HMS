@@ -10,6 +10,7 @@ import { Staff } from './pages/Staff';
 import { Admissions } from './pages/Admissions';
 import { Laboratory } from './pages/Laboratory';
 import { Operations } from './pages/Operations';
+import { Pharmacy } from './pages/Pharmacy';
 import { Configuration } from './pages/Configuration';
 import { Settings } from './pages/Settings'; 
 import { Reports } from './pages/Reports'; 
@@ -18,12 +19,11 @@ import { Login } from './pages/Login';
 import { User } from './types'; 
 import { api } from './services/api';
 import { useTranslation } from './context/TranslationContext';
-import { AuthContext, useAuth } from './context/AuthContext';
+import { AuthContext } from './context/AuthContext';
 import { HeaderProvider } from './context/HeaderContext';
-import { Pharmacy } from './pages/Pharmacy';
 
 function AppContent() {
-  const { user, isAuthChecking } = useAuth();
+  const { user, isAuthChecking } = React.useContext(AuthContext)!;
   const { t } = useTranslation();
 
   if (isAuthChecking) {
@@ -45,13 +45,13 @@ function AppContent() {
             <Route path="/admissions" element={<Admissions />} /> 
             <Route path="/laboratory" element={<Laboratory />} /> 
             <Route path="/operations" element={<Operations />} /> 
+            <Route path="/pharmacy" element={<Pharmacy />} />
             <Route path="/billing" element={<Billing />} />
             <Route path="/hr" element={<Staff />} /> 
             <Route path="/reports" element={<Reports />} /> 
             <Route path="/records" element={<Records />} /> 
             <Route path="/settings" element={<Settings />} /> 
             <Route path="/configuration" element={<Configuration />} /> 
-            <Route path="/pharmacy" element={<Pharmacy />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Layout>

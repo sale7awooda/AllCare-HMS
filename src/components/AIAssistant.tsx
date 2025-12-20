@@ -1,1 +1,0 @@
-// This file is safe to delete. The component has been removed from the Layout.
