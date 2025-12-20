@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -45,7 +44,7 @@ export const Configuration = () => {
   const [taxForm, setTaxForm] = useState({ name_en: '', name_ar: '', rate: '', is_active: true });
   const [paymentForm, setPaymentForm] = useState({ name_en: '', name_ar: '', is_active: true });
   const [bedForm, setBedForm] = useState({ roomNumber: '', type: 'General', costPerDay: '', status: 'available' });
-  const [catalogForm, setCatalogForm] = useState<any>({ name_en: '', name_ar: '', description_en: '', cost: '', base_cost: '', category_en: '', related_role: '', normal_range: '', is_active: true });
+  const [catalogForm, setCatalogForm] = useState<any>({ name_en: '', name_ar: '', description_en: '', cost: '', base_cost: '', category_en: '', related_role: '', is_active: true });
 
   const tabContainerRef = useRef<HTMLDivElement>(null);
 
@@ -134,12 +133,11 @@ export const Configuration = () => {
         base_cost: item.base_cost || '',
         category_en: item.category_en || '',
         related_role: item.related_role || '',
-        normal_range: item.normal_range || '',
         is_active: item.isActive !== false && item.is_active !== 0
       });
     } else {
       setSelectedItem(null);
-      setCatalogForm({ name_en: '', name_ar: '', description_en: '', cost: '', base_cost: '', category_en: '', related_role: '', normal_range: '', is_active: true });
+      setCatalogForm({ name_en: '', name_ar: '', description_en: '', cost: '', base_cost: '', category_en: '', related_role: '', is_active: true });
     }
     setModalType('catalog');
     setIsModalOpen(true);
@@ -666,20 +664,13 @@ export const Configuration = () => {
              <Card title={`${activeCatalog.charAt(0).toUpperCase() + activeCatalog.slice(1)} Catalog`} action={<Button size="sm" icon={Plus} onClick={() => openCatalogModal()}>Add Entry</Button>} className="!p-0 overflow-hidden">
                 <table className="min-w-full divide-y">
                    <thead className="bg-slate-50 dark:bg-slate-900/50">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Entry Name</th>
-                        <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Local (AR)</th>
-                        {activeCatalog === 'lab' && <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Range</th>}
-                        {activeCatalog === 'lab' || activeCatalog === 'nurse' || activeCatalog === 'ops' ? (<th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Cost/Base</th>) : <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">ID</th>}
-                        <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Actions</th>
-                      </tr>
+                      <tr><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Entry Name</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Local (AR)</th>{activeCatalog === 'lab' || activeCatalog === 'nurse' || activeCatalog === 'ops' ? (<th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Cost/Base</th>) : <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">ID</th>}<th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Actions</th></tr>
                    </thead>
                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                       {catalogData.map((item, i) => (
                         <tr key={item.id || i} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
                            <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{item.name_en || item.fullName || 'Unnamed'}</td>
                            <td className="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">{item.name_ar || '-'}</td>
-                           {activeCatalog === 'lab' && <td className="px-6 py-4 text-xs font-mono text-slate-500">{item.normal_range || '-'}</td>}
                            <td className="px-6 py-4 text-right">{item.cost !== undefined || item.base_cost !== undefined ? (<span className="font-mono font-bold text-primary-600">${(item.cost || item.base_cost || 0).toLocaleString()}</span>) : <span className="text-[10px] font-black text-slate-300">#{item.id}</span>}</td>
                            <td className="px-6 py-4 text-right">
                              <div className="flex justify-end gap-2">
@@ -743,7 +734,6 @@ export const Configuration = () => {
                </div>
                {activeCatalog === 'specializations' && (<Select label="Linked Role" value={catalogForm.related_role} onChange={e => setCatalogForm({...catalogForm, related_role: e.target.value})}><option value="">Any</option><option value="doctor">Doctor</option><option value="nurse">Nurse</option><option value="technician">Technician</option><option value="pharmacist">Pharmacist</option></Select>)}
                {(activeCatalog === 'lab' || activeCatalog === 'nurse') && (<Input label="Service Cost ($)" type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} />)}
-               {activeCatalog === 'lab' && (<Input label="Normal Range" placeholder="e.g. 10-20 mg/dL" value={catalogForm.normal_range} onChange={e => setCatalogForm({...catalogForm, normal_range: e.target.value})} />)}
                {activeCatalog === 'ops' && (<Input label="Base Cost ($)" type="number" required value={catalogForm.base_cost} onChange={e => setCatalogForm({...catalogForm, base_cost: e.target.value})} />)}
                {activeCatalog === 'lab' && (<Input label="Category (e.g. Hematology)" value={catalogForm.category_en} onChange={e => setCatalogForm({...catalogForm, category_en: e.target.value})} />)}
                {(activeCatalog === 'insurance' || activeCatalog === 'banks') && (<div className="flex items-center gap-2 py-2"><input type="checkbox" id="catActive" checked={catalogForm.is_active} onChange={e => setCatalogForm({...catalogForm, is_active: e.target.checked})} /><label htmlFor="catActive" className="text-sm font-bold">Active Entry</label></div>)}

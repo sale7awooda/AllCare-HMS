@@ -28,19 +28,14 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setLoading(true);
       try {
         const response = await fetch(`/locales/${language}.json`);
-        
-        // Check if the response is valid and is actually JSON (not index.html fallback)
-        const contentType = response.headers.get("content-type");
-        if (!response.ok || (contentType && !contentType.includes("application/json"))) {
-          throw new Error(`Failed to load translations: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-
         const data = await response.json();
         setTranslations(data);
       } catch (error) {
         console.error(`Failed to load translations for ${language}:`, error);
-        // Fallback to empty to allow keys to render
-        setTranslations({}); 
+        setTranslations({}); // Fallback to empty on error
       } finally {
         setLoading(false);
       }

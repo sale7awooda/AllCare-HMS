@@ -6,7 +6,7 @@ import {
   Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, AlertTriangle,
   HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, 
   DollarSign, Loader2, XCircle, Sparkles, Thermometer, ChevronRight, X, Info, Save, Trash2,
-  ExternalLink, ChevronDown, ChevronUp, Stethoscope, LayoutGrid, List, Download, Filter
+  ExternalLink, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
@@ -21,10 +21,8 @@ export const Admissions = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState<'ward' | 'records'>('ward');
   const [beds, setBeds] = useState<any[]>([]);
   const [activeAdmissions, setActiveAdmissions] = useState<any[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
@@ -49,10 +47,8 @@ export const Admissions = () => {
   const [selectedPatientForAdmission, setSelectedPatientForAdmission] = useState<any>(null);
   
   const [admitForm, setAdmitForm] = useState({ patientId: '', doctorId: '', entryDate: new Date().toISOString().split('T')[0], deposit: '', notes: '' });
-  const [noteForm, setNoteForm] = useState({ note: '', bp: '', temp: '', pulse: '', spo2: '', insulin: '' });
+  const [noteForm, setNoteForm] = useState({ note: '', bp: '', temp: '', pulse: '', resp: '' });
   const [dischargeForm, setDischargeForm] = useState({ notes: '', status: 'Recovered' });
-
-  const [historyFilter, setHistoryFilter] = useState({ search: '', status: 'all' });
 
   // Sync Header
   useHeader(
@@ -84,15 +80,6 @@ export const Admissions = () => {
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    if (activeTab === 'records') {
-        setLoading(true);
-        api.getAdmissionHistory()
-           .then(setHistory)
-           .finally(() => setLoading(false));
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (patientSearchRef.current && !patientSearchRef.current.contains(e.target as Node)) {
         setShowPatientResults(false);
@@ -108,39 +95,6 @@ export const Admissions = () => {
     const end = endDateString ? new Date(endDateString) : new Date();
     const diff = Math.abs(end.getTime() - start.getTime());
     return Math.ceil(diff / (1000 * 60 * 60 * 24)) || 1;
-  };
-
-  const filteredHistory = useMemo(() => {
-      return history.filter(h => {
-          const matchSearch = h.patientName.toLowerCase().includes(historyFilter.search.toLowerCase()) || 
-                              h.roomNumber.toLowerCase().includes(historyFilter.search.toLowerCase()) ||
-                              h.doctorName?.toLowerCase().includes(historyFilter.search.toLowerCase());
-          const matchStatus = historyFilter.status === 'all' || h.status === historyFilter.status;
-          return matchSearch && matchStatus;
-      });
-  }, [history, historyFilter]);
-
-  const handleExportHistory = () => {
-    const headers = ["Admission ID", "Patient", "Room", "Type", "Doctor", "Entry Date", "Discharge Date", "Status", "Outcome", "Est. Cost"];
-    const rows = filteredHistory.map(h => [
-        h.id,
-        h.patientName,
-        h.roomNumber,
-        h.bedType,
-        h.doctorName,
-        new Date(h.entry_date).toLocaleDateString(),
-        h.actual_discharge_date ? new Date(h.actual_discharge_date).toLocaleDateString() : 'N/A',
-        h.status,
-        h.discharge_status || '-',
-        h.projected_cost
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(',')).join('\n');
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `AllCare_Admission_Records_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const handleBedClick = async (bed: any) => {
@@ -277,13 +231,12 @@ export const Admissions = () => {
           bp: noteForm.bp,
           temp: noteForm.temp,
           pulse: noteForm.pulse,
-          spo2: noteForm.spo2, 
-          insulin: noteForm.insulin
+          resp: noteForm.resp
         }
       });
       const updated = await api.getInpatientDetails(inpatientDetails.id);
       setInpatientDetails(updated);
-      setNoteForm({ note: '', bp: '', temp: '', pulse: '', spo2: '', insulin: '' });
+      setNoteForm({ note: '', bp: '', temp: '', pulse: '', resp: '' });
       setProcessStatus('success');
       setTimeout(() => setProcessStatus('idle'), 1000);
     } catch (e) {
@@ -346,215 +299,57 @@ export const Admissions = () => {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 w-fit mb-6 overflow-x-auto no-print">
-          <button onClick={() => setActiveTab('ward')} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'ward' ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}>
-              <LayoutGrid size={18} /> Ward View
-          </button>
-          <button onClick={() => setActiveTab('records')} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'records' ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}>
-              <List size={18} /> Admission Records
-          </button>
+      <div className="flex gap-3 text-xs font-black uppercase tracking-widest flex-wrap mb-2 no-print">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg border border-green-100 dark:border-green-800"><div className="w-2 h-2 rounded-full bg-green-500"></div> {t('admissions_legend_available')}</div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-200 dark:border-blue-800"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div> {t('admissions_legend_reserved')}</div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800"><div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div> {t('admissions_legend_occupied')}</div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg border border-purple-100 dark:border-purple-800"><div className="w-2 h-2 rounded-full bg-purple-500"></div> Cleaning</div>
       </div>
 
-      {activeTab === 'ward' && (
-        <>
-          <div className="flex gap-3 text-xs font-black uppercase tracking-widest flex-wrap mb-2 no-print">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg border border-green-100 dark:border-green-800"><div className="w-2 h-2 rounded-full bg-green-500"></div> {t('admissions_legend_available')}</div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-200 dark:border-blue-800"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div> {t('admissions_legend_reserved')}</div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800"><div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div> {t('admissions_legend_occupied')}</div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg border border-purple-100 dark:border-purple-800"><div className="w-2 h-2 rounded-full bg-purple-500"></div> Cleaning</div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-            {loading ? <div className="col-span-full py-20 text-center"><Loader2 className="animate-spin mx-auto text-primary-600 mb-2"/><p className="text-slate-500 font-medium">{t('admissions_loading')}</p></div> : 
-            beds.map(bed => {
-              const admission = activeAdmissions.find(a => a.bedId === bed.id);
-              const isOccupied = bed.status === 'occupied';
-              const isReserved = bed.status === 'reserved';
-              const isCleaning = bed.status === 'cleaning';
-              const isAvailable = bed.status === 'available';
-
-              return (
-                <div 
-                  key={bed.id} 
-                  onClick={() => handleBedClick(bed)} 
-                  className={`
-                    relative rounded-2xl border transition-all cursor-pointer group flex flex-col h-48 shadow-sm hover:shadow-lg hover:-translate-y-1 overflow-hidden
-                    ${isOccupied ? 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-200 dark:border-rose-900/50 hover:border-rose-400' : 
-                      isReserved ? 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:border-blue-400' : 
-                      isCleaning ? 'bg-purple-50/50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 hover:border-purple-400' : 
-                      'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-emerald-400 hover:ring-1 hover:ring-emerald-400/30'
-                    }
-                  `}
-                >
-                  {/* Header Status Strip */}
-                  <div className={`h-1.5 w-full ${
-                    isOccupied ? 'bg-rose-500' : isReserved ? 'bg-blue-500' : isCleaning ? 'bg-purple-500' : 'bg-emerald-500'
-                  }`} />
-
-                  <div className="flex-1 flex flex-col p-4 justify-between">
-                    
-                    {/* Card Header: Room Number and Type */}
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-black text-slate-800 dark:text-white text-2xl leading-none tracking-tight">{bed.roomNumber}</h3>
-                        <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded mt-1.5 ${
-                          isOccupied ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' :
-                          isReserved ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' :
-                          isCleaning ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' :
-                          'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                        }`}>
-                          {bed.type}
-                        </span>
-                      </div>
-                      {/* Status Indicator / Icon */}
-                      <div className={`p-1.5 rounded-full ${
-                        isOccupied ? 'bg-rose-100 text-rose-600' : 
-                        isReserved ? 'bg-blue-100 text-blue-600' : 
-                        isCleaning ? 'bg-purple-100 text-purple-600' : 
-                        'bg-emerald-50 text-emerald-600'
-                      }`}>
-                        {isCleaning ? <Sparkles size={14} /> : isOccupied || isReserved ? <User size={14} /> : <CheckCircle size={14} />}
-                      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {loading ? <div className="col-span-full py-20 text-center"><Loader2 className="animate-spin mx-auto text-primary-600 mb-2"/><p className="text-slate-500 font-medium">{t('admissions_loading')}</p></div> : 
+        beds.map(bed => {
+          const admission = activeAdmissions.find(a => a.bedId === bed.id);
+          const isOccupied = bed.status === 'occupied';
+          const isReserved = bed.status === 'reserved';
+          return (
+            <div 
+              key={bed.id} 
+              onClick={() => handleBedClick(bed)} 
+              className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer group flex flex-col h-52 shadow-sm hover:shadow-xl hover:-translate-y-1 ${
+                isOccupied ? 'bg-red-50/30 dark:bg-red-900/10 border-red-200 dark:border-red-900/50 hover:border-red-400' : 
+                isReserved ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-800 hover:border-blue-500' : 
+                bed.status === 'cleaning' ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 hover:border-purple-400' : 
+                'bg-green-50/50 dark:bg-green-900/10 border-green-200 hover:border-green-400'
+              }`}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="font-black text-slate-800 dark:text-white text-xl leading-none">{bed.roomNumber}</h3>
+                  <p className="text-[10px] font-black uppercase text-slate-400 mt-1 tracking-widest">{bed.type}</p>
+                </div>
+                <div className={`w-3 h-3 rounded-full shrink-0 shadow-sm ${isOccupied ? 'bg-red-500 animate-pulse' : isReserved ? 'bg-blue-500' : bed.status === 'cleaning' ? 'bg-purple-500' : 'bg-green-500'}`} />
+              </div>
+              <div className="flex-1 flex flex-col justify-center items-center w-full">
+                {isOccupied || isReserved ? (
+                  <div className="w-full text-center">
+                    <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-tight mb-2 min-h-[2.5rem]">{admission?.patientName}</p>
+                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 w-full border-t border-slate-200 dark:border-slate-700 pt-2">
+                      <span className="truncate max-w-[60%]">Dr. {admission?.doctorName}</span>
+                      <span className="bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border">{calculateDays(admission?.entry_date)}d</span>
                     </div>
-
-                    {/* Card Body: Patient Name or Action */}
-                    <div className="flex-1 flex flex-col justify-center">
-                      {isOccupied || isReserved ? (
-                        <div className="w-full">
-                          <p className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug" title={admission?.patientName}>
-                            {admission?.patientName || 'Unknown Patient'}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className={`flex flex-col items-center justify-center transition-all ${isCleaning ? 'opacity-50' : 'opacity-40 group-hover:opacity-100 group-hover:scale-105'}`}>
-                          {isCleaning ? (
-                            <>
-                              <Wrench size={24} className="text-purple-400 mb-1"/>
-                              <p className="text-[10px] font-black uppercase text-purple-400 tracking-widest">Cleaning</p>
-                            </>
-                          ) : (
-                            <>
-                              <Plus size={28} className="text-emerald-500 mb-1"/>
-                              <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">{t('admissions_bed_click_to_admit')}</p>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Card Footer: Metadata */}
-                    {(isOccupied || isReserved) && (
-                      <div className="pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex justify-between items-center text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                        <div className="flex items-center gap-1 truncate max-w-[60%]" title={`Dr. ${admission?.doctorName}`}>
-                          <Stethoscope size={12} className="shrink-0" />
-                          <span className="truncate">{admission?.doctorName?.split(' ').slice(-1)[0]}</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-700 shadow-sm">
-                          <Clock size={10} className="text-slate-400" />
-                          <span className="font-bold">{calculateDays(admission?.entry_date)}d</span>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {isAvailable && (
-                      <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60 text-center">
-                          <p className="text-[10px] text-slate-400 font-mono">${bed.costPerDay}/day</p>
-                      </div>
-                    )}
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      )}
-
-      {activeTab === 'records' && (
-        <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm animate-in fade-in">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
-                <div className="relative w-full md:w-96">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <input 
-                        type="text"
-                        placeholder="Search patient, room, doctor..."
-                        className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                        value={historyFilter.search}
-                        onChange={e => setHistoryFilter({...historyFilter, search: e.target.value})}
-                    />
-                </div>
-                <div className="flex gap-2">
-                    <div className="relative">
-                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-                        <select 
-                            className="pl-9 pr-8 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
-                            value={historyFilter.status}
-                            onChange={e => setHistoryFilter({...historyFilter, status: e.target.value})}
-                        >
-                            <option value="all">All Statuses</option>
-                            <option value="active">Active</option>
-                            <option value="discharged">Discharged</option>
-                            <option value="cancelled">Cancelled</option>
-                            <option value="reserved">Reserved</option>
-                        </select>
-                    </div>
-                    <Button variant="outline" onClick={handleExportHistory} icon={Download} className="whitespace-nowrap">Export CSV</Button>
-                </div>
+                ) : (
+                   <div className="text-center opacity-40 group-hover:opacity-100 transition-all duration-300 transform group-hover:scale-110">
+                     <Plus size={40} className="text-slate-300 dark:text-slate-600 mx-auto mb-1"/>
+                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{bed.status === 'cleaning' ? 'Cleaning' : 'Available'}</p>
+                   </div>
+                )}
+              </div>
             </div>
-            
-            <div className="overflow-x-auto min-h-[400px]">
-                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                    <thead className="bg-slate-50 dark:bg-slate-900">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Patient Info</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Location</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Duration</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Outcome</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                        {loading ? <tr><td colSpan={5} className="text-center py-20 text-slate-400">Loading records...</td></tr> :
-                         filteredHistory.length === 0 ? <tr><td colSpan={5} className="text-center py-20 text-slate-400">No records found.</td></tr> :
-                         filteredHistory.map(h => {
-                             const days = calculateDays(h.entry_date, h.actual_discharge_date);
-                             return (
-                                 <tr key={h.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                     <td className="px-6 py-4 whitespace-nowrap">
-                                         <div className="font-bold text-slate-900 dark:text-white">{h.patientName}</div>
-                                         <div className="text-xs text-slate-500">ID: {h.patientCode}</div>
-                                     </td>
-                                     <td className="px-6 py-4 whitespace-nowrap">
-                                         <div className="font-bold">Room {h.roomNumber}</div>
-                                         <div className="text-xs text-slate-500">{h.bedType}</div>
-                                         <div className="text-xs text-slate-400 mt-0.5">Dr. {h.doctorName}</div>
-                                     </td>
-                                     <td className="px-6 py-4 whitespace-nowrap">
-                                         <div className="text-sm font-medium">{new Date(h.entry_date).toLocaleDateString()}</div>
-                                         {h.actual_discharge_date && (
-                                             <div className="text-xs text-slate-500">
-                                                 to {new Date(h.actual_discharge_date).toLocaleDateString()} ({days} days)
-                                             </div>
-                                         )}
-                                     </td>
-                                     <td className="px-6 py-4 whitespace-nowrap">
-                                         <Badge color={h.status === 'active' ? 'green' : h.status === 'discharged' ? 'blue' : h.status === 'cancelled' ? 'red' : 'yellow'}>
-                                             {h.status}
-                                         </Badge>
-                                     </td>
-                                     <td className="px-6 py-4 whitespace-nowrap">
-                                         {h.discharge_status ? (
-                                             <span className="text-sm font-medium">{h.discharge_status}</span>
-                                         ) : <span className="text-slate-300">-</span>}
-                                     </td>
-                                 </tr>
-                             );
-                         })}
-                    </tbody>
-                </table>
-            </div>
-        </Card>
-      )}
+          )
+        })}
+      </div>
       
       <Modal isOpen={isAdmitModalOpen} onClose={() => setIsAdmitModalOpen(false)} title={t('admissions_modal_reserve_title', { room: selectedBedForAdmission?.roomNumber })}>
         <form onSubmit={handleAdmitSubmit} className="space-y-5">
@@ -768,34 +563,32 @@ export const Admissions = () => {
               <div className="space-y-6 animate-in fade-in">
                  <form onSubmit={handleAddNote} className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Sparkles size={14}/> Add New Entry</h4>
-                    <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                        <Input label="BP" placeholder="120/80" value={noteForm.bp} onChange={e => setNoteForm({...noteForm, bp: e.target.value})} className="text-xs" />
                        <Input label="Temp (°C)" placeholder="37.2" value={noteForm.temp} onChange={e => setNoteForm({...noteForm, temp: e.target.value})} className="text-xs" />
                        <Input label="Pulse" placeholder="72" value={noteForm.pulse} onChange={e => setNoteForm({...noteForm, pulse: e.target.value})} className="text-xs" />
-                       <Input label="SpO2 (%)" placeholder="98" value={noteForm.spo2} onChange={e => setNoteForm({...noteForm, spo2: e.target.value})} className="text-xs" />
-                       <Input label="Insulin" placeholder="Units" value={noteForm.insulin} onChange={e => setNoteForm({...noteForm, insulin: e.target.value})} className="text-xs" />
+                       <Input label="Resp" placeholder="18" value={noteForm.resp} onChange={e => setNoteForm({...noteForm, resp: e.target.value})} className="text-xs" />
                     </div>
                     <Textarea label="Observations" rows={3} required placeholder="Enter clinical notes and progress..." value={noteForm.note} onChange={e => setNoteForm({...noteForm, note: e.target.value})} />
                     <Button type="submit" className="w-full" icon={Save}>Add Note to Chart</Button>
                  </form>
-                 <div className="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+                 <div className="space-y-4 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
                     {/* FIX: Improved empty state check for visibility after add */}
                     {(inpatientDetails.notes || []).length === 0 ? (
                       <div className="p-10 text-center text-slate-300 font-bold italic">No notes recorded yet.</div>
                     ) : (
                       inpatientDetails.notes.map((note: any) => (
-                        <div key={note.id} className="bg-white dark:bg-slate-800 p-3 rounded-2xl border shadow-sm relative overflow-hidden group">
+                        <div key={note.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border shadow-sm relative overflow-hidden group">
                            <div className="absolute top-0 left-0 w-1 h-full bg-primary-500 opacity-20"></div>
-                           <div className="flex justify-between items-start mb-2">
+                           <div className="flex justify-between items-start mb-3">
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(note.created_at).toLocaleString()}</span>
-                              <Badge color="blue">{note.doctorName}</Badge>
+                              <Badge color="blue">Dr. {note.doctorName}</Badge>
                            </div>
-                           <div className="grid grid-cols-5 gap-2 mb-2 py-2 border-y border-slate-50 dark:border-slate-700">
+                           <div className="grid grid-cols-4 gap-2 mb-3 py-2 border-y border-slate-50 dark:border-slate-700">
                               <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">BP</p><p className="text-xs font-bold">{note.vitals?.bp || '-'}</p></div>
                               <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">Temp</p><p className="text-xs font-bold">{note.vitals?.temp || '-'}</p></div>
                               <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">Pulse</p><p className="text-xs font-bold">{note.vitals?.pulse || '-'}</p></div>
-                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">SpO2</p><p className="text-xs font-bold">{note.vitals?.spo2 || '-'}</p></div>
-                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">Insulin</p><p className="text-xs font-bold">{note.vitals?.insulin || '-'}</p></div>
+                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">Resp</p><p className="text-xs font-bold">{note.vitals?.resp || '-'}</p></div>
                            </div>
                            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic">"{note.note}"</p>
                         </div>
@@ -843,11 +636,11 @@ export const Admissions = () => {
                        <Textarea label={t('admissions_care_discharge_summary')} rows={4} placeholder="Final summary of the stay..." value={dischargeForm.notes} onChange={e => setDischargeForm({...dischargeForm, notes: e.target.value})} />
                        <Button 
                          className="w-full py-4 text-md" 
-                         icon={totalOutstandingBalance > 0.01 ? DollarSign : LogOut} 
-                         onClick={totalOutstandingBalance > 0.01 ? () => navigate('/billing') : handleDischarge}
-                         variant={totalOutstandingBalance > 0.01 ? 'secondary' : 'primary'}
+                         icon={LogOut} 
+                         onClick={handleDischarge}
+                         disabled={totalOutstandingBalance > 0.01}
                        >
-                         {totalOutstandingBalance > 0.01 ? 'Go to Billing to Settle Balance' : 'Complete Final Discharge'}
+                         {totalOutstandingBalance > 0.01 ? 'Settle Balance to Discharge' : 'Complete Final Discharge'}
                        </Button>
                     </div>
                 </div>

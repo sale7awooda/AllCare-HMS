@@ -1,74 +1,60 @@
 # AllCare HMS - System Requirements
 
-## 1. Implemented Functional Modules
+## 1. Functional Requirements
 
-### 1.1 Authentication & Security (Implemented)
-*   **Login:** Secure login with role-based profiles (Admin, Doctor, Receptionist, etc.).
-*   **RBAC:** Granular permission system (View/Manage/Delete) enforced on both Frontend (UI hiding) and Backend (Middleware).
-*   **Session Management:** JWT-based stateless authentication with automatic expiration.
-*   **Security:** Password hashing (`bcryptjs`), Rate limiting, Helmet (CSP), and sanitized SQL queries.
+### 1.1 Authentication & Security
+*   **Login:** Secure login screen with username and password. Demo-friendly "Quick Profile" selection for easy access.
+*   **Authentication:** JWT-based token authentication for securing API endpoints.
+*   **Authorization:** Granular Role-Based Access Control (RBAC) to restrict access to modules and actions (View, Manage, Delete) based on user role.
+*   **Password Security:** Passwords hashed using `bcryptjs` on the backend.
 
-### 1.2 Patient Management (Implemented)
-*   **Registry:** Centralized patient database with search and filtering by status (Inpatient/Outpatient).
-*   **360° Profile:** Modal view aggregating Demographics, Visit History, Lab Results, and Financials.
-*   **Quick Actions:** One-click access to schedule appointments, admit patients, or order tests from the patient list.
-*   **Insurance:** Dedicated tracking for provider, policy number, and coverage notes.
+### 1.2 Patient Management
+*   **Patient Registry:** Comprehensive, searchable, and paginated list of patients.
+*   **Registration Form:** Detailed capture of demographics, medical history, allergies, emergency contacts, and insurance details.
+*   **Patient Actions:** Unified "Manage" menu for quick actions: appointments, lab tests, admissions, or nurse services.
+*   **Patient 360° View:** Modal-based detailed view showing complete profile, medical timeline (visits, labs), and financial history.
 
-### 1.3 Appointments & Queue (Implemented)
-*   **Kanban Queue:** Visual columns per doctor showing "Waiting", "In Progress", and "Completed" patients.
-*   **Token System:** Automatic daily token generation for walk-ins.
-*   **Scheduling:** Conflict detection preventing duplicate clinical visits (Consultation/Follow-up) on the same day.
-*   **Status Workflow:** Unpaid -> Confirmed -> Checked In -> In Progress -> Completed.
+### 1.3 Appointment Management
+*   **Queue View:** Real-time, kanban-style board showing daily queues per doctor/nurse, organized by status (Waiting, In Progress, Completed).
+*   **Token System:** Sequential daily token assignment for efficient patient flow management.
+*   **Workflow:** `Pending (Unpaid)` -> `Confirmed (Paid)` -> `In Progress` -> `Completed`.
+*   **Billing Integration:** Automatic generation of pending invoices based on staff consultation fees.
 
-### 1.4 Inpatient & Admissions (Implemented)
-*   **Visual Ward:** Interactive grid showing real-time bed status (Available, Occupied, Reserved, Cleaning).
-*   **Admission Logic:** Deposit billing triggers, reservation confirmation, and admission capability.
-*   **Clinical Charting:** Digital nursing notes recording Vitals (BP, Temp, Pulse, SpO2, Insulin) and observations.
-*   **Discharge Safety:** Logic preventing discharge if there are outstanding/unpaid medical bills.
+### 1.4 Inpatient & Admissions
+*   **Ward Dashboard:** Visual grid of hospital beds color-coded by status (Available, Occupied, Reserved, Maintenance, Cleaning).
+*   **Admission Workflow:** Bed reservation, deposit billing, arrival confirmation, and clinical care tracking.
+*   **Clinical Vitals:** Track BP, Temperature, Pulse, and Respiration within daily clinical notes.
+*   **Discharge & Settlement:** Formal discharge process requiring full balance settlement. Supports consolidation of all pending bills into a single settlement invoice.
 
-### 1.5 specialized Medical Services (Implemented)
-*   **Laboratory:**
-    *   Catalog-based test ordering.
-    *   Result entry with reference ranges and automatic flagging (High/Low/Normal).
-    *   Composite tests support (e.g., CBC, Urine Analysis expanding into sub-parameters).
-    *   Printable lab reports.
-*   **Operations (Surgery):**
-    *   **Cost Estimation Engine:** Detailed breakdown builder for Surgeon Fees, Theater Fees, Staff, Consumables, Equipment, and Misc charges.
-    *   **Workflow:** Request -> Estimate/Invoice -> Payment -> Scheduling -> Completion -> Payout.
-*   **Nursing:** Quick procedure requests (Injections, Dressings) with billing integration.
+### 1.5 Medical Services (Lab, Nurse, Operations)
+*   **Laboratory:** Catalog-based ordering, status tracking, and technician result entry with findings and internal notes.
+*   **Nurse Services:** Routing of procedure requests (injections, dressings) to assigned nursing staff.
+*   **Operations (Theater):** Multi-stage workflow: Request -> Detailed Cost Estimation (Surgeon, Team, Theater, Consumables) -> Billing -> Execution.
 
-### 1.6 Billing & Finance (Implemented)
-*   **Invoicing:** Automatic invoice generation from all modules. Support for Tax rates and multiple Payment Methods.
-*   **Treasury:** Cash flow tracking (Income vs. Expenses).
-*   **Operations Payouts:** Dedicated system to track and disburse shares to surgeons and participating staff after procedures.
-*   **Expense Management:** Recording hospital operational expenses (Rent, Utilities, Supplies).
+### 1.6 Billing, Finance & Treasury
+*   **Invoice Management:** Centralized hub for patient billing, partial payments, and refunds.
+*   **Treasury (Cash Management):** Track hospital income and outgoing expenses. Monitor "Method Holdings" (balances in Cash, Bankak/BOK, etc.).
+*   **Insurance Processing:** Support for insurance-based payments with provider and policy tracking.
 
-### 1.7 Human Resources (Implemented)
-*   **Directory:** Comprehensive staff profile management with banking details and contract terms.
-*   **Attendance:** Check-in/Check-out logging with "Late" status detection.
-*   **Payroll Engine:** Automated monthly payroll generation calculating:
-    *   Base Salary
-    *   (+) Bonuses/Commissions
-    *   (-) Fines/Deductions/Loans
-    *   (=) Net Payout
-*   **Financial Adjustments:** Manual entry for bonuses, loans, or fines.
+### 1.7 Human Resources (HR)
+*   **Staff Directory:** Visual directory with specialized roles and departments.
+*   **Attendance Tracking:** Daily check-in/out logs with "Late" status detection based on shift start times.
+*   **Leave Management:** Approval workflow for sick, vacation, and unpaid leaves.
+*   **Payroll & Adjustments:** Automated monthly payroll generation calculating Base Salary + Bonuses - Fines/Loans/Absences.
 
-### 1.8 System Intelligence (Implemented)
-*   **Analytics:** Real-time dashboards for Revenue, Operational Volume, and Demographics.
-*   **Audit Logs:** "Records" module tracking every significant creation or update event in the system.
-*   **Health Diagnostics:** Server performance monitoring (CPU, RAM, Uptime, DB Latency).
-*   **Data Management:** One-click Database Backup (.db download) and Restoration mechanisms.
+### 1.8 Analytics & Audit
+*   **Reports:** Financial trends, operational volume (departmental workload), and patient demographics.
+*   **System Records:** A unified audit log of every significant event in the system (registrations, appointments, bills) with deep-dive analysis capability.
 
-## 2. Non-Functional Implementation
+## 2. Non-Functional & UI/UX Requirements
 
 ### 2.1 UI/UX
-*   **Theming:** Dynamic engine supporting Light/Dark modes and 20+ accent color palettes.
-*   **Localization:** Native English and Arabic (RTL) support.
-*   **Responsive:** Adaptive layouts for Desktop, Tablet, and Mobile.
-*   **Print Styles:** CSS optimized for printing Reports, Invoices, and Lab Results.
+*   **Theming:** Full Dark/Light/System mode support with 20+ selectable accent colors.
+*   **Internationalization (i18n):** Complete English and Arabic support with automatic RTL (Right-to-Left) layout switching.
+*   **Responsiveness:** Mobile-first responsive design for all modules.
+*   **Density Control:** Toggle between "Comfortable" and "Compact" UI density.
 
-### 2.2 Tech Stack
-*   **Frontend:** React 18, Vite, Tailwind CSS, Lucide Icons, Recharts.
-*   **Backend:** Node.js, Express.js.
-*   **Database:** `better-sqlite3` (Synchronous, file-based, high performance).
-*   **Validation:** Zod schemas for robust input sanitization.
+### 2.2 Performance & Reliability
+*   **Backend:** High-performance synchronous SQLite operations via `better-sqlite3`.
+*   **Architecture:** Decoupled RESTful API with Zod validation and rate limiting.
+*   **Data Safety:** Built-in tools for database backup (.db snapshot), restoration, and factory reset.
