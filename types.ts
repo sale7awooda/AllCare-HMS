@@ -136,7 +136,7 @@ export interface Bill {
   patientName: string;
   totalAmount: number;
   paidAmount: number;
-  status: 'pending' | 'partial' | 'paid' | 'overdue' | 'refunded' | 'cancelled';
+  status: 'pending' | 'partial' | 'paid' | 'overdue' | 'refunded';
   date: string;
   items: BillItem[];
   serviceStatus?: string;

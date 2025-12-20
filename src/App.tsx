@@ -19,11 +19,11 @@ import { Login } from './pages/Login';
 import { User } from './types'; 
 import { api } from './services/api';
 import { useTranslation } from './context/TranslationContext';
-import { AuthContext, useAuth } from './context/AuthContext';
+import { AuthContext } from './context/AuthContext';
 import { HeaderProvider } from './context/HeaderContext';
 
 function AppContent() {
-  const { user, isAuthChecking } = useAuth();
+  const { user, isAuthChecking } = React.useContext(AuthContext)!;
   const { t } = useTranslation();
 
   if (isAuthChecking) {
