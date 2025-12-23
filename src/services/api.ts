@@ -3,17 +3,11 @@ import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  const { hostname } = window.location;
-  
-  // 1. Local Development (uses Vite proxy in vite.config.js)
-  // 2. Production Deployment (served by Express on same domain)
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('railway.app')) {
-    return '/api';
-  }
-
-  // 3. External Environments (e.g. Google AI Studio, StackBlitz, Local Network)
-  // Connect directly to the deployed Railway backend
-  return 'https://allcare.up.railway.app/api';
+  // Always use relative path '/api'. 
+  // In development, vite.config.js proxies this to localhost:3000.
+  // In production, the backend serves the frontend, so relative path works.
+  // This avoids issues with Blob URLs or unknown hostnames in cloud IDEs.
+  return '/api';
 };
 
 const client = axios.create({
@@ -45,6 +39,7 @@ client.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       // Dispatch event instead of hard redirect to support blob/sandboxed environments
+      // This prevents "TypeError: Location.assign: Access to 'blob:...' denied"
       window.dispatchEvent(new Event('auth:expired'));
     } else if (!error.response && error.code !== 'ERR_CANCELED') {
       console.error('Network Error: Backend unreachable.');
