@@ -1,24 +1,13 @@
 
 import axios from 'axios';
 
-// Helper to determine the correct base URL safely
+// Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  try {
-    const { hostname } = window.location;
-    
-    // 1. Local Development
-    // 2. Production Deployment
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('railway.app')) {
-      return '/api';
-    }
-  } catch (e) {
-    // In restricted environments (like some blobs), window.location access might be tricky,
-    // though usually read is allowed. Fallback to full URL if unsure.
-    console.warn('Could not read hostname, defaulting to production API');
-  }
-
-  // 3. External Environments (Blob/Sandboxed)
-  return 'https://allcare.up.railway.app/api';
+  // Always use relative path '/api'. 
+  // In development, vite.config.js proxies this to localhost:3000.
+  // In production, the backend serves the frontend, so relative path works.
+  // This avoids issues with Blob URLs or unknown hostnames in cloud IDEs.
+  return '/api';
 };
 
 const client = axios.create({
@@ -33,6 +22,7 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+// Added a simple retry mechanism for 429 errors to improve robustness
 client.interceptors.response.use(
   (response) => response.data,
   async (error) => {
@@ -48,17 +38,19 @@ client.interceptors.response.use(
 
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      // CRITICAL FIX: NEVER use window.location.href or assign in blob/sandboxed environments.
-      // Dispatch event to let React handle the view change.
+      // Dispatch event instead of hard redirect to support blob/sandboxed environments
+      // This prevents "TypeError: Location.assign: Access to 'blob:...' denied"
       window.dispatchEvent(new Event('auth:expired'));
     } else if (!error.response && error.code !== 'ERR_CANCELED') {
-      console.error('Network Error: Backend unreachable.');
+      // Use warn instead of error for network connectivity issues to avoid cluttering console
+      // when backend is legitimately down or during startup/polling.
+      console.warn('Network unavailable or backend unreachable.');
     }
     return Promise.reject(error);
   }
 );
 
-// Helpers
+// Helpers to cast response to any, ensuring TS treats return values as data objects (unwrapped by interceptor)
 const get = (url: string) => client.get(url) as Promise<any>;
 const post = (url: string, data?: any, config?: any) => client.post(url, data, config) as Promise<any>;
 const put = (url: string, data?: any) => client.put(url, data) as Promise<any>;
@@ -106,6 +98,7 @@ export const api = {
   updateExpense: (id, data) => put(`/treasury/expenses/${id}`, data),
 
   getActiveAdmissions: () => get('/admissions'),
+  getAdmissionsHistory: () => get('/admissions/history'),
   getInpatientDetails: (id) => get(`/admissions/${id}`),
   createAdmission: (data) => post('/admissions', data),
   confirmAdmissionDeposit: (id) => post(`/admissions/${id}/confirm`),

@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -98,6 +99,7 @@ router.post('/operations/:id/confirm', authorizeRoles(Permissions.MANAGE_OPERATI
 
 // Medical: Admissions
 router.get('/admissions', authorizeRoles(Permissions.VIEW_ADMISSIONS), medicalController.getActiveAdmissions);
+router.get('/admissions/history', authorizeRoles(Permissions.VIEW_ADMISSIONS), medicalController.getAdmissionsHistory);
 router.get('/admissions/:id', authorizeRoles(Permissions.VIEW_ADMISSIONS), medicalController.getInpatientDetails);
 router.post('/admissions', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.createAdmission);
 router.post('/admissions/:id/confirm', authorizeRoles(Permissions.MANAGE_ADMISSIONS), medicalController.confirmAdmission);

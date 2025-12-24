@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Play, LayoutGrid, List as ListIcon, Edit, Eye,
   Loader2, XCircle, CheckCircle, X, ChevronLeft, ChevronRight,
-  CalendarDays, Search, Filter, User, Hash, Info, Clock, Stethoscope, Briefcase
+  CalendarDays, Search, Filter, User, Hash, Info, Clock, Stethoscope, Briefcase, History
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Patient, Appointment, MedicalStaff } from '../types';
@@ -128,7 +129,6 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                   {apt.status === 'pending' && !isPaid && (<p className="text-xs font-semibold text-orange-500 mt-1">{t('appointments_queue_payment_needed')}</p>)}
                   {canManage && (
                     <div className="flex gap-2 mt-3">
-                        {/* FIX: Changed handleCancel to onCancel which is available as a prop */}
                         <Button size="sm" variant="danger" onClick={() => onCancel(apt.id)} icon={X} className="flex-1">{t('cancel')}</Button>
                         {isPaid && (<Button size="sm" variant={isFirstWaiting ? 'primary' : 'outline'} className="flex-1" onClick={() => onStatusUpdate(apt.id, 'in_progress', apt.patientName)} disabled={!isFirstWaiting} icon={Play}>{t('appointments_queue_start_button')}</Button>)}
                     </div>
@@ -246,13 +246,130 @@ const ListView = ({ appointments, onEdit, onView, onCancel, canManage }: { appoi
     );
 };
 
+const HistoryView = ({ appointments, onView }: { appointments: Appointment[], onView: (apt: Appointment) => void }) => {
+    const { t } = useTranslation();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(15);
+
+    const filtered = useMemo(() => {
+        return appointments.filter(a => {
+            const matchesSearch = 
+                a.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                a.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (a.appointmentNumber && a.appointmentNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+            const matchesStatus = statusFilter === 'All' || a.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        }).sort((a,b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+    }, [appointments, searchTerm, statusFilter]);
+
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    return (
+        <div className="flex flex-col h-full">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input 
+                    type="text" 
+                    placeholder={t('patients_search_placeholder')}
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
+                    value={searchTerm}
+                    onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                />
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shrink-0">
+              <Filter size={14} className="text-slate-400" />
+              <select 
+                className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer" 
+                value={statusFilter} 
+                onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              >
+                <option value="All">{t('records_filter_all')}</option>
+                <option value="pending">{t('appointments_status_unpaid')}</option>
+                <option value="confirmed">{t('appointments_status_in_queue')}</option>
+                <option value="in_progress">{t('appointments_status_in_consultation')}</option>
+                <option value="completed">{t('appointments_status_completed')}</option>
+                <option value="cancelled">{t('appointments_status_cancelled')}</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto min-h-[400px]">
+            <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-900/50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">ID</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Patient</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Doctor</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                {paginated.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center py-10 text-slate-400">{t('no_data')}</td></tr>
+                ) : (
+                  paginated.map((apt) => (
+                    <tr key={apt.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-xs font-mono text-slate-500">{apt.appointmentNumber || `#${apt.id}`}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-col">
+                                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{new Date(apt.datetime).toLocaleDateString()}</span>
+                                <span className="text-xs text-slate-500">{new Date(apt.datetime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                            </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-800 dark:text-white">{apt.patientName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{apt.staffName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{apt.type}</td>
+                        <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={apt.status} /></td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <Button size="sm" variant="ghost" icon={Eye} onClick={() => onView(apt)}>{t('view')}</Button>
+                        </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4 mt-auto">
+                <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
+                    <span>{t('patients_pagination_showing')} {paginated.length} {t('patients_pagination_of')} {filtered.length}</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs whitespace-nowrap">{t('patients_pagination_rows')}</span>
+                        <select 
+                          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                          value={itemsPerPage}
+                          onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                        >
+                          <option value={10}>10</option>
+                          <option value={15}>15</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
+                    <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const Appointments = () => {
   const location = useLocation();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [staff, setStaff] = useState<MedicalStaff[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'history'>('grid');
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -446,32 +563,43 @@ export const Appointments = () => {
         </div>
       )}
 
-      <Card className="!p-4 flex flex-col lg:flex-row justify-between items-center gap-4">
+      <Card className="!p-2 flex flex-col lg:flex-row justify-between items-center gap-2">
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))} />
-            <div className="relative group">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-primary-500"><CalendarDays size={16}/></div>
-              <Input type="date" value={formatDate(selectedDate)} onChange={e => setSelectedDate(new Date(e.target.value))} className="w-auto pl-10 pr-4 font-bold border-slate-200" />
-            </div>
-            <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))} />
-          </div>
-          <Button size="sm" variant="secondary" onClick={() => setSelectedDate(new Date())}>{t('dashboard_today')}</Button>
+          {viewMode !== 'history' && (
+            <>
+                <div className="flex items-center gap-1">
+                    <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))} />
+                    <div className="relative group">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-primary-500"><CalendarDays size={14}/></div>
+                    <Input type="date" value={formatDate(selectedDate)} onChange={e => setSelectedDate(new Date(e.target.value))} className="w-auto pl-8 pr-3 font-bold border-slate-200 text-xs py-1.5 h-8" />
+                    </div>
+                    <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))} />
+                </div>
+                <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={() => setSelectedDate(new Date())}>{t('dashboard_today')}</Button>
+            </>
+          )}
           
-          <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl shadow-inner border border-slate-200 dark:border-slate-800 shrink-0 ml-auto lg:ml-2">
+          <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-slate-800 shrink-0 ml-auto lg:ml-2">
             <button 
                 onClick={() => setViewMode('grid')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
             >
-                <LayoutGrid size={16} />
+                <LayoutGrid size={14} />
                 <span className="hidden sm:inline">{t('appointments_view_queue')}</span>
             </button>
             <button 
                 onClick={() => setViewMode('list')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
             >
-                <ListIcon size={16} />
+                <ListIcon size={14} />
                 <span className="hidden sm:inline">{t('appointments_view_list')}</span>
+            </button>
+            <button 
+                onClick={() => setViewMode('history')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'history' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+            >
+                <History size={14} />
+                <span className="hidden sm:inline">{t('operations_tab_history')}</span>
             </button>
           </div>
         </div>
@@ -484,8 +612,10 @@ export const Appointments = () => {
           {appointmentsByDoctor.length === 0 ? (<div className="flex-1 text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl w-full"><p className="text-slate-500">{t('appointments_list_empty')}</p></div>) : 
            appointmentsByDoctor.map(({ doctor, appointments }) => (<DoctorQueueColumn key={doctor.id} doctor={doctor} appointments={appointments} onStatusUpdate={handleStatusUpdate} onCancel={handleCancel} canManage={canManage} />))}
         </div>
-      ) : (
+      ) : viewMode === 'list' ? (
         <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={openEditModal} onView={openViewDetailModal} onCancel={handleCancel} canManage={canManage} /></Card>
+      ) : (
+        <Card className="!p-0"><HistoryView appointments={appointments} onView={openViewDetailModal} /></Card>
       )}
 
       {/* NEW/EDIT MODAL */}

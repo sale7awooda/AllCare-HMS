@@ -6,7 +6,7 @@ import {
   Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, AlertTriangle,
   HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, 
   DollarSign, Loader2, XCircle, Sparkles, Thermometer, ChevronRight, X, Info, Save, Trash2,
-  ExternalLink, ChevronDown, ChevronUp
+  ExternalLink, ChevronDown, ChevronUp, History, Filter, ChevronLeft, LayoutGrid
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
@@ -21,11 +21,21 @@ export const Admissions = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
+  const [activeMainTab, setActiveMainTab] = useState<'ward' | 'history'>('ward');
+  
   const [beds, setBeds] = useState<any[]>([]);
   const [activeAdmissions, setActiveAdmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
+
+  // History State
+  const [historyAdmissions, setHistoryAdmissions] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyFilterStatus, setHistoryFilterStatus] = useState('All');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
@@ -54,7 +64,14 @@ export const Admissions = () => {
   useHeader(
     t('admissions_title'), 
     t('admissions_subtitle'),
-    <Badge color="blue" className="px-4 py-2 font-bold">{activeAdmissions.length} {t('admissions_legend_occupied')} / {beds.length} Total</Badge>
+    <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+      <button onClick={() => setActiveMainTab('ward')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeMainTab === 'ward' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}>
+        <LayoutGrid size={16}/> {t('admissions_title')} <span className="bg-primary-100 text-primary-700 dark:bg-primary-900 text-xs px-2 py-0.5 rounded-full ml-1">{activeAdmissions.length}</span>
+      </button>
+      <button onClick={() => setActiveMainTab('history')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeMainTab === 'history' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}>
+        <History size={16}/> History
+      </button>
+    </div>
   );
 
   const loadData = async (silent = false) => {
@@ -77,7 +94,17 @@ export const Admissions = () => {
     } catch (e) { console.error(e); } finally { if (!silent) setLoading(false); }
   };
 
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+        const data = await api.getAdmissionsHistory();
+        setHistoryAdmissions(data);
+    } catch(e) { console.error(e); }
+    finally { setHistoryLoading(false); }
+  };
+
   useEffect(() => { loadData(); }, []);
+  useEffect(() => { if (activeMainTab === 'history') loadHistory(); }, [activeMainTab]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -110,19 +137,7 @@ export const Admissions = () => {
     if (bed.status === 'occupied') {
       const admission = activeAdmissions.find(a => a.bedId === bed.id && a.status === 'active');
       if (admission) {
-        setProcessStatus('processing');
-        setProcessMessage('Loading inpatient chart...');
-        try {
-          const details = await api.getInpatientDetails(admission.id);
-          setInpatientDetails(details);
-          setCareTab('overview');
-          setExpandedBillId(null);
-          setIsCareModalOpen(true);
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setProcessStatus('idle');
-        }
+        handleViewAdmissionDetails(admission.id);
       }
       return;
     }
@@ -153,6 +168,22 @@ export const Admissions = () => {
           loadData(true); 
         } 
       });
+    }
+  };
+
+  const handleViewAdmissionDetails = async (admissionId: number) => {
+    setProcessStatus('processing');
+    setProcessMessage('Loading inpatient chart...');
+    try {
+      const details = await api.getInpatientDetails(admissionId);
+      setInpatientDetails(details);
+      setCareTab('overview');
+      setExpandedBillId(null);
+      setIsCareModalOpen(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setProcessStatus('idle');
     }
   };
 
@@ -287,6 +318,28 @@ export const Admissions = () => {
     return inpatientDetails.unpaidBills.reduce((sum: number, b: any) => sum + (b.total_amount - (b.paid_amount || 0)), 0);
   }, [inpatientDetails]);
 
+  // History Filtering Logic
+  const filteredHistory = useMemo(() => {
+    return historyAdmissions.filter(a => {
+        const matchesSearch = a.patientName.toLowerCase().includes(historySearch.toLowerCase()) || (a.patientCode && a.patientCode.toLowerCase().includes(historySearch.toLowerCase()));
+        const matchesStatus = historyFilterStatus === 'All' || a.status === historyFilterStatus.toLowerCase();
+        return matchesSearch && matchesStatus;
+    });
+  }, [historyAdmissions, historySearch, historyFilterStatus]);
+
+  const paginatedHistory = filteredHistory.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage);
+  const totalHistoryPages = Math.ceil(filteredHistory.length / itemsPerPage);
+
+  const getStatusBadge = (status: string) => {
+      switch(status) {
+          case 'active': return <Badge color="red">Occupied</Badge>;
+          case 'reserved': return <Badge color="blue">Reserved</Badge>;
+          case 'discharged': return <Badge color="green">Discharged</Badge>;
+          case 'cancelled': return <Badge color="gray">Cancelled</Badge>;
+          default: return <Badge color="gray">{status}</Badge>;
+      }
+  };
+
   return (
     <div className="space-y-6">
       {processStatus !== 'idle' && (
@@ -299,57 +352,163 @@ export const Admissions = () => {
         </div>
       )}
 
-      <div className="flex gap-3 text-xs font-black uppercase tracking-widest flex-wrap mb-2 no-print">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg border border-green-100 dark:border-green-800"><div className="w-2 h-2 rounded-full bg-green-500"></div> {t('admissions_legend_available')}</div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-200 dark:border-blue-800"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div> {t('admissions_legend_reserved')}</div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800"><div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div> {t('admissions_legend_occupied')}</div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg border border-purple-100 dark:border-purple-800"><div className="w-2 h-2 rounded-full bg-purple-500"></div> Cleaning</div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {loading ? <div className="col-span-full py-20 text-center"><Loader2 className="animate-spin mx-auto text-primary-600 mb-2"/><p className="text-slate-500 font-medium">{t('admissions_loading')}</p></div> : 
-        beds.map(bed => {
-          const admission = activeAdmissions.find(a => a.bedId === bed.id);
-          const isOccupied = bed.status === 'occupied';
-          const isReserved = bed.status === 'reserved';
-          return (
-            <div 
-              key={bed.id} 
-              onClick={() => handleBedClick(bed)} 
-              className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer group flex flex-col h-52 shadow-sm hover:shadow-xl hover:-translate-y-1 ${
-                isOccupied ? 'bg-red-50/30 dark:bg-red-900/10 border-red-200 dark:border-red-900/50 hover:border-red-400' : 
-                isReserved ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-800 hover:border-blue-500' : 
-                bed.status === 'cleaning' ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 hover:border-purple-400' : 
-                'bg-green-50/50 dark:bg-green-900/10 border-green-200 hover:border-green-400'
-              }`}
-            >
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-black text-slate-800 dark:text-white text-xl leading-none">{bed.roomNumber}</h3>
-                  <p className="text-[10px] font-black uppercase text-slate-400 mt-1 tracking-widest">{bed.type}</p>
-                </div>
-                <div className={`w-3 h-3 rounded-full shrink-0 shadow-sm ${isOccupied ? 'bg-red-500 animate-pulse' : isReserved ? 'bg-blue-500' : bed.status === 'cleaning' ? 'bg-purple-500' : 'bg-green-500'}`} />
-              </div>
-              <div className="flex-1 flex flex-col justify-center items-center w-full">
-                {isOccupied || isReserved ? (
-                  <div className="w-full text-center">
-                    <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-tight mb-2 min-h-[2.5rem]">{admission?.patientName}</p>
-                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 w-full border-t border-slate-200 dark:border-slate-700 pt-2">
-                      <span className="truncate max-w-[60%]">Dr. {admission?.doctorName}</span>
-                      <span className="bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border">{calculateDays(admission?.entry_date)}d</span>
-                    </div>
-                  </div>
-                ) : (
-                   <div className="text-center opacity-40 group-hover:opacity-100 transition-all duration-300 transform group-hover:scale-110">
-                     <Plus size={40} className="text-slate-300 dark:text-slate-600 mx-auto mb-1"/>
-                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{bed.status === 'cleaning' ? 'Cleaning' : 'Available'}</p>
-                   </div>
-                )}
-              </div>
+      {activeMainTab === 'ward' && (
+        <>
+            <div className="flex gap-3 text-xs font-black uppercase tracking-widest flex-wrap mb-2 no-print">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg border border-green-100 dark:border-green-800"><div className="w-2 h-2 rounded-full bg-green-500"></div> {t('admissions_legend_available')}</div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-200 dark:border-blue-800"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div> {t('admissions_legend_reserved')}</div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800"><div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div> {t('admissions_legend_occupied')}</div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg border border-purple-100 dark:border-purple-800"><div className="w-2 h-2 rounded-full bg-purple-500"></div> Cleaning</div>
             </div>
-          )
-        })}
-      </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {loading ? <div className="col-span-full py-20 text-center"><Loader2 className="animate-spin mx-auto text-primary-600 mb-2"/><p className="text-slate-500 font-medium">{t('admissions_loading')}</p></div> : 
+                beds.map(bed => {
+                const admission = activeAdmissions.find(a => a.bedId === bed.id);
+                const isOccupied = bed.status === 'occupied';
+                const isReserved = bed.status === 'reserved';
+                return (
+                    <div 
+                    key={bed.id} 
+                    onClick={() => handleBedClick(bed)} 
+                    className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer group flex flex-col h-52 shadow-sm hover:shadow-xl hover:-translate-y-1 ${
+                        isOccupied ? 'bg-red-50/30 dark:bg-red-900/10 border-red-200 dark:border-red-900/50 hover:border-red-400' : 
+                        isReserved ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-800 hover:border-blue-500' : 
+                        bed.status === 'cleaning' ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 hover:border-purple-400' : 
+                        'bg-green-50/50 dark:bg-green-900/10 border-green-200 hover:border-green-400'
+                    }`}
+                    >
+                    <div className="flex justify-between items-start mb-3">
+                        <div>
+                        <h3 className="font-black text-slate-800 dark:text-white text-xl leading-none">{bed.roomNumber}</h3>
+                        <p className="text-[10px] font-black uppercase text-slate-400 mt-1 tracking-widest">{bed.type}</p>
+                        </div>
+                        <div className={`w-3 h-3 rounded-full shrink-0 shadow-sm ${isOccupied ? 'bg-red-500 animate-pulse' : isReserved ? 'bg-blue-500' : bed.status === 'cleaning' ? 'bg-purple-500' : 'bg-green-500'}`} />
+                    </div>
+                    <div className="flex-1 flex flex-col justify-center items-center w-full">
+                        {isOccupied || isReserved ? (
+                        <div className="w-full text-center">
+                            <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-tight mb-2 min-h-[2.5rem]">{admission?.patientName}</p>
+                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 w-full border-t border-slate-200 dark:border-slate-700 pt-2">
+                            <span className="truncate max-w-[60%]">Dr. {admission?.doctorName}</span>
+                            <span className="bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border">{calculateDays(admission?.entry_date)}d</span>
+                            </div>
+                        </div>
+                        ) : (
+                        <div className="text-center opacity-40 group-hover:opacity-100 transition-all duration-300 transform group-hover:scale-110">
+                            <Plus size={40} className="text-slate-300 dark:text-slate-600 mx-auto mb-1"/>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{bed.status === 'cleaning' ? 'Cleaning' : 'Available'}</p>
+                        </div>
+                        )}
+                    </div>
+                    </div>
+                )
+                })}
+            </div>
+        </>
+      )}
+
+      {activeMainTab === 'history' && (
+        <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden animate-in fade-in">
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 justify-between">
+                <div className="relative w-full md:w-96">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <input 
+                        type="text" 
+                        placeholder={t('patients_search_placeholder')}
+                        className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                        value={historySearch}
+                        onChange={e => { setHistorySearch(e.target.value); setHistoryPage(1); }}
+                    />
+                </div>
+                <div className="flex gap-2 items-center">
+                    <Filter className="text-slate-400 w-4 h-4" />
+                    <select 
+                        className="pl-2 pr-8 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
+                        value={historyFilterStatus}
+                        onChange={e => { setHistoryFilterStatus(e.target.value); setHistoryPage(1); }}
+                    >
+                        <option value="All">All Statuses</option>
+                        <option value="active">Active (Occupied)</option>
+                        <option value="discharged">Discharged</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="reserved">Reserved</option>
+                    </select>
+                </div>
+            </div>
+
+            <div className="overflow-x-auto min-h-[400px]">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                    <thead className="bg-slate-50 dark:bg-slate-900/50">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('patients_table_header_patient')}</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Room</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Dates (Entry - Exit)</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Doctor</th>
+                            <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">{t('status')}</th>
+                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('actions')}</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                        {historyLoading ? (
+                            <tr><td colSpan={6} className="text-center py-20 text-slate-400">{t('loading')}</td></tr>
+                        ) : paginatedHistory.length === 0 ? (
+                            <tr><td colSpan={6} className="text-center py-20 text-slate-400">{t('no_data')}</td></tr>
+                        ) : (
+                            paginatedHistory.map((adm) => (
+                                <tr key={adm.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="font-bold text-slate-900 dark:text-white">{adm.patientName}</div>
+                                        <div className="text-xs text-slate-500">{adm.patientCode}</div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{adm.roomNumber || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-xs">
+                                            <span className="font-bold text-emerald-600">{new Date(adm.entry_date).toLocaleDateString()}</span>
+                                            <span className="mx-1 text-slate-400">→</span>
+                                            <span className={adm.actual_discharge_date ? 'font-bold text-rose-600' : 'text-slate-400 italic'}>
+                                                {adm.actual_discharge_date ? new Date(adm.actual_discharge_date).toLocaleDateString() : 'Current'}
+                                            </span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 mt-0.5">{adm.stayDuration} days</div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{adm.doctorName}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusBadge(adm.status)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                                        <Button size="sm" variant="ghost" onClick={() => handleViewAdmissionDetails(adm.id)}>Details</Button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {!historyLoading && (
+                <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4">
+                    <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
+                        <span>{t('patients_pagination_showing')} {paginatedHistory.length} {t('patients_pagination_of')} {filteredHistory.length}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs whitespace-nowrap">{t('patients_pagination_rows')}</span>
+                            <select 
+                                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                                value={itemsPerPage}
+                                onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setHistoryPage(1); }}
+                            >
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => setHistoryPage(p => Math.max(1, p-1))} disabled={historyPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
+                        <Button size="sm" variant="secondary" onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p+1))} disabled={historyPage === totalHistoryPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
+                    </div>
+                </div>
+            )}
+        </Card>
+      )}
       
       <Modal isOpen={isAdmitModalOpen} onClose={() => setIsAdmitModalOpen(false)} title={t('admissions_modal_reserve_title', { room: selectedBedForAdmission?.roomNumber })}>
         <form onSubmit={handleAdmitSubmit} className="space-y-5">
