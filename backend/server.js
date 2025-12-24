@@ -75,11 +75,6 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', db: db && db.open ? 'connected' : 'disconnected' });
 });
 
-// Root Route for verification
-app.get('/', (req, res) => {
-  res.send('AllCare HMS Backend is Running');
-});
-
 // Serve Static Files
 const publicPath = path.join(process.cwd(), 'public');
 app.use(express.static(publicPath));
@@ -87,7 +82,15 @@ app.use(express.static(publicPath));
 // Catch-all route for SPA
 app.get('*', (req, res) => {
   if (req.accepts('html')) {
-    res.sendFile(path.join(publicPath, 'index.html'));
+    // If index.html exists, send it. Otherwise 404.
+    const indexPath = path.join(publicPath, 'index.html');
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            if (!res.headersSent) {
+                res.status(404).json({ error: 'Frontend not found', details: 'Ensure build assets are copied to backend/public' });
+            }
+        }
+    });
   } else {
     res.status(404).json({ error: 'Not found' });
   }
