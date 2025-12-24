@@ -9,6 +9,9 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  // Backend default port is now 3001 to distinguish from frontend
+  const BACKEND_PORT = env.API_PORT || 3001;
+  
   return {
     plugins: [react()],
     resolve: {
@@ -23,7 +26,7 @@ export default defineConfig(({ mode }) => {
       host: true,
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:3000',
+          target: `http://127.0.0.1:${BACKEND_PORT}`,
           changeOrigin: true,
           secure: false,
         }

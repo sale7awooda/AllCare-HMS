@@ -10,14 +10,20 @@ const { initDB, db } = require('./src/config/database');
 const apiRoutes = require('./src/routes/api');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+// Port Selection Strategy:
+// 1. API_PORT (Specific override)
+// 2. Production: PORT (Env provided by host) or 3000 fallback
+// 3. Development: 3001 (Avoid collision with Vite default 3000/5173)
+const isProduction = process.env.NODE_ENV === 'production';
+const PORT = process.env.API_PORT || (isProduction ? (process.env.PORT || 3000) : 3001);
 
 app.set('trust proxy', 1); // Crucial for Railway and other proxy-based deployments
 
 // Initialize DB
 try {
   initDB();
-  console.log('Database initialized.');
+  console.log('Database initialized successfully.');
 } catch (error) {
   console.error('Failed to init DB:', error);
 }
@@ -48,8 +54,7 @@ app.use(cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json());
 
-// Rate Limiting - Increased to 10,000 and reduced window to 5 mins 
-// to prevent 429s during burst loads in shared testing environments
+// Rate Limiting
 const apiLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 10000, 
@@ -64,13 +69,16 @@ app.use('/api', apiRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', db: db.open ? 'connected' : 'disconnected' });
+  res.json({ status: 'ok', db: db && db.open ? 'connected' : 'disconnected' });
 });
 
-// Serve Static Files
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve Static Files - Use process.cwd() to reliably find the 'public' folder (backend/public)
+const publicPath = path.join(process.cwd(), 'public');
+app.use(express.static(publicPath));
+
+// Catch-all route for SPA
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(publicPath, 'index.html'));
 });
 
 // Error Handler
@@ -82,9 +90,10 @@ app.use((err, req, res, next) => {
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Serving static files from: ${publicPath}`);
 });
 
-// Graceful Shutdown for Railway
+// Graceful Shutdown
 const shutdown = () => {
   console.log('Received kill signal, shutting down gracefully');
   server.close(() => {

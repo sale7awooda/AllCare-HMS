@@ -6,7 +6,6 @@ const getBaseUrl = () => {
   // Always use relative path '/api'. 
   // In development, vite.config.js proxies this to localhost:3000.
   // In production, the backend serves the frontend, so relative path works.
-  // This avoids issues with Blob URLs or unknown hostnames in cloud IDEs.
   return '/api';
 };
 
@@ -22,7 +21,6 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Added a simple retry mechanism for 429 errors to improve robustness
 client.interceptors.response.use(
   (response) => response.data,
   async (error) => {
@@ -38,14 +36,26 @@ client.interceptors.response.use(
 
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      // Dispatch event instead of hard redirect to support blob/sandboxed environments
-      // This prevents "TypeError: Location.assign: Access to 'blob:...' denied"
       window.dispatchEvent(new Event('auth:expired'));
-    } else if (!error.response && error.code !== 'ERR_CANCELED') {
-      // Use warn instead of error for network connectivity issues to avoid cluttering console
-      // when backend is legitimately down or during startup/polling.
-      console.warn('Network unavailable or backend unreachable.');
+    } 
+    
+    // Handle Network Errors (Server down, CORS, DNS issues)
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health');
+        
+        // Return a structured error for the UI to display instead of crashing
+        if (!isPolling) {
+            console.error('Backend unreachable:', config.url);
+            // Construct a fake response object so UI components can handle it gracefully
+            // instead of throwing an unhandled exception if they don't catch it.
+            // However, most call sites use try/catch. We should ensure the catch block receives a useful message.
+            const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
+            (enhancedError as any).code = 'ERR_NETWORK';
+            (enhancedError as any).isNetworkError = true;
+            return Promise.reject(enhancedError);
+        }
     }
+
     return Promise.reject(error);
   }
 );
