@@ -1,10 +1,12 @@
 
-require('dotenv').config();
+const path = require('path');
+// Load .env from project root if it exists, otherwise default (backend/.env)
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const path = require('path');
 const rateLimit = require('express-rate-limit');
 const { initDB, db } = require('./src/config/database');
 const apiRoutes = require('./src/routes/api');
@@ -44,10 +46,7 @@ app.use(helmet({
 }));
 
 // Permissive CORS for Dev
-app.use(cors({
-  origin: true, // Reflect request origin
-  credentials: true,
-}));
+app.use(cors()); // Allow all origins
 
 app.use(morgan('dev'));
 app.use(express.json());
@@ -61,6 +60,12 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 app.use('/api', apiLimiter);
+
+// Debug Middleware to log API hits
+app.use('/api', (req, res, next) => {
+  console.log(`[API Hit] ${req.method} ${req.url}`);
+  next();
+});
 
 // Routes
 app.use('/api', apiRoutes);

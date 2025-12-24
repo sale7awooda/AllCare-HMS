@@ -31,12 +31,19 @@ client.interceptors.response.use(
       return client(config);
     }
 
-    // Auto-retry on Network Error (Backend might be starting up)
-    if ((error.code === 'ERR_NETWORK' || !error.response) && !config._retryNetwork) {
-        config._retryNetwork = (config._retryNetwork || 0) + 1;
-        if (config._retryNetwork <= 3) {
-            console.log(`Backend unreachable. Retrying... (${config._retryNetwork}/3)`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+    // Aggressive Auto-retry on Network Error (Backend might be compiling/starting up)
+    // We specifically check for ERR_NETWORK or ECONNREFUSED which happens when backend is down
+    if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork) {
+        config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
+        
+        // During dev, the backend runs 'npm install' which can take 30s+. 
+        // We retry up to 10 times with a 2s delay to cover this window.
+        const MAX_RETRIES = 10; 
+        
+        if (config._retryNetworkCount <= MAX_RETRIES) {
+            const delay = 2000;
+            console.log(`Backend unreachable. Retrying in ${delay}ms... (${config._retryNetworkCount}/${MAX_RETRIES})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
             return client(config);
         }
     }
@@ -50,6 +57,7 @@ client.interceptors.response.use(
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health');
         
+        // Don't spam console for background polling
         if (!isPolling) {
             console.error('Backend unreachable:', config.url);
             const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
