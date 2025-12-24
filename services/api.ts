@@ -3,7 +3,18 @@ import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  return '/api';
+  if (typeof window === 'undefined') return '/api';
+
+  // 1. If running on the production Railway domain, use relative path (same origin)
+  // This avoids CORS issues and SSL overhead on the deployed site.
+  if (window.location.hostname.includes('railway.app')) {
+    return '/api';
+  }
+
+  // 2. If running in Development (Localhost) or AI Studio Preview:
+  // Connect explicitly to the remote Railway backend.
+  // This fixes "Backend unreachable" in previews where the backend isn't running locally.
+  return 'https://allcare.up.railway.app/api';
 };
 
 const client = axios.create({
@@ -36,9 +47,8 @@ client.interceptors.response.use(
     if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork) {
         config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
         
-        // During dev, the backend runs 'npm install' which can take 30s+. 
-        // We retry up to 10 times with a 2s delay to cover this window.
-        const MAX_RETRIES = 10; 
+        // Retry logic for cold starts
+        const MAX_RETRIES = 5; 
         
         if (config._retryNetworkCount <= MAX_RETRIES) {
             const delay = 2000;

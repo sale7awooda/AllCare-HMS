@@ -563,9 +563,10 @@ export const Appointments = () => {
         </div>
       )}
 
-      <Card className="!p-2 flex flex-col lg:flex-row justify-between items-center gap-2">
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          {viewMode !== 'history' && (
+      <Card className="!p-2 flex flex-col lg:flex-row justify-between items-center gap-4">
+        {/* Left Side: Date Controls */}
+        <div className="flex items-center gap-2 w-full lg:w-auto">
+          {viewMode !== 'history' ? (
             <>
                 <div className="flex items-center gap-1">
                     <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))} />
@@ -577,31 +578,37 @@ export const Appointments = () => {
                 </div>
                 <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={() => setSelectedDate(new Date())}>{t('dashboard_today')}</Button>
             </>
+          ) : (
+             <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+               <History size={16} className="text-slate-400" />
+               <span className="text-xs font-bold text-slate-600 dark:text-slate-300">All History</span>
+             </div>
           )}
-          
-          <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-slate-800 shrink-0 ml-auto lg:ml-2">
+        </div>
+        
+        {/* Right Side: View Tabs */}
+        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-slate-800 shrink-0 w-full lg:w-auto justify-center">
             <button 
                 onClick={() => setViewMode('grid')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex-1 lg:flex-none justify-center ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
             >
                 <LayoutGrid size={14} />
                 <span className="hidden sm:inline">{t('appointments_view_queue')}</span>
             </button>
             <button 
                 onClick={() => setViewMode('list')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex-1 lg:flex-none justify-center ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
             >
                 <ListIcon size={14} />
                 <span className="hidden sm:inline">{t('appointments_view_list')}</span>
             </button>
             <button 
                 onClick={() => setViewMode('history')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'history' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex-1 lg:flex-none justify-center ${viewMode === 'history' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
             >
                 <History size={14} />
                 <span className="hidden sm:inline">{t('operations_tab_history')}</span>
             </button>
-          </div>
         </div>
       </Card>
 
@@ -678,7 +685,12 @@ export const Appointments = () => {
 
           <Select label={t('appointments_form_select_staff')} required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})}>
             <option value="">{t('appointments_form_select_staff')}</option>
-            {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(s => <option key={s.id} value={s.id}>{s.fullName} ({s.specialization})</option>)}
+            {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(s => {
+              const availability = s.availableTimeStart ? ` [${s.availableTimeStart.slice(0,5)} - ${s.availableTimeEnd?.slice(0,5)}]` : '';
+              return (
+                <option key={s.id} value={s.id}>{s.fullName} ({s.specialization}){availability}</option>
+              );
+            })}
           </Select>
 
           <div className="grid grid-cols-2 gap-4">
