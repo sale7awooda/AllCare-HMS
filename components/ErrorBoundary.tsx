@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
@@ -10,7 +10,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null
@@ -24,6 +24,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error('Uncaught error:', error, errorInfo);
   }
 
+  // Soft reload by forcing a state reset.
+  // With MemoryRouter, we avoid touching window.location or history API.
+  private handleReload = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
   public render() {
     if (this.state.hasError) {
       return (
@@ -34,7 +40,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
             <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Something went wrong</h1>
             <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">
-              The application encountered an unexpected error. Please try reloading the page.
+              The application encountered an unexpected error.
             </p>
             
             {this.state.error && (
@@ -44,17 +50,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             )}
 
             <button 
-              onClick={() => window.location.reload()}
+              onClick={this.handleReload}
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all w-full"
             >
               <RefreshCw size={18} />
-              Reload Application
+              Try Again
             </button>
           </div>
         </div>
       );
     }
 
-    return (this as any).props.children;
+    return this.props.children;
   }
 }

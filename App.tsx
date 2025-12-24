@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { MemoryRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
@@ -77,6 +77,13 @@ export default function App() {
       setIsAuthChecking(false);
     };
     checkAuth();
+
+    const handleAuthExpired = () => {
+      localStorage.removeItem('token');
+      setUser(null);
+    };
+    window.addEventListener('auth:expired', handleAuthExpired);
+    return () => window.removeEventListener('auth:expired', handleAuthExpired);
   }, []);
 
   const login = (userData: User, token: string) => {

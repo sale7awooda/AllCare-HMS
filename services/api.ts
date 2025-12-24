@@ -1,18 +1,23 @@
 
 import axios from 'axios';
 
-// Helper to determine the correct base URL based on the current environment
+// Helper to determine the correct base URL safely
 const getBaseUrl = () => {
-  const { hostname } = window.location;
-  
-  // 1. Local Development (uses Vite proxy in vite.config.js)
-  // 2. Production Deployment (served by Express on same domain)
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('railway.app')) {
-    return '/api';
+  try {
+    const { hostname } = window.location;
+    
+    // 1. Local Development
+    // 2. Production Deployment
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('railway.app')) {
+      return '/api';
+    }
+  } catch (e) {
+    // In restricted environments (like some blobs), window.location access might be tricky,
+    // though usually read is allowed. Fallback to full URL if unsure.
+    console.warn('Could not read hostname, defaulting to production API');
   }
 
-  // 3. External Environments (e.g. Google AI Studio, StackBlitz, Local Network)
-  // Connect directly to the deployed Railway backend
+  // 3. External Environments (Blob/Sandboxed)
   return 'https://allcare.up.railway.app/api';
 };
 
@@ -28,7 +33,6 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Added a simple retry mechanism for 429 errors to improve robustness
 client.interceptors.response.use(
   (response) => response.data,
   async (error) => {
@@ -44,16 +48,17 @@ client.interceptors.response.use(
 
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/'; 
-    }
-    if (!error.response && error.code !== 'ERR_CANCELED') {
+      // CRITICAL FIX: NEVER use window.location.href or assign in blob/sandboxed environments.
+      // Dispatch event to let React handle the view change.
+      window.dispatchEvent(new Event('auth:expired'));
+    } else if (!error.response && error.code !== 'ERR_CANCELED') {
       console.error('Network Error: Backend unreachable.');
     }
     return Promise.reject(error);
   }
 );
 
-// Helpers to cast response to any, ensuring TS treats return values as data objects (unwrapped by interceptor)
+// Helpers
 const get = (url: string) => client.get(url) as Promise<any>;
 const post = (url: string, data?: any, config?: any) => client.post(url, data, config) as Promise<any>;
 const put = (url: string, data?: any) => client.put(url, data) as Promise<any>;
