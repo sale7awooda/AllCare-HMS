@@ -161,7 +161,6 @@ const ListView = ({ appointments, onEdit, onView, onCancel, canManage }: { appoi
 
     return (
         <div className="flex flex-col">
-          {/* List Filters */}
           <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -390,10 +389,37 @@ export const Appointments = () => {
   const { user: currentUser } = useAuth();
   const canManage = hasPermission(currentUser, Permissions.MANAGE_APPOINTMENTS);
 
+  // Moved ViewTabs to Header
+  const HeaderTabs = (
+    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+        <button 
+            onClick={() => setViewMode('grid')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+        >
+            <LayoutGrid size={14} />
+            <span className="hidden sm:inline">{t('appointments_view_queue')}</span>
+        </button>
+        <button 
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+        >
+            <ListIcon size={14} />
+            <span className="hidden sm:inline">{t('appointments_view_list')}</span>
+        </button>
+        <button 
+            onClick={() => setViewMode('history')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+        >
+            <History size={14} />
+            <span className="hidden sm:inline">{t('operations_tab_history')}</span>
+        </button>
+    </div>
+  );
+
   useHeader(
     t('appointments_title'),
     t('appointments_subtitle'),
-    canManage ? <Button onClick={() => { openNewModal(); }} icon={Plus}>{t('dashboard_today')}</Button> : null
+    HeaderTabs
   );
 
   const loadData = async (isSilent = false) => {
@@ -563,53 +589,45 @@ export const Appointments = () => {
         </div>
       )}
 
-      <Card className="!p-2 flex flex-col lg:flex-row justify-between items-center gap-4">
+      {/* COMPACT TOOLBAR */}
+      <Card className="!py-2 !px-4 flex flex-col md:flex-row justify-between items-center gap-4 min-h-[3.5rem]">
         {/* Left Side: Date Controls */}
-        <div className="flex items-center gap-2 w-full lg:w-auto">
+        <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-start">
           {viewMode !== 'history' ? (
             <>
-                <div className="flex items-center gap-1">
-                    <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))} />
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <button className="p-1 hover:bg-white dark:hover:bg-slate-800 rounded-md transition-colors text-slate-500" onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}>
+                        <ChevronLeft size={16} />
+                    </button>
                     <div className="relative group">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-primary-500"><CalendarDays size={14}/></div>
-                    <Input type="date" value={formatDate(selectedDate)} onChange={e => setSelectedDate(new Date(e.target.value))} className="w-auto pl-8 pr-3 font-bold border-slate-200 text-xs py-1.5 h-8" />
+                        <div className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-primary-500"><CalendarDays size={14}/></div>
+                        <input 
+                            type="date" 
+                            value={formatDate(selectedDate)} 
+                            onChange={e => setSelectedDate(new Date(e.target.value))} 
+                            className="w-[110px] pl-7 pr-2 py-1 bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none" 
+                        />
                     </div>
-                    <Button size="sm" variant="outline" icon={ChevronRight} onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))} />
+                    <button className="p-1 hover:bg-white dark:hover:bg-slate-800 rounded-md transition-colors text-slate-500" onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}>
+                        <ChevronRight size={16} />
+                    </button>
                 </div>
-                <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={() => setSelectedDate(new Date())}>{t('dashboard_today')}</Button>
+                <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => setSelectedDate(new Date())}>{t('dashboard_today')}</Button>
             </>
           ) : (
-             <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
                <History size={16} className="text-slate-400" />
-               <span className="text-xs font-bold text-slate-600 dark:text-slate-300">All History</span>
+               <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Historical Archive</span>
              </div>
           )}
         </div>
         
-        {/* Right Side: View Tabs */}
-        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-slate-800 shrink-0 w-full lg:w-auto justify-center">
-            <button 
-                onClick={() => setViewMode('grid')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex-1 lg:flex-none justify-center ${viewMode === 'grid' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
-            >
-                <LayoutGrid size={14} />
-                <span className="hidden sm:inline">{t('appointments_view_queue')}</span>
-            </button>
-            <button 
-                onClick={() => setViewMode('list')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex-1 lg:flex-none justify-center ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
-            >
-                <ListIcon size={14} />
-                <span className="hidden sm:inline">{t('appointments_view_list')}</span>
-            </button>
-            <button 
-                onClick={() => setViewMode('history')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex-1 lg:flex-none justify-center ${viewMode === 'history' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
-            >
-                <History size={14} />
-                <span className="hidden sm:inline">{t('operations_tab_history')}</span>
-            </button>
-        </div>
+        {/* Right Side: New Appointment Button */}
+        {canManage && (
+            <Button onClick={() => openNewModal()} icon={Plus} size="sm" className="h-8 shadow-sm">
+                {t('dashboard_today')} 
+            </Button>
+        )}
       </Card>
 
       {loading ? (

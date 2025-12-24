@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge, Modal, Input, Textarea } from '../components/UI';
-import { FlaskConical, CheckCircle, Search, Clock, FileText, User, ChevronRight, Activity, History as HistoryIcon, Save } from 'lucide-react';
+import { FlaskConical, CheckCircle, Search, Clock, FileText, User, ChevronRight, Activity, History as HistoryIcon, Save, Calendar, DollarSign } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
 import { useHeader } from '../context/HeaderContext';
@@ -13,8 +13,29 @@ export const Laboratory = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Tabs moved to Header
+  const HeaderTabs = (
+    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+        <button 
+            onClick={() => setActiveTab('queue')} 
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'queue' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+        >
+            <FlaskConical size={14}/> {t('lab_tab_queue')} 
+            <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'queue' ? 'bg-primary-100 text-primary-700' : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300'}`}>
+              {requests.filter(r => r.status !== 'completed').length}
+            </span>
+        </button>
+        <button 
+            onClick={() => setActiveTab('history')} 
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+        >
+            <HistoryIcon size={14}/> {t('lab_tab_history')}
+        </button>
+    </div>
+  );
+
   // Sync Header
-  useHeader(t('lab_title'), t('lab_subtitle'));
+  useHeader(t('lab_title'), t('lab_subtitle'), HeaderTabs);
 
   // Modal State
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
@@ -59,21 +80,136 @@ export const Laboratory = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg w-fit">
-          <button onClick={() => setActiveTab('queue')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeTab === 'queue' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><FlaskConical size={16}/> {t('lab_tab_queue')} <span className="bg-orange-100 text-orange-700 dark:bg-orange-900 text-xs px-2 py-0.5 rounded-full ml-1">{requests.filter(r => r.status !== 'completed').length}</span></button>
-          <button onClick={() => setActiveTab('history')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><HistoryIcon size={16}/> {t('lab_tab_history')}</button>
+      
+      {/* Optimized Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+        <input 
+            type="text" 
+            placeholder={t('lab_search_placeholder')} 
+            className="pl-10 pr-4 py-3 w-full sm:w-96 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all shadow-sm" 
+            value={searchTerm} 
+            onChange={e => setSearchTerm(e.target.value)}
+        />
       </div>
 
-      <Card className="!p-4"><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" /><input type="text" placeholder={t('lab_search_placeholder')} className="pl-10 w-full sm:w-96 rounded-lg border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/></div></Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {loading ? (
+            <div className="col-span-full py-20 text-center text-slate-400 flex flex-col items-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mb-3"></div>
+                {t('lab_loading')}
+            </div>
+        ) : filteredRequests.length === 0 ? (
+            <div className="col-span-full text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl bg-slate-50/50 dark:bg-slate-900/50">
+                <FlaskConical size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-600 opacity-50" />
+                <p className="text-slate-500 dark:text-slate-400 font-medium">{t('lab_empty', {tab: activeTab === 'queue' ? t('lab_tab_queue') : t('lab_tab_history')})}</p>
+            </div>
+        ) : (
+            filteredRequests.map(req => (
+                <div key={req.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group h-full">
+                    
+                    {/* Card Header */}
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-lg">
+                                {req.patientName?.charAt(0)}
+                            </div>
+                            <div>
+                                <h3 className="text-base font-black text-slate-800 dark:text-white line-clamp-1">{req.patientName}</h3>
+                                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                                    <Calendar size={12} />
+                                    <span>{new Date(req.created_at).toLocaleDateString()}</span>
+                                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                    <Clock size={12} />
+                                    <span>{new Date(req.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {req.status === 'completed' ? 
+                            <Badge color="green"><CheckCircle size={12} className="mr-1"/>{t('lab_card_results_ready')}</Badge> : 
+                         req.status === 'confirmed' ? 
+                            <Badge color="blue">{t('lab_card_paid')}</Badge> : 
+                            <Badge color="yellow"><Clock size={12} className="mr-1"/>{t('lab_card_payment_pending')}</Badge>
+                        }
+                    </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {loading ? <div className="text-center py-20 text-slate-400">{t('lab_loading')}</div> : filteredRequests.length === 0 ? (<div className="text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl"><FlaskConical size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-600" /><p className="text-slate-500 dark:text-slate-400 font-medium">{t('lab_empty', {tab: activeTab === 'queue' ? t('lab_tab_queue') : t('lab_tab_history')})}</p></div>) : 
-        filteredRequests.map(req => (<div key={req.id} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-6 items-start sm:items-center group"><div className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg min-w-[80px] border border-slate-100 dark:border-slate-700"><span className="text-xs font-bold text-slate-400 uppercase">{new Date(req.created_at).toLocaleString('default', { month: 'short' })}</span><span className="text-xl font-bold text-slate-800 dark:text-slate-200">{new Date(req.created_at).getDate()}</span><span className="text-xs text-slate-400">{new Date(req.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></div><div className="flex-1"><div className="flex items-center gap-3 mb-1"><h3 className="text-lg font-bold text-slate-800 dark:text-white">{req.patientName}</h3>{req.status === 'completed' ? <Badge color="green"><CheckCircle size={12} className="inline mr-1"/>{t('lab_card_results_ready')}</Badge> : req.status === 'confirmed' ? <Badge color="blue">{t('lab_card_paid')}</Badge> : <Badge color="yellow">{t('lab_card_payment_pending')}</Badge>}</div><p className="text-sm text-slate-500 dark:text-slate-400">{req.testNames || 'Multiple Tests'}</p></div><div className="text-right"><span className="text-xs text-slate-400">{t('config_field_cost')}</span><p className="text-xl font-bold text-slate-800 dark:text-white">${req.projected_cost.toLocaleString()}</p></div><div className="sm:ml-auto">{req.status === 'confirmed' && <Button onClick={() => openProcessModal(req)} icon={Activity}>{t('lab_card_enter_results')}</Button>}{req.status === 'pending' && <div className="text-sm text-orange-600 font-medium flex items-center gap-2 bg-orange-50 p-3 rounded-lg border border-orange-100"><Clock size={16}/><span>{t('lab_card_awaiting_payment')}</span></div>}{req.status === 'completed' && <Button variant="secondary" icon={FileText} onClick={() => openProcessModal(req)}>{t('lab_view_results')}</Button>}</div></div>))
-        }
+                    {/* Card Body */}
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 mb-4 flex-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{t('lab_modal_title')}</p>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                            {req.testNames || 'Comprehensive Panel'}
+                        </p>
+                    </div>
+
+                    {/* Card Footer */}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">{t('config_field_cost')}</span>
+                            <span className="text-lg font-black text-slate-900 dark:text-white flex items-center">
+                                <span className="text-xs text-slate-400 mr-0.5">$</span>
+                                {req.projected_cost.toLocaleString()}
+                            </span>
+                        </div>
+                        
+                        <div>
+                            {req.status === 'confirmed' && (
+                                <Button size="sm" onClick={() => openProcessModal(req)} icon={Activity}>
+                                    {t('lab_card_enter_results')}
+                                </Button>
+                            )}
+                            {req.status === 'pending' && (
+                                <div className="px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 text-xs font-bold rounded-lg border border-orange-100 dark:border-orange-900/30">
+                                    {t('lab_card_awaiting_payment')}
+                                </div>
+                            )}
+                            {req.status === 'completed' && (
+                                <Button size="sm" variant="secondary" icon={FileText} onClick={() => openProcessModal(req)}>
+                                    {t('lab_view_results')}
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            ))
+        )}
       </div>
 
       <Modal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)} title={`${t('lab_modal_title')} - ${selectedReq?.patientName}`}>
-        <form onSubmit={handleComplete} className="space-y-4"><div><h4 className="font-bold mb-2">{selectedReq?.testNames}</h4><Textarea label={t('lab_modal_findings')} placeholder={t('lab_modal_findings_placeholder')} rows={6} value={resultForm.results} onChange={e => setResultForm({...resultForm, results: e.target.value})} required={selectedReq?.status !== 'completed'} disabled={selectedReq?.status === 'completed'} /></div><Textarea label={t('lab_modal_notes')} placeholder={t('lab_modal_notes_placeholder')} rows={2} value={resultForm.notes} onChange={e => setResultForm({...resultForm, notes: e.target.value})} disabled={selectedReq?.status === 'completed'} /><div className="pt-4 flex justify-end gap-3"><Button type="button" variant="secondary" onClick={() => setIsProcessModalOpen(false)}>{t('close')}</Button>{selectedReq?.status !== 'completed' && (<Button type="submit" icon={Save} disabled={processStatus === 'processing'}>{processStatus === 'processing' ? t('processing') : t('lab_modal_save_button')}</Button>)}</div></form>
+        <form onSubmit={handleComplete} className="space-y-6">
+            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-1">{selectedReq?.testNames}</h4>
+                <p className="text-xs text-slate-500">Requested: {selectedReq && new Date(selectedReq.created_at).toLocaleString()}</p>
+            </div>
+            
+            <Textarea 
+                label={t('lab_modal_findings')} 
+                placeholder={t('lab_modal_findings_placeholder')} 
+                rows={6} 
+                value={resultForm.results} 
+                onChange={e => setResultForm({...resultForm, results: e.target.value})} 
+                required={selectedReq?.status !== 'completed'} 
+                disabled={selectedReq?.status === 'completed'} 
+            />
+            
+            <Textarea 
+                label={t('lab_modal_notes')} 
+                placeholder={t('lab_modal_notes_placeholder')} 
+                rows={2} 
+                value={resultForm.notes} 
+                onChange={e => setResultForm({...resultForm, notes: e.target.value})} 
+                disabled={selectedReq?.status === 'completed'} 
+            />
+            
+            <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
+                <Button type="button" variant="secondary" onClick={() => setIsProcessModalOpen(false)}>{t('close')}</Button>
+                {selectedReq?.status !== 'completed' && (
+                    <Button type="submit" icon={Save} disabled={processStatus === 'processing'}>
+                        {processStatus === 'processing' ? t('processing') : t('lab_modal_save_button')}
+                    </Button>
+                )}
+            </div>
+        </form>
       </Modal>
     </div>
   );
