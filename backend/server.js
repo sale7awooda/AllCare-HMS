@@ -12,13 +12,10 @@ const apiRoutes = require('./src/routes/api');
 const app = express();
 
 // Port Selection Strategy:
-// 1. API_PORT (Specific override)
-// 2. Production: PORT (Env provided by host) or 3000 fallback
-// 3. Development: 3001 (Avoid collision with Vite default 3000/5173)
 const isProduction = process.env.NODE_ENV === 'production';
 const PORT = process.env.API_PORT || (isProduction ? (process.env.PORT || 3000) : 3001);
 
-app.set('trust proxy', 1); // Crucial for Railway and other proxy-based deployments
+app.set('trust proxy', 1);
 
 // Initialize DB
 try {
@@ -30,7 +27,7 @@ try {
 
 // Middleware
 app.use(helmet({
-  contentSecurityPolicy: {
+  contentSecurityPolicy: isProduction ? {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://esm.sh"],
@@ -41,22 +38,23 @@ app.use(helmet({
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
     },
-  },
+  } : false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginEmbedderPolicy: false
 }));
 
-const corsOptions = {
-  origin: function(origin, callback) { return callback(null, true); },
+// Permissive CORS for Dev
+app.use(cors({
+  origin: true, // Reflect request origin
   credentials: true,
-};
-app.use(cors(corsOptions));
+}));
+
 app.use(morgan('dev'));
 app.use(express.json());
 
 // Rate Limiting
 const apiLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
+  windowMs: 5 * 60 * 1000, 
   max: 10000, 
   standardHeaders: true,
   legacyHeaders: false,
@@ -72,24 +70,34 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', db: db && db.open ? 'connected' : 'disconnected' });
 });
 
-// Serve Static Files - Use process.cwd() to reliably find the 'public' folder (backend/public)
+// Root Route for verification
+app.get('/', (req, res) => {
+  res.send('AllCare HMS Backend is Running');
+});
+
+// Serve Static Files
 const publicPath = path.join(process.cwd(), 'public');
 app.use(express.static(publicPath));
 
 // Catch-all route for SPA
 app.get('*', (req, res) => {
-  res.sendFile(path.join(publicPath, 'index.html'));
+  if (req.accepts('html')) {
+    res.sendFile(path.join(publicPath, 'index.html'));
+  } else {
+    res.status(404).json({ error: 'Not found' });
+  }
 });
 
-// Error Handler
+// Global Error Handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Unhandled Error:', err.stack);
   if (res.headersSent) return next(err);
   res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
+// Start Server
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Backend Server running on port ${PORT}`);
   console.log(`Serving static files from: ${publicPath}`);
 });
 
@@ -117,3 +125,7 @@ const shutdown = () => {
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  if (isProduction) process.exit(1);
+});

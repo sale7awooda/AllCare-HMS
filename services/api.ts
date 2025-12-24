@@ -3,9 +3,6 @@ import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  // Always use relative path '/api'. 
-  // In development, vite.config.js proxies this to localhost:3000.
-  // In production, the backend serves the frontend, so relative path works.
   return '/api';
 };
 
@@ -26,12 +23,22 @@ client.interceptors.response.use(
   async (error) => {
     const { config, response } = error;
     
-    // Auto-retry once on 429 with a small delay
+    // Auto-retry once on 429
     if (response?.status === 429 && !config._retry) {
       config._retry = true;
       console.warn('Rate limit hit, retrying in 1s...');
       await new Promise(resolve => setTimeout(resolve, 1000));
       return client(config);
+    }
+
+    // Auto-retry on Network Error (Backend might be starting up)
+    if ((error.code === 'ERR_NETWORK' || !error.response) && !config._retryNetwork) {
+        config._retryNetwork = (config._retryNetwork || 0) + 1;
+        if (config._retryNetwork <= 3) {
+            console.log(`Backend unreachable. Retrying... (${config._retryNetwork}/3)`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return client(config);
+        }
     }
 
     if (error.response?.status === 401) {
@@ -43,12 +50,8 @@ client.interceptors.response.use(
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health');
         
-        // Return a structured error for the UI to display instead of crashing
         if (!isPolling) {
             console.error('Backend unreachable:', config.url);
-            // Construct a fake response object so UI components can handle it gracefully
-            // instead of throwing an unhandled exception if they don't catch it.
-            // However, most call sites use try/catch. We should ensure the catch block receives a useful message.
             const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
             (enhancedError as any).code = 'ERR_NETWORK';
             (enhancedError as any).isNetworkError = true;
@@ -60,7 +63,7 @@ client.interceptors.response.use(
   }
 );
 
-// Helpers to cast response to any, ensuring TS treats return values as data objects (unwrapped by interceptor)
+// Helpers to cast response to any
 const get = (url: string) => client.get(url) as Promise<any>;
 const post = (url: string, data?: any, config?: any) => client.post(url, data, config) as Promise<any>;
 const put = (url: string, data?: any) => client.put(url, data) as Promise<any>;
@@ -133,6 +136,7 @@ export const api = {
   createOperation: (data) => post('/operations', data),
   processOperationRequest: (id, data) => post(`/operations/${id}/process`, data),
   completeOperation: (id) => post(`/operations/${id}/complete`),
+  confirmOperation: (id) => post(`/operations/${id}/confirm`),
 
   getSystemSettings: () => get('/config/settings'),
   getPublicSettings: () => get('/config/settings/public'),
@@ -186,7 +190,6 @@ export const api = {
   downloadBackup: async () => {
     try {
         const response = await client.get('/config/backup', { responseType: 'blob' });
-        // Enforce binary type so the browser respects the .db extension
         const blob = new Blob([response], { type: 'application/x-sqlite3' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
