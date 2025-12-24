@@ -110,61 +110,58 @@ export const Laboratory = () => {
                     
                     {/* Card Header */}
                     <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-lg">
-                                {req.patientName?.charAt(0)}
-                            </div>
-                            <div>
-                                <h3 className="text-base font-black text-slate-800 dark:text-white line-clamp-1">{req.patientName}</h3>
-                                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                                    <Calendar size={12} />
-                                    <span>{new Date(req.created_at).toLocaleDateString()}</span>
-                                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                    <Clock size={12} />
-                                    <span>{new Date(req.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                </div>
+                        <div>
+                            <h3 className="text-base font-black text-slate-800 dark:text-white line-clamp-1">{req.patientName}</h3>
+                            <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                                <Calendar size={12} />
+                                <span>{new Date(req.created_at).toLocaleDateString()}</span>
+                                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                <Clock size={12} />
+                                <span>{new Date(req.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                             </div>
                         </div>
                         
-                        {req.status === 'completed' ? 
-                            <Badge color="green"><CheckCircle size={12} className="mr-1"/>{t('lab_card_results_ready')}</Badge> : 
-                         req.status === 'confirmed' ? 
-                            <Badge color="blue">{t('lab_card_paid')}</Badge> : 
-                            <Badge color="yellow"><Clock size={12} className="mr-1"/>{t('lab_card_payment_pending')}</Badge>
-                        }
+                        <div className="flex flex-col items-end gap-1">
+                            <span className="text-sm font-black text-slate-900 dark:text-white flex items-center">
+                                <span className="text-xs text-slate-400 mr-0.5">$</span>
+                                {req.projected_cost.toLocaleString()}
+                            </span>
+                            {req.status === 'completed' ? 
+                                <Badge color="green"><CheckCircle size={12} className="mr-1"/>{t('lab_card_results_ready')}</Badge> : 
+                             req.status === 'confirmed' ? 
+                                <Badge color="blue">{t('lab_card_paid')}</Badge> : 
+                                <Badge color="yellow"><Clock size={12} className="mr-1"/>{t('lab_card_payment_pending')}</Badge>
+                            }
+                        </div>
                     </div>
 
                     {/* Card Body */}
                     <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 mb-4 flex-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{t('lab_modal_title')}</p>
-                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300 line-clamp-2 leading-relaxed">
-                            {req.testNames || 'Comprehensive Panel'}
-                        </p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Lab Tests</p>
+                        <div className="flex flex-wrap gap-1.5">
+                            {(req.testNames || 'Comprehensive Panel').split(',').map((test: string, idx: number) => (
+                                <span key={idx} className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-[11px] font-bold text-slate-600 dark:text-slate-300 shadow-sm leading-none">
+                                    {test.trim()}
+                                </span>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Card Footer */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">{t('config_field_cost')}</span>
-                            <span className="text-lg font-black text-slate-900 dark:text-white flex items-center">
-                                <span className="text-xs text-slate-400 mr-0.5">$</span>
-                                {req.projected_cost.toLocaleString()}
-                            </span>
-                        </div>
-                        
-                        <div>
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+                        <div className="w-full">
                             {req.status === 'confirmed' && (
-                                <Button size="sm" onClick={() => openProcessModal(req)} icon={Activity}>
+                                <Button size="sm" onClick={() => openProcessModal(req)} icon={Activity} className="w-full justify-center">
                                     {t('lab_card_enter_results')}
                                 </Button>
                             )}
                             {req.status === 'pending' && (
-                                <div className="px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 text-xs font-bold rounded-lg border border-orange-100 dark:border-orange-900/30">
+                                <div className="px-3 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-600 text-xs font-bold rounded-lg border border-orange-100 dark:border-orange-900/30 text-center">
                                     {t('lab_card_awaiting_payment')}
                                 </div>
                             )}
                             {req.status === 'completed' && (
-                                <Button size="sm" variant="secondary" icon={FileText} onClick={() => openProcessModal(req)}>
+                                <Button size="sm" variant="secondary" icon={FileText} onClick={() => openProcessModal(req)} className="w-full justify-center">
                                     {t('lab_view_results')}
                                 </Button>
                             )}

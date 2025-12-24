@@ -389,26 +389,26 @@ export const Appointments = () => {
   const { user: currentUser } = useAuth();
   const canManage = hasPermission(currentUser, Permissions.MANAGE_APPOINTMENTS);
 
-  // Moved ViewTabs to Header
+  // Moved View Tabs to Header
   const HeaderTabs = (
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
         <button 
             onClick={() => setViewMode('grid')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+            className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
         >
             <LayoutGrid size={14} />
             <span className="hidden sm:inline">{t('appointments_view_queue')}</span>
         </button>
         <button 
             onClick={() => setViewMode('list')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+            className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
         >
             <ListIcon size={14} />
             <span className="hidden sm:inline">{t('appointments_view_list')}</span>
         </button>
         <button 
             onClick={() => setViewMode('history')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+            className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
         >
             <History size={14} />
             <span className="hidden sm:inline">{t('operations_tab_history')}</span>
@@ -416,11 +416,7 @@ export const Appointments = () => {
     </div>
   );
 
-  useHeader(
-    t('appointments_title'),
-    t('appointments_subtitle'),
-    HeaderTabs
-  );
+  useHeader(t('appointments_title'), t('appointments_subtitle'), HeaderTabs);
 
   const loadData = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -574,6 +570,17 @@ export const Appointments = () => {
     setIsModalOpen(true);
   };
 
+  // Helper for availability
+  const isDoctorAvailable = (doc: MedicalStaff, dateStr: string) => {
+    if (!doc.availableDays || doc.availableDays.length === 0) return true;
+    // Robust parsing
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayName = days[date.getDay()];
+    return doc.availableDays.includes(dayName);
+  };
+
   return (
     <div className="space-y-6">
       {processStatus !== 'idle' && (
@@ -589,15 +596,15 @@ export const Appointments = () => {
         </div>
       )}
 
-      {/* COMPACT TOOLBAR */}
-      <Card className="!py-2 !px-4 flex flex-col md:flex-row justify-between items-center gap-4 min-h-[3.5rem]">
+      {/* COMPACT TOOLBAR - Updated Layout */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-1.5 flex justify-between items-center">
         {/* Left Side: Date Controls */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-start">
+        <div className="flex items-center gap-2">
           {viewMode !== 'history' ? (
             <>
-                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
                     <button className="p-1 hover:bg-white dark:hover:bg-slate-800 rounded-md transition-colors text-slate-500" onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))}>
-                        <ChevronLeft size={16} />
+                        <ChevronLeft size={14} />
                     </button>
                     <div className="relative group">
                         <div className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-primary-500"><CalendarDays size={14}/></div>
@@ -609,26 +616,25 @@ export const Appointments = () => {
                         />
                     </div>
                     <button className="p-1 hover:bg-white dark:hover:bg-slate-800 rounded-md transition-colors text-slate-500" onClick={() => setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))}>
-                        <ChevronRight size={16} />
+                        <ChevronRight size={14} />
                     </button>
                 </div>
-                <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => setSelectedDate(new Date())}>{t('dashboard_today')}</Button>
+                <Button size="sm" variant="secondary" className="text-xs h-7 px-3" onClick={() => setSelectedDate(new Date())}>{t('dashboard_today')}</Button>
             </>
           ) : (
              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
                <History size={16} className="text-slate-400" />
-               <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Historical Archive</span>
              </div>
           )}
         </div>
         
         {/* Right Side: New Appointment Button */}
         {canManage && (
-            <Button onClick={() => openNewModal()} icon={Plus} size="sm" className="h-8 shadow-sm">
-                {t('dashboard_today')} 
+            <Button onClick={() => openNewModal()} icon={Plus} size="sm" className="shadow-sm">
+                {t('appointments_modal_title')} 
             </Button>
         )}
-      </Card>
+      </div>
 
       {loading ? (
         <div className="text-center py-20 text-slate-400">{t('loading')}</div>
@@ -704,9 +710,10 @@ export const Appointments = () => {
           <Select label={t('appointments_form_select_staff')} required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})}>
             <option value="">{t('appointments_form_select_staff')}</option>
             {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(s => {
-              const availability = s.availableTimeStart ? ` [${s.availableTimeStart.slice(0,5)} - ${s.availableTimeEnd?.slice(0,5)}]` : '';
+              const isAvailable = isDoctorAvailable(s, formData.date);
+              const statusText = isAvailable ? 'Available' : 'Unavailable';
               return (
-                <option key={s.id} value={s.id}>{s.fullName} ({s.specialization}){availability}</option>
+                <option key={s.id} value={s.id}>{s.fullName} ({s.specialization}) - {statusText}</option>
               );
             })}
           </Select>
