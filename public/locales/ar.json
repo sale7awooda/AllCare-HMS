@@ -432,7 +432,7 @@
   "admissions_clear_due_balance": "تسوية الرصيد المستحق (${balance})",
   "admissions_dialog_discharge_title": "تأكيد الخروج النهائي",
   "admissions_dialog_discharge_message": "هل أنت متأكد من رغبتك في تخريج هذا المريض؟ سيتم إنهاء إقامته وتحديد السرير للتنظيف.",
-  "admissions_tab_history": "السجل",
+  "admissions_tab_history": "التاريخ",
   "admissions_history_filter_all": "جميع الحالات",
   "admissions_history_header_room": "الغرفة",
   "admissions_history_header_dates": "التواريخ (دخول - خروج)",
@@ -493,5 +493,18 @@
   "admissions_modal_reserve_notes_placeholder": "ملخص سريري أولي...",
   "billing_table_paid_amount": "المبلغ المدفوع",
   "appointments_tab_history": "السجل",
-  "records_filter_all": "الكل"
+  "records_filter_all": "الكل",
+  "lab_modal_findings_title": "نتائج المختبر: {name}",
+  "lab_modal_technical_analysis": "التحليل الفني",
+  "lab_modal_order_ref": "مرجع الطلب: #{id}",
+  "lab_modal_entry_date": "تاريخ الإدخال",
+  "lab_modal_enter_value": "أدخل القيمة",
+  "lab_modal_remarks_label": "ملاحظات الفني",
+  "lab_modal_remarks_placeholder": "أضف ملاحظات ملخصة أو علامات حرجة للفريق السريري...",
+  "lab_modal_authorize_button": "اعتماد وتوقيع",
+  "lab_status_ready": "مدفوع / جاهز",
+  "lab_eval_normal": "طبيعي",
+  "lab_eval_low": "منخفض",
+  "lab_eval_high": "مرتفع",
+  "lab_eval_observed": "تمت ملاحظته"
 }

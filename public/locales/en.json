@@ -415,6 +415,7 @@
   "admissions_care_discharge_note": "Discharging calculates the final bill and frees the bed after cleaning.",
   "admissions_care_discharge_status": "Discharge Status",
   "admissions_care_discharge_status_recovered": "Recovered",
+  "admissions_care_discharge_status_stable": "Stable / Home Care",
   "admissions_care_discharge_status_transferred": "Transferred",
   "admissions_care_discharge_status_ama": "Against Medical Advice",
   "admissions_care_discharge_status_deceased": "Deceased",
@@ -493,5 +494,18 @@
   "admissions_modal_reserve_notes_placeholder": "Initial clinical summary...",
   "billing_table_paid_amount": "Paid Amount",
   "appointments_tab_history": "History",
-  "records_filter_all": "All"
+  "records_filter_all": "All",
+  "lab_modal_findings_title": "Lab Findings: {name}",
+  "lab_modal_technical_analysis": "Technical Analysis",
+  "lab_modal_order_ref": "Order Ref: #{id}",
+  "lab_modal_entry_date": "Entry Date",
+  "lab_modal_enter_value": "Enter Value",
+  "lab_modal_remarks_label": "Technician Remarks",
+  "lab_modal_remarks_placeholder": "Add summarizing observations or critical flags for the clinical team...",
+  "lab_modal_authorize_button": "Authorize & Sign Off",
+  "lab_status_ready": "Paid / Ready",
+  "lab_eval_normal": "Normal",
+  "lab_eval_low": "Low",
+  "lab_eval_high": "High",
+  "lab_eval_observed": "Observed"
 }

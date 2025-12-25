@@ -56,7 +56,7 @@ export const Laboratory = () => {
   useEffect(() => { loadData(); }, []);
 
   const getEvaluation = (value: string, range: string) => {
-    if (!value || !range) return 'Observed';
+    if (!value || !range) return 'lab_eval_observed';
     const val = parseFloat(value);
     
     // Numeric range check
@@ -64,20 +64,20 @@ export const Laboratory = () => {
     if (numericRangeMatch && !isNaN(val)) {
       const low = parseFloat(numericRangeMatch[1]);
       const high = parseFloat(numericRangeMatch[2]);
-      if (val < low) return 'Low';
-      if (val > high) return 'High';
-      return 'Normal';
+      if (val < low) return 'lab_eval_low';
+      if (val > high) return 'lab_eval_high';
+      return 'lab_eval_normal';
     }
 
     // Qualitative check
     const lowerVal = value.toLowerCase();
     const lowerRange = range.toLowerCase();
     if (lowerRange.includes('neg') || lowerRange.includes('non')) {
-        if (lowerVal.includes('pos')) return 'High/Positive';
-        if (lowerVal.includes('neg')) return 'Normal';
+        if (lowerVal.includes('pos')) return 'lab_eval_high';
+        if (lowerVal.includes('neg')) return 'lab_eval_normal';
     }
     
-    return 'Observed';
+    return 'lab_eval_observed';
   };
 
   const openProcessModal = (req: any) => {
@@ -194,13 +194,13 @@ export const Laboratory = () => {
                         </div>
                         <div className="flex flex-col items-end gap-1.5 ml-2">
                             <Badge color={req.status === 'completed' ? 'green' : req.status === 'confirmed' ? 'blue' : 'yellow'} className="text-[8px] px-1.5 py-0 uppercase font-black">
-                                {req.status === 'confirmed' ? 'Paid / Ready' : req.status}
+                                {req.status === 'confirmed' ? t('lab_status_ready') : req.status}
                             </Badge>
                         </div>
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 mb-3 flex-1">
                         <div className="flex flex-wrap gap-1">
-                            {(req.testNames || 'Tests').split(',').map((test: string, idx: number) => (
+                            {(req.testNames || t('billing_modal_create_items_label')).split(',').map((test: string, idx: number) => (
                                 <span key={idx} className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-bold text-slate-600 dark:text-slate-300 shadow-sm leading-tight truncate">
                                     {test.trim()}
                                 </span>
@@ -230,15 +230,15 @@ export const Laboratory = () => {
       </div>
 
       {/* LAB RESULTS MODAL - STRUCTURED COMPONENTS */}
-      <Modal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)} title={`Lab Findings: ${selectedReq?.patientName}`}>
+      <Modal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)} title={t('lab_modal_findings_title', { name: selectedReq?.patientName })}>
         <form onSubmit={handleComplete} className="space-y-6">
             <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center">
                 <div>
-                    <h4 className="font-black text-lg tracking-tight">Technical Analysis</h4>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Order Ref: #{selectedReq?.id}</p>
+                    <h4 className="font-black text-lg tracking-tight">{t('lab_modal_technical_analysis')}</h4>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{t('lab_modal_order_ref', { id: selectedReq?.id })}</p>
                 </div>
                 <div className="text-right">
-                    <span className="block text-[10px] uppercase text-slate-400 font-bold tracking-widest">Entry Date</span>
+                    <span className="block text-[10px] uppercase text-slate-400 font-bold tracking-widest">{t('lab_modal_entry_date')}</span>
                     <span className="text-sm font-bold">{selectedReq && new Date(selectedReq.created_at).toLocaleDateString()}</span>
                 </div>
             </div>
@@ -261,7 +261,7 @@ export const Laboratory = () => {
                                     </div>
                                     <div className="col-span-8 sm:col-span-6">
                                         <Input 
-                                            placeholder="Enter Value" 
+                                            placeholder={t('lab_modal_enter_value')}
                                             value={comp.value} 
                                             onChange={e => updateResultValue(test.id, idx, e.target.value, comp.range)}
                                             className="!py-2 font-mono font-bold"
@@ -270,11 +270,11 @@ export const Laboratory = () => {
                                     </div>
                                     <div className="col-span-4 sm:col-span-3 text-right">
                                         <Badge color={
-                                            comp.evaluation === 'Normal' ? 'green' : 
-                                            comp.evaluation === 'Low' ? 'blue' : 
-                                            comp.evaluation.includes('High') ? 'red' : 'gray'
+                                            comp.evaluation === 'lab_eval_normal' ? 'green' : 
+                                            comp.evaluation === 'lab_eval_low' ? 'blue' : 
+                                            comp.evaluation === 'lab_eval_high' ? 'red' : 'gray'
                                         } className="font-black text-[10px] w-full justify-center py-1">
-                                            {comp.evaluation}
+                                            {t(comp.evaluation) || comp.evaluation}
                                         </Badge>
                                     </div>
                                 </div>
@@ -284,9 +284,9 @@ export const Laboratory = () => {
                 ))}
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Technician Remarks</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('lab_modal_remarks_label')}</label>
                     <Textarea 
-                        placeholder="Add summarizing observations or critical flags for the clinical team..." 
+                        placeholder={t('lab_modal_remarks_placeholder')}
                         rows={3} 
                         value={resultNotes} 
                         onChange={e => setResultNotes(e.target.value)} 
@@ -300,7 +300,7 @@ export const Laboratory = () => {
                 <Button type="button" variant="secondary" onClick={() => setIsProcessModalOpen(false)}>{t('close')}</Button>
                 {selectedReq?.status !== 'completed' && (
                     <Button type="submit" icon={Save} disabled={processStatus === 'processing'}>
-                        {processStatus === 'processing' ? t('processing') : 'Authorize & Sign Off'}
+                        {processStatus === 'processing' ? t('processing') : t('lab_modal_authorize_button')}
                     </Button>
                 )}
             </div>
