@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -15,12 +14,16 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-/* Fix: Explicitly extend React.Component to ensure base class members like setState and props are correctly recognized by the TypeScript compiler */
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+// Fix: Extending Component directly from 'react' to resolve inheritance recognition issues
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly defining constructor to initialize state and ensure this.props/this.setState are available
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   /**
    * Static method to update state when an error occurs during rendering.
@@ -40,12 +43,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    /* Fix: setState is a valid member inherited from React.Component */
+    // Fix: Accessing setState via the inherited base class 'this' context
     this.setState({ hasError: false, error: null });
   }
 
   public render() {
-    /* Fix: Access state through this context as inherited from React.Component */
+    // Fix: Accessing state via the inherited base class 'this' context
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -76,7 +79,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    /* Fix: Access children prop via this.props inherited from React.Component */
+    // Fix: Accessing children prop via the inherited base class 'this' context
     return this.props.children;
   }
 }

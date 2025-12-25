@@ -376,9 +376,49 @@ const seedData = () => {
   const taxCount = db.prepare('SELECT count(*) as count FROM tax_rates').get().count;
   if (taxCount === 0) {
     db.prepare('INSERT INTO tax_rates (name_en, name_ar, rate, is_active) VALUES (?, ?, ?, ?)').run('Standard VAT', 'ضريبة القيمة المضافة', 15, 1);
+    console.log('- Seeded standard tax rates.');
   }
 
-  // 12. Initial Configuration
+  // 12. Nurse Services
+  const nurseCount = db.prepare('SELECT count(*) as count FROM nurse_services').get().count;
+  if (nurseCount === 0) {
+    const services = [
+      { en: 'IV Injection', ar: 'حقنة وريدية', c: 10, d: 'Professional administration of IV fluids or medication.' },
+      { en: 'Wound Dressing', ar: 'غيار جروح', c: 25, d: 'Sterilization and dressing of surgical or trauma wounds.' },
+      { en: 'Vitals Monitoring', ar: 'مراقبة العلامات الحيوية', c: 5, d: 'Regular check of BP, Temperature, and Pulse.' }
+    ];
+    const stmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, cost) VALUES (?, ?, ?, ?)');
+    services.forEach(s => stmt.run(s.en, s.ar, s.d, s.c));
+    console.log('- Seeded nurse services catalog.');
+  }
+
+  // 13. Insurance Providers
+  const insCount = db.prepare('SELECT count(*) as count FROM insurance_providers').get().count;
+  if (insCount === 0) {
+    const providers = [
+      { en: 'Bupa Arabia', ar: 'بوبا العربية' },
+      { en: 'MedNet', ar: 'ميد نيت' },
+      { en: 'Globemed', ar: 'جلوب ميد' }
+    ];
+    const stmt = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)');
+    providers.forEach(p => stmt.run(p.en, p.ar));
+    console.log('- Seeded insurance providers.');
+  }
+
+  // 14. Banks
+  const bankCount = db.prepare('SELECT count(*) as count FROM banks').get().count;
+  if (bankCount === 0) {
+    const banks = [
+      { en: 'Bank of Khartoum', ar: 'بنك الخرطوم' },
+      { en: 'Faisal Islamic Bank', ar: 'بنك فيصل الإسلامي' },
+      { en: 'Omdurman National Bank', ar: 'بنك أمدرمان الوطني' }
+    ];
+    const stmt = db.prepare('INSERT INTO banks (name_en, name_ar, is_active) VALUES (?, ?, 1)');
+    banks.forEach(b => stmt.run(b.en, b.ar));
+    console.log('- Seeded system banks.');
+  }
+
+  // 15. Initial Configuration
   const settingsCount = db.prepare('SELECT count(*) as count FROM system_settings').get().count;
   if (settingsCount === 0) {
     const stmt = db.prepare('INSERT INTO system_settings (key, value) VALUES (?, ?)');
