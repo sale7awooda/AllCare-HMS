@@ -273,7 +273,8 @@ const seedData = () => {
       const beds = [
           { no: '101', t: 'General', c: 50 }, { no: '201', t: 'Private', c: 250 }, { no: '301', t: 'ICU', c: 1200 }
       ];
-      const stmt = db.prepare('INSERT INTO beds (room_number, type, cost_per_day, status) VALUES (?, ?, ?, "available")');
+      // FIX: Use single quotes for string literal 'available' to prevent SQLite from interpreting it as a column name.
+      const stmt = db.prepare("INSERT INTO beds (room_number, type, cost_per_day, status) VALUES (?, ?, ?, 'available')");
       beds.forEach(b => stmt.run(b.no, b.t, b.c));
       console.log('- [Seed] Wards configured.');
     }
