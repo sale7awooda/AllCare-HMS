@@ -1,4 +1,3 @@
-
 const { z } = require('zod');
 
 const validate = (schema) => (req, res, next) => {
@@ -15,11 +14,6 @@ const validate = (schema) => (req, res, next) => {
 };
 
 // Common Schemas
-const bankDetailsSchema = z.object({
-  bankName: z.string().optional().nullable(),
-  bankAccount: z.string().optional().nullable()
-}).optional().nullable();
-
 const schemas = {
   login: z.object({
     username: z.string().min(1),
@@ -53,7 +47,6 @@ const schemas = {
     phone: z.string().optional().nullable(),
     address: z.string().optional().nullable(),
     joinDate: z.string().optional().nullable(),
-    bankDetails: bankDetailsSchema,
     consultationFee: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
     consultationFeeFollowup: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
     consultationFeeEmergency: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
@@ -66,7 +59,6 @@ const schemas = {
     fullName: z.string().min(2).optional(),
     type: z.string().optional(),
     baseSalary: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
-    bankDetails: bankDetailsSchema,
     // Add other fields as optional for updates
   }).passthrough() // Allow other fields to pass through for updates
 };

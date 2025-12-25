@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -161,12 +160,6 @@ router.get('/config/insurance-providers', authorizeRoles(Permissions.MANAGE_CONF
 router.post('/config/insurance-providers', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addInsuranceProvider);
 router.put('/config/insurance-providers/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateInsuranceProvider);
 router.delete('/config/insurance-providers/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteInsuranceProvider);
-
-// Configuration: Catalogs (Banks)
-router.get('/config/banks', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.MANAGE_HR), configurationController.getBanks);
-router.post('/config/banks', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addBank);
-router.put('/config/banks/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateBank);
-router.delete('/config/banks/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteBank);
 
 // Configuration: Users & Roles
 router.get('/config/users', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getUsers);

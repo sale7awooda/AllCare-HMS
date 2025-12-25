@@ -160,14 +160,12 @@ export const Staff = () => {
     e.preventDefault();
     setProcessStatus('processing');
     setProcessMessage('Saving employee record...');
-    const { bankName, bankAccount, ...restOfForm } = staffForm;
     const payload = { 
-      ...restOfForm, 
-      baseSalary: parseFloat(parseNumber(restOfForm.baseSalary)) || 0,
-      consultationFee: parseFloat(parseNumber(restOfForm.consultationFee)) || 0,
-      consultationFeeFollowup: parseFloat(parseNumber(restOfForm.consultationFeeFollowup)) || 0,
-      consultationFeeEmergency: parseFloat(parseNumber(restOfForm.consultationFeeEmergency)) || 0,
-      bankDetails: { bankName, bankAccount } 
+      ...staffForm, 
+      baseSalary: parseFloat(parseNumber(staffForm.baseSalary)) || 0,
+      consultationFee: parseFloat(parseNumber(staffForm.consultationFee)) || 0,
+      consultationFeeFollowup: parseFloat(parseNumber(staffForm.consultationFeeFollowup)) || 0,
+      consultationFeeEmergency: parseFloat(parseNumber(staffForm.consultationFeeEmergency)) || 0,
     };
     try {
       if (staffForm.id) await api.updateStaff(staffForm.id, payload);
@@ -182,11 +180,6 @@ export const Staff = () => {
   };
 
   const openStaffModal = (s?: MedicalStaff) => {
-      let bankDetailsParsed = { bankName: '', bankAccount: '' };
-      if (s?.bankDetails) {
-          if (typeof s.bankDetails === 'object' && s.bankDetails !== null) bankDetailsParsed = { bankName: s.bankDetails.bankName, bankAccount: s.bankDetails.bankAccount };
-          else if (typeof s.bankDetails === 'string') bankDetailsParsed = { bankName: s.bankDetails, bankAccount: '' };
-      }
       setStaffForm(s ? { 
         ...s, 
         baseSalary: s.baseSalary?.toString() || '',
@@ -196,7 +189,6 @@ export const Staff = () => {
         address: s.address || '', 
         department: s.department || '',
         specialization: s.specialization || '',
-        ...bankDetailsParsed 
       } : { 
         fullName: '', 
         type: 'doctor', 
@@ -212,7 +204,6 @@ export const Staff = () => {
         address: '', 
         department: '',
         specialization: '',
-        ...bankDetailsParsed 
       });
       setIsModalOpen(true);
   };

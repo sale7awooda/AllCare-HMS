@@ -117,7 +117,6 @@ const initDB = (forceReset = false) => {
       address TEXT,
       base_salary REAL DEFAULT 0,
       join_date DATE,
-      bank_details TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
@@ -217,7 +216,6 @@ const initDB = (forceReset = false) => {
   db.prepare(`CREATE TABLE IF NOT EXISTS tax_rates (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, rate REAL, is_active BOOLEAN)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS insurance_providers (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`).run();
-  db.prepare(`CREATE TABLE IF NOT EXISTS banks (id INTEGER PRIMARY KEY AUTOINCREMENT, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`).run();
 
   seedData();
 };
@@ -338,7 +336,21 @@ const seedData = () => {
         console.log('- [Seed] Lab tests catalog expanded.');
     }
 
-    // 6. Operations Catalog
+    // 6. Nurse Services
+    const nurseServiceCount = db.prepare('SELECT count(*) as count FROM nurse_services').get()?.count || 0;
+    if (nurseServiceCount === 0) {
+        const services = [
+          ['Injection', 'حقنة', 'Administering medication via injection.', 'إعطاء الدواء عن طريق الحقن.', 10],
+          ['Wound Dressing', 'تضميد جرح', 'Cleaning and dressing a wound.', 'تنظيف وتضميد الجرح.', 25],
+          ['IV Drip', 'محلول وريدي', 'Setting up and monitoring an IV drip.', 'تركيب ومراقبة المحلول الوريدي.', 50],
+          ['Blood Pressure Check', 'فحص ضغط الدم', 'Measuring blood pressure.', 'قياس ضغط الدم.', 5]
+        ];
+        const stmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?, ?)');
+        services.forEach(s => stmt.run(s[0], s[1], s[2], s[3], s[4]));
+        console.log('- [Seed] Nurse services catalog created.');
+    }
+
+    // 7. Operations Catalog
     const opCount = db.prepare('SELECT count(*) as count FROM operations_catalog').get()?.count || 0;
     if (opCount === 0) {
         const ops = [
@@ -372,7 +384,7 @@ const seedData = () => {
         console.log('- [Seed] Operations catalog expanded.');
     }
 
-    // 7. Medical Staff
+    // 8. Medical Staff
     const staffCount = db.prepare('SELECT count(*) as count FROM medical_staff').get()?.count || 0;
     if (staffCount === 0) {
       const initialStaff = [
@@ -393,7 +405,7 @@ const seedData = () => {
       console.log('- [Seed] Initial staff created.');
     }
 
-    // 8. Demo Patients
+    // 9. Demo Patients
     const patientCount = db.prepare('SELECT count(*) as count FROM patients').get()?.count || 0;
     if (patientCount === 0) {
       const demoPatients = [
@@ -408,7 +420,7 @@ const seedData = () => {
       console.log('- [Seed] Demo patients created.');
     }
 
-    // 9. Beds
+    // 10. Beds
     const bedCount = db.prepare('SELECT count(*) as count FROM beds').get()?.count || 0;
     if (bedCount === 0) {
       const beds = [
@@ -421,7 +433,7 @@ const seedData = () => {
       console.log('- [Seed] Ward beds initialized.');
     }
 
-    // 10. Financial Settings
+    // 11. Financial Settings
     const pmCount = db.prepare('SELECT count(*) as count FROM payment_methods').get()?.count || 0;
     if (pmCount === 0) {
       const pms = [['Cash', 'نقدي'], ['Bank Transfer', 'تحويل بنكي'], ['Insurance', 'تأمين']];

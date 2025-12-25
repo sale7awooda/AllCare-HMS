@@ -93,7 +93,7 @@ export const Configuration = () => {
         case 'nurse': data = await api.getNurseServices(); break;
         case 'ops': data = await api.getOperations(); break;
         case 'insurance': data = await api.getInsuranceProviders(); break;
-        case 'banks': data = await api.getBanks(); break;
+        // case 'banks': data = await api.getBanks(); break;
       }
       setCatalogData(data || []);
     } catch (e) { console.error(e); }
@@ -184,7 +184,7 @@ export const Configuration = () => {
           case 'nurse': await api.updateNurseService(selectedItem.id, payload); break;
           case 'ops': await api.updateOperationCatalog(selectedItem.id, payload); break;
           case 'insurance': await api.updateInsuranceProvider(selectedItem.id, payload); break;
-          case 'banks': await api.updateBank(selectedItem.id, payload); break;
+          // case 'banks': await api.updateBank(selectedItem.id, payload); break;
         }
       } else {
         switch(activeCatalog) {
@@ -194,7 +194,7 @@ export const Configuration = () => {
           case 'nurse': await api.addNurseService(payload); break;
           case 'ops': await api.addOperationCatalog(payload); break;
           case 'insurance': await api.addInsuranceProvider(payload); break;
-          case 'banks': await api.addBank(payload); break;
+          // case 'banks': await api.addBank(payload); break;
         }
       }
       setProcessStatus('success');
@@ -221,7 +221,7 @@ export const Configuration = () => {
             case 'nurse': await api.deleteNurseService(id); break;
             case 'ops': await api.deleteOperationCatalog(id); break;
             case 'insurance': await api.deleteInsuranceProvider(id); break;
-            case 'banks': await api.deleteBank(id); break;
+            // case 'banks': await api.deleteBank(id); break;
           }
           setProcessStatus('success'); loadCatalog(activeCatalog); setTimeout(() => setProcessStatus('idle'), 1000);
         } catch (err: any) { 
@@ -710,7 +710,8 @@ export const Configuration = () => {
                   { id: 'nurse', icon: Activity, label: t('patients_modal_action_nurse') },
                   { id: 'ops', icon: Activity, label: t('nav_operations') },
                   { id: 'insurance', icon: ShieldCheck, label: t('patients_modal_form_insurance_title') },
-                  { id: 'banks', icon: Landmark, label: t('billing_treasury_tab_banks') || 'Banks' },
+                  // Fix: Removed unimplemented 'banks' catalog item.
+                  // { id: 'banks', icon: Landmark, label: t('billing_treasury_tab_banks') || 'Banks' },
                 ].map(cat => (
                   <button key={cat.id} onClick={() => setActiveCatalog(cat.id as any)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${activeCatalog === cat.id ? 'bg-primary-50 border-primary-200 text-primary-700 shadow-sm' : 'bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-slate-300'}`}><cat.icon size={14}/> {cat.label}</button>
                 ))}
