@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, Modal, Input, Textarea, Select, ConfirmationDialog } from '../components/UI';
@@ -73,7 +74,7 @@ export const Admissions = () => {
         onClick={() => setActiveMainTab('history')} 
         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${activeMainTab === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
       >
-        <History size={14}/> History
+        <History size={14}/> {t('admissions_tab_history')}
       </button>
     </div>
   ), [activeMainTab, activeAdmissions.length, t]);
@@ -166,8 +167,8 @@ export const Admissions = () => {
     if (bed.status === 'cleaning') {
       setConfirmState({ 
         isOpen: true, 
-        title: 'Mark as Cleaned', 
-        message: 'Is the room sanitized and ready for the next patient?', 
+        title: t('admissions_dialog_clean_title'), 
+        message: t('admissions_dialog_clean_msg'), 
         type: 'info', 
         action: async () => { 
           await api.markBedClean(bed.id); 
@@ -296,7 +297,7 @@ export const Admissions = () => {
     const totalDue = inpatientDetails.unpaidBills?.reduce((sum: number, b: any) => sum + (b.total_amount - (b.paid_amount || 0)), 0) || 0;
     if (totalDue > 0.01) {
       setProcessStatus('error');
-      setProcessMessage(`Patient discharge blocked. There is an outstanding balance of $${totalDue.toLocaleString()}. Please settle all invoices in the Billing section before proceeding.`);
+      setProcessMessage(t('admissions_report_blocked_msg', { balance: totalDue.toLocaleString() }));
       return;
     }
     setConfirmState({
@@ -350,10 +351,10 @@ export const Admissions = () => {
 
   const getStatusBadge = (status: string) => {
       switch(status) {
-          case 'active': return <Badge color="red">Occupied</Badge>;
-          case 'reserved': return <Badge color="blue">Reserved</Badge>;
-          case 'discharged': return <Badge color="green">Discharged</Badge>;
-          case 'cancelled': return <Badge color="gray">Cancelled</Badge>;
+          case 'active': return <Badge color="red">{t('admissions_status_occupied')}</Badge>;
+          case 'reserved': return <Badge color="blue">{t('admissions_status_reserved')}</Badge>;
+          case 'discharged': return <Badge color="green">{t('admissions_status_discharged')}</Badge>;
+          case 'cancelled': return <Badge color="gray">{t('appointments_status_cancelled')}</Badge>;
           default: return <Badge color="gray">{status}</Badge>;
       }
   };
@@ -376,7 +377,7 @@ export const Admissions = () => {
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg border border-green-100 dark:border-green-800"><div className="w-2 h-2 rounded-full bg-green-500"></div> {t('admissions_legend_available')}</div>
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-200 dark:border-blue-800"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div> {t('admissions_legend_reserved')}</div>
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800"><div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div> {t('admissions_legend_occupied')}</div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg border border-purple-100 dark:border-purple-800"><div className="w-2 h-2 rounded-full bg-purple-500"></div> Cleaning</div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-lg border border-purple-100 dark:border-purple-800"><div className="w-2 h-2 rounded-full bg-purple-500"></div> {t('admissions_status_cleaning')}</div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -413,14 +414,14 @@ export const Admissions = () => {
                         <div className="w-full text-center">
                             <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-tight mb-2 min-h-[2.5rem]">{admission?.patientName}</p>
                             <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 w-full border-t border-slate-200 dark:border-slate-700 pt-2">
-                            <span className="truncate max-w-[60%]">Dr. {admission?.doctorName}</span>
+                            <span className="truncate max-w-[60%]">{t('admissions_bed_doctor', {name: admission?.doctorName})}</span>
                             <span className="bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border">{calculateDays(admission?.entry_date)}d</span>
                             </div>
                         </div>
                         ) : (
                         <div className="text-center opacity-40 group-hover:opacity-100 transition-all duration-300 transform group-hover:scale-110">
                             <Plus size={40} className="text-slate-300 dark:text-slate-600 mx-auto mb-1"/>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{bed.status === 'cleaning' ? 'Cleaning' : 'Available'}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{bed.status === 'cleaning' ? t('admissions_status_cleaning') : t('admissions_status_available')}</p>
                         </div>
                         )}
                     </div>
@@ -451,11 +452,11 @@ export const Admissions = () => {
                         value={historyFilterStatus}
                         onChange={e => { setHistoryFilterStatus(e.target.value); setHistoryPage(1); }}
                     >
-                        <option value="All">All Statuses</option>
-                        <option value="active">Active (Occupied)</option>
-                        <option value="discharged">Discharged</option>
-                        <option value="cancelled">Cancelled</option>
-                        <option value="reserved">Reserved</option>
+                        <option value="All">{t('admissions_history_filter_all')}</option>
+                        <option value="active">{t('admissions_status_occupied')}</option>
+                        <option value="discharged">{t('admissions_status_discharged')}</option>
+                        <option value="cancelled">{t('appointments_status_cancelled')}</option>
+                        <option value="reserved">{t('admissions_status_reserved')}</option>
                     </select>
                 </div>
             </div>
@@ -465,9 +466,9 @@ export const Admissions = () => {
                     <thead className="bg-slate-50 dark:bg-slate-900/50">
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('patients_table_header_patient')}</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Room</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Dates (Entry - Exit)</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Doctor</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admissions_history_header_room')}</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admissions_history_header_dates')}</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admissions_history_header_doctor')}</th>
                             <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">{t('status')}</th>
                             <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('actions')}</th>
                         </tr>
@@ -490,15 +491,15 @@ export const Admissions = () => {
                                             <span className="font-bold text-emerald-600">{new Date(adm.entry_date).toLocaleDateString()}</span>
                                             <span className="mx-1 text-slate-400">→</span>
                                             <span className={adm.actual_discharge_date ? 'font-bold text-rose-600' : 'text-slate-400 italic'}>
-                                                {adm.actual_discharge_date ? new Date(adm.actual_discharge_date).toLocaleDateString() : 'Current'}
+                                                {adm.actual_discharge_date ? new Date(adm.actual_discharge_date).toLocaleDateString() : t('admissions_date_current')}
                                             </span>
                                         </div>
-                                        <div className="text-[10px] text-slate-400 mt-0.5">{adm.stayDuration} days</div>
+                                        <div className="text-[10px] text-slate-400 mt-0.5">{adm.stayDuration} {t('admissions_bed_days', {count: ''})}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{adm.doctorName}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusBadge(adm.status)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                                        <Button size="sm" variant="ghost" onClick={() => handleViewAdmissionDetails(adm.id)}>Details</Button>
+                                        <Button size="sm" variant="ghost" onClick={() => handleViewAdmissionDetails(adm.id)}>{t('admissions_history_action_details')}</Button>
                                     </td>
                                 </tr>
                             ))
@@ -579,7 +580,7 @@ export const Admissions = () => {
             <Input label={t('patients_modal_action_admission_date')} type="date" required value={admitForm.entryDate} onChange={e => setAdmitForm({...admitForm, entryDate: e.target.value})} />
             <Input label={t('patients_modal_action_required_deposit')} type="number" required value={admitForm.deposit} onChange={e => setAdmitForm({...admitForm, deposit: e.target.value})} prefix={<DollarSign size={14}/>} />
           </div>
-          <Textarea label={t('admissions_care_admission_note')} rows={2} placeholder="Initial clinical summary..." value={admitForm.notes} onChange={e => setAdmitForm({...admitForm, notes: e.target.value})} />
+          <Textarea label={t('admissions_care_admission_note')} rows={2} placeholder={t('admissions_modal_reserve_notes_placeholder')} value={admitForm.notes} onChange={e => setAdmitForm({...admitForm, notes: e.target.value})} />
           <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3">
             <Button type="button" variant="secondary" onClick={() => setIsAdmitModalOpen(false)}>{t('cancel')}</Button>
             <Button type="submit" disabled={!selectedPatientForAdmission || !admitForm.doctorId}>{t('admissions_modal_reserve_button')}</Button>
@@ -587,26 +588,26 @@ export const Admissions = () => {
         </form>
       </Modal>
 
-      <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title="Manage Reservation">
+      <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title={t('admissions_modal_reserve_manage')}>
         {selectedAdmission && (
           <div className="space-y-6">
              <div className="p-5 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-200 dark:border-blue-800">
-                <p className="text-xs font-black text-blue-400 uppercase tracking-widest mb-2">Reservation Holder</p>
+                <p className="text-xs font-black text-blue-400 uppercase tracking-widest mb-2">{t('admissions_modal_reserve_holder')}</p>
                 <h3 className="text-2xl font-black text-blue-900 dark:text-blue-100 leading-tight">{selectedAdmission.patientName}</h3>
                 <div className="flex items-center gap-3 mt-4 text-sm font-bold text-blue-700 dark:text-blue-300">
                   <div className="flex items-center gap-1.5"><Calendar size={16}/> {new Date(selectedAdmission.entry_date).toLocaleDateString()}</div>
-                  <div className="flex items-center gap-1.5"><Bed size={16}/> Room {selectedAdmission.roomNumber}</div>
+                  <div className="flex items-center gap-1.5"><Bed size={16}/> {t('admissions_history_header_room')} {selectedAdmission.roomNumber}</div>
                 </div>
              </div>
              <div className="space-y-3">
-               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Payment Status</h4>
+               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">{t('admissions_modal_reserve_payment_status')}</h4>
                <div className="flex justify-between items-center p-4 bg-white dark:bg-slate-800 border rounded-2xl">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${selectedAdmission.billStatus === 'paid' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
                        {selectedAdmission.billStatus === 'paid' ? <CheckCircle size={20}/> : <Clock size={20}/>}
                     </div>
                     <div>
-                      <p className="font-bold text-sm">Deposit Payment</p>
+                      <p className="font-bold text-sm">{t('admissions_modal_reserve_payment_label')}</p>
                       <p className="text-xs text-slate-500 capitalize">{selectedAdmission.billStatus}</p>
                     </div>
                   </div>
@@ -614,7 +615,7 @@ export const Admissions = () => {
                </div>
                {selectedAdmission.billStatus !== 'paid' && (
                  <p className="text-xs text-rose-500 font-bold flex items-center gap-1.5 px-1 pt-1">
-                   <AlertTriangle size={14}/> Admission cannot be confirmed until deposit is paid in full.
+                   <AlertTriangle size={14}/> {t('admissions_modal_reserve_payment_error')}
                  </p>
                )}
              </div>
@@ -626,7 +627,7 @@ export const Admissions = () => {
                   onClick={handleConfirmAdmission}
                   className="w-full"
                 >
-                  Confirm Arrival
+                  {t('admissions_modal_reserve_confirm_arrival')}
                 </Button>
              </div>
           </div>
@@ -648,15 +649,15 @@ export const Admissions = () => {
                    </div>
                 </div>
                 <div className="text-right">
-                   <Badge color="red" className="mb-1 font-black">Room {inpatientDetails.roomNumber}</Badge>
+                   <Badge color="red" className="mb-1 font-black">{t('admissions_history_header_room')} {inpatientDetails.roomNumber}</Badge>
                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dr. {inpatientDetails.doctorName}</p>
                 </div>
             </div>
             <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-x-auto no-print">
               {[
-                { id: 'overview', label: 'Stay Overview', icon: Info },
-                { id: 'notes', label: 'Daily Notes & Vitals', icon: Activity },
-                { id: 'reports', label: 'Medical Report', icon: FileText }
+                { id: 'overview', label: t('admissions_care_tab_overview_label'), icon: Info },
+                { id: 'notes', label: t('admissions_care_tab_notes_label'), icon: Activity },
+                { id: 'reports', label: t('admissions_care_tab_report_label'), icon: FileText }
               ].map(tab => (
                 <button 
                   key={tab.id} 
@@ -671,23 +672,23 @@ export const Admissions = () => {
                 <div className="space-y-6 animate-in fade-in">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border text-center">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Entry Date</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('admissions_care_entry_date_label')}</p>
                             <p className="font-black text-slate-800 dark:text-white">{new Date(inpatientDetails.entry_date).toLocaleDateString()}</p>
                         </div>
                         <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border text-center">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Days Admitted</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('admissions_care_days_admitted')}</p>
                             <p className="font-black text-slate-800 dark:text-white text-2xl">{inpatientDetails.daysStayed}</p>
                         </div>
                         <div className="bg-primary-50 dark:bg-primary-900/10 p-4 rounded-2xl border border-primary-100 dark:border-primary-800 text-center">
-                            <p className="text-[10px] font-black text-primary-600 uppercase tracking-widest mb-1">Stay Cost</p>
+                            <p className="text-[10px] font-black text-primary-600 uppercase tracking-widest mb-1">{t('admissions_care_stay_cost')}</p>
                             <p className="font-black text-primary-700 dark:text-primary-400 text-2xl">${(inpatientDetails.daysStayed * inpatientDetails.costPerDay).toLocaleString()}</p>
                         </div>
                     </div>
                     <div className="space-y-3">
-                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Active Medical Bills</h4>
+                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">{t('admissions_care_active_bills')}</h4>
                        <div className="space-y-3 bg-white dark:bg-slate-800 rounded-2xl overflow-hidden">
                           {inpatientDetails.unpaidBills?.length === 0 ? (
-                            <div className="p-6 text-center text-slate-400 italic text-sm">No outstanding bills for this stay.</div>
+                            <div className="p-6 text-center text-slate-400 italic text-sm">{t('admissions_care_no_bills')}</div>
                           ) : (
                             inpatientDetails.unpaidBills.map((bill: any) => {
                               const isExpanded = expandedBillId === bill.id;
@@ -702,14 +703,14 @@ export const Admissions = () => {
                                         <DollarSign size={16}/>
                                       </div>
                                       <div>
-                                        <p className="font-bold text-sm">Bill #{bill.bill_number}</p>
+                                        <p className="font-bold text-sm">{t('admissions_care_bill_prefix')} {bill.bill_number}</p>
                                         <p className="text-[10px] text-slate-400 font-medium">{new Date(bill.bill_date).toLocaleDateString()}</p>
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-4">
                                       <div className="text-right">
                                         <p className="font-black text-rose-600 font-mono">${(bill.total_amount - (bill.paid_amount || 0)).toLocaleString()}</p>
-                                        <button onClick={(e) => { e.stopPropagation(); navigate('/billing'); }} className="text-[10px] font-black uppercase text-primary-600 hover:underline">Pay Now</button>
+                                        <button onClick={(e) => { e.stopPropagation(); navigate('/billing'); }} className="text-[10px] font-black uppercase text-primary-600 hover:underline">{t('admissions_care_pay_now')}</button>
                                       </div>
                                       {isExpanded ? <ChevronUp size={16} className="text-slate-300"/> : <ChevronDown size={16} className="text-slate-300"/>}
                                     </div>
@@ -727,7 +728,7 @@ export const Admissions = () => {
                                           ))}
                                         </div>
                                         <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                                          <span className="text-[10px] font-black text-slate-400 uppercase">Total Invoice</span>
+                                          <span className="text-[10px] font-black text-slate-400 uppercase">{t('admissions_care_total_invoice')}</span>
                                           <span className="font-mono font-black text-slate-900 dark:text-white">${bill.total_amount.toLocaleString()}</span>
                                         </div>
                                       </div>
@@ -744,20 +745,19 @@ export const Admissions = () => {
             {careTab === 'notes' && (
               <div className="space-y-6 animate-in fade-in">
                  <form onSubmit={handleAddNote} className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Sparkles size={14}/> Add New Entry</h4>
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Sparkles size={14}/> {t('admissions_care_add_entry')}</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                       <Input label="BP" placeholder="120/80" value={noteForm.bp} onChange={e => setNoteForm({...noteForm, bp: e.target.value})} className="text-xs" />
-                       <Input label="Temp (°C)" placeholder="37.2" value={noteForm.temp} onChange={e => setNoteForm({...noteForm, temp: e.target.value})} className="text-xs" />
-                       <Input label="Pulse" placeholder="72" value={noteForm.pulse} onChange={e => setNoteForm({...noteForm, pulse: e.target.value})} className="text-xs" />
-                       <Input label="Resp" placeholder="18" value={noteForm.resp} onChange={e => setNoteForm({...noteForm, resp: e.target.value})} className="text-xs" />
+                       <Input label={t('admissions_care_vitals_bp_short')} placeholder="120/80" value={noteForm.bp} onChange={e => setNoteForm({...noteForm, bp: e.target.value})} className="text-xs" />
+                       <Input label={t('admissions_care_vitals_temp_short')} placeholder="37.2" value={noteForm.temp} onChange={e => setNoteForm({...noteForm, temp: e.target.value})} className="text-xs" />
+                       <Input label={t('admissions_care_vitals_pulse_short')} placeholder="72" value={noteForm.pulse} onChange={e => setNoteForm({...noteForm, pulse: e.target.value})} className="text-xs" />
+                       <Input label={t('admissions_care_vitals_resp_short')} placeholder="18" value={noteForm.resp} onChange={e => setNoteForm({...noteForm, resp: e.target.value})} className="text-xs" />
                     </div>
-                    <Textarea label="Observations" rows={3} required placeholder="Enter clinical notes and progress..." value={noteForm.note} onChange={e => setNoteForm({...noteForm, note: e.target.value})} />
-                    <Button type="submit" className="w-full" icon={Save}>Add Note to Chart</Button>
+                    <Textarea label={t('admissions_care_observations')} rows={3} required placeholder={t('admissions_care_observations_placeholder')} value={noteForm.note} onChange={e => setNoteForm({...noteForm, note: e.target.value})} />
+                    <Button type="submit" className="w-full" icon={Save}>{t('admissions_care_add_note_button')}</Button>
                  </form>
                  <div className="space-y-4 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-                    {/* FIX: Improved empty state check for visibility after add */}
                     {(inpatientDetails.notes || []).length === 0 ? (
-                      <div className="p-10 text-center text-slate-300 font-bold italic">No notes recorded yet.</div>
+                      <div className="p-10 text-center text-slate-300 font-bold italic">{t('admissions_care_no_notes')}</div>
                     ) : (
                       inpatientDetails.notes.map((note: any) => (
                         <div key={note.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border shadow-sm relative overflow-hidden group">
@@ -767,10 +767,10 @@ export const Admissions = () => {
                               <Badge color="blue">Dr. {note.doctorName}</Badge>
                            </div>
                            <div className="grid grid-cols-4 gap-2 mb-3 py-2 border-y border-slate-50 dark:border-slate-700">
-                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">BP</p><p className="text-xs font-bold">{note.vitals?.bp || '-'}</p></div>
-                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">Temp</p><p className="text-xs font-bold">{note.vitals?.temp || '-'}</p></div>
-                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">Pulse</p><p className="text-xs font-bold">{note.vitals?.pulse || '-'}</p></div>
-                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">Resp</p><p className="text-xs font-bold">{note.vitals?.resp || '-'}</p></div>
+                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">{t('admissions_care_vitals_bp_short')}</p><p className="text-xs font-bold">{note.vitals?.bp || '-'}</p></div>
+                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">{t('admissions_care_vitals_temp_short')}</p><p className="text-xs font-bold">{note.vitals?.temp || '-'}</p></div>
+                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">{t('admissions_care_vitals_pulse_short')}</p><p className="text-xs font-bold">{note.vitals?.pulse || '-'}</p></div>
+                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">{t('admissions_care_vitals_resp_short')}</p><p className="text-xs font-bold">{note.vitals?.resp || '-'}</p></div>
                            </div>
                            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic">"{note.note}"</p>
                         </div>
@@ -783,42 +783,42 @@ export const Admissions = () => {
                 <div className="space-y-6 animate-in fade-in" id="medical-report-content">
                     <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 no-print">
                        <div>
-                          <h4 className="font-bold text-slate-800 dark:text-white">Full Medical Report</h4>
-                          <p className="text-xs text-slate-500">Comprehensive summary of stay, clinical notes, and discharge details.</p>
+                          <h4 className="font-bold text-slate-800 dark:text-white">{t('admissions_report_title')}</h4>
+                          <p className="text-xs text-slate-500">{t('admissions_report_subtitle')}</p>
                        </div>
-                       <Button variant="outline" size="sm" icon={Printer} onClick={() => window.print()}>Print Report</Button>
+                       <Button variant="outline" size="sm" icon={Printer} onClick={() => window.print()}>{t('admissions_report_print')}</Button>
                     </div>
 
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 print:border-none print:p-0 print:shadow-none">
                        {/* Header for Print */}
                        <div className="flex justify-between items-start border-b border-slate-200 dark:border-slate-700 pb-6 mb-6">
                           <div>
-                             <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Medical Discharge Report</h2>
+                             <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">{t('admissions_report_header')}</h2>
                              <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-                                <p><span className="font-bold">Patient:</span> {inpatientDetails.patientName} ({inpatientDetails.patientCode})</p>
-                                <p><span className="font-bold">Admission Date:</span> {new Date(inpatientDetails.entry_date).toLocaleDateString()}</p>
-                                <p><span className="font-bold">Doctor:</span> Dr. {inpatientDetails.doctorName}</p>
+                                <p><span className="font-bold">{t('admissions_report_patient_label')}</span> {inpatientDetails.patientName} ({inpatientDetails.patientCode})</p>
+                                <p><span className="font-bold">{t('admissions_report_admission_label')}</span> {new Date(inpatientDetails.entry_date).toLocaleDateString()}</p>
+                                <p><span className="font-bold">{t('admissions_report_doctor_label')}</span> Dr. {inpatientDetails.doctorName}</p>
                              </div>
                           </div>
                           <div className="text-right">
                              <div className="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg inline-block mb-2">
-                                <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Status</span>
+                                <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{t('status')}</span>
                                 <p className="font-black text-lg text-slate-800 dark:text-white capitalize">{inpatientDetails.status}</p>
                              </div>
                              {inpatientDetails.actual_discharge_date && (
-                                <p className="text-sm text-slate-500"><span className="font-bold">Discharged:</span> {new Date(inpatientDetails.actual_discharge_date).toLocaleDateString()}</p>
+                                <p className="text-sm text-slate-500"><span className="font-bold">{t('admissions_report_discharged_label')}</span> {new Date(inpatientDetails.actual_discharge_date).toLocaleDateString()}</p>
                              )}
                           </div>
                        </div>
 
                        {/* Clinical Timeline */}
                        <div className="mb-8">
-                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">Clinical Course</h4>
+                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">{t('admissions_report_clinical_course')}</h4>
                           {(inpatientDetails.notes || []).length === 0 ? (
-                             <p className="text-sm text-slate-400 italic">No clinical notes recorded.</p>
+                             <p className="text-sm text-slate-400 italic">{t('admissions_report_no_notes')}</p>
                           ) : (
                              <div className="space-y-4">
-                                {inpatientDetails.notes.map((note: any, idx: number) => (
+                                {inpatientDetails.notes.map((note: any) => (
                                    <div key={note.id} className="relative pl-4 border-l-2 border-slate-200 dark:border-slate-700 pb-4 last:pb-0">
                                       <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600"></div>
                                       <div className="flex justify-between items-baseline mb-1">
@@ -826,9 +826,9 @@ export const Admissions = () => {
                                       </div>
                                       <p className="text-sm text-slate-800 dark:text-slate-300 mb-2 leading-relaxed">{note.note}</p>
                                       <div className="flex gap-3 text-[10px] text-slate-500 font-mono bg-slate-50 dark:bg-slate-900/50 p-2 rounded inline-flex">
-                                         <span>BP: {note.vitals?.bp || '-'}</span>
+                                         <span>{t('admissions_care_vitals_bp_short')}: {note.vitals?.bp || '-'}</span>
                                          <span className="w-px h-3 bg-slate-300 dark:bg-slate-600"></span>
-                                         <span>T: {note.vitals?.temp || '-'}°C</span>
+                                         <span>{t('admissions_care_vitals_temp_short')}: {note.vitals?.temp || '-'}°C</span>
                                          <span className="w-px h-3 bg-slate-300 dark:bg-slate-600"></span>
                                          <span>HR: {note.vitals?.pulse || '-'}</span>
                                       </div>
@@ -840,32 +840,32 @@ export const Admissions = () => {
 
                        {/* Discharge Section */}
                        <div>
-                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">Discharge Summary</h4>
+                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">{t('admissions_report_discharge_summary')}</h4>
                           {inpatientDetails.status === 'active' ? (
                              <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-700 no-print">
                                 {totalOutstandingBalance > 0.01 ? (
                                   <div className="flex items-start gap-3 text-amber-600 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-100 dark:border-amber-800 mb-4">
                                      <AlertTriangle className="shrink-0 mt-0.5" size={18}/>
                                      <div>
-                                        <p className="font-bold text-sm">Discharge Blocked</p>
-                                        <p className="text-xs mt-1">Outstanding balance: <span className="font-mono font-bold">${totalOutstandingBalance.toLocaleString()}</span>. Please settle bills to proceed.</p>
-                                        <button onClick={() => navigate('/billing')} className="text-xs underline font-bold mt-2 hover:text-amber-800">Go to Billing</button>
+                                        <p className="font-bold text-sm">{t('admissions_report_blocked_title')}</p>
+                                        <p className="text-xs mt-1">{t('admissions_report_blocked_msg', { balance: totalOutstandingBalance.toLocaleString() })}</p>
+                                        <button onClick={() => navigate('/billing')} className="text-xs underline font-bold mt-2 hover:text-amber-800">{t('admissions_report_go_billing')}</button>
                                      </div>
                                   </div>
                                 ) : (
                                   <div className="space-y-4">
                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <Select label={t('admissions_care_discharge_status')} value={dischargeForm.status} onChange={e => setDischargeForm({...dischargeForm, status: e.target.value})}>
-                                           <option value="Recovered">Recovered</option>
+                                           <option value="Recovered">{t('admissions_care_discharge_status_recovered')}</option>
                                            <option value="Stable">Stable / Home Care</option>
-                                           <option value="Transferred">Transferred</option>
-                                           <option value="AMA">Against Medical Advice</option>
-                                           <option value="Deceased">Deceased</option>
+                                           <option value="Transferred">{t('admissions_care_discharge_status_transferred')}</option>
+                                           <option value="AMA">{t('admissions_care_discharge_status_ama')}</option>
+                                           <option value="Deceased">{t('admissions_care_discharge_status_deceased')}</option>
                                         </Select>
                                      </div>
-                                     <Textarea label="Final Discharge Note" rows={4} placeholder="Summary of treatment, medication, and follow-up instructions..." value={dischargeForm.notes} onChange={e => setDischargeForm({...dischargeForm, notes: e.target.value})} />
+                                     <Textarea label={t('admissions_report_final_note_label')} rows={4} placeholder={t('admissions_report_final_note_placeholder')} value={dischargeForm.notes} onChange={e => setDischargeForm({...dischargeForm, notes: e.target.value})} />
                                      <div className="flex justify-end pt-2">
-                                        <Button icon={LogOut} onClick={handleDischarge}>Finalize Discharge</Button>
+                                        <Button icon={LogOut} onClick={handleDischarge}>{t('admissions_report_finalize_button')}</Button>
                                      </div>
                                   </div>
                                 )}
@@ -873,12 +873,12 @@ export const Admissions = () => {
                           ) : (
                              <div className="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800">
                                 <div className="grid grid-cols-2 gap-4 mb-4">
-                                   <div><p className="text-xs text-slate-500 uppercase font-bold">Outcome</p><p className="font-bold text-slate-800 dark:text-white">{inpatientDetails.discharge_status}</p></div>
-                                   <div><p className="text-xs text-slate-500 uppercase font-bold">Discharge Date</p><p className="font-bold text-slate-800 dark:text-white">{new Date(inpatientDetails.actual_discharge_date).toLocaleDateString()}</p></div>
+                                   <div><p className="text-xs text-slate-500 uppercase font-bold">{t('admissions_report_outcome_label')}</p><p className="font-bold text-slate-800 dark:text-white">{inpatientDetails.discharge_status}</p></div>
+                                   <div><p className="text-xs text-slate-500 uppercase font-bold">{t('admissions_report_discharge_date_label')}</p><p className="font-bold text-slate-800 dark:text-white">{new Date(inpatientDetails.actual_discharge_date).toLocaleDateString()}</p></div>
                                 </div>
                                 <div>
-                                   <p className="text-xs text-slate-500 uppercase font-bold mb-1">Final Note</p>
-                                   <p className="text-sm text-slate-700 dark:text-slate-300 italic">"{inpatientDetails.discharge_notes || 'No discharge notes recorded.'}"</p>
+                                   <p className="text-xs text-slate-500 uppercase font-bold mb-1">{t('admissions_report_final_note_header')}</p>
+                                   <p className="text-sm text-slate-700 dark:text-slate-300 italic">"{inpatientDetails.discharge_notes || t('admissions_report_no_discharge_notes')}"</p>
                                 </div>
                              </div>
                           )}

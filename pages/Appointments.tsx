@@ -58,7 +58,7 @@ interface DoctorQueueColumnProps {
 }
 
 const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointments, onStatusUpdate, onCancel, canManage }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const activePatient = appointments.find(a => a.status === 'in_progress');
   const queue = appointments.filter(a => ['pending', 'confirmed', 'checked_in', 'waiting'].includes(a.status));
   const completedCount = appointments.filter(a => a.status === 'completed').length;
@@ -194,13 +194,13 @@ const ListView = ({ appointments, onEdit, onView, onCancel, canManage }: { appoi
             <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
               <thead className="bg-slate-50 dark:bg-slate-900/50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">No.</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Patient</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Doctor</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Time</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_token')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_patient')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_staff')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_form_time')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_form_type')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('status')}</th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
@@ -287,9 +287,7 @@ const HistoryView = ({ appointments, onView }: { appointments: Appointment[], on
                 onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
               >
                 <option value="All">{t('records_filter_all')}</option>
-                <option value="pending">{t('appointments_status_unpaid')}</option>
-                <option value="confirmed">{t('appointments_status_in_queue')}</option>
-                <option value="in_progress">{t('appointments_status_in_consultation')}</option>
+                <option value="pending">{t('billing_status_pending')}</option>
                 <option value="completed">{t('appointments_status_completed')}</option>
                 <option value="cancelled">{t('appointments_status_cancelled')}</option>
               </select>
@@ -300,13 +298,13 @@ const HistoryView = ({ appointments, onView }: { appointments: Appointment[], on
             <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
               <thead className="bg-slate-50 dark:bg-slate-900/50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">ID</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Patient</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Doctor</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Action</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_token')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('date')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_patient')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_list_header_staff')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('appointments_form_type')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('status')}</th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
@@ -385,7 +383,7 @@ export const Appointments = () => {
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
 
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { user: currentUser } = useAuth();
   const canManage = hasPermission(currentUser, Permissions.MANAGE_APPOINTMENTS);
 
@@ -643,8 +641,15 @@ export const Appointments = () => {
         </div>
       ) : viewMode === 'grid' ? (
         <div className="flex gap-6 overflow-x-auto pb-4 custom-scrollbar -mx-6 px-6">
-          {appointmentsByDoctor.length === 0 ? (<div className="flex-1 text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl w-full"><p className="text-slate-500">{t('appointments_list_empty')}</p></div>) : 
-           appointmentsByDoctor.map(({ doctor, appointments }) => (<DoctorQueueColumn key={doctor.id} doctor={doctor} appointments={appointments} onStatusUpdate={handleStatusUpdate} onCancel={handleCancel} canManage={canManage} />))}
+          {appointmentsByDoctor.length === 0 ? (
+            <div className="flex-1 text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl w-full">
+              <p className="text-slate-500">{t('appointments_list_empty')}</p>
+            </div>
+          ) : (
+            appointmentsByDoctor.map(({ doctor, appointments }) => (
+              <DoctorQueueColumn key={doctor.id} doctor={doctor} appointments={appointments} onStatusUpdate={handleStatusUpdate} onCancel={handleCancel} canManage={canManage} />
+            ))
+          )}
         </div>
       ) : viewMode === 'list' ? (
         <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={openEditModal} onView={openViewDetailModal} onCancel={handleCancel} canManage={canManage} /></Card>
@@ -668,7 +673,7 @@ export const Appointments = () => {
                    </div>
                    <div className="flex flex-col">
                      <span className="font-black text-primary-900 dark:text-primary-100 leading-none mb-1">{selectedPatientData.fullName}</span>
-                     <span className="text-[10px] text-primary-600 dark:text-primary-400 font-black tracking-widest uppercase">ID: {selectedPatientData.patientId}</span>
+                     <span className="text-[10px] text-primary-600 dark:text-primary-400 font-black tracking-widest uppercase">{t('nav_patients')} ID: {selectedPatientData.patientId}</span>
                    </div>
                  </div>
                  {!editingAppointment && (
@@ -714,7 +719,7 @@ export const Appointments = () => {
             <option value="">{t('appointments_form_select_staff')}</option>
             {staff.filter(s => s.type === 'doctor' && s.status === 'active').map(s => {
               const isAvailable = isDoctorAvailable(s, formData.date);
-              const statusText = isAvailable ? 'Available' : 'Unavailable';
+              const statusText = isAvailable ? t('patients_modal_action_doctor_available') : t('patients_modal_action_doctor_unavailable');
               return (
                 <option key={s.id} value={s.id}>{s.fullName} ({s.specialization}) - {statusText}</option>
               );
@@ -767,7 +772,7 @@ export const Appointments = () => {
                <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 border rounded-xl">
                   <div className="p-2 bg-slate-50 dark:bg-slate-900 rounded-lg text-slate-400"><Stethoscope size={18}/></div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('nav_hr')}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('appointments_list_header_staff')}</p>
                     <p className="text-sm font-bold">{viewingAppointment.staffName}</p>
                   </div>
                </div>
@@ -797,7 +802,7 @@ export const Appointments = () => {
             <div className="space-y-2">
                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('patients_modal_action_reason')}</h4>
                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border italic text-sm text-slate-600 dark:text-slate-300 min-h-[80px]">
-                  "{viewingAppointment.reason || 'No specific reason recorded.'}"
+                  "{viewingAppointment.reason || t('no_data')}"
                </div>
             </div>
 
