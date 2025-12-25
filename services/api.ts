@@ -2,16 +2,19 @@ import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  // Always use relative path '/api'. 
-  // In development, vite.config.js proxies this to localhost:3001.
-  // In production, the backend serves the frontend from backend/public, so relative path is correct.
+  // Use relative path '/api' to ensure same-origin requests work across all environments.
+  // This is critical for Railway and other proxy-based deployments.
   return '/api';
 };
 
 const client = axios.create({
   baseURL: getBaseUrl(),
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
+  headers: { 
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  },
+  // Increased timeout to 60s to handle backend cold starts on Railway/Render/etc.
+  timeout: 60000, 
 });
 
 client.interceptors.request.use((config) => {
@@ -28,39 +31,50 @@ client.interceptors.response.use(
   async (error) => {
     const { config, response } = error;
     
-    // Auto-retry once on 429
+    // 1. Handle Rate Limiting (429)
     if (response?.status === 429 && !config._retry) {
       config._retry = true;
-      console.warn('Rate limit hit, retrying in 1s...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.warn('[API] Rate limit hit, retrying in 2s...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
       return client(config);
     }
 
-    // Aggressive Auto-retry on Network Error
-    if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork) {
+    // 2. Handle Network Errors / Backend Unreachable
+    // This specifically targets ERR_NETWORK, timeout, and cases where response is undefined
+    const isNetworkError = error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response;
+    
+    if (isNetworkError && !config._retryNetwork) {
         config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
         const MAX_RETRIES = 5; 
+        
         if (config._retryNetworkCount <= MAX_RETRIES) {
-            const delay = 2000;
-            console.log(`Backend unreachable. Retrying in ${delay}ms... (${config._retryNetworkCount}/${MAX_RETRIES})`);
+            const delay = 2500; // Slightly longer delay for retries
+            const targetUrl = config.url ? (config.baseURL ? config.baseURL + config.url : config.url) : 'unknown';
+            
+            console.log(`[API] Backend unreachable at ${targetUrl}. Attempt ${config._retryNetworkCount}/${MAX_RETRIES}. Retrying in ${delay}ms...`);
+            
             await new Promise(resolve => setTimeout(resolve, delay));
             return client(config);
         }
     }
 
+    // 3. Handle Session Expiry (401)
     if (error.response?.status === 401) {
-      // Avoid clearing token if we are already on the login attempt itself
       const isLoginRequest = config.url?.includes('/auth/login');
-      if (!isLoginRequest) {
+      const isPublicRequest = config.url?.includes('/config/settings/public');
+      
+      if (!isLoginRequest && !isPublicRequest) {
+        console.warn('[API] Session expired. Clearing token.');
         localStorage.removeItem('token');
         window.dispatchEvent(new Event('auth:expired'));
       }
     } 
     
-    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health') || config.url?.includes('/notifications');
-        if (!isPolling) {
-            const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
+    // 4. Enhance Error Message for User
+    if (isNetworkError) {
+        const isBackgroundPolling = config.url?.includes('/notifications') || config.url?.includes('/config/health');
+        if (!isBackgroundPolling) {
+            const enhancedError = new Error('Network Error: The hospital backend is currently unreachable. This may be due to a server restart or network connection issues.');
             (enhancedError as any).code = 'ERR_NETWORK';
             (enhancedError as any).isNetworkError = true;
             return Promise.reject(enhancedError);

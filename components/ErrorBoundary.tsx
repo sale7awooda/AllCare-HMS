@@ -1,5 +1,5 @@
 
-import React, { Component } from 'react';
+import React from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -15,12 +15,15 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-/* Fix: Extending Component directly and using class property for state initialization to resolve property existence errors and ensure proper inheritance of state, props, and setState in some TypeScript environments. */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+/* Fix: Explicitly using React.Component and initializing state in a constructor to ensure proper inheritance of setState and props across different TypeScript environments. */
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   /**
    * Static method to update state when an error occurs during rendering.
@@ -40,12 +43,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    /* Fix: setState is correctly inherited from Component. */
+    /* Fix: setState is correctly inherited from React.Component. */
     this.setState({ hasError: false, error: null });
   }
 
   public render(): ReactNode {
-    /* Fix: state is correctly inherited from Component. */
+    /* Fix: state is correctly inherited from React.Component. */
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -58,7 +61,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               The application encountered an unexpected error.
             </p>
             
-            {/* Fix: Accessing error property from the inherited state object. */}
+            {/* Fix: Accessing error property from the correctly typed state. */}
             {this.state.error && (
                 <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded-lg text-left text-xs font-mono text-red-600 dark:text-red-400 overflow-auto max-h-32 mb-6">
                     {this.state.error.toString()}

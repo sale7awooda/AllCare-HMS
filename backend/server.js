@@ -14,7 +14,7 @@ const app = express();
 
 // Port Selection Strategy:
 const isProduction = process.env.NODE_ENV === 'production';
-const PORT = process.env.API_PORT || (isProduction ? (process.env.PORT || 3000) : 3001);
+const PORT = process.env.PORT || 8080; // Railway and Render prefer 'PORT'
 
 app.set('trust proxy', 1);
 
@@ -28,29 +28,35 @@ try {
 
 // Middleware
 app.use(helmet({
-  contentSecurityPolicy: isProduction ? {
+  contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://esm.sh"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      connectSrc: ["'self'", "https://esm.sh"],
-      imgSrc: ["'self'", "data:", "https:"],
+      // Added data: and specific CDNs for flexibility
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://esm.sh"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      connectSrc: ["'self'", "https://esm.sh", "*"], // Allow all connections for dev/proxy flexibility
+      imgSrc: ["'self'", "data:", "https:", "http:"],
+      frameAncestors: ["'self'", "*"], // Allow being iframed in Google AI Studio
       objectSrc: ["'none'"],
-      upgradeInsecureRequests: [],
+      upgradeInsecureRequests: null, // Allow HTTP mixed content if necessary during transitions
     },
-  } : false,
+  },
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginEmbedderPolicy: false
 }));
 
-// Permissive CORS for Dev
-app.use(cors()); // Allow all origins
+// Permissive CORS for Railway and AI Studio
+app.use(cors({
+    origin: '*', // Allow all for maximum compatibility in this demo environment
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
 
 app.use(morgan('dev'));
 app.use(express.json());
 
-// Rate Limiting
+// Rate Limiting - Relaxed for Hospital System
 const apiLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, 
   max: 10000, 
@@ -75,14 +81,12 @@ app.get('/health', (req, res) => {
 });
 
 // Serve Static Files
-// FIX: Use __dirname to ensure the path is always relative to this file's location
 const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
 
 // Catch-all route for SPA
 app.get('*', (req, res) => {
   if (req.accepts('html')) {
-    // If index.html exists, send it. Otherwise 404.
     const indexPath = path.join(publicPath, 'index.html');
     res.sendFile(indexPath, (err) => {
         if (err) {
@@ -135,5 +139,4 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
-  if (isProduction) process.exit(1);
 });

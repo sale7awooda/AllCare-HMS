@@ -1,16 +1,28 @@
-
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 const { ROLE_PERMISSIONS } = require('../utils/rbac_backend_mirror');
 
-// Use an absolute path relative to the backend directory for consistency
-const dbPath = process.env.DB_PATH || path.resolve(__dirname, '../../allcare.db');
+// Strategy: Use DB_PATH env, otherwise /data volume (Railway), otherwise project root
+const getDbPath = () => {
+  if (process.env.DB_PATH) return process.env.DB_PATH;
+  
+  // Check if we are in a container with a /data volume
+  if (fs.existsSync('/data')) return '/data/allcare.db';
+  
+  return path.resolve(__dirname, '../../allcare.db');
+};
+
+const dbPath = getDbPath();
+const dbDir = path.dirname(dbPath);
 
 // Ensure the directory exists
-const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+  try {
+    fs.mkdirSync(dbDir, { recursive: true });
+  } catch (e) {
+    console.warn(`[Database] Could not create directory ${dbDir}, falling back to current dir.`);
+  }
 }
 
 console.log(`[Database] Target path: ${dbPath}`);
@@ -18,12 +30,20 @@ console.log(`[Database] Target path: ${dbPath}`);
 let db;
 try {
   db = new Database(dbPath);
-  db.pragma('journal_mode = WAL'); // Improved concurrency
+  db.pragma('journal_mode = WAL'); 
   db.pragma('synchronous = NORMAL'); 
   db.pragma('foreign_keys = ON');
 } catch (e) {
   console.error("CRITICAL: Failed to open SQLite database:", e);
-  process.exit(1);
+  // On Railway, sometimes the mounted volume is ready but permissions are locked
+  // We try a fallback in the local folder if root /data fails
+  if (dbPath.startsWith('/data')) {
+      const fallbackPath = path.resolve(__dirname, '../../allcare.db');
+      console.log(`[Database] Attempting fallback to ${fallbackPath}`);
+      db = new Database(fallbackPath);
+  } else {
+      process.exit(1);
+  }
 }
 
 const initDB = (forceReset = false) => {
@@ -217,7 +237,7 @@ const seedData = () => {
       console.log('- [Seed] RBAC permissions created.');
     }
 
-    // 2. Default Users (Expanded for all Quick Select profiles)
+    // 2. Default Users
     const userCount = db.prepare('SELECT count(*) as count FROM users').get()?.count || 0;
     if (userCount === 0) {
       const defaultUsers = [
@@ -273,7 +293,6 @@ const seedData = () => {
       const beds = [
           { no: '101', t: 'General', c: 50 }, { no: '201', t: 'Private', c: 250 }, { no: '301', t: 'ICU', c: 1200 }
       ];
-      // FIX: Use single quotes for string literal 'available' to prevent SQLite from interpreting it as a column name.
       const stmt = db.prepare("INSERT INTO beds (room_number, type, cost_per_day, status) VALUES (?, ?, ?, 'available')");
       beds.forEach(b => stmt.run(b.no, b.t, b.c));
       console.log('- [Seed] Wards configured.');
