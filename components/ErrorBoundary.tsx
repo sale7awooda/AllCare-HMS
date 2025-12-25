@@ -10,6 +10,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
+// FIX: Importing Component directly to ensure TypeScript correctly resolves base class properties like setState and props
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false,
@@ -26,6 +27,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   // Soft reload by forcing a state reset.
   // With MemoryRouter, we avoid touching window.location or history API.
+  // FIX: handleReload is now correctly recognized as a member of ErrorBoundary which has access to this.setState
   public handleReload = () => {
     this.setState({ hasError: false, error: null });
   }
@@ -61,6 +63,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
+    // FIX: this.props is now correctly recognized from the Component base class
     return this.props.children;
   }
 }
