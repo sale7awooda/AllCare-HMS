@@ -1,3 +1,7 @@
+import { api as srcApi } from '../src/services/api';
+
+// This file seems to be a proxy or a duplicate. 
+// Ensuring the actual service definition is corrected.
 
 import axios from 'axios';
 
@@ -43,13 +47,9 @@ client.interceptors.response.use(
     }
 
     // Aggressive Auto-retry on Network Error (Backend might be compiling/starting up)
-    // We specifically check for ERR_NETWORK or ECONNREFUSED which happens when backend is down
     if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork) {
         config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
-        
-        // Retry logic for cold starts
         const MAX_RETRIES = 5; 
-        
         if (config._retryNetworkCount <= MAX_RETRIES) {
             const delay = 2000;
             console.log(`Backend unreachable. Retrying in ${delay}ms... (${config._retryNetworkCount}/${MAX_RETRIES})`);
@@ -63,11 +63,8 @@ client.interceptors.response.use(
       window.dispatchEvent(new Event('auth:expired'));
     } 
     
-    // Handle Network Errors (Server down, CORS, DNS issues)
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health');
-        
-        // Don't spam console for background polling
         if (!isPolling) {
             console.error('Backend unreachable:', config.url);
             const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
@@ -81,7 +78,6 @@ client.interceptors.response.use(
   }
 );
 
-// Helpers to cast response to any
 const get = (url: string) => client.get(url) as Promise<any>;
 const post = (url: string, data?: any, config?: any) => client.post(url, data, config) as Promise<any>;
 const put = (url: string, data?: any) => client.put(url, data) as Promise<any>;
@@ -109,7 +105,7 @@ export const api = {
   updateLeaveStatus: (id, status) => put(`/hr/leaves/${id}`, { status }),
   getPayroll: (month) => get(`/hr/payroll?month=${month}`),
   generatePayroll: (data) => post('/hr/payroll/generate', data),
-  updatePayrollStatus: (id, status) => put(`/hr/payroll/${id}/status`, { status }),
+  updatePayrollStatus: (id, data) => put(`/hr/payroll/${id}/status`, data),
   getFinancials: (type) => get(`/hr/financials?type=${type}`), 
   addAdjustment: (data) => post('/hr/financials', data), 
 

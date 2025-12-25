@@ -1,4 +1,3 @@
-
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
@@ -291,18 +290,12 @@ exports.generatePayroll = (req, res) => {
   const { month } = req.body; // YYYY-MM
   
   const tx = db.transaction(() => {
-    // Logic Improvement:
-    // 1. We no longer wipe all drafts. We keep existing paid records.
-    // 2. We calculate what the current month totals SHOULD be.
-    // 3. We create or update a delta draft for any difference between what's needed and what's already created.
-    
     const staff = db.prepare("SELECT id, full_name, base_salary FROM medical_staff WHERE status = 'active'").all();
     
     for (const s of staff) {
       const baseSalary = s.base_salary || 0;
       const dailyRate = baseSalary / 30;
 
-      // A. Calculate Adjustments (Bonuses/Fines/Loans)
       const adjustments = db.prepare(`
         SELECT type, amount FROM hr_financials 
         WHERE staff_id = ? AND strftime('%Y-%m', date) = ?
@@ -311,7 +304,6 @@ exports.generatePayroll = (req, res) => {
       const currentBonuses = adjustments.filter(a => a.type === 'bonus').reduce((acc, a) => acc + a.amount, 0);
       const currentFinesAdjust = adjustments.filter(a => a.type === 'fine' || a.type === 'loan').reduce((acc, a) => acc + a.amount, 0);
       
-      // B. Calculate Attendance-based Fines
       const leaves = db.prepare("SELECT start_date, end_date FROM hr_leaves WHERE staff_id = ? AND status = 'approved'").all(s.id);
       const isExcused = (dateStr) => {
           const d = new Date(dateStr);
@@ -334,12 +326,10 @@ exports.generatePayroll = (req, res) => {
       const lateCount = attendance.filter(a => a.status === 'late').length;
       const currentAttendanceFines = (unexcusedAbsences * dailyRate) + (Math.floor(lateCount / 2) * (dailyRate * 0.5));
 
-      // C. Target Monthly Total
       const totalDeservedFines = currentFinesAdjust + currentAttendanceFines;
       const totalDeservedBonuses = currentBonuses;
       const targetNet = Math.max(0, baseSalary + totalDeservedBonuses - totalDeservedFines);
 
-      // D. Find what's already accounted for (Sum of all existing records for this month/staff)
       const existingRecords = db.prepare("SELECT SUM(net_salary) as totalNet, SUM(base_salary) as totalBase, SUM(total_bonuses) as totalBonuses, SUM(total_fines) as totalFines FROM hr_payroll WHERE staff_id = ? AND month = ?").get(s.id, month);
       
       const accountedNet = existingRecords.totalNet || 0;
@@ -352,7 +342,6 @@ exports.generatePayroll = (req, res) => {
       const deltaBonuses = totalDeservedBonuses - accountedBonuses;
       const deltaFines = totalDeservedFines - accountedFines;
 
-      // If there is a delta, create or update a DRAFT record
       if (Math.abs(deltaNet) > 0.01) {
           const existingDraft = db.prepare("SELECT id FROM hr_payroll WHERE staff_id = ? AND month = ? AND status = 'draft'").get(s.id, month);
           
@@ -412,13 +401,16 @@ exports.updatePayrollStatus = (req, res) => {
 
         // Sync with Treasury if marked as Paid
         if (status === 'paid') {
+            // FIX: Explicitly including 'details' column to match billing controller pattern
+            // and ensure parameter counts match the Prepare statement exactly.
             db.prepare(`
-                INSERT INTO transactions (type, category, amount, method, reference_id, date, description)
-                VALUES ('expense', 'Staff Salaries', ?, ?, ?, datetime('now'), ?)
+                INSERT INTO transactions (type, category, amount, method, reference_id, details, date, description)
+                VALUES ('expense', 'Staff Salaries', ?, ?, ?, ?, datetime('now'), ?)
             `).run(
                 record.net_salary, 
                 paymentMethod || 'Cash', 
-                id, 
+                id,
+                JSON.stringify({ month: record.month, transactionRef: transactionRef || 'N/A' }),
                 `Salary Disbursement for ${record.staffName} (${record.month})`
             );
         }
@@ -428,7 +420,7 @@ exports.updatePayrollStatus = (req, res) => {
         tx();
         res.json({ success: true });
     } catch(e) {
-        console.error(e);
+        console.error('Payroll status update error:', e);
         res.status(500).json({ error: e.message });
     }
 };

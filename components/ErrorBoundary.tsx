@@ -10,35 +10,42 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// FIX: Explicitly inheriting from Component to ensure state and props are correctly identified by TypeScript
+/**
+ * ErrorBoundary component to catch rendering errors in the component tree.
+ * Inherits from the base Component class with explicitly defined props and state types.
+ */
+// FIX: Using direct import of Component to resolve inheritance visibility issues in TypeScript
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    // FIX: Initializing this.state which is provided by the Component base class
-    this.state = {
-      hasError: false,
-      error: null
-    };
-  }
+  // State property initialization
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
 
-  // FIX: Standard static method to update state when an error occurs
+  /**
+   * Static method to update state when an error occurs during rendering.
+   */
   public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
+  /**
+   * Lifecycle method to log error details.
+   */
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
-  // Soft reload by forcing a state reset.
-  // With MemoryRouter, we avoid touching window.location or history API.
+  /**
+   * Resets the error state to allow the application to attempt re-rendering.
+   */
   public handleReload = () => {
-    // FIX: Accessing setState which is inherited from the Component class
+    // FIX: setState is inherited from the base Component class
     this.setState({ hasError: false, error: null });
   }
 
   public render() {
-    // FIX: Checking this.state for errors during render
+    // Accessing the state property which is declared on this class instance
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -51,7 +58,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               The application encountered an unexpected error.
             </p>
             
-            {/* FIX: Safely accessing error property from this.state */}
             {this.state.error && (
                 <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded-lg text-left text-xs font-mono text-red-600 dark:text-red-400 overflow-auto max-h-32 mb-6">
                     {this.state.error.toString()}
@@ -70,7 +76,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    // FIX: Accessing children from inherited this.props
+    // FIX: Accessing children from the inherited props property from Component
     return this.props.children;
   }
 }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -12,12 +13,12 @@ import { Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useHeader } from '../context/HeaderContext';
 
-type ConfigTab = 'general' | 'users' | 'beds' | 'catalogs' | 'data' | 'financial' | 'diagnostics';
+type ConfigTab = 'users' | 'beds' | 'catalogs' | 'data' | 'financial' | 'diagnostics';
 type CatalogType = 'departments' | 'specializations' | 'lab' | 'nurse' | 'ops' | 'insurance' | 'banks';
 
 export const Configuration = () => {
   const { t, language } = useTranslation();
-  const [activeTab, setActiveTab] = useState<ConfigTab>('general');
+  const [activeTab, setActiveTab] = useState<ConfigTab>('users');
   const [activeCatalog, setActiveCatalog] = useState<CatalogType>('departments');
   const [loading, setLoading] = useState(true);
   
@@ -107,20 +108,6 @@ export const Configuration = () => {
     }
   };
 
-  const handleSaveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    setProcessStatus('processing');
-    setProcessMessage('Saving hospital profile settings...');
-    localStorage.setItem('h_name', settings.hospitalName);
-    localStorage.setItem('h_address', settings.hospitalAddress);
-    localStorage.setItem('h_phone', settings.hospitalPhone);
-    setTimeout(() => {
-      setProcessStatus('success');
-      setProcessMessage(t('config_toast_settings_saved'));
-      setTimeout(() => setProcessStatus('idle'), 1500);
-    }, 500);
-  };
-
   // --- CATALOG HANDLERS ---
   const openCatalogModal = (item?: any) => {
     if (item) {
@@ -200,9 +187,10 @@ export const Configuration = () => {
             case 'banks': await api.deleteBank(id); break;
           }
           setProcessStatus('success'); loadCatalog(activeCatalog); setTimeout(() => setProcessStatus('idle'), 1000);
-        } catch (e: any) { 
+          // FIX: Changed 'e' to 'err' to match usage
+        } catch (err: any) { 
           setProcessStatus('error'); 
-          setProcessMessage(e.response?.data?.error || "Failed to delete item."); 
+          setProcessMessage(err.response?.data?.error || "Failed to delete item."); 
         }
       }
     });
@@ -247,9 +235,10 @@ export const Configuration = () => {
           loadData(); 
           setTimeout(() => setProcessStatus('idle'), 1000); 
         }
-        catch (e: any) { 
+        // FIX: Changed 'e' to 'err' to match usage
+        catch (err: any) { 
           setProcessStatus('error'); 
-          setProcessMessage(e.response?.data?.error || "Failed to delete user.");
+          setProcessMessage(err.response?.data?.error || "Failed to delete user.");
         }
       }
     });
@@ -277,9 +266,10 @@ export const Configuration = () => {
       if (selectedItem) await api.updateTaxRate(selectedItem.id, payload);
       else await api.addTaxRate(payload);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
-    } catch (e: any) { 
+      // FIX: Changed 'e' to 'err' to match usage
+    } catch (err: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(e.response?.data?.error || "Failed to save tax."); 
+      setProcessMessage(err.response?.data?.error || "Failed to save tax."); 
     }
   };
 
@@ -311,9 +301,10 @@ export const Configuration = () => {
       if (selectedItem) await api.updatePaymentMethod(selectedItem.id, paymentForm);
       else await api.addPaymentMethod(paymentForm);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
-    } catch (e: any) { 
+      // FIX: Changed 'e' to 'err' to match usage
+    } catch (err: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(e.response?.data?.error || "Failed to save payment method."); 
+      setProcessMessage(err.response?.data?.error || "Failed to save payment method."); 
     }
   };
 
@@ -350,9 +341,10 @@ export const Configuration = () => {
       if (selectedItem) await api.updateBed(selectedItem.id, payload);
       else await api.addBed(payload);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
-    } catch (e: any) { 
+      // FIX: Changed 'e' to 'err' to match usage
+    } catch (err: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(e.response?.data?.error || "Failed to save bed."); 
+      setProcessMessage(err.response?.data?.error || "Failed to save bed."); 
     }
   };
 
@@ -460,8 +452,8 @@ export const Configuration = () => {
   ];
 
   if (loading && !catalogData.length && !users.length) return (
-    <div className="flex flex-col items-center justify-center h-96 gap-4">
-      <Loader2 className="animate-spin text-primary-600" size={40} />
+    <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       <p className="text-slate-500 font-medium">{t('loading')}</p>
     </div>
   );
@@ -484,7 +476,6 @@ export const Configuration = () => {
          <button onClick={() => scrollTabs('left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 dark:bg-slate-800/90 shadow-lg rounded-full flex items-center justify-center border border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronLeft size={16}/></button>
          <div ref={tabContainerRef} className="flex bg-slate-100/80 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-x-auto custom-scrollbar scroll-smooth">
             {[
-              { id: 'general', icon: SettingsIcon, label: t('config_tab_general') },
               { id: 'users', icon: Shield, label: t('config_tab_roles') }, 
               { id: 'financial', icon: CreditCard, label: t('config_tab_financial') },
               { id: 'beds', icon: Bed, label: t('config_tab_beds') },
@@ -495,7 +486,7 @@ export const Configuration = () => {
               <button 
                 key={tab.id} 
                 onClick={() => setActiveTab(tab.id as any)} 
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-white/5'}`}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-white/5'}`}
               >
                 <tab.icon size={14}/> {tab.label}
               </button>
@@ -505,20 +496,6 @@ export const Configuration = () => {
       </div>
 
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-        {/* --- GENERAL --- */}
-        {activeTab === 'general' && (
-          <Card title="Hospital Profile">
-            <form onSubmit={handleSaveSettings} className="max-w-2xl space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Input label={t('config_general_hospital_name')} value={settings.hospitalName} onChange={e => setSettings({...settings, hospitalName: e.target.value})} prefix={<Building size={16}/>} />
-                <Input label={t('settings_profile_phone')} value={settings.hospitalPhone} onChange={e => setSettings({...settings, hospitalPhone: e.target.value})} prefix={<Clock size={16}/>} />
-                <div className="md:col-span-2"><Input label={t('config_general_address')} value={settings.hospitalAddress} onChange={e => setSettings({...settings, hospitalAddress: e.target.value})} prefix={<Hash size={16}/>} /></div>
-              </div>
-              <div className="pt-4 border-t dark:border-slate-700"><Button type="submit" icon={Save}>{t('config_general_save_button')}</Button></div>
-            </form>
-          </Card>
-        )}
-
         {/* --- USERS & PERMISSIONS --- */}
         {activeTab === 'users' && (
           <div className="space-y-6">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Modal, Badge, Input } from '../components/UI';
 import { 
@@ -204,126 +203,131 @@ export const Records = () => {
         </Card>
       </div>
 
-      <Card className="!p-0 overflow-hidden shadow-soft border-slate-200 dark:border-slate-700 print:shadow-none print:border-0">
-        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 no-print">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors w-4 h-4" />
-            <input 
-              type="text" 
-              placeholder={t('records_search_placeholder')} 
-              className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all" 
-              value={searchTerm} 
-              onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-            />
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-1 lg:pb-0">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
-              <Filter size={14} className="text-slate-400" />
-              <select 
-                className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer" 
-                value={filterType} 
-                onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="All">{t('records_filter_all')}</option>
-                <option value="Patient">Patients</option>
-                <option value="Appointment">Appointments</option>
-                <option value="Bill">Invoices</option>
-              </select>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <p className="text-slate-500 font-medium">{t('loading')}</p>
+        </div>
+      ) : (
+        <Card className="!p-0 overflow-hidden shadow-soft border-slate-200 dark:border-slate-700 print:shadow-none print:border-0">
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 no-print">
+            <div className="relative flex-1 group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors w-4 h-4" />
+              <input 
+                type="text" 
+                placeholder={t('records_search_placeholder')} 
+                className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all" 
+                value={searchTerm} 
+                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              />
             </div>
-            
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
-              <Clock size={14} className="text-slate-400" />
-              <select 
-                className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer" 
-                value={statusFilter} 
-                onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="All">All Statuses</option>
-                <option value="Paid">Paid / Settled</option>
-                <option value="Pending">Pending</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
+            <div className="flex gap-3 overflow-x-auto pb-1 lg:pb-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
+                <Filter size={14} className="text-slate-400" />
+                <select 
+                  className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer" 
+                  value={filterType} 
+                  onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}
+                >
+                  <option value="All">{t('records_filter_all')}</option>
+                  <option value="Patient">Patients</option>
+                  <option value="Appointment">Appointments</option>
+                  <option value="Bill">Invoices</option>
+                </select>
+              </div>
+              
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
+                <Clock size={14} className="text-slate-400" />
+                <select 
+                  className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer" 
+                  value={statusFilter} 
+                  onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Paid">Paid / Settled</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-900/80">
-              <tr>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Type / Ref</th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Event Date</th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Primary Entity</th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700/50">
-              {loading ? (
-                <tr><td colSpan={4} className="text-center py-20 text-slate-400 font-medium">{t('records_table_loading')}</td></tr>
-              ) : paginatedRecords.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-20 text-slate-400 font-medium">{t('records_table_empty')}</td></tr>
-              ) : (
-                paginatedRecords.map(r => (
-                  <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group cursor-pointer" onClick={() => { setSelectedRecord(r); setIsModalOpen(true); }}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-500 transition-colors group-hover:bg-primary-100 group-hover:text-primary-600">
-                          {getRecordIcon(r.type)}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-900/80">
+                <tr>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Type / Ref</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Event Date</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Primary Entity</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700/50">
+                {paginatedRecords.length === 0 ? (
+                  <tr><td colSpan={4} className="text-center py-20 text-slate-400 font-medium">{t('records_table_empty')}</td></tr>
+                ) : (
+                  paginatedRecords.map(r => (
+                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group cursor-pointer" onClick={() => { setSelectedRecord(r); setIsModalOpen(true); }}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-500 transition-colors group-hover:bg-primary-100 group-hover:text-primary-600">
+                            {getRecordIcon(r.type)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm text-slate-800 dark:text-white">{r.reference}</p>
+                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-tight">{r.type}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-sm text-slate-800 dark:text-white">{r.reference}</p>
-                          <p className="text-[10px] text-slate-400 font-black uppercase tracking-tight">{r.type}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                       <div className="flex flex-col">
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{new Date(r.date).toLocaleDateString()}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">{new Date(r.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-slate-900 dark:text-slate-200">{r.primaryEntity}</div>
-                      {r.associateEntity && <div className="text-[10px] text-slate-500 flex items-center gap-1"><User size={10}/> {r.associateEntity}</div>}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge color={getStatusColor(r.status) as any}>{r.status}</Badge>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                         <div className="flex flex-col">
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{new Date(r.date).toLocaleDateString()}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{new Date(r.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-slate-900 dark:text-slate-200">{r.primaryEntity}</div>
+                        {r.associateEntity && <div className="text-[10px] text-slate-500 flex items-center gap-1"><User size={10}/> {r.associateEntity}</div>}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge color={getStatusColor(r.status) as any}>{r.status}</Badge>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-900/30 no-print">
-           <div className="flex flex-col sm:flex-row items-center gap-4">
-             <div className="text-xs text-slate-500 font-medium">
-               Showing <span className="font-bold text-slate-900 dark:text-white">{paginatedRecords.length}</span> of <span className="font-bold text-slate-900 dark:text-white">{filteredRecords.length}</span> records
+          <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-900/30 no-print">
+             <div className="flex flex-col sm:flex-row items-center gap-4">
+               <div className="text-xs text-slate-500 font-medium">
+                 Showing <span className="font-bold text-slate-900 dark:text-white">{paginatedRecords.length}</span> of <span className="font-bold text-slate-900 dark:text-white">{filteredRecords.length}</span> records
+               </div>
+               <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                 <span>{t('patients_pagination_rows')}</span>
+                 <select 
+                   className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 outline-none cursor-pointer"
+                   value={itemsPerPage}
+                   onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                 >
+                   <option value={10}>10</option>
+                   <option value={15}>15</option>
+                   <option value={20}>20</option>
+                   <option value={50}>50</option>
+                 </select>
+               </div>
              </div>
-             <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-               <span>{t('patients_pagination_rows')}</span>
-               <select 
-                 className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 outline-none cursor-pointer"
-                 value={itemsPerPage}
-                 onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
-               >
-                 <option value={10}>10</option>
-                 <option value={15}>15</option>
-                 <option value={20}>20</option>
-                 <option value={50}>50</option>
-               </select>
+             <div className="flex items-center gap-2">
+               <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} icon={ChevronLeft}>Prev</Button>
+               <div className="flex items-center gap-1 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border text-xs font-bold shadow-sm">
+                  {currentPage} / {totalPages || 1}
+               </div>
+               <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages}>Next <ChevronRight size={14} className="ml-1"/></Button>
              </div>
-           </div>
-           <div className="flex items-center gap-2">
-             <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} icon={ChevronLeft}>Prev</Button>
-             <div className="flex items-center gap-1 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border text-xs font-bold shadow-sm">
-                {currentPage} / {totalPages || 1}
-             </div>
-             <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages}>Next <ChevronRight size={14} className="ml-1"/></Button>
-           </div>
-        </div>
-      </Card>
+          </div>
+        </Card>
+      )}
 
       <Modal 
         isOpen={isModalOpen} 

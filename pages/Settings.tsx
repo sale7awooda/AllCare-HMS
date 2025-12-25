@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Badge, Select } from '../components/UI';
 import { 
@@ -111,8 +110,8 @@ export const Settings = () => {
   );
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center h-96 gap-4">
-      <RefreshCw className="animate-spin text-primary-600" size={32} />
+    <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       <p className="text-slate-500 font-medium">{t('loading')}</p>
     </div>
   );
@@ -344,7 +343,7 @@ export const Settings = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card title={t('settings_appearance_density')}>
-                  <div className="flex p-1.5 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <div className="flex p-1.5 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700">
                     <button 
                       onClick={() => setDensity('comfortable')} 
                       className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all ${density === 'comfortable' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
@@ -361,7 +360,7 @@ export const Settings = () => {
                 </Card>
 
                 <Card title={t('settings_appearance_fontSize')}>
-                  <div className="flex p-1.5 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <div className="flex p-1.5 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700">
                     {['sm', 'md', 'lg'].map(size => (
                       <button 
                         key={size}

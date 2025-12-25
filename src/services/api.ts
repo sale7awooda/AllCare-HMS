@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
@@ -76,7 +75,7 @@ export const api = {
   updateLeaveStatus: (id, status) => put(`/hr/leaves/${id}`, { status }),
   getPayroll: (month) => get(`/hr/payroll?month=${month}`),
   generatePayroll: (data) => post('/hr/payroll/generate', data),
-  updatePayrollStatus: (id, status) => put(`/hr/payroll/${id}/status`, { status }),
+  updatePayrollStatus: (id, data) => put(`/hr/payroll/${id}/status`, data),
   getFinancials: (type) => get(`/hr/financials?type=${type}`), 
   addAdjustment: (data) => post('/hr/financials', data), 
 
