@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -12,9 +12,9 @@ interface ErrorBoundaryState {
 
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
- * Inherits from the base Component class with explicitly defined props and state types.
+ * Inherits from the base React.Component class with explicitly defined props and state types.
  */
-// FIX: Using React.Component explicitly to ensure TypeScript correctly recognizes inherited properties like setState and props
+// FIX: Using React.Component explicitly instead of the named 'Component' import to ensure TypeScript correctly resolves inherited members like setState and props.
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   // State property initialization
   public state: ErrorBoundaryState = {
@@ -32,7 +32,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   /**
    * Lifecycle method to log error details.
    */
-  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
@@ -40,7 +40,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    // FIX: setState is inherited from the base React.Component class
+    // FIX: setState is inherited from React.Component and is now correctly identified.
     this.setState({ hasError: false, error: null });
   }
 
@@ -76,7 +76,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    // FIX: Accessing children from the inherited props property from React.Component
+    // FIX: Accessing children from the inherited props property from React.Component.
     return this.props.children;
   }
 }

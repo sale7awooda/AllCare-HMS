@@ -227,11 +227,17 @@ const seedData = () => {
   }
 
   // Ensure default users exist
+  // FIXED: Expanded to include all roles required by Login.tsx Quick Profiles
   const defaultUsers = [
     { u: 'admin', p: 'admin123', n: 'System Administrator', r: 'admin' },
     { u: 'manager', p: 'manager123', n: 'Sarah Manager', r: 'manager' },
     { u: 'receptionist', p: 'receptionist123', n: 'Pam Receptionist', r: 'receptionist' },
     { u: 'accountant', p: 'accountant123', n: 'Angela Accountant', r: 'accountant' },
+    { u: 'doctor', p: 'doctor123', n: 'Dr. Gregory House', r: 'doctor' },
+    { u: 'nurse', p: 'nurse123', n: 'Nurse Jackie', r: 'nurse' },
+    { u: 'labtech', p: 'labtech123', n: 'Dexter Lab', r: 'technician' },
+    { u: 'hr', p: 'hr123', n: 'Toby Flenderson', r: 'hr' },
+    { u: 'pharmacist', p: 'pharmacist123', n: 'Pharma Phil', r: 'pharmacist' },
   ];
 
   const stmt = db.prepare("INSERT OR IGNORE INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)");

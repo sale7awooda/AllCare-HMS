@@ -1,11 +1,11 @@
+
 import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
   // Always use relative path '/api'. 
-  // In development, vite.config.js proxies this to localhost:3000.
-  // In production, the backend serves the frontend, so relative path works.
-  // This avoids issues with Blob URLs or unknown hostnames in cloud IDEs.
+  // In development, vite.config.js proxies this to localhost:3001.
+  // In production, the backend serves the frontend, so relative path works perfectly.
   return '/api';
 };
 
@@ -17,17 +17,20 @@ const client = axios.create({
 
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    // Robust header setting for current Axios versions
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
-// Added a simple retry mechanism for 429 errors to improve robustness
 client.interceptors.response.use(
   (response) => response.data,
   async (error) => {
     const { config, response } = error;
     
-    // Auto-retry once on 429 with a small delay
+    // Auto-retry once on 429
     if (response?.status === 429 && !config._retry) {
       config._retry = true;
       console.warn('Rate limit hit, retrying in 1s...');
@@ -35,19 +38,38 @@ client.interceptors.response.use(
       return client(config);
     }
 
+    // Aggressive Auto-retry on Network Error
+    if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork) {
+        config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
+        const MAX_RETRIES = 5; 
+        if (config._retryNetworkCount <= MAX_RETRIES) {
+            const delay = 2000;
+            console.log(`Backend unreachable. Retrying in ${delay}ms... (${config._retryNetworkCount}/${MAX_RETRIES})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return client(config);
+        }
+    }
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      // Dispatch event instead of hard redirect to support blob/sandboxed environments
-      // This prevents "TypeError: Location.assign: Access to 'blob:...' denied"
       window.dispatchEvent(new Event('auth:expired'));
-    } else if (!error.response && error.code !== 'ERR_CANCELED') {
-      console.error('Network Error: Backend unreachable.');
+    } 
+    
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health') || config.url?.includes('/notifications');
+        if (!isPolling) {
+            console.error('Backend unreachable:', config.url);
+            const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
+            (enhancedError as any).code = 'ERR_NETWORK';
+            (enhancedError as any).isNetworkError = true;
+            return Promise.reject(enhancedError);
+        }
     }
+
     return Promise.reject(error);
   }
 );
 
-// Helpers to cast response to any, ensuring TS treats return values as data objects (unwrapped by interceptor)
 const get = (url: string) => client.get(url) as Promise<any>;
 const post = (url: string, data?: any, config?: any) => client.post(url, data, config) as Promise<any>;
 const put = (url: string, data?: any) => client.put(url, data) as Promise<any>;
@@ -59,6 +81,11 @@ export const api = {
   updateProfile: (data) => put('/auth/profile', data),
   changePassword: (data) => put('/auth/password', data),
   checkSystemHealth: () => get('/config/health'),
+
+  // Notifications
+  getNotifications: () => get('/notifications'),
+  markNotificationRead: (id) => put(`/notifications/${id}/read`),
+  markAllNotificationsRead: () => put('/notifications/read-all'),
 
   getPatients: () => get('/patients'),
   getPatient: (id) => get(`/patients/${id}`),
@@ -95,6 +122,7 @@ export const api = {
   updateExpense: (id, data) => put(`/treasury/expenses/${id}`, data),
 
   getActiveAdmissions: () => get('/admissions'),
+  getAdmissionsHistory: () => get('/admissions/history'),
   getInpatientDetails: (id) => get(`/admissions/${id}`),
   createAdmission: (data) => post('/admissions', data),
   confirmAdmissionDeposit: (id) => post(`/admissions/${id}/confirm`),
@@ -109,6 +137,7 @@ export const api = {
   getPendingLabRequests: () => get('/lab/requests'),
   createLabRequest: (data) => post('/lab/requests', data),
   completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`),
+  confirmLabRequest: (id) => post(`/lab/requests/${id}/confirm`),
 
   getNurseServices: () => get('/config/nurse-services'),
   createNurseRequest: (data) => post('/nurse/requests', data),
@@ -119,6 +148,7 @@ export const api = {
   createOperation: (data) => post('/operations', data),
   processOperationRequest: (id, data) => post(`/operations/${id}/process`, data),
   completeOperation: (id) => post(`/operations/${id}/complete`),
+  confirmOperation: (id) => post(`/operations/${id}/confirm`),
 
   getSystemSettings: () => get('/config/settings'),
   getPublicSettings: () => get('/config/settings/public'),
@@ -172,7 +202,6 @@ export const api = {
   downloadBackup: async () => {
     try {
         const response = await client.get('/config/backup', { responseType: 'blob' });
-        // Enforce binary type so the browser respects the .db extension
         const blob = new Blob([response], { type: 'application/x-sqlite3' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
