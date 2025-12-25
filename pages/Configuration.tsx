@@ -273,7 +273,18 @@ export const Configuration = () => {
   const deleteTaxRateEntry = (id: number) => {
     setConfirmState({
       isOpen: true, title: "Delete Tax Rate", message: "Remove this tax rate configuration?",
-      action: async () => { try { await api.deleteTaxRate(id); loadData(); } catch (e) { alert("Failed"); } }
+      action: async () => { 
+        setProcessStatus('processing');
+        try { 
+          await api.deleteTaxRate(id); 
+          setProcessStatus('success');
+          loadData(); 
+          setTimeout(() => setProcessStatus('idle'), 1000);
+        } catch (e: any) { 
+          setProcessStatus('error');
+          setProcessMessage(e.response?.data?.error || "Failed to delete tax rate.");
+        } 
+      }
     });
   };
 
@@ -307,7 +318,18 @@ export const Configuration = () => {
   const deletePaymentMethodEntry = (id: number) => {
     setConfirmState({
       isOpen: true, title: "Delete Method", message: "Remove this payment method from the system?",
-      action: async () => { try { await api.deletePaymentMethod(id); loadData(); } catch (e) { alert("Failed"); } }
+      action: async () => { 
+        setProcessStatus('processing');
+        try { 
+          await api.deletePaymentMethod(id); 
+          setProcessStatus('success');
+          loadData(); 
+          setTimeout(() => setProcessStatus('idle'), 1000);
+        } catch (e: any) { 
+          setProcessStatus('error');
+          setProcessMessage(e.response?.data?.error || "Failed to delete payment method.");
+        } 
+      }
     });
   };
 
@@ -315,7 +337,8 @@ export const Configuration = () => {
   const openBedModal = (bed?: BedType) => {
     if (bed) {
       if (bed.status === 'occupied' || bed.status === 'reserved') {
-          alert("Beds that are occupied or reserved cannot be updated or deleted for data integrity.");
+          setProcessStatus('error');
+          setProcessMessage("Beds that are occupied or reserved cannot be updated or deleted for data integrity.");
           return;
       }
       setSelectedItem(bed);
@@ -346,7 +369,18 @@ export const Configuration = () => {
   const deleteBedEntry = (id: number) => {
     setConfirmState({
       isOpen: true, title: t('config_dialog_delete_room_title'), message: t('config_dialog_delete_room_msg'),
-      action: async () => { try { await api.deleteBed(id); loadData(); } catch (e) { alert("Failed"); } }
+      action: async () => { 
+        setProcessStatus('processing');
+        try { 
+          await api.deleteBed(id); 
+          setProcessStatus('success');
+          loadData(); 
+          setTimeout(() => setProcessStatus('idle'), 1000);
+        } catch (e: any) { 
+          setProcessStatus('error');
+          setProcessMessage(e.response?.data?.error || "Failed to delete bed.");
+        } 
+      }
     });
   };
 

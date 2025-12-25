@@ -7,7 +7,7 @@ exports.getLabRequests = (req, res) => {
   try {
     const requests = db.prepare(`
       SELECT 
-        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids,
+        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json,
         p.full_name as patientName
       FROM lab_requests lr
       JOIN patients p ON lr.patient_id = p.id
@@ -16,15 +16,21 @@ exports.getLabRequests = (req, res) => {
 
     const enriched = requests.map(r => {
         let testNames = '';
+        let testDetails = [];
         try {
             const ids = JSON.parse(r.test_ids);
             if (Array.isArray(ids) && ids.length > 0) {
                 const placeholders = ids.map(() => '?').join(',');
-                const tests = db.prepare(`SELECT name_en FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
+                const tests = db.prepare(`SELECT id, name_en, name_ar, normal_range FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
                 testNames = tests.map(t => t.name_en).join(', ');
+                testDetails = tests;
             }
         } catch(e) {}
-        return { ...r, testNames };
+        
+        let results = null;
+        try { if(r.results_json) results = JSON.parse(r.results_json); } catch(e) {}
+
+        return { ...r, testNames, testDetails, results };
     });
 
     res.json(enriched);
@@ -75,8 +81,12 @@ exports.confirmLabRequest = (req, res) => {
 
 exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
+    const { results_json, notes } = req.body;
     try {
-        db.prepare("UPDATE lab_requests SET status = 'completed' WHERE id = ?").run(id);
+        db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ? WHERE id = ?").run(
+            results_json ? JSON.stringify(results_json) : null,
+            id
+        );
         res.json({success: true});
     } catch(e) {
         res.status(500).json({error: e.message});

@@ -4,7 +4,7 @@ import { Card, Button, Badge, Modal, Input, Select, Textarea, ConfirmationDialog
 import { 
   Activity, CheckCircle, Clock, User, Syringe, Plus, Trash2, 
   Calculator, Save, ChevronRight, AlertTriangle, Stethoscope, 
-  Package, Zap, Calendar, DollarSign, ChevronDown, ChevronUp, FileText, Briefcase, Search, History, Filter, Info, X
+  Package, Zap, Calendar, DollarSign, ChevronDown, ChevronUp, FileText, Briefcase, Search, History, Filter, Info, X, Loader2, XCircle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
@@ -15,6 +15,51 @@ const FEE_RATIOS: Record<string, number> = {
   'assistant': 0.5,
   'nurse': 0.33,
   'technician': 0.25
+};
+
+// Helper for currency formatting
+const formatNumber = (val: string | number) => {
+  if (val === undefined || val === null || val === '') return '';
+  const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : val;
+  if (isNaN(num)) return '';
+  return new Intl.NumberFormat('en-US').format(num);
+};
+
+const parseNumber = (val: string) => {
+  return val.replace(/,/g, '');
+};
+
+// Formatted Currency Input Component
+const CurrencyInput = ({ label, value, onChange, prefix, ...props }: any) => {
+  const [displayValue, setDisplayValue] = useState(formatNumber(value));
+
+  useEffect(() => {
+    setDisplayValue(formatNumber(value));
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = parseNumber(e.target.value);
+    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+      setDisplayValue(e.target.value); 
+      onChange(raw);
+    }
+  };
+
+  const handleBlur = () => {
+    setDisplayValue(formatNumber(value));
+  };
+
+  return (
+    <Input
+      {...props}
+      type="text" // This removes the number input "slider" (arrows/spinners)
+      label={label}
+      value={displayValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      prefix={prefix}
+    />
+  );
 };
 
 export const Operations = () => {
@@ -64,7 +109,8 @@ export const Operations = () => {
     others: [] as any[],
     notes: '' 
   });
-  const [processStatus, setProcessStatus] = useState('idle');
+  const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [processMessage, setProcessMessage] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -102,7 +148,12 @@ export const Operations = () => {
 
   const handleSurgeonFeeChange = (val: string) => {
     const newFee = parseFloat(val) || 0;
-    setCostForm(prev => ({ ...prev, surgeonFee: newFee, theaterFee: newFee, participants: prev.participants.map(p => ({ ...p, fee: Math.round(newFee * (FEE_RATIOS[p.role] || 0)) })) }));
+    setCostForm(prev => ({ 
+      ...prev, 
+      surgeonFee: newFee, 
+      theaterFee: newFee, 
+      participants: prev.participants.map(p => ({ ...p, fee: Math.round(newFee * (FEE_RATIOS[p.role] || 0)) })) 
+    }));
   };
 
   const addParticipant = () => {
@@ -153,11 +204,37 @@ export const Operations = () => {
   const handleProcessSubmit = async () => {
     if (!selectedOp) return;
     setProcessStatus('processing');
-    try { await api.processOperationRequest(selectedOp.id, { details: costForm, totalCost: calculateTotal() }); setProcessStatus('success'); setIsEstimateModalOpen(false); loadData(); } catch (e) { alert("Failed to process request"); } finally { setProcessStatus('idle'); }
+    setProcessMessage('Creating surgical estimate and billing...');
+    try { 
+      await api.processOperationRequest(selectedOp.id, { details: costForm, totalCost: calculateTotal() }); 
+      setProcessStatus('success'); 
+      setIsEstimateModalOpen(false); 
+      loadData(); 
+      setTimeout(() => setProcessStatus('idle'), 1000);
+    } catch (e: any) { 
+        setProcessStatus('error');
+        setProcessMessage(e.response?.data?.error || "Failed to process request");
+    }
   };
 
   const handleCompleteOp = (opId: number) => {
-    setConfirmState({ isOpen: true, title: t('operations_dialog_complete_title'), message: t('operations_dialog_complete_message'), action: async () => { try { await api.completeOperation(opId); loadData(); } catch (e) { alert("Failed to update status"); } } });
+    setConfirmState({ 
+        isOpen: true, 
+        title: t('operations_dialog_complete_title'), 
+        message: t('operations_dialog_complete_message'), 
+        action: async () => { 
+            setProcessStatus('processing');
+            try { 
+                await api.completeOperation(opId); 
+                setProcessStatus('success');
+                loadData(); 
+                setTimeout(() => setProcessStatus('idle'), 1000);
+            } catch (e: any) { 
+                setProcessStatus('error');
+                setProcessMessage(e.response?.data?.error || "Failed to update status");
+            } 
+        } 
+    });
   };
 
   const filteredOps = ops.filter(op => { const search = searchTerm.toLowerCase(); return op.patientName.toLowerCase().includes(search) || op.operation_name.toLowerCase().includes(search); });
@@ -168,6 +245,17 @@ export const Operations = () => {
 
   return (
     <div className="space-y-6">
+      {/* HUD Overlay */}
+      {processStatus !== 'idle' && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
+            {processStatus === 'processing' && <><Loader2 className="w-12 h-12 text-primary-600 animate-spin mb-4" /><h3 className="font-bold text-slate-900 dark:text-white">{t('processing')}</h3></>}
+            {processStatus === 'success' && <><CheckCircle size={48} className="text-green-600 mb-4" /><h3 className="font-bold text-slate-900 dark:text-white">{t('success')}</h3></>}
+            {processStatus === 'error' && <><XCircle size={48} className="text-red-600 mb-4" /><h3 className="font-bold text-slate-900 dark:text-white">{t('patients_process_title_failed')}</h3><p className="text-sm text-red-500 mt-2">{processMessage}</p><Button variant="secondary" className="mt-4 w-full" onClick={() => setProcessStatus('idle')}>{t('close')}</Button></>}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
           <div className="relative w-full sm:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -299,9 +387,9 @@ export const Operations = () => {
         </>
       )}
 
-      {/* ESTIMATION MODAL (WRITE) */}
+      {/* ESTIMATION MODAL (WRITE) - IMPROVED SCROLLING AND CURRENCY INPUTS */}
       <Modal isOpen={isEstimateModalOpen} onClose={() => setIsEstimateModalOpen(false)} title={t('operations_modal_title')}>
-        <div className="flex flex-col h-[80vh]">
+        <div className="flex flex-col h-[75vh] min-h-[400px]">
             {/* Sticky Header Summary */}
             <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center shrink-0 mb-4 mx-1">
                 <div>
@@ -316,7 +404,7 @@ export const Operations = () => {
                 </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6 pb-4">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-1 space-y-6 pb-4">
                 
                 {/* Section 1: Base Fees */}
                 <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -324,8 +412,8 @@ export const Operations = () => {
                         <DollarSign size={14} className="text-primary-600"/> Base Costs
                     </h5>
                     <div className="grid grid-cols-2 gap-4">
-                        <Input label={t('operations_modal_surgeon_fee')} type="number" value={costForm.surgeonFee} onChange={e => handleSurgeonFeeChange(e.target.value)} className="font-mono font-bold" />
-                        <Input label={t('operations_modal_theater_fee')} type="number" value={costForm.theaterFee} onChange={e => setCostForm({...costForm, theaterFee: parseFloat(e.target.value) || 0})} className="font-mono font-bold" />
+                        <CurrencyInput label={t('operations_modal_surgeon_fee')} value={costForm.surgeonFee} onChange={(val: string) => handleSurgeonFeeChange(val)} className="font-mono font-bold" />
+                        <CurrencyInput label={t('operations_modal_theater_fee')} value={costForm.theaterFee} onChange={(val: string) => setCostForm({...costForm, theaterFee: parseFloat(val) || 0})} className="font-mono font-bold" />
                     </div>
                 </div>
                 
@@ -355,8 +443,14 @@ export const Operations = () => {
                                 </div>
                                 <div className="col-span-3">
                                     <div className="relative">
-                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
-                                        <input type="number" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-blue-500/20 outline-none" value={p.fee} onChange={e => updateParticipant(idx, 'fee', e.target.value)} />
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">$</span>
+                                        <input 
+                                          type="text" 
+                                          className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-blue-500/20 outline-none" 
+                                          value={formatNumber(p.fee)} 
+                                          onChange={e => updateParticipant(idx, 'fee', parseNumber(e.target.value))} 
+                                          onBlur={(e) => updateParticipant(idx, 'fee', parseNumber(e.target.value))}
+                                        />
                                     </div>
                                 </div>
                                 <div className="col-span-1 text-center">
@@ -381,9 +475,16 @@ export const Operations = () => {
                         {costForm.consumables.map((item, idx) => (
                             <div key={item.id} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-orange-200 transition-colors">
                                 <input placeholder="Item Name / Drug" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-orange-500/20 outline-none" value={item.name} onChange={e => updateItem('consumables', idx, 'name', e.target.value)} />
-                                <div className="relative w-24">
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
-                                    <input type="number" placeholder="0.00" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-orange-500/20 outline-none" value={item.cost} onChange={e => updateItem('consumables', idx, 'cost', e.target.value)} />
+                                <div className="relative w-28">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">$</span>
+                                    <input 
+                                      type="text" 
+                                      placeholder="0.00" 
+                                      className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-orange-500/20 outline-none" 
+                                      value={formatNumber(item.cost)} 
+                                      onChange={e => updateItem('consumables', idx, 'cost', parseNumber(e.target.value))}
+                                      onBlur={e => updateItem('consumables', idx, 'cost', parseNumber(e.target.value))}
+                                    />
                                 </div>
                                 <button onClick={() => removeItem('consumables', idx)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={14}/></button>
                             </div>
@@ -404,9 +505,16 @@ export const Operations = () => {
                         {costForm.equipment.map((item, idx) => (
                             <div key={item.id} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-yellow-200 transition-colors">
                                 <input placeholder="Equipment Name" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-yellow-500/20 outline-none" value={item.name} onChange={e => updateItem('equipment', idx, 'name', e.target.value)} />
-                                <div className="relative w-24">
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
-                                    <input type="number" placeholder="0.00" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-yellow-500/20 outline-none" value={item.cost} onChange={e => updateItem('equipment', idx, 'cost', e.target.value)} />
+                                <div className="relative w-28">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">$</span>
+                                    <input 
+                                      type="text" 
+                                      placeholder="0.00" 
+                                      className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-yellow-500/20 outline-none" 
+                                      value={formatNumber(item.cost)} 
+                                      onChange={e => updateItem('equipment', idx, 'cost', parseNumber(e.target.value))}
+                                      onBlur={e => updateItem('equipment', idx, 'cost', parseNumber(e.target.value))}
+                                    />
                                 </div>
                                 <button onClick={() => removeItem('equipment', idx)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={14}/></button>
                             </div>
@@ -427,9 +535,16 @@ export const Operations = () => {
                         {costForm.others.map((item, idx) => (
                             <div key={item.id} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-violet-200 transition-colors">
                                 <input placeholder="Description" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-violet-500/20 outline-none" value={item.name} onChange={e => updateItem('others', idx, 'name', e.target.value)} />
-                                <div className="relative w-24">
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
-                                    <input type="number" placeholder="0.00" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-violet-500/20 outline-none" value={item.cost} onChange={e => updateItem('others', idx, 'cost', e.target.value)} />
+                                <div className="relative w-28">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">$</span>
+                                    <input 
+                                      type="text" 
+                                      placeholder="0.00" 
+                                      className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-violet-500/20 outline-none" 
+                                      value={formatNumber(item.cost)} 
+                                      onChange={e => updateItem('others', idx, 'cost', parseNumber(e.target.value))}
+                                      onBlur={e => updateItem('others', idx, 'cost', parseNumber(e.target.value))}
+                                    />
                                 </div>
                                 <button onClick={() => removeItem('others', idx)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={14}/></button>
                             </div>
@@ -443,12 +558,13 @@ export const Operations = () => {
                     <Textarea label="Operation Notes" placeholder="Clinical notes, specific requirements, or cost breakdown details..." rows={3} value={costForm.notes} onChange={e => setCostForm({...costForm, notes: e.target.value})} className="bg-white dark:bg-slate-900" />
                 </div>
             </div>
-        </div>
-        <div className="pt-4 border-t dark:border-slate-700 flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-slate-800 py-3 -mb-2 z-10">
-            <Button variant="secondary" onClick={() => setIsEstimateModalOpen(false)}>{t('cancel')}</Button>
-            <Button onClick={handleProcessSubmit} disabled={processStatus === 'processing'} icon={Save}>
-                {processStatus === 'processing' ? t('processing') : t('operations_modal_invoice_button')}
-            </Button>
+            
+            <div className="pt-4 border-t dark:border-slate-700 flex justify-end gap-3 shrink-0 bg-white dark:bg-slate-800 py-3 mt-auto">
+                <Button variant="secondary" onClick={() => setIsEstimateModalOpen(false)}>{t('cancel')}</Button>
+                <Button onClick={handleProcessSubmit} disabled={processStatus === 'processing'} icon={Save}>
+                    {processStatus === 'processing' ? t('processing') : t('operations_modal_invoice_button')}
+                </Button>
+            </div>
         </div>
       </Modal>
 
