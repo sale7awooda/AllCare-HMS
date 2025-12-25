@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -133,14 +132,14 @@ export const Configuration = () => {
           const parts = s.split(':');
           return { name: parts[0]?.trim() || '', range: parts[1]?.trim() || '' };
         }).filter((c: any) => c.name);
-        setLabComponents(components.length > 0 ? components : [{ name: 'Result', range: '' }]);
+        setLabComponents(components.length > 0 ? components : [{ name: t('lab_eval_observed'), range: '' }]);
       } else {
-        setLabComponents([{ name: 'Result', range: '' }]);
+        setLabComponents([{ name: t('lab_eval_observed'), range: '' }]);
       }
     } else {
       setSelectedItem(null);
       setCatalogForm({ name_en: '', name_ar: '', description_en: '', cost: '', base_cost: '', category_en: '', related_role: '', is_active: true, normal_range: '' });
-      setLabComponents([{ name: 'Result', range: '' }]);
+      setLabComponents([{ name: t('lab_eval_observed'), range: '' }]);
     }
     setModalType('catalog');
     setIsModalOpen(true);
@@ -581,8 +580,8 @@ export const Configuration = () => {
                       <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
                         <td className="px-6 py-4 text-sm font-mono text-primary-600">@{u.username}</td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{u.fullName}</td>
-                        <td className="px-6 py-4"><Badge color="blue" className="capitalize">{u.role}</Badge></td>
-                        <td className="px-6 py-4"><Badge color={u.is_active ? 'green' : 'gray'}>{u.is_active ? 'Active' : 'Locked'}</Badge></td>
+                        <td className="px-6 py-4"><Badge color="blue" className="capitalize">{t('staff_role_' + u.role)}</Badge></td>
+                        <td className="px-6 py-4"><Badge color={u.is_active ? 'green' : 'gray'}>{u.is_active ? t('active') : t('locked')}</Badge></td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
                             <Button size="sm" variant="outline" onClick={() => openUserModal(u)} icon={Edit}>{t('edit')}</Button>
@@ -599,7 +598,7 @@ export const Configuration = () => {
                <div className="overflow-x-auto">
                  <table className="min-w-full">
                     <thead className="bg-slate-50 dark:bg-slate-900/50">
-                       <tr><th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('config_matrix_group')}</th>{Object.keys(rolePermissions).map(role => (<th key={role} className="px-4 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[100px] border-l border-slate-200 dark:border-slate-700">{role}</th>))}</tr>
+                       <tr><th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('config_matrix_group')}</th>{Object.keys(rolePermissions).map(role => (<th key={role} className="px-4 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[100px] border-l border-slate-200 dark:border-slate-700">{t('staff_role_' + role)}</th>))}</tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                        {permissionGroups.map(group => (
@@ -631,7 +630,7 @@ export const Configuration = () => {
                 <div className="space-y-4">
                    {taxRates.map(t_rate => (
                      <div key={t_rate.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <div><p className="font-bold text-sm">{language === 'ar' ? t_rate.name_ar : t_rate.name_en}</p><div className="flex items-center gap-2"><span className="text-xs font-black text-primary-600">{t_rate.rate}%</span><Badge color={t_rate.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{t_rate.isActive ? 'Active' : 'Hidden'}</Badge></div></div>
+                        <div><p className="font-bold text-sm">{language === 'ar' ? t_rate.name_ar : t_rate.name_en}</p><div className="flex items-center gap-2"><span className="text-xs font-black text-primary-600">{t_rate.rate}%</span><Badge color={t_rate.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{t_rate.isActive ? t('active') : t('hidden')}</Badge></div></div>
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => openTaxModal(t_rate)} icon={Edit}>{t('edit')}</Button>
                           <Button size="sm" variant="danger" onClick={() => deleteTaxRateEntry(t_rate.id)} icon={Trash2}>{t('delete')}</Button>
@@ -644,7 +643,7 @@ export const Configuration = () => {
                 <div className="space-y-4">
                    {paymentMethods.map(m => (
                      <div key={m.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm"><CreditCard size={18}/></div><div><p className="font-bold text-sm">{language === 'ar' ? m.name_ar : m.name_en}</p><Badge color={m.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{m.isActive ? 'Enabled' : 'Disabled'}</Badge></div></div>
+                        <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm"><CreditCard size={18}/></div><div><p className="font-bold text-sm">{language === 'ar' ? m.name_ar : m.name_en}</p><Badge color={m.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{m.isActive ? t('enabled') : t('disabled')}</Badge></div></div>
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => openPaymentModal(m)} icon={Edit}>{t('edit')}</Button>
                           <Button size="sm" variant="danger" onClick={() => deletePaymentMethodEntry(m.id)} icon={Trash2}>{t('delete')}</Button>
@@ -676,8 +675,8 @@ export const Configuration = () => {
                     return (
                       <tr key={b.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 group">
                         <td className="px-6 py-4 font-black text-slate-800 dark:text-white flex items-center gap-2"><Bed size={14} className="text-slate-300 group-hover:text-primary-500 transition-colors" />{b.roomNumber}</td>
-                        <td className="px-6 py-4 text-sm font-medium">{b.type}</td>
-                        <td className="px-6 py-4"><Badge color={b.status === 'available' ? 'green' : (b.status === 'occupied' || b.status === 'reserved') ? 'red' : 'orange'}>{b.status}</Badge></td>
+                        <td className="px-6 py-4 text-sm font-medium">{t(b.type) || b.type}</td>
+                        <td className="px-6 py-4"><Badge color={b.status === 'available' ? 'green' : (b.status === 'occupied' || b.status === 'reserved') ? 'red' : 'orange'}>{t('admissions_status_' + b.status) || b.status}</Badge></td>
                         <td className="px-6 py-4 text-right font-mono font-bold text-primary-600">${b.costPerDay}</td>
                         <td className="px-6 py-4 text-right">
                            <div className="flex justify-end gap-2">
@@ -687,7 +686,7 @@ export const Configuration = () => {
                                   <Button size="sm" variant="danger" onClick={() => deleteBedEntry(b.id)} icon={Trash2}>{t('delete')}</Button>
                                 </>
                               ) : (
-                                <div title="Bed is currently in use" className="p-1.5 text-slate-300 cursor-help flex items-center gap-1 text-xs font-bold"><Lock size={14}/> {t('Locked')}</div>
+                                <div title={t('admissions_report_blocked_title')} className="p-1.5 text-slate-300 cursor-help flex items-center gap-1 text-xs font-bold"><Lock size={14}/> {t('locked')}</div>
                               )}
                            </div>
                         </td>
@@ -716,7 +715,7 @@ export const Configuration = () => {
                   <button key={cat.id} onClick={() => setActiveCatalog(cat.id as any)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${activeCatalog === cat.id ? 'bg-primary-50 border-primary-200 text-primary-700 shadow-sm' : 'bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-slate-300'}`}><cat.icon size={14}/> {cat.label}</button>
                 ))}
              </div>
-             <Card title={t('config_catalog_title', { type: activeCatalog.charAt(0).toUpperCase() + activeCatalog.slice(1) })} action={<Button size="sm" icon={Plus} onClick={() => openCatalogModal()}>{t('config_catalog_add')}</Button>} className="!p-0 overflow-hidden">
+             <Card title={t('config_catalog_title', { type: t('nav_' + activeCatalog) || activeCatalog })} action={<Button size="sm" icon={Plus} onClick={() => openCatalogModal()}>{t('config_catalog_add')}</Button>} className="!p-0 overflow-hidden">
                 <table className="min-w-full divide-y">
                    <thead className="bg-slate-50 dark:bg-slate-900/50">
                       <tr>
@@ -764,7 +763,7 @@ export const Configuration = () => {
              </div>
              {healthData ? (
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <HealthStat icon={Server} label={t('config_health_api')} value={healthData.status} color="text-emerald-500" />
+                  <HealthStat icon={Server} label={t('config_health_api')} value={t(healthData.status) || healthData.status} color="text-emerald-500" />
                   <HealthStat icon={Clock} label={t('config_health_uptime')} value={`${Math.round(healthData.uptime / 3600)} hrs`} color="text-blue-500" />
                   <HealthStat icon={Cpu} label={t('config_health_cpu')} value={healthData.database?.latency || '-'} color="text-violet-500" />
                   <HealthStat icon={HardDrive} label={t('config_health_ram')} value={healthData.memory?.rss || '-'} color="text-orange-500" />
@@ -779,10 +778,23 @@ export const Configuration = () => {
          {modalType === 'user' && (
             <form onSubmit={handleUserSubmit} className="space-y-4">
                <Input label={t('config_modal_user_fullname')} required value={userForm.fullName} onChange={e => setUserForm({...userForm, fullName: e.target.value})} />
-               <div className="grid grid-cols-2 gap-4"><Input label={t('login_id_label')} required disabled={!!selectedItem} value={userForm.username} onChange={e => setUserForm({...userForm, username: e.target.value})} /><Select label={t('config_modal_user_role')} value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value as Role})}><option value="admin">Admin</option><option value="manager">Manager</option><option value="receptionist">Receptionist</option><option value="doctor">Doctor</option><option value="accountant">Accountant</option><option value="hr">HR</option></Select></div>
-               <Input label={t('login_password_label')} type="password" required={!selectedItem} placeholder={selectedItem ? "Leave empty to keep current" : "••••••••"} value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} />
-               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="userActive" checked={userForm.isActive} onChange={e => setUserForm({...userForm, isActive: e.target.checked})} /><label htmlFor="userActive" className="text-sm font-bold">{t('config_modal_user_active')}</label></div>
-               <Button type="submit" className="w-full">{selectedItem ? t('save') : t('add')}</Button>
+               <div className="grid grid-cols-2 gap-4">
+                 <Input label={t('login_id_label')} required disabled={!!selectedItem} value={userForm.username} onChange={e => setUserForm({...userForm, username: e.target.value})} />
+                 <Select label={t('config_modal_user_role')} value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value as Role})}>
+                   <option value="admin">{t('staff_role_admin')}</option>
+                   <option value="manager">{t('staff_role_manager')}</option>
+                   <option value="receptionist">{t('staff_role_receptionist')}</option>
+                   <option value="doctor">{t('staff_role_doctor')}</option>
+                   <option value="accountant">{t('staff_role_accountant')}</option>
+                   <option value="hr">{t('staff_role_hr')}</option>
+                 </Select>
+               </div>
+               <Input label={t('login_password_label')} type="password" required={!selectedItem} placeholder={selectedItem ? t('login_password_placeholder') : "••••••••"} value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} />
+               <div className="flex items-center gap-2 py-2">
+                 <input type="checkbox" id="userActive" className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" checked={userForm.isActive} onChange={e => setUserForm({...userForm, isActive: e.target.checked})} />
+                 <label htmlFor="userActive" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer">{t('config_modal_user_active')}</label>
+               </div>
+               <Button type="submit" className="w-full" icon={CheckCircle}>{selectedItem ? t('save') : t('add')}</Button>
             </form>
          )}
 
@@ -802,8 +814,8 @@ export const Configuration = () => {
                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                         {labComponents.map((comp, idx) => (
                            <div key={idx} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
-                              <input placeholder="Component (e.g. WBC)" className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-primary-500/20 outline-none" value={comp.name} onChange={e => updateLabComponent(idx, 'name', e.target.value)} />
-                              <input placeholder="Range (e.g. 4.0 - 11.0)" className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-primary-500/20 outline-none" value={comp.range} onChange={e => updateLabComponent(idx, 'range', e.target.value)} />
+                              <input placeholder={t('billing_modal_create_quick_add')} className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-primary-500/20 outline-none" value={comp.name} onChange={e => updateLabComponent(idx, 'name', e.target.value)} />
+                              <input placeholder={t('lab_modal_remarks_placeholder')} className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-primary-500/20 outline-none" value={comp.range} onChange={e => updateLabComponent(idx, 'range', e.target.value)} />
                               <button type="button" onClick={() => removeLabComponent(idx)} className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"><X size={16}/></button>
                            </div>
                         ))}
@@ -813,39 +825,47 @@ export const Configuration = () => {
                   </div>
                )}
 
-               {activeCatalog === 'nurse' && (<div className="space-y-4"><Textarea label="Description (EN)" rows={2} value={catalogForm.description_en} onChange={e => setCatalogForm({...catalogForm, description_en: e.target.value})} /><Input label={t('config_modal_catalog_cost')} type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} /></div>)}
+               {activeCatalog === 'nurse' && (<div className="space-y-4"><Textarea label={t('billing_treasury_table_description')} rows={2} value={catalogForm.description_en} onChange={e => setCatalogForm({...catalogForm, description_en: e.target.value})} /><Input label={t('config_modal_catalog_cost')} type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} /></div>)}
                {activeCatalog === 'ops' && (<Input label={t('config_modal_catalog_base_cost')} type="number" required value={catalogForm.base_cost} onChange={e => setCatalogForm({...catalogForm, base_cost: e.target.value})} />)}
-               {activeCatalog === 'specializations' && (<Select label={t('config_modal_catalog_role')} value={catalogForm.related_role} onChange={e => setCatalogForm({...catalogForm, related_role: e.target.value})}><option value="">Any</option><option value="doctor">Doctor</option><option value="nurse">Nurse</option><option value="technician">Technician</option><option value="pharmacist">Pharmacist</option></Select>)}
-               {(activeCatalog === 'insurance' || activeCatalog === 'banks') && (<div className="flex items-center gap-2 py-2"><input type="checkbox" id="catActive" checked={catalogForm.is_active} onChange={e => setCatalogForm({...catalogForm, is_active: e.target.checked})} /><label htmlFor="catActive" className="text-sm font-bold">{t('config_modal_catalog_active')}</label></div>)}
+               {activeCatalog === 'specializations' && (<Select label={t('config_modal_catalog_role')} value={catalogForm.related_role} onChange={e => setCatalogForm({...catalogForm, related_role: e.target.value})}><option value="">{t('records_filter_all')}</option><option value="doctor">{t('staff_role_doctor')}</option><option value="nurse">{t('staff_role_nurse')}</option><option value="technician">{t('staff_role_technician')}</option><option value="pharmacist">{t('staff_role_pharmacist')}</option></Select>)}
+               {(activeCatalog === 'insurance' || activeCatalog === 'banks') && (<div className="flex items-center gap-2 py-2"><input type="checkbox" id="catActive" className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" checked={catalogForm.is_active} onChange={e => setCatalogForm({...catalogForm, is_active: e.target.checked})} /><label htmlFor="catActive" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer">{t('config_modal_catalog_active')}</label></div>)}
                
                <div className="pt-4 border-t dark:border-slate-700">
-                  <Button type="submit" className="w-full">{selectedItem ? t('save') : t('add')}</Button>
+                  <Button type="submit" className="w-full" icon={CheckCircle}>{selectedItem ? t('save') : t('add')}</Button>
                </div>
             </form>
          )}
 
          {modalType === 'tax' && (
             <form onSubmit={handleTaxSubmit} className="space-y-4">
-               <div className="grid grid-cols-2 gap-4"><Input label="Name (EN)" required value={taxForm.name_en} onChange={e => setTaxForm({...taxForm, name_en: e.target.value})} /><Input label="Name (AR)" required value={taxForm.name_ar} onChange={e => setTaxForm({...taxForm, name_ar: e.target.value})} /></div>
+               <div className="grid grid-cols-2 gap-4"><Input label={t('config_modal_catalog_name_en')} required value={taxForm.name_en} onChange={e => setTaxForm({...taxForm, name_en: e.target.value})} /><Input label={t('config_modal_catalog_name_ar')} required value={taxForm.name_ar} onChange={e => setTaxForm({...taxForm, name_ar: e.target.value})} /></div>
                <Input label={t('config_modal_tax_rate')} type="number" step="0.01" required value={taxForm.rate} onChange={e => setTaxForm({...taxForm, rate: e.target.value})} />
-               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="taxActive" checked={taxForm.is_active} onChange={e => setTaxForm({...taxForm, is_active: e.target.checked})} /><label htmlFor="taxActive" className="text-sm font-bold">{t('config_modal_tax_enabled')}</label></div>
-               <Button type="submit" className="w-full">{selectedItem ? t('save') : t('add')}</Button>
+               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="taxActive" className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" checked={taxForm.is_active} onChange={e => setTaxForm({...taxForm, is_active: e.target.checked})} /><label htmlFor="taxActive" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer">{t('config_modal_tax_enabled')}</label></div>
+               <Button type="submit" className="w-full" icon={CheckCircle}>{selectedItem ? t('save') : t('add')}</Button>
             </form>
          )}
 
          {modalType === 'payment' && (
             <form onSubmit={handlePaymentSubmit} className="space-y-4">
-               <div className="grid grid-cols-2 gap-4"><Input label="Method (EN)" required value={paymentForm.name_en} onChange={e => setPaymentForm({...paymentForm, name_en: e.target.value})} /><Input label="Method (AR)" required value={paymentForm.name_ar} onChange={e => setPaymentForm({...paymentForm, name_ar: e.target.value})} /></div>
-               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="pmActive" checked={paymentForm.is_active} onChange={e => setPaymentForm({...paymentForm, is_active: e.target.checked})} /><label htmlFor="pmActive" className="text-sm font-bold">{t('config_modal_pm_active')}</label></div>
-               <Button type="submit" className="w-full">{selectedItem ? t('save') : t('add')}</Button>
+               <div className="grid grid-cols-2 gap-4"><Input label={t('config_modal_catalog_name_en')} required value={paymentForm.name_en} onChange={e => setPaymentForm({...paymentForm, name_en: e.target.value})} /><Input label={t('config_modal_catalog_name_ar')} required value={paymentForm.name_ar} onChange={e => setPaymentForm({...paymentForm, name_ar: e.target.value})} /></div>
+               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="pmActive" className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" checked={paymentForm.is_active} onChange={e => setPaymentForm({...paymentForm, is_active: e.target.checked})} /><label htmlFor="pmActive" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer">{t('config_modal_pm_active')}</label></div>
+               <Button type="submit" className="w-full" icon={CheckCircle}>{selectedItem ? t('save') : t('add')}</Button>
             </form>
          )}
 
          {modalType === 'bed' && (
             <form onSubmit={handleBedSubmit} className="space-y-4">
-               <div className="grid grid-cols-2 gap-4"><Input label={t('config_modal_bed_no')} required value={bedForm.roomNumber} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} /><Select label={t('config_beds_type')} value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value})}><option>General</option><option>Private</option><option>ICU</option><option>Emergency</option></Select></div>
+               <div className="grid grid-cols-2 gap-4">
+                 <Input label={t('config_modal_bed_no')} required value={bedForm.roomNumber} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} />
+                 <Select label={t('config_beds_type')} value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value})}>
+                   <option value="General">{t('General')}</option>
+                   <option value="Private">{t('Private')}</option>
+                   <option value="ICU">{t('ICU')}</option>
+                   <option value="Emergency">{t('Emergency')}</option>
+                 </Select>
+               </div>
                <Input label={t('config_modal_bed_cost')} type="number" required value={bedForm.costPerDay} onChange={e => setBedForm({...bedForm, costPerDay: e.target.value})} />
-               <Button type="submit" className="w-full">{selectedItem ? t('save') : t('add')}</Button>
+               <Button type="submit" className="w-full" icon={CheckCircle}>{selectedItem ? t('save') : t('add')}</Button>
             </form>
          )}
       </Modal>

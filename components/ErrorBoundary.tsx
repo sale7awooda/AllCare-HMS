@@ -1,9 +1,9 @@
-import React, { Component } from 'react';
-import type { ErrorInfo, ReactNode } from 'react';
+
+import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
-  children?: ReactNode;
+  children?: React.ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -14,13 +14,16 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-/* Fix: Explicitly importing Component and extending it to ensure members like setState and props are inherited correctly. */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  /* Initializing state property directly. */
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+/* Fix: Use React.Component to ensure members like setState and props are inherited correctly from the React library. */
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    /* Initializing state property in constructor for better type inference. */
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   /**
    * Static method to update state when an error occurs during rendering.
@@ -32,20 +35,20 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   /**
    * Lifecycle method to log error details.
    */
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
   /**
    * Resets the error state to allow the application to attempt re-rendering.
    */
-  /* Fix: handleReload method now correctly identifies the inherited setState method by extending Component. */
   public handleReload = () => {
+    /* Fix: Accessing inherited setState method from React.Component. */
     this.setState({ hasError: false, error: null });
   }
 
-  public render(): ReactNode {
-    /* Accessing the inherited state property. */
+  public render(): React.ReactNode {
+    /* Accessing inherited state property from React.Component. */
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -76,7 +79,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    /* Fix: Correctly returning children from the inherited props property. */
+    /* Fix: Correctly returning children from the inherited props property from React.Component. */
     return this.props.children;
   }
 }
