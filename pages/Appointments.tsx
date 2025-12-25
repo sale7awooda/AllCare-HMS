@@ -394,21 +394,21 @@ export const Appointments = () => {
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
         <button 
             onClick={() => setViewMode('grid')}
-            className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
         >
             <LayoutGrid size={14} />
             <span className="hidden sm:inline">{t('appointments_view_queue')}</span>
         </button>
         <button 
             onClick={() => setViewMode('list')}
-            className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
         >
             <ListIcon size={14} />
             <span className="hidden sm:inline">{t('appointments_view_list')}</span>
         </button>
         <button 
             onClick={() => setViewMode('history')}
-            className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
         >
             <History size={14} />
             <span className="hidden sm:inline">{t('operations_tab_history')}</span>
@@ -637,7 +637,10 @@ export const Appointments = () => {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-slate-400">{t('loading')}</div>
+        <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <p className="text-slate-500 font-medium">{t('loading')}</p>
+        </div>
       ) : viewMode === 'grid' ? (
         <div className="flex gap-6 overflow-x-auto pb-4 custom-scrollbar -mx-6 px-6">
           {appointmentsByDoctor.length === 0 ? (<div className="flex-1 text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl w-full"><p className="text-slate-500">{t('appointments_list_empty')}</p></div>) : 

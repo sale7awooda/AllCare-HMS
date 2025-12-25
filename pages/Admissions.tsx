@@ -64,12 +64,19 @@ export const Admissions = () => {
   useHeader(
     t('admissions_title'), 
     t('admissions_subtitle'),
-    <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
-      <button onClick={() => setActiveMainTab('ward')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeMainTab === 'ward' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}>
-        <LayoutGrid size={16}/> {t('admissions_title')} <span className="bg-primary-100 text-primary-700 dark:bg-primary-900 text-xs px-2 py-0.5 rounded-full ml-1">{activeAdmissions.length}</span>
+    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
+      <button 
+        onClick={() => setActiveMainTab('ward')} 
+        className={`flex items-center gap-2 px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${activeMainTab === 'ward' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+      >
+        <LayoutGrid size={14}/> {t('admissions_title')} 
+        <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full ${activeMainTab === 'ward' ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300' : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300'}`}>{activeAdmissions.length}</span>
       </button>
-      <button onClick={() => setActiveMainTab('history')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeMainTab === 'history' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}>
-        <History size={16}/> History
+      <button 
+        onClick={() => setActiveMainTab('history')} 
+        className={`flex items-center gap-2 px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${activeMainTab === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+      >
+        <History size={14}/> History
       </button>
     </div>
   );

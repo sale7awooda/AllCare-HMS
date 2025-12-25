@@ -471,7 +471,14 @@ export const Patients = () => {
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-20 text-slate-500">{t('loading')}</td></tr>
+                <tr>
+                  <td colSpan={5} className="p-0">
+                    <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+                      <p className="text-slate-500 font-medium">{t('patients_process_loading')}</p>
+                    </div>
+                  </td>
+                </tr>
               ) : paginatedPatients.length === 0 ? (
                 <tr><td colSpan={5} className="text-center py-20 text-slate-500">{t('patients_table_empty')}</td></tr>
               ) : (
