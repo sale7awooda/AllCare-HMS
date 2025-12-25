@@ -1,5 +1,6 @@
 
 const { db } = require('../config/database');
+const notificationController = require('./notification.controller');
 
 // --- LAB ---
 exports.getLabRequests = (req, res) => {
@@ -48,6 +49,10 @@ exports.createLabRequest = (req, res) => {
         INSERT INTO lab_requests (patient_id, test_ids, projected_cost, status, bill_id)
         VALUES (?, ?, ?, 'pending', ?)
       `).run(patientId, JSON.stringify(testIds), totalCost, bill.lastInsertRowid);
+
+      const patient = db.prepare('SELECT full_name FROM patients WHERE id = ?').get(patientId);
+      notificationController.notifyRole('technician', 'New Lab Request', `New lab tests ordered for ${patient.full_name}`);
+      notificationController.notifyRole('admin', 'Lab Request', `Patient ${patient.full_name} needs lab tests ($${totalCost})`);
   });
 
   try {
@@ -276,6 +281,8 @@ exports.createAdmission = (req, res) => {
         `).run(patientId, bedId, doctorId, entryDate, deposit, notes, billId);
 
         db.prepare("UPDATE beds SET status = 'reserved' WHERE id = ?").run(bedId);
+
+        notificationController.notifyRole('manager', 'Admission Request', `Patient ${patient.full_name} needs admission to Room ${bed.room_number}`);
     });
 
     try {

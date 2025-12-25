@@ -1,8 +1,8 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
-  children?: ReactNode;
+  children?: React.ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -14,8 +14,8 @@ interface ErrorBoundaryState {
  * ErrorBoundary component to catch rendering errors in the component tree.
  * Inherits from the base Component class with explicitly defined props and state types.
  */
-// FIX: Using direct import of Component to resolve inheritance visibility issues in TypeScript
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// FIX: Using React.Component explicitly to ensure TypeScript correctly recognizes inherited properties like setState and props
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   // State property initialization
   public state: ErrorBoundaryState = {
     hasError: false,
@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   /**
    * Lifecycle method to log error details.
    */
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    // FIX: setState is inherited from the base Component class
+    // FIX: setState is inherited from the base React.Component class
     this.setState({ hasError: false, error: null });
   }
 
@@ -76,7 +76,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    // FIX: Accessing children from the inherited props property from Component
+    // FIX: Accessing children from the inherited props property from React.Component
     return this.props.children;
   }
 }

@@ -1,7 +1,3 @@
-import { api as srcApi } from '../src/services/api';
-
-// This file seems to be a proxy or a duplicate. 
-// Ensuring the actual service definition is corrected.
 
 import axios from 'axios';
 
@@ -10,14 +6,11 @@ const getBaseUrl = () => {
   if (typeof window === 'undefined') return '/api';
 
   // 1. If running on the production Railway domain, use relative path (same origin)
-  // This avoids CORS issues and SSL overhead on the deployed site.
   if (window.location.hostname.includes('railway.app')) {
     return '/api';
   }
 
   // 2. If running in Development (Localhost) or AI Studio Preview:
-  // Connect explicitly to the remote Railway backend.
-  // This fixes "Backend unreachable" in previews where the backend isn't running locally.
   return 'https://allcare.up.railway.app/api';
 };
 
@@ -46,7 +39,7 @@ client.interceptors.response.use(
       return client(config);
     }
 
-    // Aggressive Auto-retry on Network Error (Backend might be compiling/starting up)
+    // Aggressive Auto-retry on Network Error
     if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork) {
         config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
         const MAX_RETRIES = 5; 
@@ -64,7 +57,7 @@ client.interceptors.response.use(
     } 
     
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health');
+        const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health') || config.url?.includes('/notifications');
         if (!isPolling) {
             console.error('Backend unreachable:', config.url);
             const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
@@ -89,6 +82,11 @@ export const api = {
   updateProfile: (data) => put('/auth/profile', data),
   changePassword: (data) => put('/auth/password', data),
   checkSystemHealth: () => get('/config/health'),
+
+  // Notifications
+  getNotifications: () => get('/notifications'),
+  markNotificationRead: (id) => put(`/notifications/${id}/read`),
+  markAllNotificationsRead: () => put('/notifications/read-all'),
 
   getPatients: () => get('/patients'),
   getPatient: (id) => get(`/patients/${id}`),

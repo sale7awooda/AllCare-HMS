@@ -19,6 +19,7 @@ const appointmentController = require('../controllers/appointment.controller');
 const billingController = require('../controllers/billing.controller');
 const medicalController = require('../controllers/medical.controller');
 const configurationController = require('../controllers/configuration.controller');
+const notificationController = require('../controllers/notification.controller');
 
 // --- PUBLIC ROUTES ---
 router.post('/auth/login', validate(schemas.login), authController.login);
@@ -31,6 +32,11 @@ router.use(authenticateToken);
 router.get('/auth/me', authController.me);
 router.put('/auth/profile', authController.updateProfile);
 router.put('/auth/password', authController.changePassword);
+
+// Notifications
+router.get('/notifications', notificationController.getAll);
+router.put('/notifications/read-all', notificationController.markAllAsRead);
+router.put('/notifications/:id/read', notificationController.markAsRead);
 
 // System Health Check
 router.get('/config/health', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getSystemHealth);

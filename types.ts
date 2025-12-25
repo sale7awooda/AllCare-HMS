@@ -1,5 +1,4 @@
 
-
 export type Role = 'admin' | 'receptionist' | 'manager' | 'technician' | 'accountant' | 'doctor' | 'nurse' | 'pharmacist' | 'hr'; 
 
 export interface User {
@@ -10,6 +9,16 @@ export interface User {
   email: string;
   phone?: string;
   is_active?: boolean;
+}
+
+export interface Notification {
+  id: number;
+  userId: number;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  isRead: boolean;
+  createdAt: string;
 }
 
 export interface EmergencyContact {
