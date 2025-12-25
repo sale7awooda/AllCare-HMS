@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
+import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog, Tooltip } from '../components/UI';
 import { 
   Plus, Printer, CreditCard, 
   Wallet, FileText, CheckCircle, Trash2,
@@ -39,6 +39,11 @@ export const Billing = () => {
   // Memoized Header Tabs
   const HeaderTabs = useMemo(() => (
     <div className="flex items-center gap-3">
+      {activeTab === 'invoices' ? (
+        canManageBilling && <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('billing_create_invoice_button')}</Button>
+      ) : (
+        <Button onClick={() => openExpenseModal()} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button>
+      )}
       <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
           <button 
               onClick={() => setActiveTab('invoices')}
@@ -55,11 +60,6 @@ export const Billing = () => {
               <span className="hidden sm:inline">{t('billing_tab_treasury')}</span>
           </button>
       </div>
-      {activeTab === 'invoices' ? (
-        canManageBilling && <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('billing_create_invoice_button')}</Button>
-      ) : (
-        <Button onClick={() => openExpenseModal()} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button>
-      )}
     </div>
   ), [activeTab, t, canManageBilling]);
 
@@ -710,18 +710,34 @@ export const Billing = () => {
                                 <td className="px-4 py-4 whitespace-nowrap min-w-[120px]"><div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2"><div className={`h-2 rounded-full transition-all duration-500 ${isCancelled ? 'bg-red-400' : 'bg-primary-500'}`} style={{ width: `${paidPercent}%` }}></div></div><p className="text-right text-[10px] mt-1 text-slate-500 font-bold font-mono">${(bill.paidAmount || 0).toLocaleString()} / ${(bill.totalAmount || 0).toLocaleString()}</p></td>
                                 <td className="px-4 py-4 whitespace-nowrap text-right font-mono font-bold text-sm">${bill.totalAmount.toLocaleString()}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <div className="flex justify-end gap-2">
-                                        <Button size="sm" variant="outline" icon={FileText} onClick={() => setSelectedBill(bill)}>{t('billing_action_view_invoice')}</Button>
+                                    <div className="flex justify-end gap-1">
+                                        <Tooltip content={t('billing_action_view_invoice')} side="top">
+                                            <button onClick={() => setSelectedBill(bill)} className="p-2 text-slate-500 hover:text-primary-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                                                <FileText size={20} />
+                                            </button>
+                                        </Tooltip>
                                         {canManageBilling && (
                                           <>
                                             {!isCancelled && (bill.status === 'pending' || bill.status === 'partial') && (
-                                              <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>
+                                              <Tooltip content={t('billing_action_pay')} side="top">
+                                                  <button onClick={() => openPaymentModal(bill)} className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors">
+                                                      <CreditCard size={20} />
+                                                  </button>
+                                              </Tooltip>
                                             )}
                                             {canCancelService && (
-                                              <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => handleCancelService(bill)} icon={Ban}>{t('cancel')}</Button>
+                                              <Tooltip content={t('cancel')} side="top">
+                                                  <button onClick={() => handleCancelService(bill)} className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors">
+                                                      <Ban size={20} />
+                                                  </button>
+                                              </Tooltip>
                                             )}
                                             {canRefund && (
-                                              <Button size="sm" variant="secondary" onClick={() => openRefundModal(bill)} icon={RotateCcw}>{t('billing_action_refund')}</Button>
+                                              <Tooltip content={t('billing_action_refund')} side="top">
+                                                  <button onClick={() => openRefundModal(bill)} className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors">
+                                                      <RotateCcw size={20} />
+                                                  </button>
+                                              </Tooltip>
                                             )}
                                           </>
                                         )}
@@ -803,11 +819,28 @@ export const Billing = () => {
                           <div className="flex items-center gap-2 flex-1"><Landmark size={18} className="text-slate-500"/> <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3></div>
                           <div className="flex gap-2 items-center"><select className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white" value={treasuryFilter} onChange={(e) => setTreasuryFilter(e.target.value)}><option value="all">{t('patients_filter_type_all')}</option><option value="income">{t('billing_treasury_type_income')}</option><option value="expense">{t('billing_treasury_type_expense')}</option></select></div>
                       </div>
-                      <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300 font-mono">{new Date(tx.date).toLocaleDateString()}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-bold dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300 font-bold">{tx.method}</td><td className={`px-6 py-3 text-sm font-black text-right font-mono ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td><td className="px-6 py-3 text-right">{tx.type === 'expense' && canManageBilling && (<Button size="sm" variant="ghost" icon={Edit} onClick={() => openExpenseModal(tx)} />)}</td></tr>))}</tbody></table></div>
-                      <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 dark:bg-slate-900">
+                      <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300 font-mono">{new Date(tx.date).toLocaleDateString()}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-bold dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300 font-bold">{tx.method}</td><td className={`px-6 py-3 text-sm font-black text-right font-mono ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td><td className="px-6 py-3 text-right">{tx.type === 'expense' && canManageBilling && (<Tooltip content={t('edit')} side="top"><button onClick={() => openExpenseModal(tx)} className="p-2 text-slate-500 hover:text-primary-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><Edit size={20} /></button></Tooltip>)}</td></tr>))}</tbody></table></div>
+                      <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
+                          <span>{t('patients_pagination_showing')} {paginatedTransactions.length} {t('patients_pagination_of')} {filteredTransactions.length}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs whitespace-nowrap">{t('patients_pagination_rows')}</span>
+                            <select 
+                              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                              value={itemsPerPage}
+                              onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setTreasuryPage(1); }}
+                            >
+                              <option value={10}>10</option>
+                              <option value={15}>15</option>
+                              <option value={20}>20</option>
+                              <option value={50}>50</option>
+                              <option value={100}>100</option>
+                            </select>
+                          </div>
+                        </div>
                         <div className="flex gap-2">
-                          <button onClick={() => setTreasuryPage(p => Math.max(1, p - 1))} disabled={treasuryPage === 1} className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 transition-all border border-slate-200 dark:border-slate-700"><ChevronLeft size={16}/></button>
-                          <button onClick={() => setTreasuryPage(p => Math.min(totalTreasuryPages, p + 1))} disabled={treasuryPage === totalTreasuryPages} className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 transition-all border border-slate-200 dark:border-slate-700"><ChevronRight size={16}/></button>
+                          <Button size="sm" variant="secondary" onClick={() => setTreasuryPage(p => Math.max(1, p - 1))} disabled={treasuryPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
+                          <Button size="sm" variant="secondary" onClick={() => setTreasuryPage(p => Math.min(totalTreasuryPages, p + 1))} disabled={treasuryPage === totalTreasuryPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
                         </div>
                       </div>
                   </Card>
