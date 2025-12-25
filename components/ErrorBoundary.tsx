@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -14,11 +14,11 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-// Fixed: Explicitly extending React.Component with typed props and state to ensure members like state, props, and setState are correctly inherited.
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Explicitly extending Component from react with typed props and state to ensure members like state, props, and setState are correctly inherited.
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Fixed: Initializing the state property inherited from React.Component.
+    // Fix: Initializing the state property inherited from Component.
     this.state = {
       hasError: false,
       error: null
@@ -43,12 +43,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    // Fixed: setState is recognized as a member of React.Component.
+    // Fix: setState is recognized as a member of Component.
     this.setState({ hasError: false, error: null });
   }
 
   public render(): ReactNode {
-    // Fixed: state access is now correctly recognized as part of React.Component.
+    // Fix: state access is now correctly recognized as part of Component.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -61,10 +61,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               The application encountered an unexpected error.
             </p>
             
-            {/* Fixed: state access is now correctly recognized as part of React.Component. */}
+            {/* Fix: state.error access is now correctly recognized. */}
             {this.state.error && (
                 <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded-lg text-left text-xs font-mono text-red-600 dark:text-red-400 overflow-auto max-h-32 mb-6">
-                    {/* Fixed: error property within state is correctly accessed. */}
                     {this.state.error.toString()}
                 </div>
             )}
@@ -81,7 +80,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    // Fixed: props access is now correctly recognized as part of React.Component.
+    // Fix: props access is now correctly recognized as part of Component.
     return this.props.children;
   }
 }

@@ -217,16 +217,21 @@ const seedData = () => {
       console.log('- [Seed] RBAC permissions created.');
     }
 
-    // 2. Default Users
+    // 2. Default Users (Expanded for all Quick Select profiles)
     const userCount = db.prepare('SELECT count(*) as count FROM users').get()?.count || 0;
     if (userCount === 0) {
       const defaultUsers = [
           { u: 'admin', p: 'admin123', n: 'System Administrator', r: 'admin' },
-          { u: 'doctor', p: 'doctor123', n: 'Dr. Mohammed Ahmed', r: 'doctor' }
+          { u: 'doctor', p: 'doctor123', n: 'Dr. Mohammed Ahmed', r: 'doctor' },
+          { u: 'manager', p: 'manager123', n: 'Operational Manager', r: 'manager' },
+          { u: 'receptionist', p: 'receptionist123', n: 'Front Desk Reception', r: 'receptionist' },
+          { u: 'labtech', p: 'labtech123', n: 'Lab Technician', r: 'technician' },
+          { u: 'accountant', p: 'accountant123', n: 'Financial Accountant', r: 'accountant' },
+          { u: 'hr', p: 'hr123', n: 'HR Coordinator', r: 'hr' }
       ];
       const stmt = db.prepare("INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)");
       defaultUsers.forEach(d => stmt.run(d.u, bcrypt.hashSync(d.p, 10), d.n, d.r));
-      console.log('- [Seed] System users created.');
+      console.log('- [Seed] System users created for all roles.');
     }
 
     // 3. Medical Staff
@@ -307,7 +312,7 @@ const seedData = () => {
             db.prepare(`INSERT INTO appointments (appointment_number, patient_id, medical_staff_id, appointment_datetime, type, status, billing_status, bill_id, daily_token) 
                        VALUES ('APT-1001', ?, ?, datetime('now'), 'Consultation', 'completed', 'paid', ?, 1)`).run(pId, sId, bInfo.lastInsertRowid);
             // Transaction
-            db.prepare("INSERT INTO transactions (type, category, amount, method, reference_id, description) VALUES ('income', 'Bill Payment', 150, 'Cash', ?, 'Initial seed payment')").run(bInfo.lastInsertRowid);
+            db.prepare("INSERT INTO transactions (type, category, amount, method, reference_id, details, date, description) VALUES ('income', 'Bill Payment', 150, 'Cash', ?, '{}', datetime('now'), 'Initial seed payment')").run(bInfo.lastInsertRowid);
             console.log('- [Seed] Live activity logs generated.');
         }
     }

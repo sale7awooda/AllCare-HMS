@@ -50,11 +50,19 @@ client.interceptors.response.use(
         }
     }
 
+    // Authentication failure (No token or invalid token)
     if (error.response?.status === 401) {
+      console.error('Session expired or invalid. Redirecting to login.');
       localStorage.removeItem('token');
       window.dispatchEvent(new Event('auth:expired'));
     } 
     
+    // Authorization failure (Authenticated but no permission)
+    if (error.response?.status === 403) {
+      console.error('Access forbidden: You do not have permission to access this resource.');
+      // Optional: show a specific toast or error UI
+    }
+
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health') || config.url?.includes('/notifications');
         if (!isPolling) {
