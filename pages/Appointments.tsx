@@ -20,6 +20,12 @@ const isSameDay = (d1: Date, d2: Date) =>
   d1.getMonth() === d2.getMonth() &&
   d1.getDate() === d2.getDate();
 
+const translateType = (type: string, t: any) => {
+  const key = `patients_modal_action_${type.toLowerCase().replace('-up', 'Up')}`;
+  const translation = t(key);
+  return translation === key ? type : translation;
+};
+
 const StatusBadge = ({ status }: { status: string }) => {
   const { t } = useTranslation();
   const styles: Record<string, string> = {
@@ -98,7 +104,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
               <span className="font-mono text-xs text-slate-400">#{activePatient.dailyToken}</span>
             </div>
             <h4 className="font-bold text-lg text-slate-800 dark:text-white mb-1">{activePatient.patientName}</h4>
-            <p className="text-xs text-slate-500 mb-3">{activePatient.type} • {activePatient.datetime && new Date(activePatient.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+            <p className="text-xs text-slate-500 mb-3">{translateType(activePatient.type, t)} • {activePatient.datetime && new Date(activePatient.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
             {canManage && (
               <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white border-none shadow-green-200 dark:shadow-none" onClick={() => onStatusUpdate(activePatient.id, 'completed', activePatient.patientName)} icon={CheckCircle}>{t('appointments_queue_complete_button')}</Button>
             )}
@@ -125,7 +131,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                     <span className="font-mono text-xs text-slate-400">#{apt.dailyToken}</span>
                   </div>
                   <h4 className="font-bold text-slate-800 dark:text-white mb-1 truncate" title={apt.patientName}>{apt.patientName}</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{apt.type} • {apt.datetime && new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{translateType(apt.type, t)} • {apt.datetime && new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                   {apt.status === 'pending' && !isPaid && (<p className="text-xs font-semibold text-orange-500 mt-1">{t('appointments_queue_payment_needed')}</p>)}
                   {canManage && (
                     <div className="flex gap-2 mt-3">
@@ -215,7 +221,7 @@ const ListView = ({ appointments, onEdit, onView, onCancel, canManage }: { appoi
                         <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-800 dark:text-white">{apt.patientName}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{apt.staffName}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(apt.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{apt.type}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{translateType(apt.type, t)}</td>
                         <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={apt.status} /></td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex gap-2 justify-end">
@@ -322,7 +328,7 @@ const HistoryView = ({ appointments, onView }: { appointments: Appointment[], on
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-800 dark:text-white">{apt.patientName}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{apt.staffName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{apt.type}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{translateType(apt.type, t)}</td>
                         <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={apt.status} /></td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                             <Button size="sm" variant="ghost" icon={Eye} onClick={() => onView(apt)}>{t('view')}</Button>
@@ -478,7 +484,7 @@ export const Appointments = () => {
 
   const handleStatusUpdate = async (id: number, status: string, patientName: string) => {
     setProcessStatus('processing');
-    setProcessMessage(`Updating status for ${patientName}...`);
+    setProcessMessage(t('appointments_process_updating_status', { name: patientName }));
     try {
       if (status === 'in_progress') {
         const apt = appointments.find(a => a.id === id);
@@ -492,7 +498,7 @@ export const Appointments = () => {
       setProcessStatus('idle');
     } catch (e: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(e.response?.data?.error || e.message || 'Failed'); 
+      setProcessMessage(e.response?.data?.error || e.message || t('error')); 
       setTimeout(() => setProcessStatus('idle'), 2000); 
     }
   };
@@ -763,7 +769,7 @@ export const Appointments = () => {
                </div>
                <div className="flex-1">
                   <h3 className="font-black text-lg text-slate-900 dark:text-white leading-tight">{viewingAppointment.patientName}</h3>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">ID: {viewingAppointment.dailyToken ? `#${viewingAppointment.dailyToken}` : 'N/A'}</p>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">{t('nav_patients')} ID: {viewingAppointment.dailyToken ? `#${viewingAppointment.dailyToken}` : t('patients_modal_view_na')}</p>
                </div>
                <StatusBadge status={viewingAppointment.status} />
             </div>
@@ -787,7 +793,7 @@ export const Appointments = () => {
                   <div className="p-2 bg-slate-50 dark:bg-slate-900 rounded-lg text-slate-400"><Briefcase size={18}/></div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('appointments_form_type')}</p>
-                    <p className="text-sm font-bold">{viewingAppointment.type}</p>
+                    <p className="text-sm font-bold">{translateType(viewingAppointment.type, t)}</p>
                   </div>
                </div>
                <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 border rounded-xl">
