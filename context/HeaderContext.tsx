@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useMemo } from 'react';
 
 interface HeaderContextType {
   title: string;
@@ -16,20 +16,24 @@ export const HeaderProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [subtitle, setSubtitle] = useState('');
   const [actions, setActions] = useState<ReactNode | null>(null);
 
-  const setHeader = (t: string, s: string, a: ReactNode = null) => {
-    setTitle(t);
-    setSubtitle(s);
-    setActions(a);
-  };
+  const setHeader = useCallback((t: string, s: string, a: ReactNode = null) => {
+    setTitle(prev => (prev !== t ? t : prev));
+    setSubtitle(prev => (prev !== s ? s : prev));
+    setActions(prev => (prev !== a ? a : prev));
+  }, []);
 
-  const clearHeader = () => {
+  const clearHeader = useCallback(() => {
     setTitle('');
     setSubtitle('');
     setActions(null);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    title, subtitle, actions, setHeader, clearHeader
+  }), [title, subtitle, actions, setHeader, clearHeader]);
 
   return (
-    <HeaderContext.Provider value={{ title, subtitle, actions, setHeader, clearHeader }}>
+    <HeaderContext.Provider value={value}>
       {children}
     </HeaderContext.Provider>
   );
@@ -43,8 +47,8 @@ export const useHeader = (title?: string, subtitle?: string, actions: ReactNode 
     if (title !== undefined) {
       context.setHeader(title, subtitle || '', actions);
     }
-    // Cleanup on unmount not strictly required here as next page will overwrite
-  }, [title, subtitle, actions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, subtitle, actions, context.setHeader]);
 
   return context;
 };

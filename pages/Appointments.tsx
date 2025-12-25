@@ -389,8 +389,8 @@ export const Appointments = () => {
   const { user: currentUser } = useAuth();
   const canManage = hasPermission(currentUser, Permissions.MANAGE_APPOINTMENTS);
 
-  // Moved View Tabs to Header
-  const HeaderTabs = (
+  // Memoized Header Tabs to prevent loops
+  const HeaderTabs = useMemo(() => (
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
         <button 
             onClick={() => setViewMode('grid')}
@@ -414,7 +414,7 @@ export const Appointments = () => {
             <span className="hidden sm:inline">{t('operations_tab_history')}</span>
         </button>
     </div>
-  );
+  ), [viewMode, t]);
 
   useHeader(t('appointments_title'), t('appointments_subtitle'), HeaderTabs);
 

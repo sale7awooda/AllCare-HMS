@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Badge, Modal, Input, Textarea } from '../components/UI';
 import { FlaskConical, CheckCircle, Search, Clock, FileText, User, ChevronRight, Activity, History as HistoryIcon, Save, Calendar, DollarSign } from 'lucide-react';
 import { api } from '../services/api';
@@ -13,8 +13,8 @@ export const Laboratory = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Tabs moved to Header
-  const HeaderTabs = (
+  // Tabs moved to Header - Memoized to prevent loops
+  const HeaderTabs = useMemo(() => (
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
         <button 
             onClick={() => setActiveTab('queue')} 
@@ -32,7 +32,7 @@ export const Laboratory = () => {
             <HistoryIcon size={14}/> {t('lab_tab_history')}
         </button>
     </div>
-  );
+  ), [activeTab, requests, t]);
 
   // Sync Header
   useHeader(t('lab_title'), t('lab_subtitle'), HeaderTabs);

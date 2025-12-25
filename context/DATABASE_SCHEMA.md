@@ -1,6 +1,6 @@
 # Database Schema (SQLite)
 
-This schema is managed using `better-sqlite3`. Columns are optimized for a Hospital Management System.
+This schema is managed using `better-sqlite3` in `backend/src/config/database.js`.
 
 ## 1. Access Control
 *   **users:** `id, username, password (hashed), full_name, role, email, phone, is_active, created_at`
@@ -14,7 +14,7 @@ This schema is managed using `better-sqlite3`. Columns are optimized for a Hospi
 *   **medical_staff:** `id, employee_id (UID), full_name, type, department, specialization, consultation_fee, consultation_fee_followup, consultation_fee_emergency, status, is_available, available_days (JSON), available_time_start, available_time_end, email, phone, address, base_salary, join_date, bank_details (JSON), created_at`
 *   **hr_attendance:** `id, staff_id, date, status, check_in, check_out`
 *   **hr_leaves:** `id, staff_id, type, start_date, end_date, reason, status`
-*   **hr_payroll:** `id, staff_id, month, base_salary, total_bonuses, total_fines, net_salary, status, generated_at`
+*   **hr_payroll:** `id, staff_id, month, base_salary, total_bonuses, total_fines, net_salary, status, generated_at, payment_method, transaction_ref, payment_notes, payment_date`
 *   **hr_financials:** `id, staff_id, type (bonus/fine/loan), amount, reason, date, status`
 
 ## 4. Billing & Treasury
@@ -33,7 +33,11 @@ This schema is managed using `better-sqlite3`. Columns are optimized for a Hospi
 *   **admissions:** `id, patient_id, bed_id, doctor_id, entry_date, discharge_date, actual_discharge_date, status, notes, discharge_notes, discharge_status, projected_cost, bill_id`
 *   **inpatient_notes:** `id, admission_id, doctor_id, note, vitals (JSON), created_at`
 
-## 6. System Config
-*   **departments / specializations:** `id, name_en, name_ar, description_en, description_ar`
-*   **tax_rates / payment_methods / insurance_providers / banks:** `id, name_en, name_ar, rate (if applicable), is_active`
+## 6. System Config & Catalogs
+*   **departments:** `id, name_en, name_ar, description_en, description_ar`
+*   **specializations:** `id, name_en, name_ar, description_en, description_ar, related_role`
 *   **system_settings:** `key (PK), value`
+*   **tax_rates:** `id, name_en, name_ar, rate, is_active`
+*   **payment_methods:** `id, name_en, name_ar, is_active`
+*   **insurance_providers:** `id, name_en, name_ar, is_active`
+*   **banks:** `id, name_en, name_ar, is_active`
