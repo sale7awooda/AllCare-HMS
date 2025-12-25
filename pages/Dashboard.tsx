@@ -44,21 +44,31 @@ export const Dashboard = () => {
 
   const loadDashboardData = async () => {
     try {
+      // Robust error handling for individual API calls to handle 403s gracefully
+      const wrapApi = async (promise: Promise<any>) => {
+        try {
+          return await promise;
+        } catch (e: any) {
+          if (e.response?.status === 403) return []; // Return empty array if forbidden
+          throw e;
+        }
+      };
+
       const [pts, apts, bills, bedsData, labs, staffData] = await Promise.all([
-        api.getPatients(),
-        api.getAppointments(),
-        api.getBills(),
-        api.getBeds(),
-        api.getPendingLabRequests(),
-        api.getStaff()
+        wrapApi(api.getPatients()),
+        wrapApi(api.getAppointments()),
+        wrapApi(api.getBills()),
+        wrapApi(api.getBeds()),
+        wrapApi(api.getPendingLabRequests()),
+        wrapApi(api.getStaff())
       ]);
 
       const totalRev = bills.reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
       const outstanding = bills.reduce((sum: number, b: any) => sum + ((b.totalAmount || 0) - (b.paidAmount || 0)), 0);
       
-      const totalBedsCount = bedsData.length || 1;
+      const totalBedsCount = bedsData.length || 0;
       const occupiedBeds = bedsData.filter((b: any) => b.status === 'occupied').length;
-      const occupancyRate = Math.round((occupiedBeds / totalBedsCount) * 100);
+      const occupancyRate = totalBedsCount > 0 ? Math.round((occupiedBeds / totalBedsCount) * 100) : 0;
 
       const todayStr = new Date().toISOString().split('T')[0];
       const todayAppts = apts.filter((a: any) => a && a.datetime && a.datetime.startsWith(todayStr)).length;

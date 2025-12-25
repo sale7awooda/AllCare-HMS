@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -23,4 +22,3 @@ root.render(
     </ErrorBoundary>
   </React.StrictMode>
 );
-// FIX: Removed extraneous file marker that was causing a syntax error.

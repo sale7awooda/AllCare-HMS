@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
@@ -12,10 +12,10 @@ interface ErrorBoundaryState {
 
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
- * Inherits from the base React.Component class with explicitly defined props and state types.
+ * Inherits from the base Component class with explicitly defined props and state types.
  */
-// FIX: Using React.Component explicitly instead of the named 'Component' import to ensure TypeScript correctly resolves inherited members like setState and props.
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// FIX: Using Component from the named import instead of React.Component to resolve inheritance issues where setState and props were not identified by the compiler.
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   // State property initialization
   public state: ErrorBoundaryState = {
     hasError: false,
@@ -40,12 +40,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    // FIX: setState is inherited from React.Component and is now correctly identified.
+    // FIX: setState is inherited from Component and is now correctly identified.
     this.setState({ hasError: false, error: null });
   }
 
   public render() {
-    // Accessing the state property which is declared on this class instance
+    // Accessing the state property which is inherited from the base Component class
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -76,7 +76,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    // FIX: Accessing children from the inherited props property from React.Component.
+    // FIX: Accessing children from the inherited props property.
     return this.props.children;
   }
 }

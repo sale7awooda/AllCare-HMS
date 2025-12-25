@@ -80,14 +80,17 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_HR,
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY,
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS,
-    Permissions.VIEW_RECORDS
+    Permissions.VIEW_RECORDS,
+    Permissions.VIEW_SETTINGS
   ],
   technician: [ 
     Permissions.VIEW_DASHBOARD, 
     Permissions.VIEW_PATIENTS, 
     Permissions.VIEW_APPOINTMENTS, 
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
-    Permissions.VIEW_OPERATIONS 
+    Permissions.VIEW_OPERATIONS,
+    Permissions.VIEW_HR,
+    Permissions.VIEW_SETTINGS
   ],
   accountant: [
     Permissions.VIEW_DASHBOARD, 
@@ -96,7 +99,8 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, 
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
     Permissions.VIEW_RECORDS,
-    Permissions.VIEW_SETTINGS
+    Permissions.VIEW_SETTINGS,
+    Permissions.VIEW_HR
   ],
   doctor: [
     Permissions.VIEW_DASHBOARD,
@@ -106,6 +110,8 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_OPERATIONS,
     Permissions.VIEW_ADMISSIONS,
     Permissions.VIEW_SETTINGS,
+    Permissions.VIEW_HR,
+    Permissions.VIEW_BILLING
   ],
   nurse: [
     Permissions.VIEW_DASHBOARD,
@@ -115,6 +121,8 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_LABORATORY,
     Permissions.VIEW_OPERATIONS,
     Permissions.VIEW_SETTINGS,
+    Permissions.VIEW_HR,
+    Permissions.VIEW_BILLING
   ],
   pharmacist: [
     Permissions.VIEW_DASHBOARD,
@@ -122,12 +130,14 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_BILLING, 
     Permissions.VIEW_LABORATORY, 
     Permissions.VIEW_SETTINGS,
+    Permissions.VIEW_HR
   ],
   hr: [ 
     Permissions.VIEW_DASHBOARD,
     Permissions.VIEW_HR, Permissions.MANAGE_HR, 
     Permissions.VIEW_REPORTS, 
     Permissions.VIEW_SETTINGS,
+    Permissions.VIEW_BILLING
   ]
 };
 
