@@ -14,13 +14,16 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-/* Fix: Explicitly extending React.Component to ensure setState and props are correctly inherited and recognized by the compiler. */
+/* Fix: Explicitly using React.Component to ensure setState and props are correctly inherited and recognized by the compiler. */
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  /* Fix: Initializing state directly as a class property with explicit typing to ensure it's correctly recognized as the component state. */
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+  /* Fix: Initializing state in the constructor to ensure standard React class component behavior and property inheritance. */
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   /**
    * Static method to update state when an error occurs during rendering.
@@ -39,13 +42,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   /**
    * Resets the error state to allow the application to attempt re-rendering.
    */
-  /* Fix: correctly calling the inherited setState method from the React.Component base class. */
+  /* Fix: correctly calling the inherited setState method from the base React.Component class. */
   public handleReload = () => {
     this.setState({ hasError: false, error: null });
   }
 
   public render(): ReactNode {
-    /* Fix: state is an inherited property from React.Component. */
+    /* Fix: accessing the inherited state property. */
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -76,7 +79,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    /* Fix: props is an inherited property from React.Component. */
+    /* Fix: accessing the inherited props property from the base React.Component class. */
     return this.props.children;
   }
 }

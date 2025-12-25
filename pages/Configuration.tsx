@@ -53,7 +53,7 @@ export const Configuration = () => {
   const tabContainerRef = useRef<HTMLDivElement>(null);
 
   // Sync Header
-  useHeader(t('config_title'), '');
+  useHeader(t('nav_configuration'), '');
 
   const loadData = async () => {
     setLoading(true);
@@ -163,7 +163,7 @@ export const Configuration = () => {
   const handleCatalogSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
-    setProcessMessage('Updating system catalog...');
+    setProcessMessage(t('processing'));
     try {
       const payload = { ...catalogForm };
       if (payload.cost) payload.cost = parseFloat(payload.cost);
@@ -204,7 +204,7 @@ export const Configuration = () => {
       setTimeout(() => setProcessStatus('idle'), 1000);
     } catch (err: any) {
       setProcessStatus('error');
-      setProcessMessage(err.response?.data?.error || "Operation failed");
+      setProcessMessage(err.response?.data?.error || t('error'));
     }
   };
 
@@ -213,7 +213,7 @@ export const Configuration = () => {
       isOpen: true, title: t('config_dialog_delete_item_title'), message: t('config_dialog_delete_item_msg'),
       action: async () => {
         setProcessStatus('processing');
-        setProcessMessage('Removing item from catalog...');
+        setProcessMessage(t('processing'));
         try {
           switch(activeCatalog) {
             case 'departments': await api.deleteDepartment(id); break;
@@ -227,7 +227,7 @@ export const Configuration = () => {
           setProcessStatus('success'); loadCatalog(activeCatalog); setTimeout(() => setProcessStatus('idle'), 1000);
         } catch (err: any) { 
           setProcessStatus('error'); 
-          setProcessMessage(err.response?.data?.error || "Failed to delete item."); 
+          setProcessMessage(err.response?.data?.error || t('error')); 
         }
       }
     });
@@ -249,23 +249,23 @@ export const Configuration = () => {
   const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
-    setProcessMessage('Saving user account details...');
+    setProcessMessage(t('processing'));
     try {
       if (selectedItem) await api.updateSystemUser(selectedItem.id, userForm);
       else await api.addSystemUser(userForm);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
     } catch (err: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(err.response?.data?.error || "Failed to save user."); 
+      setProcessMessage(err.response?.data?.error || t('error')); 
     }
   };
 
   const deleteUserAccount = (id: number, username: string) => {
     setConfirmState({
-      isOpen: true, title: "Delete Account", message: `Remove system account @${username}? This cannot be undone.`,
+      isOpen: true, title: t('delete'), message: `${t('confirm')} @${username}?`,
       action: async () => {
         setProcessStatus('processing');
-        setProcessMessage('Terminating user account...');
+        setProcessMessage(t('processing'));
         try { 
           await api.deleteSystemUser(id); 
           setProcessStatus('success'); 
@@ -274,7 +274,7 @@ export const Configuration = () => {
         }
         catch (err: any) { 
           setProcessStatus('error'); 
-          setProcessMessage(err.response?.data?.error || "Failed to delete user.");
+          setProcessMessage(err.response?.data?.error || t('error'));
         }
       }
     });
@@ -296,7 +296,7 @@ export const Configuration = () => {
   const handleTaxSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
-    setProcessMessage('Updating tax configurations...');
+    setProcessMessage(t('processing'));
     const payload = { ...taxForm, rate: parseFloat(taxForm.rate) };
     try {
       if (selectedItem) await api.updateTaxRate(selectedItem.id, payload);
@@ -304,13 +304,13 @@ export const Configuration = () => {
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
     } catch (err: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(err.response?.data?.error || "Failed to save tax."); 
+      setProcessMessage(err.response?.data?.error || t('error')); 
     }
   };
 
   const deleteTaxRateEntry = (id: number) => {
     setConfirmState({
-      isOpen: true, title: "Delete Tax Rate", message: "Remove this tax rate configuration?",
+      isOpen: true, title: t('delete'), message: t('confirm'),
       action: async () => { 
         setProcessStatus('processing');
         try { 
@@ -320,7 +320,7 @@ export const Configuration = () => {
           setTimeout(() => setProcessStatus('idle'), 1000);
         } catch (e: any) { 
           setProcessStatus('error');
-          setProcessMessage(e.response?.data?.error || "Failed to delete tax rate.");
+          setProcessMessage(e.response?.data?.error || t('error'));
         } 
       }
     });
@@ -342,20 +342,20 @@ export const Configuration = () => {
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
-    setProcessMessage('Updating accepted payment methods...');
+    setProcessMessage(t('processing'));
     try {
       if (selectedItem) await api.updatePaymentMethod(selectedItem.id, paymentForm);
       else await api.addPaymentMethod(paymentForm);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
     } catch (err: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(err.response?.data?.error || "Failed to save payment method."); 
+      setProcessMessage(err.response?.data?.error || t('error')); 
     }
   };
 
   const deletePaymentMethodEntry = (id: number) => {
     setConfirmState({
-      isOpen: true, title: "Delete Method", message: "Remove this payment method from the system?",
+      isOpen: true, title: t('delete'), message: t('confirm'),
       action: async () => { 
         setProcessStatus('processing');
         try { 
@@ -365,7 +365,7 @@ export const Configuration = () => {
           setTimeout(() => setProcessStatus('idle'), 1000);
         } catch (e: any) { 
           setProcessStatus('error');
-          setProcessMessage(e.response?.data?.error || "Failed to delete payment method.");
+          setProcessMessage(e.response?.data?.error || t('error'));
         } 
       }
     });
@@ -376,7 +376,7 @@ export const Configuration = () => {
     if (bed) {
       if (bed.status === 'occupied' || bed.status === 'reserved') {
           setProcessStatus('error');
-          setProcessMessage("Beds that are occupied or reserved cannot be updated or deleted for data integrity.");
+          setProcessMessage(t('admissions_report_blocked_title'));
           return;
       }
       setSelectedItem(bed);
@@ -392,7 +392,7 @@ export const Configuration = () => {
   const handleBedSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessStatus('processing');
-    setProcessMessage('Updating ward and bed data...');
+    setProcessMessage(t('processing'));
     const payload = { ...bedForm, costPerDay: parseFloat(bedForm.costPerDay) };
     try {
       if (selectedItem) await api.updateBed(selectedItem.id, payload);
@@ -400,7 +400,7 @@ export const Configuration = () => {
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
     } catch (err: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(err.response?.data?.error || "Failed to save bed."); 
+      setProcessMessage(err.response?.data?.error || t('error')); 
     }
   };
 
@@ -416,7 +416,7 @@ export const Configuration = () => {
           setTimeout(() => setProcessStatus('idle'), 1000);
         } catch (e: any) { 
           setProcessStatus('error');
-          setProcessMessage(e.response?.data?.error || "Failed to delete bed.");
+          setProcessMessage(e.response?.data?.error || t('error'));
         } 
       }
     });
@@ -433,27 +433,27 @@ export const Configuration = () => {
 
   const runDiagnostics = async () => {
     setProcessStatus('processing');
-    setProcessMessage("Analyzing system nodes...");
+    setProcessMessage(t('processing'));
     try {
       const data = await api.checkSystemHealth();
       setHealthData(data); setProcessStatus('idle');
     } catch (e: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(e.response?.data?.error || "Health check failed."); 
+      setProcessMessage(e.response?.data?.error || t('error')); 
     }
   };
 
   const handleBackup = async () => {
     setProcessStatus('processing');
-    setProcessMessage("Generating system snapshot...");
+    setProcessMessage(t('processing'));
     try {
       await api.downloadBackup();
       setProcessStatus('success');
-      setProcessMessage("Backup downloaded successfully.");
+      setProcessMessage(t('success'));
       setTimeout(() => setProcessStatus('idle'), 2000);
     } catch (e: any) {
       setProcessStatus('error');
-      setProcessMessage(e.response?.data?.error || "Failed to download backup.");
+      setProcessMessage(e.response?.data?.error || t('error'));
     }
   };
 
@@ -463,19 +463,19 @@ export const Configuration = () => {
 
     setConfirmState({
       isOpen: true,
-      title: "Confirm Restoration",
-      message: "This will OVERWRITE your entire database with the uploaded file. This action cannot be undone. Proceed?",
+      title: t('confirm'),
+      message: t('confirm'),
       action: async () => {
         setProcessStatus('processing');
-        setProcessMessage("Restoring database state...");
+        setProcessMessage(t('processing'));
         try {
           await api.restoreDatabase(file);
           setProcessStatus('success');
-          setProcessMessage("Database restored successfully. The application will now reload.");
+          setProcessMessage(t('success'));
           setTimeout(() => window.location.reload(), 2000);
         } catch (err: any) {
           setProcessStatus('error');
-          setProcessMessage(err.response?.data?.error || "Restore failed. Please ensure the file is a valid SQLite database.");
+          setProcessMessage(err.response?.data?.error || t('error'));
         }
       }
     });
@@ -484,19 +484,19 @@ export const Configuration = () => {
   const handleReset = () => {
     setConfirmState({
       isOpen: true,
-      title: "Factory Reset Warning",
-      message: "Are you absolutely sure you want to wipe all system data? This will delete all clinical and financial records. Only default admin accounts will remain.",
+      title: t('config_data_danger_title'),
+      message: t('config_data_danger_desc'),
       action: async () => {
         setProcessStatus('processing');
-        setProcessMessage("Executing factory reset...");
+        setProcessMessage(t('processing'));
         try {
           await api.resetDatabase();
           setProcessStatus('success');
-          setProcessMessage("System reset complete. Redirecting...");
+          setProcessMessage(t('success'));
           setTimeout(() => window.location.reload(), 2000);
         } catch (err: any) {
           setProcessStatus('error');
-          setProcessMessage("Reset failed.");
+          setProcessMessage(t('error'));
         }
       }
     });
@@ -539,7 +539,7 @@ export const Configuration = () => {
       )}
 
       {/* Navigation Slider */}
-      <div className="relative group max-w-full">
+      <div className="relative group max-w-full no-print">
          <button onClick={() => scrollTabs('left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 dark:bg-slate-800/90 shadow-lg rounded-full flex items-center justify-center border border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronLeft size={16}/></button>
          <div ref={tabContainerRef} className="flex bg-slate-100/80 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-x-auto custom-scrollbar scroll-smooth">
             {[
@@ -565,10 +565,16 @@ export const Configuration = () => {
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         {activeTab === 'users' && (
           <div className="space-y-6">
-            <Card title="Active System Accounts" action={<Button size="sm" icon={Plus} onClick={() => openUserModal()}>New Account</Button>} className="!p-0 overflow-hidden">
+            <Card title={t('config_users_title')} action={<Button size="sm" icon={Plus} onClick={() => openUserModal()}>{t('config_users_new')}</Button>} className="!p-0 overflow-hidden">
                <table className="min-w-full divide-y">
                  <thead className="bg-slate-50 dark:bg-slate-900/50">
-                    <tr><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Username</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Name</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Role</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Status</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Actions</th></tr>
+                    <tr>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('config_users_table_username')}</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('config_users_table_name')}</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('config_users_table_role')}</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('config_users_table_status')}</th>
+                      <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('actions')}</th>
+                    </tr>
                  </thead>
                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {users.map(u => (
@@ -589,11 +595,11 @@ export const Configuration = () => {
                </table>
             </Card>
 
-            <Card title="Permission Matrix" className="!p-0 overflow-hidden">
+            <Card title={t('config_matrix_title')} className="!p-0 overflow-hidden">
                <div className="overflow-x-auto">
                  <table className="min-w-full">
                     <thead className="bg-slate-50 dark:bg-slate-900/50">
-                       <tr><th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Feature Group</th>{Object.keys(rolePermissions).map(role => (<th key={role} className="px-4 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[100px] border-l border-slate-200 dark:border-slate-700">{role}</th>))}</tr>
+                       <tr><th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('config_matrix_group')}</th>{Object.keys(rolePermissions).map(role => (<th key={role} className="px-4 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[100px] border-l border-slate-200 dark:border-slate-700">{role}</th>))}</tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                        {permissionGroups.map(group => (
@@ -621,7 +627,7 @@ export const Configuration = () => {
         {/* --- FINANCIAL --- */}
         {activeTab === 'financial' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <Card title="Tax Rates" action={<Button size="sm" icon={Plus} onClick={() => openTaxModal()} />}>
+             <Card title={t('config_tax_title')} action={<Button size="sm" icon={Plus} onClick={() => openTaxModal()} />}>
                 <div className="space-y-4">
                    {taxRates.map(t_rate => (
                      <div key={t_rate.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -634,7 +640,7 @@ export const Configuration = () => {
                    ))}
                 </div>
              </Card>
-             <Card title="Payment Methods" action={<Button size="sm" icon={Plus} onClick={() => openPaymentModal()} />}>
+             <Card title={t('config_pm_title')} action={<Button size="sm" icon={Plus} onClick={() => openPaymentModal()} />}>
                 <div className="space-y-4">
                    {paymentMethods.map(m => (
                      <div key={m.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -652,11 +658,17 @@ export const Configuration = () => {
 
         {/* --- WARDS & BEDS --- */}
         {activeTab === 'beds' && (
-          <Card title="Ward Management" action={<Button size="sm" icon={Plus} onClick={() => openBedModal()}>Add Bed</Button>} className="!p-0 overflow-hidden">
+          <Card title={t('config_beds_title')} action={<Button size="sm" icon={Plus} onClick={() => openBedModal()}>{t('config_beds_add')}</Button>} className="!p-0 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                 <thead className="bg-slate-50 dark:bg-slate-900">
-                  <tr><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Room #</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Ward Type</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Status</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Daily Rate</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Actions</th></tr>
+                  <tr>
+                    <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('config_beds_room_no')}</th>
+                    <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('config_beds_type')}</th>
+                    <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('status')}</th>
+                    <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('config_beds_daily_rate')}</th>
+                    <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('actions')}</th>
+                  </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                   {beds.map(b => {
@@ -691,23 +703,28 @@ export const Configuration = () => {
         {/* --- CATALOGS --- */}
         {activeTab === 'catalogs' && (
           <div className="space-y-6">
-             <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+             <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar no-print">
                 {[
-                  { id: 'departments', icon: Building, label: 'Departments' },
-                  { id: 'specializations', icon: Stethoscope, label: 'Specialties' },
-                  { id: 'lab', icon: FlaskConical, label: 'Laboratory' },
-                  { id: 'nurse', icon: Activity, label: 'Nursing' },
-                  { id: 'ops', icon: Activity, label: 'Theaters' },
-                  { id: 'insurance', icon: ShieldCheck, label: 'Insurance' },
-                  { id: 'banks', icon: Landmark, label: 'Banks' },
+                  { id: 'departments', icon: Building, label: t('nav_hr') },
+                  { id: 'specializations', icon: Stethoscope, label: t('staff_form_specialization') },
+                  { id: 'lab', icon: FlaskConical, label: t('nav_laboratory') },
+                  { id: 'nurse', icon: Activity, label: t('patients_modal_action_nurse') },
+                  { id: 'ops', icon: Activity, label: t('nav_operations') },
+                  { id: 'insurance', icon: ShieldCheck, label: t('patients_modal_form_insurance_title') },
+                  { id: 'banks', icon: Landmark, label: t('billing_treasury_tab_banks') || 'Banks' },
                 ].map(cat => (
                   <button key={cat.id} onClick={() => setActiveCatalog(cat.id as any)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${activeCatalog === cat.id ? 'bg-primary-50 border-primary-200 text-primary-700 shadow-sm' : 'bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-slate-300'}`}><cat.icon size={14}/> {cat.label}</button>
                 ))}
              </div>
-             <Card title={`${activeCatalog.charAt(0).toUpperCase() + activeCatalog.slice(1)} Catalog`} action={<Button size="sm" icon={Plus} onClick={() => openCatalogModal()}>Add Entry</Button>} className="!p-0 overflow-hidden">
+             <Card title={t('config_catalog_title', { type: activeCatalog.charAt(0).toUpperCase() + activeCatalog.slice(1) })} action={<Button size="sm" icon={Plus} onClick={() => openCatalogModal()}>{t('config_catalog_add')}</Button>} className="!p-0 overflow-hidden">
                 <table className="min-w-full divide-y">
                    <thead className="bg-slate-50 dark:bg-slate-900/50">
-                      <tr><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Entry Name</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Local (AR)</th>{activeCatalog === 'lab' || activeCatalog === 'nurse' || activeCatalog === 'ops' ? (<th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Cost/Base</th>) : <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">ID</th>}<th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Actions</th></tr>
+                      <tr>
+                        <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('config_catalog_table_name')}</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('config_catalog_table_local')}</th>
+                        {activeCatalog === 'lab' || activeCatalog === 'nurse' || activeCatalog === 'ops' ? (<th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('config_catalog_table_cost')}</th>) : <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">ID</th>}
+                        <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('actions')}</th>
+                      </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                       {catalogData.map((item, i) => (
@@ -732,9 +749,9 @@ export const Configuration = () => {
         {/* --- DATA --- */}
         {activeTab === 'data' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-             <Card title="System Snapshot"><p className="text-sm text-slate-500 mb-6 leading-relaxed">Securely download a full binary mirror of the HMS database. This includes all patients, financial logs, and staff records.</p><Button variant="outline" icon={Download} onClick={handleBackup} className="w-full py-4 text-md">Export .DB Snapshot</Button></Card>
-             <Card title="Database Restoration"><p className="text-sm text-slate-500 mb-6 leading-relaxed">Restore the system using a valid AllCare .db file. This will completely overwrite existing data. Proceed with caution.</p><div className="relative"><input type="file" accept=".db,.sqlite,.sqlite3" onChange={handleRestore} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><Button variant="secondary" icon={Upload} className="w-full py-4 text-md">Upload & Restore</Button></div></Card>
-             <Card title="Danger Zone" className="border-rose-100 bg-rose-50/20"><p className="text-sm text-rose-600 mb-6 font-bold uppercase tracking-wider flex items-center gap-2"><AlertTriangle size={16}/> Warning: Irreversible</p><p className="text-xs text-rose-500/80 mb-6 italic">Performing a factory reset will wipe all clinical and financial history, keeping only the default admin account.</p><Button variant="danger" icon={RotateCcw} onClick={handleReset} className="w-full py-4 text-md">Execute Factory Reset</Button></Card>
+             <Card title={t('config_data_snapshot_title')}><p className="text-sm text-slate-500 mb-6 leading-relaxed">{t('config_data_snapshot_desc')}</p><Button variant="outline" icon={Download} onClick={handleBackup} className="w-full py-4 text-md">{t('config_data_snapshot_btn')}</Button></Card>
+             <Card title={t('config_data_restore_title')}><p className="text-sm text-slate-500 mb-6 leading-relaxed">{t('config_data_restore_desc')}</p><div className="relative"><input type="file" title="restore database" name="restore_db" id="restore_db" accept=".db,.sqlite,.sqlite3" onChange={handleRestore} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><Button variant="secondary" icon={Upload} className="w-full py-4 text-md">{t('config_data_restore_btn')}</Button></div></Card>
+             <Card title={t('config_data_danger_title')} className="border-rose-100 bg-rose-50/20"><p className="text-sm text-rose-600 mb-6 font-bold uppercase tracking-wider flex items-center gap-2"><AlertTriangle size={16}/> {t('config_data_danger_warning')}</p><p className="text-xs text-rose-500/80 mb-6 italic">{t('config_data_danger_desc')}</p><Button variant="danger" icon={RotateCcw} onClick={handleReset} className="w-full py-4 text-md">{t('config_data_danger_btn')}</Button></Card>
           </div>
         )}
 
@@ -742,45 +759,45 @@ export const Configuration = () => {
         {activeTab === 'diagnostics' && (
           <div className="space-y-6">
              <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border shadow-soft">
-                <div><h3 className="font-bold text-lg">System Health Monitor</h3><p className="text-xs text-slate-500">Live operational diagnostics for the HMS backend</p></div>
-                <Button icon={Activity} onClick={runDiagnostics}>Refresh Status</Button>
+                <div><h3 className="font-bold text-lg">{t('config_health_title')}</h3><p className="text-xs text-slate-500">{t('config_health_desc')}</p></div>
+                <Button icon={Activity} onClick={runDiagnostics}>{t('config_health_btn')}</Button>
              </div>
              {healthData ? (
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <HealthStat icon={Server} label="API Status" value={healthData.status} color="text-emerald-500" />
-                  <HealthStat icon={Clock} label="Server Uptime" value={`${Math.round(healthData.uptime / 3600)} hrs`} color="text-blue-500" />
-                  <HealthStat icon={Cpu} label="CPU Latency" value={healthData.database?.latency || '-'} color="text-violet-500" />
-                  <HealthStat icon={HardDrive} label="RAM Usage" value={healthData.memory?.rss || '-'} color="text-orange-500" />
-                  <div className="md:col-span-2 lg:col-span-4 mt-4"><Card title="Backend Technical JSON"><pre className="text-[10px] font-mono bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto">{JSON.stringify(healthData, null, 2)}</pre></Card></div>
+                  <HealthStat icon={Server} label={t('config_health_api')} value={healthData.status} color="text-emerald-500" />
+                  <HealthStat icon={Clock} label={t('config_health_uptime')} value={`${Math.round(healthData.uptime / 3600)} hrs`} color="text-blue-500" />
+                  <HealthStat icon={Cpu} label={t('config_health_cpu')} value={healthData.database?.latency || '-'} color="text-violet-500" />
+                  <HealthStat icon={HardDrive} label={t('config_health_ram')} value={healthData.memory?.rss || '-'} color="text-orange-500" />
+                  <div className="md:col-span-2 lg:col-span-4 mt-4"><Card title={t('config_health_tech_json')}><pre className="text-[10px] font-mono bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto">{JSON.stringify(healthData, null, 2)}</pre></Card></div>
                </div>
              ) : (<div className="p-20 text-center border-2 border-dashed rounded-3xl opacity-50"><Activity size={48} className="mx-auto mb-4 text-slate-300" /><p className="font-bold text-slate-400">Run diagnostics to see live metrics.</p></div>)}
           </div>
         )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={selectedItem ? `Update Entry` : `Add New Entry`}>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={selectedItem ? t('config_modal_update_title') : t('config_modal_add_title')}>
          {modalType === 'user' && (
             <form onSubmit={handleUserSubmit} className="space-y-4">
-               <Input label="Full Name" required value={userForm.fullName} onChange={e => setUserForm({...userForm, fullName: e.target.value})} />
-               <div className="grid grid-cols-2 gap-4"><Input label="Username" required disabled={!!selectedItem} value={userForm.username} onChange={e => setUserForm({...userForm, username: e.target.value})} /><Select label="System Role" value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value as Role})}><option value="admin">Admin</option><option value="manager">Manager</option><option value="receptionist">Receptionist</option><option value="doctor">Doctor</option><option value="accountant">Accountant</option><option value="hr">HR</option></Select></div>
-               <Input label="Password" type="password" required={!selectedItem} placeholder={selectedItem ? "Leave empty to keep current" : "••••••••"} value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} />
-               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="userActive" checked={userForm.isActive} onChange={e => setUserForm({...userForm, isActive: e.target.checked})} /><label htmlFor="userActive" className="text-sm font-bold">Account is Active</label></div>
-               <Button type="submit" className="w-full">{selectedItem ? 'Update Account' : 'Create Account'}</Button>
+               <Input label={t('config_modal_user_fullname')} required value={userForm.fullName} onChange={e => setUserForm({...userForm, fullName: e.target.value})} />
+               <div className="grid grid-cols-2 gap-4"><Input label={t('login_id_label')} required disabled={!!selectedItem} value={userForm.username} onChange={e => setUserForm({...userForm, username: e.target.value})} /><Select label={t('config_modal_user_role')} value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value as Role})}><option value="admin">Admin</option><option value="manager">Manager</option><option value="receptionist">Receptionist</option><option value="doctor">Doctor</option><option value="accountant">Accountant</option><option value="hr">HR</option></Select></div>
+               <Input label={t('login_password_label')} type="password" required={!selectedItem} placeholder={selectedItem ? "Leave empty to keep current" : "••••••••"} value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} />
+               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="userActive" checked={userForm.isActive} onChange={e => setUserForm({...userForm, isActive: e.target.checked})} /><label htmlFor="userActive" className="text-sm font-bold">{t('config_modal_user_active')}</label></div>
+               <Button type="submit" className="w-full">{selectedItem ? t('save') : t('add')}</Button>
             </form>
          )}
 
          {modalType === 'catalog' && (
             <form onSubmit={handleCatalogSubmit} className="space-y-5">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input label="Name (EN)" required value={catalogForm.name_en} onChange={e => setCatalogForm({...catalogForm, name_en: e.target.value})} />
-                  <Input label="Name (AR)" required value={catalogForm.name_ar} onChange={e => setCatalogForm({...catalogForm, name_ar: e.target.value})} />
+                  <Input label={t('config_modal_catalog_name_en')} required value={catalogForm.name_en} onChange={e => setCatalogForm({...catalogForm, name_en: e.target.value})} />
+                  <Input label={t('config_modal_catalog_name_ar')} required value={catalogForm.name_ar} onChange={e => setCatalogForm({...catalogForm, name_ar: e.target.value})} />
                </div>
                
                {activeCatalog === 'lab' && (
                   <div className="space-y-3">
                      <div className="flex justify-between items-center">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Structured Test Components</label>
-                        <Button size="sm" variant="secondary" type="button" onClick={addLabComponent} icon={Plus}>Add Row</Button>
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('config_modal_catalog_lab_components')}</label>
+                        <Button size="sm" variant="secondary" type="button" onClick={addLabComponent} icon={Plus}>{t('config_modal_catalog_lab_add_row')}</Button>
                      </div>
                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                         {labComponents.map((comp, idx) => (
@@ -791,18 +808,18 @@ export const Configuration = () => {
                            </div>
                         ))}
                      </div>
-                     <Input label="Category (e.g. Hematology)" value={catalogForm.category_en} onChange={e => setCatalogForm({...catalogForm, category_en: e.target.value})} />
-                     <Input label="Service Cost ($)" type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} />
+                     <Input label={t('config_modal_catalog_lab_category')} value={catalogForm.category_en} onChange={e => setCatalogForm({...catalogForm, category_en: e.target.value})} />
+                     <Input label={t('config_modal_catalog_cost')} type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} />
                   </div>
                )}
 
-               {activeCatalog === 'nurse' && (<div className="space-y-4"><Textarea label="Description (EN)" rows={2} value={catalogForm.description_en} onChange={e => setCatalogForm({...catalogForm, description_en: e.target.value})} /><Input label="Service Cost ($)" type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} /></div>)}
-               {activeCatalog === 'ops' && (<Input label="Base Cost ($)" type="number" required value={catalogForm.base_cost} onChange={e => setCatalogForm({...catalogForm, base_cost: e.target.value})} />)}
-               {activeCatalog === 'specializations' && (<Select label="Linked Role" value={catalogForm.related_role} onChange={e => setCatalogForm({...catalogForm, related_role: e.target.value})}><option value="">Any</option><option value="doctor">Doctor</option><option value="nurse">Nurse</option><option value="technician">Technician</option><option value="pharmacist">Pharmacist</option></Select>)}
-               {(activeCatalog === 'insurance' || activeCatalog === 'banks') && (<div className="flex items-center gap-2 py-2"><input type="checkbox" id="catActive" checked={catalogForm.is_active} onChange={e => setCatalogForm({...catalogForm, is_active: e.target.checked})} /><label htmlFor="catActive" className="text-sm font-bold">Active Entry</label></div>)}
+               {activeCatalog === 'nurse' && (<div className="space-y-4"><Textarea label="Description (EN)" rows={2} value={catalogForm.description_en} onChange={e => setCatalogForm({...catalogForm, description_en: e.target.value})} /><Input label={t('config_modal_catalog_cost')} type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} /></div>)}
+               {activeCatalog === 'ops' && (<Input label={t('config_modal_catalog_base_cost')} type="number" required value={catalogForm.base_cost} onChange={e => setCatalogForm({...catalogForm, base_cost: e.target.value})} />)}
+               {activeCatalog === 'specializations' && (<Select label={t('config_modal_catalog_role')} value={catalogForm.related_role} onChange={e => setCatalogForm({...catalogForm, related_role: e.target.value})}><option value="">Any</option><option value="doctor">Doctor</option><option value="nurse">Nurse</option><option value="technician">Technician</option><option value="pharmacist">Pharmacist</option></Select>)}
+               {(activeCatalog === 'insurance' || activeCatalog === 'banks') && (<div className="flex items-center gap-2 py-2"><input type="checkbox" id="catActive" checked={catalogForm.is_active} onChange={e => setCatalogForm({...catalogForm, is_active: e.target.checked})} /><label htmlFor="catActive" className="text-sm font-bold">{t('config_modal_catalog_active')}</label></div>)}
                
                <div className="pt-4 border-t dark:border-slate-700">
-                  <Button type="submit" className="w-full">{selectedItem ? 'Update Catalog' : 'Add to Catalog'}</Button>
+                  <Button type="submit" className="w-full">{selectedItem ? t('save') : t('add')}</Button>
                </div>
             </form>
          )}
@@ -810,25 +827,25 @@ export const Configuration = () => {
          {modalType === 'tax' && (
             <form onSubmit={handleTaxSubmit} className="space-y-4">
                <div className="grid grid-cols-2 gap-4"><Input label="Name (EN)" required value={taxForm.name_en} onChange={e => setTaxForm({...taxForm, name_en: e.target.value})} /><Input label="Name (AR)" required value={taxForm.name_ar} onChange={e => setTaxForm({...taxForm, name_ar: e.target.value})} /></div>
-               <Input label="Rate (%)" type="number" step="0.01" required value={taxForm.rate} onChange={e => setTaxForm({...taxForm, rate: e.target.value})} />
-               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="taxActive" checked={taxForm.is_active} onChange={e => setTaxForm({...taxForm, is_active: e.target.checked})} /><label htmlFor="taxActive" className="text-sm font-bold">Enabled for Billing</label></div>
-               <Button type="submit" className="w-full">{selectedItem ? 'Update Tax' : 'Add Tax Rate'}</Button>
+               <Input label={t('config_modal_tax_rate')} type="number" step="0.01" required value={taxForm.rate} onChange={e => setTaxForm({...taxForm, rate: e.target.value})} />
+               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="taxActive" checked={taxForm.is_active} onChange={e => setTaxForm({...taxForm, is_active: e.target.checked})} /><label htmlFor="taxActive" className="text-sm font-bold">{t('config_modal_tax_enabled')}</label></div>
+               <Button type="submit" className="w-full">{selectedItem ? t('save') : t('add')}</Button>
             </form>
          )}
 
          {modalType === 'payment' && (
             <form onSubmit={handlePaymentSubmit} className="space-y-4">
                <div className="grid grid-cols-2 gap-4"><Input label="Method (EN)" required value={paymentForm.name_en} onChange={e => setPaymentForm({...paymentForm, name_en: e.target.value})} /><Input label="Method (AR)" required value={paymentForm.name_ar} onChange={e => setPaymentForm({...paymentForm, name_ar: e.target.value})} /></div>
-               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="pmActive" checked={paymentForm.is_active} onChange={e => setPaymentForm({...paymentForm, is_active: e.target.checked})} /><label htmlFor="pmActive" className="text-sm font-bold">Active Selection</label></div>
-               <Button type="submit" className="w-full">{selectedItem ? 'Update Method' : 'Add Method'}</Button>
+               <div className="flex items-center gap-2 py-2"><input type="checkbox" id="pmActive" checked={paymentForm.is_active} onChange={e => setPaymentForm({...paymentForm, is_active: e.target.checked})} /><label htmlFor="pmActive" className="text-sm font-bold">{t('config_modal_pm_active')}</label></div>
+               <Button type="submit" className="w-full">{selectedItem ? t('save') : t('add')}</Button>
             </form>
          )}
 
          {modalType === 'bed' && (
             <form onSubmit={handleBedSubmit} className="space-y-4">
-               <div className="grid grid-cols-2 gap-4"><Input label="Room/Bed Number" required value={bedForm.roomNumber} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} /><Select label="Ward Type" value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value})}><option>General</option><option>Private</option><option>ICU</option><option>Emergency</option></Select></div>
-               <Input label="Cost Per Day ($)" type="number" required value={bedForm.costPerDay} onChange={e => setBedForm({...bedForm, costPerDay: e.target.value})} />
-               <Button type="submit" className="w-full">{selectedItem ? 'Update Ward Info' : 'Create Bed'}</Button>
+               <div className="grid grid-cols-2 gap-4"><Input label={t('config_modal_bed_no')} required value={bedForm.roomNumber} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} /><Select label={t('config_beds_type')} value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value})}><option>General</option><option>Private</option><option>ICU</option><option>Emergency</option></Select></div>
+               <Input label={t('config_modal_bed_cost')} type="number" required value={bedForm.costPerDay} onChange={e => setBedForm({...bedForm, costPerDay: e.target.value})} />
+               <Button type="submit" className="w-full">{selectedItem ? t('save') : t('add')}</Button>
             </form>
          )}
       </Modal>
