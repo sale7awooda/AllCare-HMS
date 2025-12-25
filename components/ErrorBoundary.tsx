@@ -10,13 +10,18 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// FIX: Importing Component directly to ensure TypeScript correctly resolves base class properties like setState and props
+// FIX: Explicitly inheriting from Component to ensure state and props are correctly identified by TypeScript
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    // FIX: Initializing this.state which is provided by the Component base class
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
+  // FIX: Standard static method to update state when an error occurs
   public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
@@ -27,12 +32,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   // Soft reload by forcing a state reset.
   // With MemoryRouter, we avoid touching window.location or history API.
-  // FIX: handleReload is now correctly recognized as a member of ErrorBoundary which has access to this.setState
   public handleReload = () => {
+    // FIX: Accessing setState which is inherited from the Component class
     this.setState({ hasError: false, error: null });
   }
 
   public render() {
+    // FIX: Checking this.state for errors during render
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -45,6 +51,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               The application encountered an unexpected error.
             </p>
             
+            {/* FIX: Safely accessing error property from this.state */}
             {this.state.error && (
                 <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded-lg text-left text-xs font-mono text-red-600 dark:text-red-400 overflow-auto max-h-32 mb-6">
                     {this.state.error.toString()}
@@ -63,7 +70,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    // FIX: this.props is now correctly recognized from the Component base class
+    // FIX: Accessing children from inherited this.props
     return this.props.children;
   }
 }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
@@ -93,7 +92,7 @@ export const Staff = () => {
 
   const [staffForm, setStaffForm] = useState<any>({});
   const [adjForm, setAdjForm] = useState({ staffId: '', type: 'bonus', amount: '', reason: '', date: new Date().toISOString().split('T')[0] });
-  const [leaveForm, setLeaveForm] = useState({ staffId: '', type: 'sick', startDate: '', endDate: '', reason: '' });
+  const [leaveForm, setLeaveForm] = useState({ staffId: '', type: 'sick', startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0], reason: '' });
   const [attendanceModal, setAttendanceModal] = useState<any>(null);
   
   const [selectedPayroll, setSelectedPayroll] = useState<any>(null);
@@ -120,7 +119,6 @@ export const Staff = () => {
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    setSearchTerm('');
     const fetchTabData = async () => {
         if (activeTab === 'attendance') {
             const data = await api.getAttendance(selectedDate);
@@ -132,6 +130,31 @@ export const Staff = () => {
     };
     if(activeTab !== 'directory') fetchTabData();
   }, [activeTab, selectedDate, selectedMonth]);
+
+  // --- Auto-fill logic for Adjustments ---
+  useEffect(() => {
+    if (!isAdjustmentModalOpen) return;
+    let reason = "";
+    switch(adjForm.type) {
+      case 'bonus': reason = "Performance bonus for exceptional work."; break;
+      case 'fine': reason = "Penalty for policy violation."; break;
+      case 'loan': reason = "Employee salary advance / loan."; break;
+    }
+    setAdjForm(prev => ({ ...prev, reason }));
+  }, [adjForm.type, isAdjustmentModalOpen]);
+
+  // --- Auto-fill logic for Leaves ---
+  useEffect(() => {
+    if (!isLeaveModalOpen) return;
+    let reason = "";
+    switch(leaveForm.type) {
+      case 'sick': reason = "Medical leave due to health issues."; break;
+      case 'vacation': reason = "Planned annual vacation leave."; break;
+      case 'casual': reason = "Personal / Casual leave request."; break;
+      case 'unpaid': reason = "Unpaid leave for personal reasons."; break;
+    }
+    setLeaveForm(prev => ({ ...prev, reason }));
+  }, [leaveForm.type, isLeaveModalOpen]);
 
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -335,7 +358,11 @@ export const Staff = () => {
 
   const openPayNowModal = (record: PayrollRecord) => {
       setSelectedPayroll(record);
-      setPayNowForm({ method: 'Cash', reference: '', notes: '' });
+      setPayNowForm({ 
+        method: 'Cash', 
+        reference: '', 
+        notes: `Salary payout for the month of ${record.month}.` 
+      });
       setIsPayNowModalOpen(true);
   };
 
@@ -393,15 +420,11 @@ export const Staff = () => {
   };
 
   const shiftMonth = (direction: 'prev' | 'next') => {
-      let [year, month] = selectedMonth.split('-').map(Number);
-      if (direction === 'prev') {
-          month -= 1;
-          if (month === 0) { month = 12; year -= 1; }
-      } else {
-          month += 1;
-          if (month === 13) { month = 1; year += 1; }
-      }
-      setSelectedMonth(`${year}-${month.toString().padStart(2, '0')}`);
+      const [year, month] = selectedMonth.split('-').map(Number);
+      const d = new Date(year, month - 1);
+      if (direction === 'prev') d.setMonth(d.getMonth() - 1);
+      else d.setMonth(d.getMonth() + 1);
+      setSelectedMonth(d.toISOString().slice(0, 7));
   };
 
   const SearchableEmployeeSelect = ({ label, value, onChange, placeholder }: any) => {
@@ -516,20 +539,6 @@ export const Staff = () => {
     return staff.filter(s => s.fullName.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => (a.status === 'active' ? -1 : 1));
   }, [staff, searchTerm]);
 
-  const filteredLeaves = useMemo(() => {
-      return leaves.filter(l => 
-          l.staffName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-          l.type.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-  }, [leaves, searchTerm]);
-
-  const filteredFinancials = useMemo(() => {
-      return financials.filter(f => 
-          f.staffName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-          f.reason.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-  }, [financials, searchTerm]);
-
   return (
     <div className="space-y-6">
       {/* Process Status Overlay */}
@@ -547,7 +556,7 @@ export const Staff = () => {
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-in fade-in slide-in-from-top-2">
          {/* Left Side: Inputs/Filters */}
          <div className="w-full md:w-auto flex-1">
-            {(activeTab === 'directory' || activeTab === 'leaves' || activeTab === 'financials') && (
+            {activeTab === 'directory' && (
                 <div className="relative max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <input 
@@ -589,6 +598,12 @@ export const Staff = () => {
                     <button className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-slate-500 border border-slate-200 dark:border-slate-700" onClick={() => shiftMonth('next')}><ChevronRight size={16}/></button>
                 </div>
             )}
+            {(activeTab === 'leaves' || activeTab === 'financials') && (
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                    <Info size={18} />
+                    <span className="text-sm font-medium">Manage {activeTab === 'leaves' ? 'Requests' : 'Adjustments'}</span>
+                </div>
+            )}
          </div>
 
          {/* Right Side: Actions */}
@@ -604,10 +619,10 @@ export const Staff = () => {
                 </Button>
             )}
             {activeTab === 'leaves' && (
-                 <Button icon={Plus} onClick={() => { setLeaveForm({ staffId: '', type: 'sick', startDate: '', endDate: '', reason: '' }); setIsLeaveModalOpen(true); }} className="shadow-md">{t('staff_leave_request')}</Button>
+                 <Button icon={Plus} onClick={() => setIsLeaveModalOpen(true)} className="shadow-md">{t('staff_leave_request')}</Button>
             )}
             {activeTab === 'financials' && canManageHR && (
-                 <Button icon={Plus} onClick={() => { setAdjForm({ staffId: '', type: 'bonus', amount: '', reason: '', date: new Date().toISOString().split('T')[0] }); setIsAdjustmentModalOpen(true); }} className="shadow-md">{t('staff_financial_add_entry')}</Button>
+                 <Button icon={Plus} onClick={() => setIsAdjustmentModalOpen(true)} className="shadow-md">{t('staff_financial_add_entry')}</Button>
             )}
          </div>
       </div>
@@ -643,7 +658,7 @@ export const Staff = () => {
 
       {activeTab === 'leaves' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in">
-              {filteredLeaves.length === 0 ? <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl opacity-50"><Calendar size={48} className="mx-auto mb-4 text-slate-300"/><p className="text-slate-400 font-bold">{t('staff_no_leaves')}</p></div> : filteredLeaves.map(leave => (<div key={leave.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-all"><div className={`absolute top-0 left-0 w-1.5 h-full ${leave.status === 'approved' ? 'bg-emerald-500' : leave.status === 'rejected' ? 'bg-rose-500' : 'bg-amber-500'}`}></div><div className="flex justify-between items-start mb-3"><div><h4 className="font-bold text-slate-800 dark:text-white leading-tight">{leave.staffName}</h4><p className="text-[10px] font-black text-slate-400 uppercase mt-1">{leave.type}</p></div><Badge color={leave.status === 'approved' ? 'green' : leave.status === 'rejected' ? 'red' : 'yellow'}>{leave.status}</Badge></div><div className="space-y-3"><div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg border border-slate-100 dark:border-slate-800"><Calendar size={14}/> {new Date(leave.startDate).toLocaleDateString()} <ChevronRight size={12}/> {new Date(leave.endDate).toLocaleDateString()}</div><p className="text-sm italic text-slate-500 dark:text-slate-400 leading-relaxed">"{leave.reason}"</p></div>{canManageHR && leave.status === 'pending' && <div className="flex gap-2 mt-5 pt-4 border-t border-slate-50 dark:border-slate-700 no-print"><Button size="sm" className="flex-1 bg-emerald-600 border-none text-white shadow-emerald-200" onClick={() => updateLeaveStatus(leave.id, 'approved')} icon={CheckCircle}>{t('hr_approve')}</Button><Button size="sm" variant="danger" className="flex-1" onClick={() => updateLeaveStatus(leave.id, 'rejected')} icon={XCircle}>{t('hr_reject')}</Button></div>}</div>))}
+              {leaves.length === 0 ? <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl opacity-50"><Calendar size={48} className="mx-auto mb-4 text-slate-300"/><p className="text-slate-400 font-bold">{t('staff_no_leaves')}</p></div> : leaves.map(leave => (<div key={leave.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-all"><div className={`absolute top-0 left-0 w-1.5 h-full ${leave.status === 'approved' ? 'bg-emerald-500' : leave.status === 'rejected' ? 'bg-rose-500' : 'bg-amber-500'}`}></div><div className="flex justify-between items-start mb-3"><div><h4 className="font-bold text-slate-800 dark:text-white leading-tight">{leave.staffName}</h4><p className="text-[10px] font-black text-slate-400 uppercase mt-1">{leave.type}</p></div><Badge color={leave.status === 'approved' ? 'green' : leave.status === 'rejected' ? 'red' : 'yellow'}>{leave.status}</Badge></div><div className="space-y-3"><div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg border border-slate-100 dark:border-slate-800"><Calendar size={14}/> {new Date(leave.startDate).toLocaleDateString()} <ChevronRight size={12}/> {new Date(leave.endDate).toLocaleDateString()}</div><p className="text-sm italic text-slate-500 dark:text-slate-400 leading-relaxed">"{leave.reason}"</p></div>{canManageHR && leave.status === 'pending' && <div className="flex gap-2 mt-5 pt-4 border-t border-slate-50 dark:border-slate-700 no-print"><Button size="sm" className="flex-1 bg-emerald-600 border-none text-white shadow-emerald-200" onClick={() => updateLeaveStatus(leave.id, 'approved')} icon={CheckCircle}>{t('hr_approve')}</Button><Button size="sm" variant="danger" className="flex-1" onClick={() => updateLeaveStatus(leave.id, 'rejected')} icon={XCircle}>{t('hr_reject')}</Button></div>}</div>))}
           </div>
       )}
 
@@ -654,10 +669,84 @@ export const Staff = () => {
       )}
 
       {activeTab === 'financials' && (
-          <Card className="!p-0 overflow-hidden animate-in fade-in shadow-soft"><table className="min-w-full text-sm text-left"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('date')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_role_title')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('appointments_form_type')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Reason</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('billing_table_header_amount')}</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-700">{filteredFinancials.map(f => (<tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40"><td className="px-6 py-4 text-slate-500 font-medium">{new Date(f.date).toLocaleDateString()}</td><td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{f.staffName}</td><td className="px-6 py-4"><Badge color={f.type === 'bonus' ? 'green' : f.type === 'loan' ? 'blue' : 'red'}>{f.type}</Badge></td><td className="px-6 py-4 text-slate-500 text-xs italic">"{f.reason}"</td><td className={`px-6 py-4 text-right font-mono font-black ${f.type === 'bonus' ? 'text-emerald-600' : 'text-rose-600'}`}>${f.amount.toLocaleString()}</td></tr>))}</tbody></table></Card>
+          <Card className="!p-0 overflow-hidden animate-in fade-in shadow-soft"><table className="min-w-full text-sm text-left"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('date')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_role_title')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('appointments_form_type')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Reason</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('billing_table_header_amount')}</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-700">{financials.map(f => (<tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40"><td className="px-6 py-4 text-slate-500 font-medium">{new Date(f.date).toLocaleDateString()}</td><td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{f.staffName}</td><td className="px-6 py-4"><Badge color={f.type === 'bonus' ? 'green' : f.type === 'loan' ? 'blue' : 'red'}>{f.type}</Badge></td><td className="px-6 py-4 text-slate-500 text-xs italic">"{f.reason}"</td><td className={`px-6 py-4 text-right font-mono font-black ${f.type === 'bonus' ? 'text-emerald-600' : 'text-rose-600'}`}>${f.amount.toLocaleString()}</td></tr>))}</tbody></table></Card>
       )}
 
       {/* MODALS */}
+      
+      {/* Attendance Modal */}
+      <Modal isOpen={!!attendanceModal} onClose={() => setAttendanceModal(null)} title={t('staff_modal_attendance_title')}>
+        {attendanceModal && (
+          <form onSubmit={handleAttendanceSubmit} className="space-y-6">
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Employee</p>
+               <p className="font-bold text-slate-800 dark:text-white">{attendanceModal.staffName}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select label={t('status')} value={attendanceModal.status} onChange={e => setAttendanceModal({...attendanceModal, status: e.target.value})}>
+                <option value="present">Present</option>
+                <option value="late">Late</option>
+                <option value="absent">Absent</option>
+                <option value="half_day">Half Day</option>
+              </Select>
+              <div className="grid grid-cols-2 gap-2">
+                <Input label="Check In" type="time" value={attendanceModal.checkIn} onChange={e => setAttendanceModal({...attendanceModal, checkIn: e.target.value})} />
+                <Input label="Check Out" type="time" value={attendanceModal.checkOut} onChange={e => setAttendanceModal({...attendanceModal, checkOut: e.target.value})} />
+              </div>
+            </div>
+            <div className="pt-4 flex justify-end gap-3 border-t dark:border-slate-700">
+               <Button type="button" variant="secondary" onClick={() => setAttendanceModal(null)}>{t('cancel')}</Button>
+               <Button type="submit" icon={Save}>{t('save')}</Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Leave Request Modal */}
+      <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title={t('staff_leave_request')}>
+        <form onSubmit={handleLeaveRequest} className="space-y-5">
+          <SearchableEmployeeSelect label="Select Employee" value={leaveForm.staffId} onChange={(val: string) => setLeaveForm({...leaveForm, staffId: val})} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <Select label="Leave Type" value={leaveForm.type} onChange={e => setLeaveForm({...leaveForm, type: e.target.value as any})}>
+                <option value="sick">Sick Leave</option>
+                <option value="vacation">Vacation</option>
+                <option value="casual">Casual Leave</option>
+                <option value="unpaid">Unpaid Leave</option>
+             </Select>
+             <div className="grid grid-cols-2 gap-2">
+                <Input label="Start Date" type="date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} />
+                <Input label="End Date" type="date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} />
+             </div>
+          </div>
+          <Textarea label="Reason / Notes" rows={3} required value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
+          <div className="pt-4 flex justify-end gap-3 border-t dark:border-slate-700">
+             <Button type="button" variant="secondary" onClick={() => setIsLeaveModalOpen(false)}>{t('cancel')}</Button>
+             <Button type="submit" icon={CheckCircle}>Submit Request</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Financial Adjustment Modal */}
+      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={t('staff_financial_add_entry')}>
+        <form onSubmit={handleAdjustmentSubmit} className="space-y-5">
+          <SearchableEmployeeSelect label="Select Employee" value={adjForm.staffId} onChange={(val: string) => setAdjForm({...adjForm, staffId: val})} />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <Select label="Entry Type" value={adjForm.type} onChange={e => setAdjForm({...adjForm, type: e.target.value as any})}>
+                <option value="bonus">Bonus / Addition</option>
+                <option value="fine">Fine / Deduction</option>
+                <option value="loan">Loan / Advance</option>
+             </Select>
+             <FormattedInput label="Amount ($)" required value={adjForm.amount} onChange={(val: string) => setAdjForm({...adjForm, amount: val})} prefix={<DollarSign size={14}/>} />
+             <Input label="Effective Date" type="date" required value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
+          </div>
+          <Textarea label="Reason for Adjustment" rows={3} required value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
+          <div className="pt-4 flex justify-end gap-3 border-t dark:border-slate-700">
+             <Button type="button" variant="secondary" onClick={() => setIsAdjustmentModalOpen(false)}>{t('cancel')}</Button>
+             <Button type="submit" icon={Save}>Record Entry</Button>
+          </div>
+        </form>
+      </Modal>
+
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={staffForm.id ? t('staff_edit_employee') : t('staff_add_employee_button')}>
         <form onSubmit={handleCreateStaff} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -792,73 +881,6 @@ export const Staff = () => {
                 </div>
             </div>
          )}
-      </Modal>
-
-      <Modal isOpen={!!attendanceModal} onClose={() => setAttendanceModal(null)} title={t('staff_modal_attendance_title')}>
-        {attendanceModal && (
-        <form onSubmit={handleAttendanceSubmit} className="space-y-4">
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl mb-4">
-                <p className="text-xs font-bold text-slate-500 uppercase">Employee</p>
-                <p className="font-bold text-lg text-slate-800 dark:text-white">{attendanceModal.staffName}</p>
-            </div>
-            <Select label="Status" value={attendanceModal.status} onChange={e => setAttendanceModal({...attendanceModal, status: e.target.value})}>
-                <option value="present">Present</option>
-                <option value="absent">Absent</option>
-                <option value="late">Late</option>
-                <option value="half_day">Half Day</option>
-                <option value="on_leave">On Leave</option>
-            </Select>
-            <div className="grid grid-cols-2 gap-4">
-                <Input label="Check In" type="time" value={attendanceModal.checkIn} onChange={e => setAttendanceModal({...attendanceModal, checkIn: e.target.value})} />
-                <Input label="Check Out" type="time" value={attendanceModal.checkOut} onChange={e => setAttendanceModal({...attendanceModal, checkOut: e.target.value})} />
-            </div>
-            <div className="flex justify-end pt-4 gap-3">
-                <Button variant="secondary" onClick={() => setAttendanceModal(null)}>{t('cancel')}</Button>
-                <Button type="submit">{t('save')}</Button>
-            </div>
-        </form>
-        )}
-      </Modal>
-
-      <Modal isOpen={isLeaveModalOpen} onClose={() => setIsLeaveModalOpen(false)} title={t('staff_leave_request')}>
-        <form onSubmit={handleLeaveRequest} className="space-y-4">
-            <SearchableEmployeeSelect label="Employee" value={leaveForm.staffId} onChange={(val: string) => setLeaveForm({...leaveForm, staffId: val})} />
-            <Select label="Leave Type" value={leaveForm.type} onChange={e => setLeaveForm({...leaveForm, type: e.target.value})}>
-                <option value="sick">Sick Leave</option>
-                <option value="vacation">Vacation</option>
-                <option value="casual">Casual</option>
-                <option value="unpaid">Unpaid</option>
-            </Select>
-            <div className="grid grid-cols-2 gap-4">
-                <Input label="Start Date" type="date" required value={leaveForm.startDate} onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})} />
-                <Input label="End Date" type="date" required value={leaveForm.endDate} onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})} />
-            </div>
-            <Textarea label="Reason" required value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} />
-            <div className="flex justify-end pt-4 gap-3">
-                <Button variant="secondary" onClick={() => setIsLeaveModalOpen(false)}>{t('cancel')}</Button>
-                <Button type="submit">{t('submit')}</Button>
-            </div>
-        </form>
-      </Modal>
-
-      <Modal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} title={t('staff_financial_add_entry')}>
-        <form onSubmit={handleAdjustmentSubmit} className="space-y-4">
-            <SearchableEmployeeSelect label="Employee" value={adjForm.staffId} onChange={(val: string) => setAdjForm({...adjForm, staffId: val})} />
-            <div className="grid grid-cols-2 gap-4">
-                <Select label="Type" value={adjForm.type} onChange={e => setAdjForm({...adjForm, type: e.target.value})}>
-                    <option value="bonus">Bonus</option>
-                    <option value="fine">Fine / Deduction</option>
-                    <option value="loan">Loan</option>
-                </Select>
-                <Input label="Date" type="date" value={adjForm.date} onChange={e => setAdjForm({...adjForm, date: e.target.value})} />
-            </div>
-            <FormattedInput label="Amount" required value={adjForm.amount} onChange={(val: string) => setAdjForm({...adjForm, amount: val})} prefix={<span className="text-xs">$</span>} />
-            <Textarea label="Reason" required value={adjForm.reason} onChange={e => setAdjForm({...adjForm, reason: e.target.value})} />
-            <div className="flex justify-end pt-4 gap-3">
-                <Button variant="secondary" onClick={() => setIsAdjustmentModalOpen(false)}>{t('cancel')}</Button>
-                <Button type="submit">{t('save')}</Button>
-            </div>
-        </form>
       </Modal>
 
       <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({ ...confirmState, isOpen: false })} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message}/>

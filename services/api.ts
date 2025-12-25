@@ -3,10 +3,18 @@ import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  // Always use relative path '/api'. 
-  // In development, vite.config.js proxies this to localhost:3000.
-  // In production, the backend serves the frontend, so relative path works.
-  return '/api';
+  if (typeof window === 'undefined') return '/api';
+
+  // 1. If running on the production Railway domain, use relative path (same origin)
+  // This avoids CORS issues and SSL overhead on the deployed site.
+  if (window.location.hostname.includes('railway.app')) {
+    return '/api';
+  }
+
+  // 2. If running in Development (Localhost) or AI Studio Preview:
+  // Connect explicitly to the remote Railway backend.
+  // This fixes "Backend unreachable" in previews where the backend isn't running locally.
+  return 'https://allcare.up.railway.app/api';
 };
 
 const client = axios.create({
@@ -21,13 +29,12 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Robust retry and 401 handling
 client.interceptors.response.use(
   (response) => response.data,
   async (error) => {
     const { config, response } = error;
     
-    // Auto-retry once on 429 with a small delay
+    // Auto-retry once on 429
     if (response?.status === 429 && !config._retry) {
       config._retry = true;
       console.warn('Rate limit hit, retrying in 1s...');
@@ -35,17 +42,46 @@ client.interceptors.response.use(
       return client(config);
     }
 
+    // Aggressive Auto-retry on Network Error (Backend might be compiling/starting up)
+    // We specifically check for ERR_NETWORK or ECONNREFUSED which happens when backend is down
+    if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork) {
+        config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
+        
+        // Retry logic for cold starts
+        const MAX_RETRIES = 5; 
+        
+        if (config._retryNetworkCount <= MAX_RETRIES) {
+            const delay = 2000;
+            console.log(`Backend unreachable. Retrying in ${delay}ms... (${config._retryNetworkCount}/${MAX_RETRIES})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return client(config);
+        }
+    }
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.dispatchEvent(new Event('auth:expired'));
-    } else if (!error.response && error.code !== 'ERR_CANCELED') {
-      console.error('Network Error: Backend unreachable. Ensure backend is running.');
+    } 
+    
+    // Handle Network Errors (Server down, CORS, DNS issues)
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health');
+        
+        // Don't spam console for background polling
+        if (!isPolling) {
+            console.error('Backend unreachable:', config.url);
+            const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
+            (enhancedError as any).code = 'ERR_NETWORK';
+            (enhancedError as any).isNetworkError = true;
+            return Promise.reject(enhancedError);
+        }
     }
+
     return Promise.reject(error);
   }
 );
 
-// Helpers to cast response to any, ensuring TS treats return values as data objects
+// Helpers to cast response to any
 const get = (url: string) => client.get(url) as Promise<any>;
 const post = (url: string, data?: any, config?: any) => client.post(url, data, config) as Promise<any>;
 const put = (url: string, data?: any) => client.put(url, data) as Promise<any>;
@@ -118,6 +154,7 @@ export const api = {
   createOperation: (data) => post('/operations', data),
   processOperationRequest: (id, data) => post(`/operations/${id}/process`, data),
   completeOperation: (id) => post(`/operations/${id}/complete`),
+  confirmOperation: (id) => post(`/operations/${id}/confirm`),
 
   getSystemSettings: () => get('/config/settings'),
   getPublicSettings: () => get('/config/settings/public'),

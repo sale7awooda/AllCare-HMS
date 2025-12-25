@@ -413,13 +413,12 @@ exports.updatePayrollStatus = (req, res) => {
         // Sync with Treasury if marked as Paid
         if (status === 'paid') {
             db.prepare(`
-                INSERT INTO transactions (type, category, amount, method, reference_id, details, date, description)
-                VALUES ('expense', 'Staff Salaries', ?, ?, ?, ?, datetime('now'), ?)
+                INSERT INTO transactions (type, category, amount, method, reference_id, date, description)
+                VALUES ('expense', 'Staff Salaries', ?, ?, ?, datetime('now'), ?)
             `).run(
-                record.net_salary || 0, 
+                record.net_salary, 
                 paymentMethod || 'Cash', 
                 id, 
-                JSON.stringify({ notes: notes || '' }),
                 `Salary Disbursement for ${record.staffName} (${record.month})`
             );
         }

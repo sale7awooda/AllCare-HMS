@@ -28,13 +28,9 @@ export default defineConfig(({ mode }) => {
       strictPort: false,
       proxy: {
         '/api': {
-          target: `http://localhost:${BACKEND_PORT}`,
+          target: `http://127.0.0.1:${BACKEND_PORT}`,
           changeOrigin: true,
           secure: false,
-          ws: true,
-          // Ensure we don't accidentally strip /api if the backend expects it
-          // Or add it if the backend doesn't. 
-          // Current backend uses app.use('/api', ...), so no rewrite needed.
         }
       }
     }
