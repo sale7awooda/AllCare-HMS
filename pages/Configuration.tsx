@@ -187,7 +187,6 @@ export const Configuration = () => {
             case 'banks': await api.deleteBank(id); break;
           }
           setProcessStatus('success'); loadCatalog(activeCatalog); setTimeout(() => setProcessStatus('idle'), 1000);
-          // FIX: Changed 'e' to 'err' to match usage
         } catch (err: any) { 
           setProcessStatus('error'); 
           setProcessMessage(err.response?.data?.error || "Failed to delete item."); 
@@ -235,7 +234,6 @@ export const Configuration = () => {
           loadData(); 
           setTimeout(() => setProcessStatus('idle'), 1000); 
         }
-        // FIX: Changed 'e' to 'err' to match usage
         catch (err: any) { 
           setProcessStatus('error'); 
           setProcessMessage(err.response?.data?.error || "Failed to delete user.");
@@ -266,7 +264,6 @@ export const Configuration = () => {
       if (selectedItem) await api.updateTaxRate(selectedItem.id, payload);
       else await api.addTaxRate(payload);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
-      // FIX: Changed 'e' to 'err' to match usage
     } catch (err: any) { 
       setProcessStatus('error'); 
       setProcessMessage(err.response?.data?.error || "Failed to save tax."); 
@@ -301,7 +298,6 @@ export const Configuration = () => {
       if (selectedItem) await api.updatePaymentMethod(selectedItem.id, paymentForm);
       else await api.addPaymentMethod(paymentForm);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
-      // FIX: Changed 'e' to 'err' to match usage
     } catch (err: any) { 
       setProcessStatus('error'); 
       setProcessMessage(err.response?.data?.error || "Failed to save payment method."); 
@@ -341,7 +337,6 @@ export const Configuration = () => {
       if (selectedItem) await api.updateBed(selectedItem.id, payload);
       else await api.addBed(payload);
       setProcessStatus('success'); loadData(); setIsModalOpen(false); setTimeout(() => setProcessStatus('idle'), 1000);
-      // FIX: Changed 'e' to 'err' to match usage
     } catch (err: any) { 
       setProcessStatus('error'); 
       setProcessMessage(err.response?.data?.error || "Failed to save bed."); 
@@ -499,6 +494,30 @@ export const Configuration = () => {
         {/* --- USERS & PERMISSIONS --- */}
         {activeTab === 'users' && (
           <div className="space-y-6">
+            <Card title="Active System Accounts" action={<Button size="sm" icon={Plus} onClick={() => openUserModal()}>New Account</Button>} className="!p-0 overflow-hidden">
+               <table className="min-w-full divide-y">
+                 <thead className="bg-slate-50 dark:bg-slate-900/50">
+                    <tr><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Username</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Name</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Role</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Status</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Actions</th></tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {users.map(u => (
+                      <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+                        <td className="px-6 py-4 text-sm font-mono text-primary-600">@{u.username}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{u.fullName}</td>
+                        <td className="px-6 py-4"><Badge color="blue" className="capitalize">{u.role}</Badge></td>
+                        <td className="px-6 py-4"><Badge color={u.is_active ? 'green' : 'gray'}>{u.is_active ? 'Active' : 'Locked'}</Badge></td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openUserModal(u)} icon={Edit}>{t('edit')}</Button>
+                            <Button size="sm" variant="danger" onClick={() => deleteUserAccount(u.id, u.username)} icon={Trash2}>{t('delete')}</Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                 </tbody>
+               </table>
+            </Card>
+
             <Card title="Permission Matrix" className="!p-0 overflow-hidden">
                <div className="overflow-x-auto">
                  <table className="min-w-full">
@@ -524,30 +543,6 @@ export const Configuration = () => {
                     </tbody>
                  </table>
                </div>
-            </Card>
-
-            <Card title="Active System Accounts" action={<Button size="sm" icon={Plus} onClick={() => openUserModal()}>New Account</Button>} className="!p-0 overflow-hidden">
-               <table className="min-w-full divide-y">
-                 <thead className="bg-slate-50 dark:bg-slate-900/50">
-                    <tr><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Username</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Name</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Role</th><th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-500 tracking-widest">Status</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-500 tracking-widest">Actions</th></tr>
-                 </thead>
-                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {users.map(u => (
-                      <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
-                        <td className="px-6 py-4 text-sm font-mono text-primary-600">@{u.username}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{u.fullName}</td>
-                        <td className="px-6 py-4"><Badge color="blue" className="capitalize">{u.role}</Badge></td>
-                        <td className="px-6 py-4"><Badge color={u.is_active ? 'green' : 'gray'}>{u.is_active ? 'Active' : 'Locked'}</Badge></td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => openUserModal(u)} icon={Edit}>{t('edit')}</Button>
-                            <Button size="sm" variant="danger" onClick={() => deleteUserAccount(u.id, u.username)} icon={Trash2}>{t('delete')}</Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                 </tbody>
-               </table>
             </Card>
           </div>
         )}

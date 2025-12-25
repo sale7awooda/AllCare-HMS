@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
@@ -12,15 +12,17 @@ interface ErrorBoundaryState {
 
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
- * Inherits from the base Component class with explicitly defined props and state types.
  */
-// FIX: Using Component from the named import instead of React.Component to resolve inheritance issues where setState and props were not identified by the compiler.
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // State property initialization
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+// Fix: Using React.Component explicitly to ensure correct inheritance and property recognition
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Initialize state in the constructor to satisfy compiler requirements for class properties
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   /**
    * Static method to update state when an error occurs during rendering.
@@ -40,12 +42,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    // FIX: setState is inherited from Component and is now correctly identified.
+    // Fix: setState is a member of the inherited React.Component class
     this.setState({ hasError: false, error: null });
   }
 
   public render() {
-    // Accessing the state property which is inherited from the base Component class
+    // Fix: state is a member of the inherited React.Component class
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -76,7 +78,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    // FIX: Accessing children from the inherited props property.
+    // Fix: props is a member of the inherited React.Component class
     return this.props.children;
   }
 }
