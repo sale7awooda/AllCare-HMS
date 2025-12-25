@@ -17,17 +17,20 @@ import { Login } from './pages/Login';
 import { User } from './types'; 
 import { api } from './services/api';
 import { useTranslation } from './context/TranslationContext';
-// Updated: Added useAuth to imports
 import { AuthContext, useAuth } from './context/AuthContext';
 import { HeaderProvider } from './context/HeaderContext';
 
 function AppContent() {
-  // Fixed: Replaced React.useContext(AuthContext)! with useAuth() for better type inference
   const { user, isAuthChecking } = useAuth();
   const { t } = useTranslation();
 
   if (isAuthChecking) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-500 bg-slate-50 dark:bg-slate-950">{t('app_loading')}</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 transition-colors">
+        <div className="w-10 h-10 border-4 border-primary-100 border-t-primary-600 rounded-full animate-spin mb-4" />
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('app_loading')}</p>
+      </div>
+    );
   }
 
   if (!user) {
@@ -70,9 +73,13 @@ export default function App() {
         try {
           const userData = await api.me();
           setUser(userData);
-        } catch (e) {
-          console.error("Auth check failed:", e);
+        } catch (e: any) {
+          // Silent handling for common 401 (expired session) during initial load
+          if (e.response?.status !== 401) {
+            console.error("Auth check failed:", e);
+          }
           localStorage.removeItem('token');
+          setUser(null);
         }
       }
       setIsAuthChecking(false);

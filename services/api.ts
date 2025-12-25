@@ -1,17 +1,11 @@
-
 import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  if (typeof window === 'undefined') return '/api';
-
-  // 1. If running on the production Railway domain, use relative path (same origin)
-  if (window.location.hostname.includes('railway.app')) {
-    return '/api';
-  }
-
-  // 2. If running in Development (Localhost) or AI Studio Preview:
-  return 'https://allcare.up.railway.app/api';
+  // Always use relative path '/api'. 
+  // In development, vite.config.js proxies this to localhost:3001.
+  // In production, the backend serves the frontend from backend/public, so relative path is correct.
+  return '/api';
 };
 
 const client = axios.create({
@@ -22,7 +16,10 @@ const client = axios.create({
 
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
@@ -52,14 +49,17 @@ client.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.dispatchEvent(new Event('auth:expired'));
+      // Avoid clearing token if we are already on the login attempt itself
+      const isLoginRequest = config.url?.includes('/auth/login');
+      if (!isLoginRequest) {
+        localStorage.removeItem('token');
+        window.dispatchEvent(new Event('auth:expired'));
+      }
     } 
     
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health') || config.url?.includes('/notifications');
         if (!isPolling) {
-            console.error('Backend unreachable:', config.url);
             const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
             (enhancedError as any).code = 'ERR_NETWORK';
             (enhancedError as any).isNetworkError = true;
@@ -138,6 +138,7 @@ export const api = {
   getPendingLabRequests: () => get('/lab/requests'),
   createLabRequest: (data) => post('/lab/requests', data),
   completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`),
+  confirmLabRequest: (id) => post(`/lab/requests/${id}/confirm`),
 
   getNurseServices: () => get('/config/nurse-services'),
   createNurseRequest: (data) => post('/nurse/requests', data),
