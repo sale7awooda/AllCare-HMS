@@ -43,13 +43,9 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Permissive CORS for cross-domain frontend access (AI Studio -> Railway)
+// Robust CORS for cross-domain frontend access (AI Studio -> Railway)
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl) 
-        // or any origin for this specific production/demo hybrid use case
-        callback(null, true);
-    },
+    origin: true, // Echoes the requesting origin back, allowing any cross-site request with credentials
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true

@@ -1,28 +1,27 @@
 import axios from 'axios';
 
 /**
- * The permanent home of your data.
- * This is used when the frontend is running on a different domain (like AI Studio).
+ * The primary backend entry point.
  */
 const RAILWAY_BACKEND_URL = 'https://allcare.up.railway.app';
 
 const getBaseUrl = () => {
   const host = window.location.hostname;
   
-  // Detect if we are in Google AI Studio or a similar sandbox
-  const isSandbox = 
-    host.includes('aistudio.google.com') || 
-    host.includes('webcontainer.io') || 
-    host.includes('stackblitz');
+  // 1. If we are browsing the app ON the Railway domain, use relative paths.
+  if (host === 'allcare.up.railway.app') {
+    return '/api';
+  }
 
-  // If in sandbox, we MUST use the absolute URL to reach your Railway backend.
-  if (isSandbox) {
-    return `${RAILWAY_BACKEND_URL}/api`;
+  // 2. If we are on localhost and likely using the Vite dev proxy, use relative paths.
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return '/api';
   }
   
-  // If on Railway itself or localhost, use relative paths.
-  // Localhost works because Vite proxy redirects /api to the local backend.
-  return '/api';
+  // 3. For ALL other environments (Google AI Studio, WebContainer previews, etc.),
+  // we must use the absolute URL to reach your Railway backend.
+  console.log(`[API] External environment detected. Routing to: ${RAILWAY_BACKEND_URL}`);
+  return `${RAILWAY_BACKEND_URL}/api`;
 };
 
 const client = axios.create({
@@ -31,7 +30,7 @@ const client = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
-  timeout: 30000, 
+  timeout: 45000, // Increased to 45s for slow cold starts
 });
 
 client.interceptors.request.use((config) => {
@@ -55,16 +54,17 @@ client.interceptors.response.use(
       return client(config);
     }
 
-    // 2. Handle Network Errors / Cold Starts (Common on Railway)
+    // 2. Handle Network Errors / Cold Starts
+    // Railway "Hobby" instances often take 15-25 seconds to spin up.
     const isNetworkError = error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response;
     
     if (isNetworkError) {
         config._retryCount = (config._retryCount || 0) + 1;
-        const MAX_RETRIES = 5; 
+        const MAX_RETRIES = 8; // More retries to survive a full container boot
         
         if (config._retryCount <= MAX_RETRIES) {
-            const delay = 3000;
-            console.warn(`[API] Connection attempt ${config._retryCount}/${MAX_RETRIES} failed. Server might be sleeping. Retrying in ${delay}ms...`);
+            const delay = 4000; // 4 second intervals
+            console.warn(`[API] Connection attempt ${config._retryCount}/${MAX_RETRIES} failed. Server may be waking up. Retrying in ${delay}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             return client(config);
         }

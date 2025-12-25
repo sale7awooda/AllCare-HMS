@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -14,8 +14,8 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-/* Fix: Extending React.Component explicitly to ensure members like state, setState, and props are correctly inherited and recognized. */
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+/* Fix: Explicitly importing Component and extending it to ensure members like setState and props are inherited correctly. */
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   /* Initializing state property directly. */
   public state: ErrorBoundaryState = {
     hasError: false,
@@ -39,7 +39,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   /**
    * Resets the error state to allow the application to attempt re-rendering.
    */
-  /* Fix: handleReload method now correctly identifies the inherited setState method. */
+  /* Fix: handleReload method now correctly identifies the inherited setState method by extending Component. */
   public handleReload = () => {
     this.setState({ hasError: false, error: null });
   }
