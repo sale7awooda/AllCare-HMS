@@ -121,7 +121,9 @@ export const ConfirmationDialog: React.FC<{
 };
 
 // --- Form Input ---
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string; prefix?: React.ReactNode }>(
+// Fixed: Using Omit to remove the existing 'prefix' property from InputHTMLAttributes 
+// to prevent intersection type errors with our custom prefix property.
+export const Input = React.forwardRef<HTMLInputElement, Omit<React.InputHTMLAttributes<HTMLInputElement>, 'prefix'> & { label?: string; error?: string; prefix?: React.ReactNode }>(
   ({ label, error, className = '', prefix, ...props }, ref) => (
     <div className="w-full">
       {label && <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">{label}</label>}

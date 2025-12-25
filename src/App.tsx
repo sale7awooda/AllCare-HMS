@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -18,11 +17,13 @@ import { Login } from './pages/Login';
 import { User } from './types'; 
 import { api } from './services/api';
 import { useTranslation } from './context/TranslationContext';
-import { AuthContext } from './context/AuthContext';
+// Updated: Added useAuth to imports
+import { AuthContext, useAuth } from './context/AuthContext';
 import { HeaderProvider } from './context/HeaderContext';
 
 function AppContent() {
-  const { user, isAuthChecking } = React.useContext(AuthContext)!;
+  // Fixed: Replaced React.useContext(AuthContext)! with useAuth() for better type inference
+  const { user, isAuthChecking } = useAuth();
   const { t } = useTranslation();
 
   if (isAuthChecking) {

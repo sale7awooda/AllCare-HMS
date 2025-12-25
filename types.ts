@@ -1,7 +1,6 @@
 
-export type Role = 'admin' | 'receptionist' | 'manager' | 'technician' | 'accountant' | 'doctor' | 'nurse' | 'pharmacist' | 'hr'; 
 
-export interface User {
+export interface Role {
   id: number;
   username: string;
   fullName: string;
@@ -146,7 +145,8 @@ export interface Bill {
   patientPhone?: string; // Added field
   totalAmount: number;
   paidAmount: number;
-  status: 'pending' | 'partial' | 'paid' | 'overdue' | 'refunded';
+  // Added 'cancelled' to the status union
+  status: 'pending' | 'partial' | 'paid' | 'overdue' | 'refunded' | 'cancelled';
   date: string;
   items: BillItem[];
   serviceStatus?: string;

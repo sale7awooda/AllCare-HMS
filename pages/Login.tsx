@@ -137,7 +137,7 @@ export const Login: React.FC = () => {
             <p className="mt-0.5 text-[9px] font-black text-primary-600 dark:text-primary-400 uppercase tracking-widest opacity-80">{t('login_subtitle')}</p>
           </div>
 
-          <div className="px-6 py-5">
+          <div className="px-6 pt-5 pb-3">
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <div className="p-2 rounded-lg bg-red-50 border border-red-100 flex items-center gap-2 text-red-600 text-[11px] animate-in shake duration-300">
@@ -220,7 +220,7 @@ export const Login: React.FC = () => {
             </form>
           </div>
 
-          <div className="bg-slate-50/80 dark:bg-slate-900/40 px-6 py-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="bg-slate-50/80 dark:bg-slate-900/40 px-6 pt-3 pb-5 border-t border-slate-100 dark:border-slate-800">
             <p className="text-center text-[8px] text-slate-400 dark:text-slate-500 mb-3 font-black uppercase tracking-widest">{t('login_quick_select_title')}</p>
             <div className="grid grid-cols-3 gap-y-3 gap-x-2 px-1">
               <QuickProfile role="admin" label={t('login_profile_admin')} icon={ShieldCheck} color="from-rose-500 to-red-600" />
