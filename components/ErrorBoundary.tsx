@@ -13,10 +13,10 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-// Corrected inheritance by using Component directly to resolve type inheritance errors
+/* Fix: Explicitly importing Component and extending it with generics while declaring the state property to ensure property and method identification by TypeScript */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Initialize state at the class level
-  public state: ErrorBoundaryState = {
+  /* Fix: Declaring state property with initializer to resolve 'Property state does not exist' errors */
+  public override state: ErrorBoundaryState = {
     hasError: false,
     error: null
   };
@@ -39,12 +39,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    // Accessing setState inherited from Component
+    /* Fix: setState is now correctly identified via Component inheritance */
     this.setState({ hasError: false, error: null });
   }
 
   public render() {
-    // Accessing state inherited from Component
+    /* Fix: state property is recognized through class declaration */
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -57,6 +57,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               The application encountered an unexpected error.
             </p>
             
+            {/* Fix: state.error is recognized through class declaration */}
             {this.state.error && (
                 <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded-lg text-left text-xs font-mono text-red-600 dark:text-red-400 overflow-auto max-h-32 mb-6">
                     {this.state.error.toString()}
@@ -75,7 +76,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    // Accessing props.children inherited from Component
+    /* Fix: props.children is now correctly identified via Component inheritance */
     return this.props.children;
   }
 }

@@ -1,6 +1,8 @@
 
+/* Fix: Role redefined as a union of string literals to satisfy Record key constraints and allow proper string comparisons in components like Login. Added the missing User interface. */
+export type Role = 'admin' | 'manager' | 'receptionist' | 'technician' | 'accountant' | 'doctor' | 'nurse' | 'pharmacist' | 'hr';
 
-export interface Role {
+export interface User {
   id: number;
   username: string;
   fullName: string;

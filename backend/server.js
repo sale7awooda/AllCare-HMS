@@ -1,4 +1,3 @@
-
 const path = require('path');
 // Load .env from project root if it exists, otherwise default (backend/.env)
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
@@ -76,7 +75,8 @@ app.get('/health', (req, res) => {
 });
 
 // Serve Static Files
-const publicPath = path.join(process.cwd(), 'public');
+// FIX: Use __dirname to ensure the path is always relative to this file's location
+const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
 
 // Catch-all route for SPA
