@@ -36,7 +36,6 @@ try {
 } catch (e) {
   console.error("CRITICAL: Failed to open SQLite database:", e);
   // On Railway, sometimes the mounted volume is ready but permissions are locked
-  // We try a fallback in the local folder if root /data fails
   if (dbPath.startsWith('/data')) {
       const fallbackPath = path.resolve(__dirname, '../../allcare.db');
       console.log(`[Database] Attempting fallback to ${fallbackPath}`);
@@ -262,7 +261,8 @@ const seedData = () => {
           ['Internal Medicine', 'الباطنية'], ['Surgery', 'الجراحة'], ['Pediatrics', 'الأطفال'],
           ['Obstetrics & Gynecology', 'النساء والتوليد'], ['Cardiology', 'القلب'], ['Radiology', 'الأشعة'],
           ['Laboratory', 'المختبر'], ['Pharmacy', 'الصيدلية'], ['Emergency', 'الطوارئ'],
-          ['Nursing', 'التمريض'], ['Administration', 'الإدارة'], ['Finance', 'المالية'], ['HR', 'الموارد البشرية']
+          ['Nursing', 'التمريض'], ['Administration', 'الإدارة'], ['Finance', 'المالية'], ['HR', 'الموارد البشرية'],
+          ['Orthopedics', 'العظام'], ['Ophthalmology', 'العيون'], ['ENT', 'الأنف والأذن والحنجرة'], ['Urology', 'المسالك البولية']
         ];
         const stmt = db.prepare('INSERT INTO departments (name_en, name_ar) VALUES (?, ?)');
         depts.forEach(d => stmt.run(d[0], d[1]));
@@ -273,19 +273,106 @@ const seedData = () => {
     const specCount = db.prepare('SELECT count(*) as count FROM specializations').get()?.count || 0;
     if (specCount === 0) {
         const specs = [
-          ['Physician', 'طبيب باطني', 'doctor'], ['General Surgeon', 'جراح عام', 'doctor'],
-          ['Pediatrician', 'طبيب أطفال', 'doctor'], ['Obstetrician', 'طبيب نساء وتوليد', 'doctor'],
-          ['Cardiologist', 'طبيب قلب', 'doctor'], ['Radiologist', 'طبيب أشعة', 'doctor'],
-          ['Lab Technician', 'فني مختبر', 'technician'], ['Pharmacist', 'صيدلي', 'pharmacist'],
-          ['Head Nurse', 'كبير ممرضين', 'nurse'], ['Staff Nurse', 'ممرض', 'nurse'],
-          ['Accountant', 'محاسب', 'accountant'], ['HR Specialist', 'اختصاصي موارد بشرية', 'hr']
+          ['Physician', 'طبيب باطني', 'doctor'], 
+          ['General Surgeon', 'جراح عام', 'doctor'],
+          ['Pediatrician', 'طبيب أطفال', 'doctor'], 
+          ['Obstetrician', 'طبيب نساء وتوليد', 'doctor'],
+          ['Cardiologist', 'طبيب قلب', 'doctor'], 
+          ['Radiologist', 'طبيب أشعة', 'doctor'],
+          ['Orthopedic Surgeon', 'جراح عظام', 'doctor'],
+          ['Ophthalmologist', 'طبيب عيون', 'doctor'],
+          ['ENT Specialist', 'أخصائي أنف وأذن وحنجرة', 'doctor'],
+          ['Urologist', 'طبيب مسالك بولية', 'doctor'],
+          ['Neurologist', 'طبيب أعصاب', 'doctor'],
+          ['Dermatologist', 'طبيب جلدية', 'doctor'],
+          ['Psychiatrist', 'طبيب نفسي', 'doctor'],
+          ['Anesthesiologist', 'طبيب تخدير', 'doctor'],
+          ['Lab Technician', 'فني مختبر', 'technician'], 
+          ['Pharmacist', 'صيدلي', 'pharmacist'],
+          ['Head Nurse', 'كبير ممرضين', 'nurse'], 
+          ['Staff Nurse', 'ممرض', 'nurse'],
+          ['Accountant', 'محاسب', 'accountant'], 
+          ['HR Specialist', 'اختصاصي موارد بشرية', 'hr']
         ];
         const stmt = db.prepare('INSERT INTO specializations (name_en, name_ar, related_role) VALUES (?, ?, ?)');
         specs.forEach(s => stmt.run(s[0], s[1], s[2]));
         console.log('- [Seed] Specializations expanded.');
     }
 
-    // 5. Medical Staff
+    // 5. Lab Tests
+    const labTestCount = db.prepare('SELECT count(*) as count FROM lab_tests').get()?.count || 0;
+    if (labTestCount === 0) {
+        const tests = [
+          // Hematology
+          ['CBC', 'عد دم كامل', 'Hematology', 'WBC: 4.0-11.0; RBC: 4.5-5.5; HGB: 12.0-16.0; PLT: 150-450', 45],
+          ['PT / INR', 'زمن التخثر', 'Hematology', 'PT: 11-13.5s; INR: 0.8-1.1', 35],
+          ['Blood Group & Rh', 'فصيلة الدم', 'Hematology', 'Result: A/B/AB/O; Rh: +/-', 20],
+          // Biochemistry
+          ['Blood Sugar (Fasting)', 'سكر صائم', 'Biochemistry', 'Result: 70-100 mg/dL', 20],
+          ['HbA1c', 'السكر التراكمي', 'Biochemistry', 'Normal: <5.7%; Pre-diabetes: 5.7-6.4%; Diabetes: >=6.5%', 50],
+          ['Lipid Profile', 'دهون كاملة', 'Biochemistry', 'Cholesterol: <200; HDL: >40; LDL: <130; Trig: <150', 80],
+          ['Liver Function Test (LFT)', 'وظائف كبد', 'Biochemistry', 'ALT: 7-56; AST: 10-40; Bilirubin: 0.1-1.2; Albumin: 3.4-5.4', 120],
+          ['Renal Function Test (RFT)', 'وظائف كلى', 'Biochemistry', 'Urea: 15-45; Creatinine: 0.6-1.2; Sodium: 135-145; Potassium: 3.5-5.0', 100],
+          ['Uric Acid', 'حمض اليوريك', 'Biochemistry', 'Male: 3.4-7.0; Female: 2.4-6.0 mg/dL', 25],
+          ['Troponin I', 'نزيمات القلب', 'Biochemistry', 'Normal: <0.04 ng/mL', 150],
+          // Serology / Immunology
+          ['H. Pylori (Antigen)', 'جرثومة المعدة', 'Serology', 'Result: Negative', 60],
+          ['CRP (Quantitative)', 'البروتين التفاعلي', 'Serology', 'Normal: <1.0 mg/dL', 40],
+          ['Rheumatoid Factor', 'عامل الروماتويد', 'Serology', 'Normal: <14 IU/mL', 45],
+          ['HIV 1&2 (Rapid)', 'فيروس نقص المناعة', 'Serology', 'Result: Non-reactive', 100],
+          ['HBsAg (Hepatitis B)', 'فيروس الكبد ب', 'Serology', 'Result: Negative', 70],
+          ['HCV (Hepatitis C)', 'فيروس الكبد ج', 'Serology', 'Result: Negative', 70],
+          // Microbiology / Parasitology
+          ['Malaria (Rapid)', 'ملاريا سريع', 'Parasitology', 'Result: Negative', 15],
+          ['Malaria (Blood Film)', 'ملاريا فيلم', 'Parasitology', 'Result: No parasites seen', 25],
+          ['Widal Test', 'تيفويد', 'Serology', 'Result: Negative', 30],
+          ['Urine Analysis', 'فحص بول', 'Microscopy', 'Pus Cells: 0-5; RBCs: 0-2; Crystals: None', 25],
+          ['Stool Analysis', 'فحص براز', 'Microscopy', 'Parasites: None seen; Occult Blood: Negative', 30],
+          // Hormones
+          ['TSH', 'هرمون الغدة الدرقية', 'Hormones', 'Normal: 0.4-4.0 mIU/L', 60],
+          ['Free T4', 'ثايروكسين حر', 'Hormones', 'Normal: 0.8-1.8 ng/dL', 60],
+          ['PSA (Total)', 'بروستاتا', 'Hormones', 'Normal: <4.0 ng/mL', 120]
+        ];
+        const stmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, normal_range, cost) VALUES (?, ?, ?, ?, ?)');
+        tests.forEach(t => stmt.run(t[0], t[1], t[2], t[3], t[4]));
+        console.log('- [Seed] Lab tests catalog expanded.');
+    }
+
+    // 6. Operations Catalog
+    const opCount = db.prepare('SELECT count(*) as count FROM operations_catalog').get()?.count || 0;
+    if (opCount === 0) {
+        const ops = [
+          ['Appendectomy', 'استئصال الزائدة الدودية', 1500],
+          ['Hernia Repair', 'إصلاح فتق', 1200],
+          ['Cesarean Section', 'عملية قيصرية', 2500],
+          ['Tonsillectomy', 'استئصال اللوزتين', 800],
+          ['Gallbladder Removal (Laparoscopic)', 'استئصال المرارة بالمنظار', 3000],
+          ['Total Knee Replacement', 'تبديل مفصل الركبة كامل', 6000],
+          ['Total Hip Replacement', 'تبديل مفصل الحوض كامل', 6500],
+          ['Cataract Surgery', 'إزالة المياه البيضاء', 1000],
+          ['Rhinoplasty', 'عملية تجميل الأنف', 2000],
+          ['Hysterectomy', 'استئصال الرحم', 3500],
+          ['Coronary Artery Bypass (CABG)', 'عملية قلب مفتوح', 15000],
+          ['Mastectomy', 'استئصال الثدي', 4000],
+          ['Lumbar Discectomy', 'عملية غضروف الظهر', 4500],
+          ['Thyroidectomy', 'استئصال الغدة الدرقية', 2800],
+          ['Gastric Bypass', 'تحويل مسار المعدة', 8000],
+          ['Kidney Stone Removal (Laser)', 'إزالة حصى الكلى بالليزر', 2200],
+          ['Prostatectomy', 'استئصال البروستاتا', 4000],
+          ['Skin Grafting', 'زراعة الجلد', 1800],
+          ['Splenectomy', 'استئصال الطحال', 3200],
+          ['Arthrocentesis', 'بزل المفصل', 500],
+          ['Carpal Tunnel Release', 'تسليك عصب اليد', 1100],
+          ['Hemorrhoidectomy', 'استئصال البواسير', 900],
+          ['Fistulectomy', 'استئصال الناصور', 1000],
+          ['Breast Augmentation', 'عملية تكبير الثدي', 3000]
+        ];
+        const stmt = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
+        ops.forEach(o => stmt.run(o[0], o[1], o[2]));
+        console.log('- [Seed] Operations catalog expanded.');
+    }
+
+    // 7. Medical Staff
     const staffCount = db.prepare('SELECT count(*) as count FROM medical_staff').get()?.count || 0;
     if (staffCount === 0) {
       const initialStaff = [
@@ -294,9 +381,7 @@ const seedData = () => {
           { eid: 'DOC-003', n: 'Dr. Yasir Mustafa', t: 'doctor', d: 'Cardiology', s: 'Cardiologist', f: 400, ff: 250, fe: 600, sal: 25000 },
           { eid: 'DOC-004', n: 'Dr. Amna Bakri', t: 'doctor', d: 'Pediatrics', s: 'Pediatrician', f: 120, ff: 80, fe: 200, sal: 14000 },
           { eid: 'NUR-001', n: 'Nurse Hiba Osman', t: 'nurse', d: 'Nursing', s: 'Head Nurse', f: 0, ff: 0, fe: 0, sal: 6000 },
-          { eid: 'NUR-002', n: 'Nurse Khalid Ali', t: 'nurse', d: 'Nursing', s: 'Staff Nurse', f: 0, ff: 0, fe: 0, sal: 4500 },
-          { eid: 'TEC-001', n: 'Tech Ahmed Adam', t: 'technician', d: 'Laboratory', s: 'Lab Technician', f: 0, ff: 0, fe: 0, sal: 5500 },
-          { eid: 'PHM-001', n: 'Pharma Sarah Nour', t: 'pharmacist', d: 'Pharmacy', s: 'Pharmacist', f: 0, ff: 0, fe: 0, sal: 7000 }
+          { eid: 'TEC-001', n: 'Tech Ahmed Adam', t: 'technician', d: 'Laboratory', s: 'Lab Technician', f: 0, ff: 0, fe: 0, sal: 5500 }
       ];
       const stmt = db.prepare(`
         INSERT INTO medical_staff (
@@ -305,47 +390,41 @@ const seedData = () => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', '["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]')
       `);
       initialStaff.forEach(s => stmt.run(s.eid, s.n, s.t, s.d, s.s, s.f, s.ff, s.fe, s.sal));
-      console.log('- [Seed] Medical staff expanded.');
+      console.log('- [Seed] Initial staff created.');
     }
 
-    // 6. Demo Patients
+    // 8. Demo Patients
     const patientCount = db.prepare('SELECT count(*) as count FROM patients').get()?.count || 0;
     if (patientCount === 0) {
       const demoPatients = [
           { id: 'P250301', n: 'Ahmed Ibrahim', p: '0912345678', a: 'Atbara, Sector 1', age: 45, g: 'male', t: 'outpatient', b: 'O+' },
-          { id: 'P250302', n: 'Sara Abdelrahman', p: '0998765432', a: 'Atbara, Market St.', age: 28, g: 'female', t: 'inpatient', b: 'A-' },
-          { id: 'P250303', n: 'Mohamed Saeed', p: '0911223344', a: 'Berber, North', age: 62, g: 'male', t: 'outpatient', b: 'B+' },
-          { id: 'P250304', n: 'Laila Hassan', p: '0922334455', a: 'Atbara, Railway St.', age: 10, g: 'female', t: 'outpatient', b: 'O-' },
-          { id: 'P250305', n: 'Ibrahim Salih', p: '0933445566', a: 'Ad-Damir', age: 35, g: 'male', t: 'emergency', b: 'AB+' },
-          { id: 'P250306', n: 'Nour El-Huda', p: '0944556677', a: 'Atbara, Al-Ushara', age: 5, g: 'female', t: 'outpatient', b: 'A+' },
-          { id: 'P250307', n: 'Abdelrahim Ali', p: '0955667788', a: 'Atbara, West', age: 50, g: 'male', t: 'inpatient', b: 'O+' }
+          { id: 'P250302', n: 'Sara Abdelrahman', p: '0998765432', a: 'Atbara, Market St.', age: 28, g: 'female', t: 'inpatient', b: 'A-' }
       ];
       const stmt = db.prepare(`
         INSERT INTO patients (patient_id, full_name, phone, address, age, gender, type, blood_group, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '-2 days'))
       `);
       demoPatients.forEach(p => stmt.run(p.id, p.n, p.p, p.a, p.age, p.g, p.t, p.b));
-      console.log('- [Seed] Demo patients expanded.');
+      console.log('- [Seed] Demo patients created.');
     }
 
-    // 7. Beds
+    // 9. Beds
     const bedCount = db.prepare('SELECT count(*) as count FROM beds').get()?.count || 0;
     if (bedCount === 0) {
       const beds = [
-          { no: '101', t: 'General', c: 50 }, { no: '102', t: 'General', c: 50 }, { no: '103', t: 'General', c: 50 },
-          { no: '201', t: 'Private', c: 250 }, { no: '202', t: 'Private', c: 250 }, { no: '203', t: 'Private', c: 250 },
-          { no: '301', t: 'ICU', c: 1200 }, { no: '302', t: 'ICU', c: 1200 },
-          { no: '401', t: 'Emergency', c: 100 }, { no: '402', t: 'Emergency', c: 100 }
+          { no: '101', t: 'General', c: 50 }, { no: '102', t: 'General', c: 50 },
+          { no: '201', t: 'Private', c: 250 }, { no: '301', t: 'ICU', c: 1200 },
+          { no: '401', t: 'Emergency', c: 100 }
       ];
       const stmt = db.prepare("INSERT INTO beds (room_number, type, cost_per_day, status) VALUES (?, ?, ?, 'available')");
       beds.forEach(b => stmt.run(b.no, b.t, b.c));
-      console.log('- [Seed] Wards configured.');
+      console.log('- [Seed] Ward beds initialized.');
     }
 
-    // 8. Financial Settings
+    // 10. Financial Settings
     const pmCount = db.prepare('SELECT count(*) as count FROM payment_methods').get()?.count || 0;
     if (pmCount === 0) {
-      const pms = [['Cash', 'نقدي'], ['Bankak Transfer', 'تحويل بنكك'], ['Insurance', 'تأمين'], ['Credit Card', 'بطاقة ائتمان']];
+      const pms = [['Cash', 'نقدي'], ['Bank Transfer', 'تحويل بنكي'], ['Insurance', 'تأمين']];
       const stmt = db.prepare('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, 1)');
       pms.forEach(p => stmt.run(p[0], p[1]));
       
@@ -355,56 +434,11 @@ const seedData = () => {
       db.prepare('INSERT INTO system_settings (key, value) VALUES (?, ?)').run('hospitalAddress', 'Atbara, River Nile State, Sudan');
       db.prepare('INSERT INTO system_settings (key, value) VALUES (?, ?)').run('hospitalPhone', '+249 123 456 789');
       
-      const ins = [['Blue Nile Insurance', 'تأمين النيل الأزرق'], ['Shiekan Insurance', 'تأمين شيكان'], ['United Insurance', 'المتحدة للتأمين']];
+      const ins = [['Blue Nile Insurance', 'تأمين النيل الأزرق'], ['Shiekan Insurance', 'تأمين شيكان']];
       const insStmt = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)');
       ins.forEach(i => insStmt.run(i[0], i[1]));
 
-      const banks = [['Bank of Khartoum', 'بنك الخرطوم'], ['Faisal Islamic Bank', 'بنك فيصل الإسلامي'], ['Omdurman National Bank', 'بنك أمدرمان الوطني']];
-      const bankStmt = db.prepare('INSERT INTO banks (name_en, name_ar, is_active) VALUES (?, ?, 1)');
-      banks.forEach(b => bankStmt.run(b[0], b[1]));
-
-      console.log('- [Seed] Financial configurations expanded.');
-    }
-
-    // 9. Medical Catalogs (Lab, Nurse, Ops)
-    const labTestCount = db.prepare('SELECT count(*) as count FROM lab_tests').get()?.count || 0;
-    if (labTestCount === 0) {
-        const tests = [
-          ['CBC', 'عد دم كامل', 'Hematology', 'WBC: 4.0-11.0; RBC: 4.5-5.5; HGB: 12.0-16.0', 45],
-          ['Blood Sugar (Fasting)', 'سكر صائم', 'Biochemistry', 'Result: 70-100 mg/dL', 20],
-          ['Lipid Profile', 'دهون كاملة', 'Biochemistry', 'Cholesterol: <200; HDL: >40; LDL: <130', 80],
-          ['Liver Function Test', 'وظائف كبد', 'Biochemistry', 'ALT: 7-56; AST: 10-40; Bilirubin: 0.1-1.2', 120],
-          ['Renal Function Test', 'وظائف كلى', 'Biochemistry', 'Urea: 15-45; Creatinine: 0.6-1.2', 100],
-          ['H. Pylori', 'جرثومة المعدة', 'Serology', 'Result: Negative', 60],
-          ['Malaria (Rapid)', 'ملاريا سريع', 'Parasitology', 'Result: Negative', 15],
-          ['Widal Test', 'تيفويد', 'Serology', 'Result: Negative', 30],
-          ['Urine Analysis', 'فحص بول', 'Microscopy', 'Pus Cells: 0-5; RBCs: 0-2', 25]
-        ];
-        const stmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, normal_range, cost) VALUES (?, ?, ?, ?, ?)');
-        tests.forEach(t => stmt.run(t[0], t[1], t[2], t[3], t[4]));
-
-        const nServices = [
-          ['IV Injection', 'حقنة وريدية', 'Administration of intravenous medication', 10],
-          ['IM Injection', 'حقنة عضلية', 'Administration of intramuscular medication', 5],
-          ['Wound Dressing', 'غيار جرح', 'Cleaning and dressing of surgical or accidental wounds', 25],
-          ['Vital Signs Monitoring', 'مراقبة العلامات الحيوية', 'Regular check of BP, Heart Rate, and Temp', 15],
-          ['Nebulization', 'جلسة رذاذ', 'Respiratory treatment for asthma/congestion', 20],
-          ['Catheterization', 'تركيب قسطرة', 'Urinary catheter insertion', 50]
-        ];
-        const nStmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, cost) VALUES (?, ?, ?, ?)');
-        nServices.forEach(s => nStmt.run(s[0], s[1], s[2], s[3]));
-
-        const ops = [
-          ['Appendectomy', 'استئصال الزائدة الدودية', 1500],
-          ['Hernia Repair', 'إصلاح فتق', 1200],
-          ['Cesarean Section', 'عملية قيصرية', 2500],
-          ['Tonsillectomy', 'استئصال اللوزتين', 800],
-          ['Gallbladder Removal', 'استئصال المرارة بالمنظار', 3000]
-        ];
-        const opStmt = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
-        ops.forEach(o => opStmt.run(o[0], o[1], o[2]));
-
-        console.log('- [Seed] Medical catalogs expanded.');
+      console.log('- [Seed] Financial configurations initialized.');
     }
   });
 
