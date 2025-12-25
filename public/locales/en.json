@@ -491,5 +491,7 @@
   "admissions_status_reserved": "Reserved",
   "admissions_status_discharged": "Discharged",
   "admissions_modal_reserve_notes_placeholder": "Initial clinical summary...",
-  "billing_table_paid_amount": "Paid Amount"
+  "billing_table_paid_amount": "Paid Amount",
+  "appointments_tab_history": "History",
+  "records_filter_all": "All"
 }

@@ -415,7 +415,7 @@ export const Appointments = () => {
             className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
         >
             <History size={14} />
-            <span className="hidden sm:inline">{t('operations_tab_history')}</span>
+            <span className="hidden sm:inline">{t('appointments_tab_history')}</span>
         </button>
     </div>
   ), [viewMode, t]);

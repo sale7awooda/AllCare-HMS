@@ -96,7 +96,7 @@ export const Admissions = () => {
       if (state?.trigger === 'new') {
         const availableBed = bedsData.find((b: any) => b.status === 'available');
         if (availableBed) handleBedClick(availableBed);
-        else setProcessStatus('error'), setProcessMessage('No beds available for new admission.');
+        else setProcessStatus('error'), setProcessMessage(t('admissions_process_discharge_fail'));
       }
     } catch (e) { console.error(e); } finally { if (!silent) setLoading(false); }
   };
@@ -180,7 +180,7 @@ export const Admissions = () => {
 
   const handleViewAdmissionDetails = async (admissionId: number) => {
     setProcessStatus('processing');
-    setProcessMessage('Loading inpatient chart...');
+    setProcessMessage(t('admissions_process_loading_chart'));
     try {
       const details = await api.getInpatientDetails(admissionId);
       setInpatientDetails(details);
@@ -208,7 +208,7 @@ export const Admissions = () => {
     if (!selectedBedForAdmission || !selectedPatientForAdmission || !admitForm.doctorId) return;
     
     setProcessStatus('processing');
-    setProcessMessage('Creating admission record...');
+    setProcessMessage(t('admissions_process_creating'));
     try {
       await api.createAdmission({ 
         patientId: selectedPatientForAdmission.id, 
@@ -223,14 +223,14 @@ export const Admissions = () => {
       setTimeout(() => { setIsAdmitModalOpen(false); setProcessStatus('idle'); }, 1500);
     } catch (err: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(err.response?.data?.error || 'Failed to admit patient.'); 
+      setProcessMessage(err.response?.data?.error || t('error')); 
     }
   };
 
   const handleConfirmAdmission = async () => {
     if (!selectedAdmission) return;
     setProcessStatus('processing');
-    setProcessMessage('Confirming patient arrival and occupancy...');
+    setProcessMessage(t('admissions_process_confirming'));
     try {
       await api.confirmAdmissionDeposit(selectedAdmission.id);
       setProcessStatus('success');
@@ -238,7 +238,7 @@ export const Admissions = () => {
       setTimeout(() => { setIsConfirmModalOpen(false); setProcessStatus('idle'); }, 1500);
     } catch (err: any) { 
       setProcessStatus('error'); 
-      setProcessMessage(err.response?.data?.error || 'Failed to confirm arrival. Ensure deposit is paid.'); 
+      setProcessMessage(err.response?.data?.error || t('admissions_process_confirm_fail')); 
     }
   };
 
@@ -247,11 +247,11 @@ export const Admissions = () => {
     setConfirmState({
       isOpen: true,
       title: t('admissions_bed_cancel_reservation'),
-      message: 'Are you sure you want to cancel this reservation? This will free up the bed.',
+      message: t('admissions_dialog_cancel_reservation_msg') || 'Are you sure you want to cancel this reservation?',
       type: 'danger',
       action: async () => {
         setProcessStatus('processing');
-        setProcessMessage('Cancelling reservation...');
+        setProcessMessage(t('admissions_process_cancelling'));
         try {
           await api.cancelAdmission(selectedAdmission.id);
           setProcessStatus('success');
@@ -259,7 +259,7 @@ export const Admissions = () => {
           setTimeout(() => { setIsConfirmModalOpen(false); setProcessStatus('idle'); }, 1500);
         } catch (e) {
           setProcessStatus('error');
-          setProcessMessage('Failed to cancel reservation.');
+          setProcessMessage(t('admissions_process_cancel_fail'));
         }
       }
     });
@@ -269,7 +269,7 @@ export const Admissions = () => {
     e.preventDefault();
     if (!inpatientDetails || !noteForm.note) return;
     setProcessStatus('processing');
-    setProcessMessage('Saving clinical note...');
+    setProcessMessage(t('admissions_process_saving_note'));
     try {
       await api.addInpatientNote(inpatientDetails.id, {
         doctorId: inpatientDetails.doctorId,
@@ -288,7 +288,7 @@ export const Admissions = () => {
       setTimeout(() => setProcessStatus('idle'), 1000);
     } catch (e) {
       setProcessStatus('error');
-      setProcessMessage('Failed to save note.');
+      setProcessMessage(t('admissions_process_save_note_fail'));
     }
   };
 
@@ -306,7 +306,7 @@ export const Admissions = () => {
       message: t('admissions_dialog_discharge_message'),
       action: async () => {
         setProcessStatus('processing');
-        setProcessMessage('Processing final discharge logic...');
+        setProcessMessage(t('admissions_process_discharging'));
         try {
           await api.dischargePatient(inpatientDetails.id, { 
             dischargeNotes: dischargeForm.notes, 
@@ -320,7 +320,7 @@ export const Admissions = () => {
           setTimeout(() => { setProcessStatus('idle'); }, 1000);
         } catch (e: any) { 
           setProcessStatus('error'); 
-          setProcessMessage(e.response?.data?.error || 'Ensure all bills are paid before discharge.'); 
+          setProcessMessage(e.response?.data?.error || t('admissions_process_discharge_fail')); 
         }
       }
     });
@@ -857,7 +857,7 @@ export const Admissions = () => {
                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <Select label={t('admissions_care_discharge_status')} value={dischargeForm.status} onChange={e => setDischargeForm({...dischargeForm, status: e.target.value})}>
                                            <option value="Recovered">{t('admissions_care_discharge_status_recovered')}</option>
-                                           <option value="Stable">Stable / Home Care</option>
+                                           <option value="Stable">{t('admissions_care_discharge_status_stable')}</option>
                                            <option value="Transferred">{t('admissions_care_discharge_status_transferred')}</option>
                                            <option value="AMA">{t('admissions_care_discharge_status_ama')}</option>
                                            <option value="Deceased">{t('admissions_care_discharge_status_deceased')}</option>
