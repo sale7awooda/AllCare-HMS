@@ -13,10 +13,10 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-/* Fix: Explicitly importing Component and extending it with generics while declaring the state property to ensure property and method identification by TypeScript */
+/* Fix: Explicitly import and extend Component from react to ensure base class properties like setState and props are correctly inherited and recognized by TypeScript */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  /* Fix: Declaring state property with initializer to resolve 'Property state does not exist' errors */
-  public override state: ErrorBoundaryState = {
+  // Fix: Initialize state as a class property to ensure it is correctly recognized as a member of the class instance
+  public state: ErrorBoundaryState = {
     hasError: false,
     error: null
   };
@@ -39,12 +39,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    /* Fix: setState is now correctly identified via Component inheritance */
+    // Fix: setState is correctly recognized as a member inherited from Component
     this.setState({ hasError: false, error: null });
   }
 
   public render() {
-    /* Fix: state property is recognized through class declaration */
+    // Fix: state property is recognized through proper inheritance from Component
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -57,7 +57,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               The application encountered an unexpected error.
             </p>
             
-            {/* Fix: state.error is recognized through class declaration */}
             {this.state.error && (
                 <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded-lg text-left text-xs font-mono text-red-600 dark:text-red-400 overflow-auto max-h-32 mb-6">
                     {this.state.error.toString()}
@@ -76,7 +75,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    /* Fix: props.children is now correctly identified via Component inheritance */
+    // Fix: props.children is now correctly identified via inheritance from Component
     return this.props.children;
   }
 }

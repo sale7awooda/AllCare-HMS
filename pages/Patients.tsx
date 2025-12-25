@@ -559,7 +559,7 @@ export const Patients = () => {
                <Select label={t('patients_modal_form_gender')} value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value as any})}>
                   <option value="male">{t('patients_modal_form_gender_male')}</option>
                   <option value="female">{t('patients_modal_form_gender_female')}</option>
-                  <option value="other">Other</option>
+                  <option value="other">{t('patients_modal_form_gender_other')}</option>
                </Select>
                <Select label={t('patients_modal_form_type')} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})}>
                   <option value="outpatient">{t('patients_filter_type_outpatient')}</option>
@@ -676,7 +676,7 @@ export const Patients = () => {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Select label={t('patients_modal_action_select_specialty')} value={selectedSpecialty} onChange={e => { setSelectedSpecialty(e.target.value); setActionFormData({...actionFormData, staffId: ''}); }}>
-                        <option value="">All Specialties</option>
+                        <option value="">{t('appointments_filter_all_depts')}</option>
                         {[...new Set(staff.filter(s => s.type === 'doctor').map(s => s.specialization))].map(spec => <option key={spec} value={spec}>{spec}</option>)}
                     </Select>
                     <Input type="date" label={t('date')} value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
@@ -753,7 +753,7 @@ export const Patients = () => {
                                         <div className="flex items-center gap-3">
                                             <span className="font-mono font-bold text-sm text-primary-600">${formatMoney(test.cost)}</span>
                                             <button type="button" onClick={() => inCart ? setSelectedTests(prev => prev.filter(t => t.id !== test.id)) : setSelectedTests(prev => [...prev, test])} className={`p-1.5 rounded-lg transition-colors ${inCart ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-primary-50 text-primary-600 hover:bg-primary-100'}`}>
-                                                {inCart ? <Trash2 size={16}/> : <Plus size={16}/>}
+                                                {inCart ? <Trash2 size={16} /> : <Plus size={16} />}
                                             </button>
                                         </div>
                                     </div>
@@ -762,11 +762,11 @@ export const Patients = () => {
                         </div>
                     </div>
                     <div className="lg:col-span-2 bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[500px]">
-                        <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-4 shrink-0"><ShoppingCart size={18}/> {t('Order Basket')}</h4>
+                        <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-4 shrink-0"><ShoppingCart size={18} /> {t('patients_modal_action_basket_title')}</h4>
                         <div className="flex-1 overflow-y-auto space-y-3 mb-4 custom-scrollbar">
                             {selectedTests.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center opacity-60">
-                                    <Layers size={32} className="mb-2"/>
+                                    <Layers size={32} className="mb-2" />
                                     <p className="text-xs">{t('patients_modal_action_no_tests_selected')}</p>
                                 </div>
                             ) : (
@@ -775,15 +775,15 @@ export const Patients = () => {
                                         <span className="text-xs font-medium truncate max-w-[120px]">{language === 'ar' ? test.name_ar : test.name_en}</span>
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs font-bold font-mono">${formatMoney(test.cost)}</span>
-                                            <button type="button" onClick={() => setSelectedTests(prev => prev.filter(t => t.id !== test.id))} className="text-slate-300 hover:text-red-500"><XCircle size={14}/></button>
+                                            <button type="button" onClick={() => setSelectedTests(prev => prev.filter(t => t.id !== test.id))} className="text-slate-300 hover:text-red-500"><XCircle size={14} /></button>
                                         </div>
                                     </div>
                                 ))
                             )}
                         </div>
                         <div className="pt-4 border-t border-slate-200 dark:border-slate-700 shrink-0">
-                            <div className="flex justify-between text-sm mb-1"><span className="text-slate-500">Subtotal</span> <span className="font-mono">${formatMoney(selectedTests.reduce((a,b)=>a+b.cost, 0))}</span></div>
-                            <div className="flex justify-between font-black text-xl"><span className="text-slate-800 dark:text-white">Total</span> <span className="text-primary-600">${formatMoney(selectedTests.reduce((a,b)=>a+b.cost, 0))}</span></div>
+                            <div className="flex justify-between text-sm mb-1"><span className="text-slate-500">{t('billing_invoice_subtotal')}</span> <span className="font-mono">${formatMoney(selectedTests.reduce((a,b)=>a+b.cost, 0))}</span></div>
+                            <div className="flex justify-between font-black text-xl"><span className="text-slate-800 dark:text-white">{t('billing_invoice_total')}</span> <span className="text-primary-600">${formatMoney(selectedTests.reduce((a,b)=>a+b.cost, 0))}</span></div>
                         </div>
                     </div>
                 </div>
@@ -793,7 +793,7 @@ export const Patients = () => {
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-3 flex flex-col">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Syringe size={16} className="text-primary-500"/> {t('patients_process_error_select_service')}</label>
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Syringe size={16} className="text-primary-500" /> {t('patients_process_error_select_service')}</label>
                             <div className="max-h-[300px] overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-xl p-1.5 space-y-2 custom-scrollbar">
                                 {nurseServices.map(s => (
                                     <div key={s.id} onClick={() => setSelectedService(s)} className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex justify-between items-center ${selectedService?.id === s.id ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500' : 'border-slate-100 hover:border-slate-200 bg-white dark:bg-slate-800'}`}>
@@ -808,7 +808,7 @@ export const Patients = () => {
                         </div>
                         <div className="space-y-4 flex flex-col">
                             <div className="space-y-3 flex flex-col">
-                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><User size={16} className="text-primary-500"/> {t('patients_modal_action_select_nurse')}</label>
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><User size={16} className="text-primary-500" /> {t('patients_modal_action_select_nurse')}</label>
                                 <div className="max-h-[300px] overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-xl p-1.5 space-y-2 custom-scrollbar">
                                     {staff.filter(s => s.type === 'nurse').map(nurse => {
                                         const isSelected = actionFormData.staffId === nurse.id.toString();
@@ -836,7 +836,7 @@ export const Patients = () => {
                         <div className="md:col-span-2 space-y-6">
                             {Object.entries(getBedGrouped()).map(([type, items]) => (
                                 <div key={type} className="space-y-3">
-                                    <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Layers size={14}/> {type} Wards</h4>
+                                    <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Layers size={14} /> {type} Wards</h4>
                                     <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                                         {items.map(bed => {
                                             const isAvailable = bed.status === 'available';
@@ -854,7 +854,7 @@ export const Patients = () => {
                                                 >
                                                     <Bed size={20} className={isSelected ? 'text-primary-600' : 'text-slate-400'} />
                                                     <span className="text-xs font-black">{bed.roomNumber}</span>
-                                                    <span className="text-[10px] font-mono text-slate-500">${formatMoney(bed.costPerDay)}/d</span>
+                                                    <span className="text-[10px] font-mono text-slate-500">${formatMoney(bed.costPerDay)}{t('patients_modal_action_bed_cost_per_day')}</span>
                                                 </div>
                                             );
                                         })}
@@ -863,7 +863,7 @@ export const Patients = () => {
                             ))}
                         </div>
                         <div className="bg-slate-50 dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4 h-fit sticky top-0">
-                            <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 mb-2"><ClipboardCheck size={18}/> Admission Info</h4>
+                            <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 mb-2"><ClipboardCheck size={18} /> {t('patients_modal_action_admission_info')}</h4>
                             <Select label={t('patients_modal_action_assign_doctor')} value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                                 <option value="">{t('patients_modal_action_select_doctor')}</option>
                                 {staff.filter(s => s.type === 'doctor').map(doc => <option key={doc.id} value={doc.id}>{doc.fullName}</option>)}
@@ -875,7 +875,7 @@ export const Patients = () => {
                                 {selectedBed ? (
                                     <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-lg shadow-sm border border-primary-100">
                                         <span className="text-sm font-bold">Room {selectedBed.roomNumber}</span>
-                                        <Badge color="blue">${formatMoney(selectedBed.costPerDay)} / day</Badge>
+                                        <Badge color="blue">${formatMoney(selectedBed.costPerDay)} {t('patients_modal_action_bed_cost_per_day')}</Badge>
                                     </div>
                                 ) : <p className="text-xs text-red-500 italic">No bed selected</p>}
                             </div>
@@ -890,8 +890,8 @@ export const Patients = () => {
                         <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-2xl border border-red-100 dark:border-red-900/30 flex items-start gap-4">
                             <Activity className="text-red-500 shrink-0 mt-1" />
                             <div>
-                                <h4 className="font-bold text-red-900 dark:text-red-200">Clinical Request</h4>
-                                <p className="text-xs text-red-700 dark:text-red-400 mt-1">Surgical procedures require detailed medical justification and pre-op clearance.</p>
+                                <h4 className="font-bold text-red-900 dark:text-red-200">{t('patients_modal_action_clinical_request')}</h4>
+                                <p className="text-xs text-red-700 dark:text-red-400 mt-1">{t('patients_modal_action_clinical_request_desc')}</p>
                             </div>
                         </div>
                         <div className="space-y-4">
@@ -906,11 +906,11 @@ export const Patients = () => {
                         </div>
                     </div>
                     <div className="space-y-4">
-                        <Textarea label={t('patients_modal_action_pre_op_notes')} placeholder="Clinical indication, allergies, blood availability..." rows={8} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
+                        <Textarea label={t('patients_modal_action_pre_op_notes')} placeholder={t('patients_modal_action_pre_op_notes_placeholder')} rows={8} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
                         <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                            <p className="text-xs font-black uppercase text-slate-400 mb-3 tracking-widest flex items-center gap-2"><Briefcase size={14}/> Estimate Base</p>
+                            <p className="text-xs font-black uppercase text-slate-400 mb-3 tracking-widest flex items-center gap-2"><Briefcase size={14} /> {t('patients_modal_action_estimate_base')}</p>
                             <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-slate-600">Base Surgical Fee</span>
+                                <span className="text-sm font-medium text-slate-600">{t('patients_modal_action_base_surgical_fee')}</span>
                                 <span className="text-2xl font-black text-slate-900 dark:text-white">${formatMoney(operations.find(o => o.name_en === actionFormData.subtype)?.baseCost || 0)}</span>
                             </div>
                         </div>
@@ -922,7 +922,7 @@ export const Patients = () => {
             <div className="pt-6 mt-6 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-800 z-20">
                 <div className="flex items-center gap-3">
                     <div className="p-3 bg-primary-50 dark:bg-primary-900/30 rounded-full text-primary-600">
-                        <Info size={20}/>
+                        <Info size={20} />
                     </div>
                     <div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">{t('patients_table_header_patient')}</p>
@@ -1078,7 +1078,7 @@ export const Patients = () => {
                                         </div>
                                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                                             <Badge color={lab.status === 'completed' ? 'green' : 'yellow'} className="text-[10px]">{lab.status}</Badge>
-                                            {isExpanded ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>}
+                                            {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                                         </div>
                                     </div>
                                     {isExpanded && (
