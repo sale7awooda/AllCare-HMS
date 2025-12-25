@@ -134,6 +134,7 @@ export interface Bill {
   billNumber: string;
   patientId: number;
   patientName: string;
+  patientPhone?: string; // Added field
   totalAmount: number;
   paidAmount: number;
   status: 'pending' | 'partial' | 'paid' | 'overdue' | 'refunded';

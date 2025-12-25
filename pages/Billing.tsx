@@ -7,7 +7,7 @@ import {
   Wallet, FileText, CheckCircle, Trash2,
   ChevronLeft, ChevronRight, Search, Filter,
   Landmark, ArrowUpRight, ArrowDownRight, Coins, X, Edit, TrendingUp,
-  Banknote, ShieldCheck, RotateCcw, Ban
+  Banknote, ShieldCheck, RotateCcw, Ban, Loader2, Phone, XCircle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Bill, Patient, PaymentMethod, TaxRate, Transaction, InsuranceProvider } from '../types';
@@ -29,21 +29,42 @@ export const Billing = () => {
   const [insuranceProviders, setInsuranceProviders] = useState<InsuranceProvider[]>([]);
   
   const [loading, setLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [processMessage, setProcessMessage] = useState('');
+  
   const { user: currentUser } = useAuth();
 
   const canManageBilling = hasPermission(currentUser, Permissions.MANAGE_BILLING);
 
+  // Memoized Header Tabs
+  const HeaderTabs = useMemo(() => (
+    <div className="flex items-center gap-3">
+      <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+          <button 
+              onClick={() => setActiveTab('invoices')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'invoices' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+          >
+              <FileText size={14} />
+              <span className="hidden sm:inline">{t('billing_tab_invoices')}</span>
+          </button>
+          <button 
+              onClick={() => setActiveTab('treasury')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'treasury' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+          >
+              <Landmark size={14} />
+              <span className="hidden sm:inline">{t('billing_tab_treasury')}</span>
+          </button>
+      </div>
+      {activeTab === 'invoices' ? (
+        canManageBilling && <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('billing_create_invoice_button')}</Button>
+      ) : (
+        <Button onClick={() => openExpenseModal()} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button>
+      )}
+    </div>
+  ), [activeTab, t, canManageBilling]);
+
   // Sync Header
-  useHeader(
-    t('billing_title'),
-    t('billing_subtitle'),
-    activeTab === 'invoices' ? (
-      canManageBilling && <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('billing_create_invoice_button')}</Button>
-    ) : (
-      <Button onClick={() => openExpenseModal()} icon={Plus} variant="secondary">{t('billing_record_expense_button')}</Button>
-    )
-  );
+  useHeader(t('billing_title'), t('billing_subtitle'), HeaderTabs);
 
   // Pagination & Filtering State
   const [currentPage, setCurrentPage] = useState(1);
@@ -199,8 +220,6 @@ export const Billing = () => {
       setCatalogItems(catalog);
 
       // Pending Collection Calculation: 
-      // Only include bills that are 'pending' or 'partial'.
-      // Do NOT include 'refunded' or 'cancelled'.
       const pendingBills = billsArr.filter(b => b.status === 'pending' || b.status === 'partial');
       const pendingTotal = pendingBills.reduce((acc, curr) => acc + (curr.totalAmount - curr.paidAmount), 0);
 
@@ -294,7 +313,8 @@ export const Billing = () => {
       .map(i => ({ description: i.description, amount: parseFloat(i.amount) }));
 
     if (formattedItems.length > 0) {
-      setIsProcessing(true);
+      setProcessStatus('processing');
+      setProcessMessage(t('processing'));
       let total = formattedItems.reduce((sum, i) => sum + i.amount, 0);
       if (createForm.selectedTaxId) {
           const tax = taxRates.find(t => t.id === parseInt(createForm.selectedTaxId));
@@ -312,11 +332,20 @@ export const Billing = () => {
           totalAmount: total, 
           items: formattedItems 
         });
-        setIsCreateModalOpen(false);
-        setCreateForm({ patientId: '', patientName: '', items: [{ description: '', amount: '' }], selectedTaxId: '' });
-        setPatientSearch('');
-        loadData();
-      } catch(e) { console.error(e); } finally { setIsProcessing(false); }
+        setProcessStatus('success');
+        setProcessMessage(t('success'));
+        await loadData();
+        setTimeout(() => {
+            setIsCreateModalOpen(false);
+            setCreateForm({ patientId: '', patientName: '', items: [{ description: '', amount: '' }], selectedTaxId: '' });
+            setPatientSearch('');
+            setProcessStatus('idle');
+        }, 1000);
+      } catch(e: any) { 
+          console.error(e); 
+          setProcessStatus('error');
+          setProcessMessage(e.response?.data?.error || t('error'));
+      }
     }
   };
 
@@ -352,7 +381,8 @@ export const Billing = () => {
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!payingBill) return;
-    setIsProcessing(true);
+    setProcessStatus('processing');
+    setProcessMessage(t('processing'));
     const payload: any = { amount: parseFloat(paymentForm.amount), method: paymentForm.method, date: paymentForm.date, details: { notes: paymentForm.notes } };
     if (paymentForm.method.toLowerCase() === 'insurance') {
         payload.details = { ...payload.details, provider: paymentForm.insuranceProvider, policyNumber: paymentForm.policyNumber, expiryDate: paymentForm.expiryDate };
@@ -362,13 +392,17 @@ export const Billing = () => {
 
     try {
       await api.recordPayment(payingBill.id, payload);
-      setIsPaymentModalOpen(false);
-      setPayingBill(null);
-      loadData();
+      setProcessStatus('success');
+      setProcessMessage(t('success'));
+      await loadData();
+      setTimeout(() => {
+          setIsPaymentModalOpen(false);
+          setPayingBill(null);
+          setProcessStatus('idle');
+      }, 1000);
     } catch (err: any) { 
-        alert(err.response?.data?.error || t('billing_payment_failed')); 
-    } finally { 
-        setIsProcessing(false); 
+        setProcessStatus('error');
+        setProcessMessage(err.response?.data?.error || t('billing_payment_failed'));
     }
   };
 
@@ -386,7 +420,8 @@ export const Billing = () => {
   const handleRefundSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!payingBill) return;
-    setIsProcessing(true);
+    setProcessStatus('processing');
+    setProcessMessage(t('processing'));
     try {
       await api.processRefund(payingBill.id, {
         amount: parseFloat(refundForm.amount),
@@ -394,13 +429,17 @@ export const Billing = () => {
         date: refundForm.date,
         method: refundForm.method
       });
-      setIsRefundModalOpen(false);
-      setPayingBill(null);
-      loadData();
+      setProcessStatus('success');
+      setProcessMessage(t('success'));
+      await loadData();
+      setTimeout(() => {
+          setIsRefundModalOpen(false);
+          setPayingBill(null);
+          setProcessStatus('idle');
+      }, 1000);
     } catch (err: any) {
-      alert(err.response?.data?.error || t('billing_refund_failed'));
-    } finally {
-      setIsProcessing(false);
+      setProcessStatus('error');
+      setProcessMessage(err.response?.data?.error || t('billing_refund_failed'));
     }
   };
 
@@ -410,14 +449,17 @@ export const Billing = () => {
       title: t('billing_action_cancel_process'),
       message: "Are you sure you want to cancel the service associated with this invoice? This action is required before a refund can be processed.",
       action: async () => {
-        setIsProcessing(true);
+        setProcessStatus('processing');
+        setProcessMessage(t('processing'));
         try {
           await api.cancelService(bill.id);
-          loadData();
+          setProcessStatus('success');
+          setProcessMessage(t('success'));
+          await loadData();
+          setTimeout(() => setProcessStatus('idle'), 1000);
         } catch (e: any) {
-          alert(e.response?.data?.error || t('billing_cancel_service_failed'));
-        } finally {
-          setIsProcessing(false);
+          setProcessStatus('error');
+          setProcessMessage(e.response?.data?.error || t('billing_cancel_service_failed'));
         }
       }
     });
@@ -425,7 +467,8 @@ export const Billing = () => {
 
   const handleExpenseSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      setIsProcessing(true);
+      setProcessStatus('processing');
+      setProcessMessage(t('processing'));
       try {
           const payload = { ...expenseForm, amount: parseFloat(expenseForm.amount) };
           if (editingExpenseId) {
@@ -433,13 +476,17 @@ export const Billing = () => {
           } else {
             await api.addExpense(payload);
           }
-          setIsExpenseModalOpen(false);
-          setEditingExpenseId(null);
-          loadData();
+          setProcessStatus('success');
+          setProcessMessage(t('success'));
+          await loadData();
+          setTimeout(() => {
+              setIsExpenseModalOpen(false);
+              setEditingExpenseId(null);
+              setProcessStatus('idle');
+          }, 1000);
       } catch(err: any) { 
-          alert(err.response?.data?.error || (editingExpenseId ? "Failed to update expense." : t('billing_expense_failed'))); 
-      } finally { 
-          setIsProcessing(false); 
+          setProcessStatus('error');
+          setProcessMessage(err.response?.data?.error || (editingExpenseId ? "Failed to update expense." : t('billing_expense_failed')));
       }
   };
 
@@ -471,7 +518,11 @@ export const Billing = () => {
 
   const filteredBills = useMemo(() => {
     return bills.filter(bill => {
-      const matchesSearch = bill.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase());
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = bill.patientName.toLowerCase().includes(searchLower) || 
+                            bill.billNumber.toLowerCase().includes(searchLower) ||
+                            (bill.patientPhone && bill.patientPhone.includes(searchLower));
+      
       const matchesType = filterType === 'all' || getBillType(bill) === filterType;
       return matchesSearch && matchesType;
     });
@@ -495,7 +546,8 @@ export const Billing = () => {
     if (!patientSearch) return [];
     return patients.filter(p => 
       p.fullName.toLowerCase().includes(patientSearch.toLowerCase()) || 
-      p.patientId.toLowerCase().includes(patientSearch.toLowerCase())
+      p.patientId.toLowerCase().includes(patientSearch.toLowerCase()) ||
+      p.phone.includes(patientSearch)
     ).slice(0, 5);
   }, [patients, patientSearch]);
 
@@ -538,6 +590,7 @@ export const Billing = () => {
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">{t('billing_invoice_billed_to')}</p>
                     <p className="font-bold text-lg text-slate-900">{bill.patientName}</p>
                     <p className="text-slate-500 text-sm mt-1">{t('patients_table_header_patient')} ID: <span className="font-mono">#{bill.patientId}</span></p>
+                    {bill.patientPhone && <p className="text-slate-500 text-sm flex items-center gap-1 mt-1"><Phone size={12}/> {bill.patientPhone}</p>}
                 </div>
                 <div className="text-right">
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">{t('billing_invoice_date')}</p>
@@ -576,181 +629,191 @@ export const Billing = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 w-fit mb-6 overflow-x-auto">
-          {[
-              { id: 'invoices', label: t('billing_tab_invoices'), icon: FileText },
-              { id: 'treasury', label: t('billing_tab_treasury'), icon: Landmark },
-          ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-              >
-                  <tab.icon size={18} /> {tab.label}
-              </button>
-          ))}
-      </div>
-
-      {activeTab === 'invoices' && (
-        <div className="animate-in fade-in space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="hover:shadow-lg transition-all"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_revenue')}</h4><p className="text-3xl font-black text-emerald-600 mt-2">${stats.totalRevenue.toLocaleString()}</p></Card>
-                <Card className="hover:shadow-lg transition-all border-l-4 border-l-orange-400"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_pending')}</h4><p className="text-3xl font-black text-orange-500 mt-2">${stats.pendingAmount.toLocaleString()}</p></Card>
-                <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary-400"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_paid')}</h4><div className="flex items-baseline gap-2 mt-2"><p className="text-3xl font-black text-slate-800 dark:text-white">{stats.paidInvoices}</p><span className="text-sm font-bold text-slate-400">/ {stats.totalPendingInvoices} Pending</span></div></Card>
-            </div>
+      
+      {/* STATUS DIALOG (Loading, Success, Error) */}
+      {processStatus !== 'idle' && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
+            {processStatus === 'processing' && <Loader2 className="w-12 h-12 text-primary-600 animate-spin mb-4" />}
+            {processStatus === 'success' && <CheckCircle className="w-12 h-12 text-green-600 mb-4" />}
+            {processStatus === 'error' && <XCircle className="w-12 h-12 text-red-600 mb-4" />}
             
-            <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                  <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                    <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" /><input type="text" placeholder={t('billing_search_placeholder')} className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}/></div>
-                    <div className="relative w-full sm:w-auto"><Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" /><select className="pl-9 pr-8 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm appearance-none cursor-pointer text-slate-900 dark:text-white" value={filterType} onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}><option value="all">{t('patients_filter_type_all')}</option><option value="Appointment">{t('nav_appointments')}</option><option value="Lab Test">{t('nav_laboratory')}</option><option value="Admission">{t('nav_admissions')}</option><option value="Operation">{t('nav_operations')}</option><option value="Procedure">{t('billing_type_procedure')}</option><option value="General">{t('billing_type_general')}</option></select></div>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                    <thead className="bg-slate-50 dark:bg-slate-900">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_info')}</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('patients_table_header_patient')}</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_status')}</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_paid_progress')}</th>
-                        <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th>
-                        <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                      {loading ? <tr><td colSpan={6} className="text-center py-10 text-slate-400">{t('billing_table_loading')}</td></tr> : 
-                       paginatedBills.length === 0 ? <tr><td colSpan={6} className="text-center py-10 text-slate-400">{t('billing_table_empty')}</td></tr> : 
-                       paginatedBills.map(bill => {
-                        const paidPercent = bill.totalAmount > 0 ? (bill.paidAmount / bill.totalAmount) * 100 : 0;
-                        const isCancelled = bill.status === 'cancelled' || bill.serviceStatus === 'cancelled';
-                        const isPaid = (bill.paidAmount || 0) > 0;
-                        const isCompleted = bill.serviceStatus === 'completed';
-                        
-                        // Strict Refund Rules: 
-                        // 1. Must be Paid (at least partially)
-                        // 2. Service MUST be Cancelled (either manually or via other flow)
-                        // 3. Service MUST NOT be Completed
-                        const canRefund = isPaid && isCancelled && !isCompleted;
-                        
-                        // Cancel Service Rule:
-                        // Allows user to cancel service from here if it is NOT yet cancelled and NOT completed.
-                        const canCancelService = !isCancelled && !isCompleted;
-
-                        return (
-                          <tr key={bill.id} className={isCancelled ? 'bg-slate-50/50 dark:bg-slate-900/20' : ''}>
-                            <td className="px-6 py-4 whitespace-nowrap"><div className="font-bold">{bill.billNumber}</div><div className="text-sm text-slate-500">{new Date(bill.date).toLocaleDateString()}</div></td>
-                            <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium">{bill.patientName}</div><div className="text-xs text-slate-500">ID: {bill.patientId}</div></td>
-                            <td className="px-6 py-4 whitespace-nowrap"><div className="flex flex-col gap-1"><Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : isCancelled ? 'red' : 'orange'}>{translateStatus(bill.status)}</Badge><Badge color="gray">{translateBillType(getBillType(bill))}</Badge></div></td>
-                            <td className="px-6 py-4 whitespace-nowrap min-w-[150px]"><div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5"><div className={`h-2.5 rounded-full transition-all duration-500 ${isCancelled ? 'bg-red-400' : 'bg-primary-500'}`} style={{ width: `${paidPercent}%` }}></div></div><p className="text-right text-[10px] mt-1 text-slate-500 font-bold font-mono">${(bill.paidAmount || 0).toLocaleString()} / ${(bill.totalAmount || 0).toLocaleString()}</p></td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right font-mono font-bold">${bill.totalAmount.toLocaleString()}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div className="flex justify-end gap-2">
-                                    <Button size="sm" variant="outline" icon={FileText} onClick={() => setSelectedBill(bill)}>{t('billing_action_view_invoice')}</Button>
-                                    {canManageBilling && (
-                                      <>
-                                        {!isCancelled && (bill.status === 'pending' || bill.status === 'partial') && (
-                                          <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>
-                                        )}
-                                        {canCancelService && (
-                                          <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => handleCancelService(bill)} icon={Ban}>{t('cancel')}</Button>
-                                        )}
-                                        {canRefund && (
-                                          <Button size="sm" variant="secondary" onClick={() => openRefundModal(bill)} icon={RotateCcw}>{t('billing_action_refund')}</Button>
-                                        )}
-                                      </>
-                                    )}
-                                </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                {!loading && (
-                  <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4">
-                    <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
-                      <span>{t('patients_pagination_showing')} {paginatedBills.length} {t('patients_pagination_of')} {filteredBills.length}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs whitespace-nowrap">{t('patients_pagination_rows')}</span>
-                        <select 
-                          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
-                          value={itemsPerPage}
-                          onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
-                        >
-                          <option value={10}>10</option>
-                          <option value={15}>15</option>
-                          <option value={20}>20</option>
-                          <option value={50}>50</option>
-                          <option value={100}>100</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
-                      <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
-                    </div>
-                  </div>
-                )}
-            </Card>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">
+              {processStatus === 'processing' ? t('processing') : processStatus === 'success' ? t('success') : t('patients_process_title_failed')}
+            </h3>
+            
+            {processMessage && <p className="text-slate-500 dark:text-slate-400 mb-6">{processMessage}</p>}
+            
+            {processStatus === 'error' && (
+              <Button variant="secondary" onClick={() => setProcessStatus('idle')} className="w-full">{t('patients_process_close_button')}</Button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* ... Treasury Tab Content ... */}
-      {activeTab === 'treasury' && (
-          <div className="space-y-6 animate-in fade-in">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="border-l-4 border-l-emerald-500 hover:shadow-lg transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl">
-                       <ArrowUpRight size={24}/>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <p className="text-slate-500 font-medium">{t('loading')}</p>
+        </div>
+      ) : (
+        <>
+          {activeTab === 'invoices' && (
+            <div className="animate-in fade-in space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Card className="hover:shadow-lg transition-all"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_revenue')}</h4><p className="text-3xl font-black text-emerald-600 mt-2">${stats.totalRevenue.toLocaleString()}</p></Card>
+                    <Card className="hover:shadow-lg transition-all border-l-4 border-l-orange-400"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_pending')}</h4><p className="text-3xl font-black text-orange-500 mt-2">${stats.pendingAmount.toLocaleString()}</p></Card>
+                    <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary-400"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_paid')}</h4><div className="flex items-baseline gap-2 mt-2"><p className="text-3xl font-black text-slate-800 dark:text-white">{stats.paidInvoices}</p><span className="text-sm font-bold text-slate-400">/ {stats.totalPendingInvoices} Pending</span></div></Card>
+                </div>
+                
+                <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                      <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                        <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" /><input type="text" placeholder={t('billing_search_placeholder')} className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}/></div>
+                        <div className="relative w-full sm:w-auto"><Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" /><select className="pl-9 pr-8 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm appearance-none cursor-pointer text-slate-900 dark:text-white" value={filterType} onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}><option value="all">{t('patients_filter_type_all')}</option><option value="Appointment">{t('nav_appointments')}</option><option value="Lab Test">{t('nav_laboratory')}</option><option value="Admission">{t('nav_admissions')}</option><option value="Operation">{t('nav_operations')}</option><option value="Procedure">{t('billing_type_procedure')}</option><option value="General">{t('billing_type_general')}</option></select></div>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_treasury_income')}</h4>
-                      <p className="text-3xl font-black text-emerald-600 mt-1">${treasuryStats.income.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </Card>
-                <Card className="border-l-4 border-l-rose-500 hover:shadow-lg transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-2xl">
-                       <ArrowDownRight size={24}/>
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_treasury_expenses')}</h4>
-                      <p className="text-3xl font-black text-rose-600 mt-1">${treasuryStats.expenses.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </Card>
-                <Card className={`border-l-4 ${treasuryStats.net >= 0 ? 'border-l-primary-500' : 'border-l-rose-600'} hover:shadow-lg transition-all bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900`}>
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-2xl ${treasuryStats.net >= 0 ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600' : 'bg-rose-100 text-rose-700'}`}>
-                       <TrendingUp size={24}/>
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_treasury_net')}</h4>
-                      <p className={`text-3xl font-black mt-1 ${treasuryStats.net >= 0 ? 'text-primary-600' : 'text-rose-600'}`}>${treasuryStats.net.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
 
-              <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                  <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
-                      <div className="flex items-center gap-2 flex-1"><Landmark size={18} className="text-slate-500"/> <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3></div>
-                      <div className="flex gap-2 items-center"><select className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white" value={treasuryFilter} onChange={(e) => setTreasuryFilter(e.target.value)}><option value="all">{t('patients_filter_type_all')}</option><option value="income">{t('billing_treasury_type_income')}</option><option value="expense">{t('billing_treasury_type_expense')}</option></select></div>
-                  </div>
-                  <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300 font-mono">{new Date(tx.date).toLocaleDateString()}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-bold dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300 font-bold">{tx.method}</td><td className={`px-6 py-3 text-sm font-black text-right font-mono ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td><td className="px-6 py-3 text-right">{tx.type === 'expense' && canManageBilling && (<Button size="sm" variant="ghost" icon={Edit} onClick={() => openExpenseModal(tx)} />)}</td></tr>))}</tbody></table></div>
-                  <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 dark:bg-slate-900">
-                    <div className="flex gap-2">
-                      <button onClick={() => setTreasuryPage(p => Math.max(1, p - 1))} disabled={treasuryPage === 1} className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 transition-all border border-slate-200 dark:border-slate-700"><ChevronLeft size={16}/></button>
-                      <button onClick={() => setTreasuryPage(p => Math.min(totalTreasuryPages, p + 1))} disabled={treasuryPage === totalTreasuryPages} className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 transition-all border border-slate-200 dark:border-slate-700"><ChevronRight size={16}/></button>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                        <thead className="bg-slate-50 dark:bg-slate-900">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_info')}</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('patients_table_header_patient')}</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_status')}</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_paid_progress')}</th>
+                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th>
+                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_actions')}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                          {paginatedBills.length === 0 ? <tr><td colSpan={6} className="text-center py-10 text-slate-400">{t('billing_table_empty')}</td></tr> : 
+                           paginatedBills.map(bill => {
+                            const paidPercent = bill.totalAmount > 0 ? (bill.paidAmount / bill.totalAmount) * 100 : 0;
+                            const isCancelled = bill.status === 'cancelled' || bill.serviceStatus === 'cancelled';
+                            const isPaid = (bill.paidAmount || 0) > 0;
+                            const isCompleted = bill.serviceStatus === 'completed';
+                            
+                            const canRefund = isPaid && isCancelled && !isCompleted;
+                            const canCancelService = !isCancelled && !isCompleted;
+
+                            return (
+                              <tr key={bill.id} className={isCancelled ? 'bg-slate-50/50 dark:bg-slate-900/20' : ''}>
+                                <td className="px-4 py-4 whitespace-nowrap"><div className="font-bold text-sm">{bill.billNumber}</div><div className="text-xs text-slate-500">{new Date(bill.date).toLocaleDateString()}</div></td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                    <div className="text-sm font-medium">{bill.patientName}</div>
+                                    <div className="text-xs text-slate-500 flex items-center gap-1">
+                                      {bill.patientPhone ? <><Phone size={10}/> {bill.patientPhone}</> : `ID: ${bill.patientId}`}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap"><div className="flex flex-col gap-1"><Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : isCancelled ? 'red' : 'orange'}>{translateStatus(bill.status)}</Badge><Badge color="gray">{translateBillType(getBillType(bill))}</Badge></div></td>
+                                <td className="px-4 py-4 whitespace-nowrap min-w-[120px]"><div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2"><div className={`h-2 rounded-full transition-all duration-500 ${isCancelled ? 'bg-red-400' : 'bg-primary-500'}`} style={{ width: `${paidPercent}%` }}></div></div><p className="text-right text-[10px] mt-1 text-slate-500 font-bold font-mono">${(bill.paidAmount || 0).toLocaleString()} / ${(bill.totalAmount || 0).toLocaleString()}</p></td>
+                                <td className="px-4 py-4 whitespace-nowrap text-right font-mono font-bold text-sm">${bill.totalAmount.toLocaleString()}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <div className="flex justify-end gap-2">
+                                        <Button size="sm" variant="outline" icon={FileText} onClick={() => setSelectedBill(bill)}>{t('billing_action_view_invoice')}</Button>
+                                        {canManageBilling && (
+                                          <>
+                                            {!isCancelled && (bill.status === 'pending' || bill.status === 'partial') && (
+                                              <Button size="sm" onClick={() => openPaymentModal(bill)}>{t('billing_action_pay')}</Button>
+                                            )}
+                                            {canCancelService && (
+                                              <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => handleCancelService(bill)} icon={Ban}>{t('cancel')}</Button>
+                                            )}
+                                            {canRefund && (
+                                              <Button size="sm" variant="secondary" onClick={() => openRefundModal(bill)} icon={RotateCcw}>{t('billing_action_refund')}</Button>
+                                            )}
+                                          </>
+                                        )}
+                                    </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
+                    <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
+                          <span>{t('patients_pagination_showing')} {paginatedBills.length} {t('patients_pagination_of')} {filteredBills.length}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs whitespace-nowrap">{t('patients_pagination_rows')}</span>
+                            <select 
+                              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                              value={itemsPerPage}
+                              onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                            >
+                              <option value={10}>10</option>
+                              <option value={15}>15</option>
+                              <option value={20}>20</option>
+                              <option value={50}>50</option>
+                              <option value={100}>100</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
+                          <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
+                        </div>
+                      </div>
+                </Card>
+            </div>
+          )}
+
+          {activeTab === 'treasury' && (
+              <div className="space-y-6 animate-in fade-in">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Card className="border-l-4 border-l-emerald-500 hover:shadow-lg transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl">
+                           <ArrowUpRight size={24}/>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_treasury_income')}</h4>
+                          <p className="text-3xl font-black text-emerald-600 mt-1">${treasuryStats.income.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </Card>
+                    <Card className="border-l-4 border-l-rose-500 hover:shadow-lg transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-2xl">
+                           <ArrowDownRight size={24}/>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_treasury_expenses')}</h4>
+                          <p className="text-3xl font-black text-rose-600 mt-1">${treasuryStats.expenses.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </Card>
+                    <Card className={`border-l-4 ${treasuryStats.net >= 0 ? 'border-l-primary-500' : 'border-l-rose-600'} hover:shadow-lg transition-all bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-2xl ${treasuryStats.net >= 0 ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600' : 'bg-rose-100 text-rose-700'}`}>
+                           <TrendingUp size={24}/>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_treasury_net')}</h4>
+                          <p className={`text-3xl font-black mt-1 ${treasuryStats.net >= 0 ? 'text-primary-600' : 'text-rose-600'}`}>${treasuryStats.net.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </Card>
                   </div>
-              </Card>
-          </div>
+
+                  <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                      <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
+                          <div className="flex items-center gap-2 flex-1"><Landmark size={18} className="text-slate-500"/> <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3></div>
+                          <div className="flex gap-2 items-center"><select className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white" value={treasuryFilter} onChange={(e) => setTreasuryFilter(e.target.value)}><option value="all">{t('patients_filter_type_all')}</option><option value="income">{t('billing_treasury_type_income')}</option><option value="expense">{t('billing_treasury_type_expense')}</option></select></div>
+                      </div>
+                      <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300 font-mono">{new Date(tx.date).toLocaleDateString()}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-bold dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300 font-bold">{tx.method}</td><td className={`px-6 py-3 text-sm font-black text-right font-mono ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td><td className="px-6 py-3 text-right">{tx.type === 'expense' && canManageBilling && (<Button size="sm" variant="ghost" icon={Edit} onClick={() => openExpenseModal(tx)} />)}</td></tr>))}</tbody></table></div>
+                      <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 dark:bg-slate-900">
+                        <div className="flex gap-2">
+                          <button onClick={() => setTreasuryPage(p => Math.max(1, p - 1))} disabled={treasuryPage === 1} className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 transition-all border border-slate-200 dark:border-slate-700"><ChevronLeft size={16}/></button>
+                          <button onClick={() => setTreasuryPage(p => Math.min(totalTreasuryPages, p + 1))} disabled={treasuryPage === totalTreasuryPages} className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 transition-all border border-slate-200 dark:border-slate-700"><ChevronRight size={16}/></button>
+                        </div>
+                      </div>
+                  </Card>
+              </div>
+          )}
+        </>
       )}
 
       {/* --- MODALS --- */}
@@ -821,7 +884,7 @@ export const Billing = () => {
               <span className="text-3xl font-bold text-primary-600">${(() => { const subtotal = createForm.items.reduce((sum, i) => sum + (parseFloat(i.amount) || 0), 0); const taxRate = taxRates.find(t => t.id === parseInt(createForm.selectedTaxId)); const tax = taxRate ? (subtotal * taxRate.rate) / 100 : 0; return (subtotal + tax).toFixed(2); })()}</span>
             </div>
           </div>
-          <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3"><Button type="button" variant="secondary" onClick={() => setIsCreateModalOpen(false)}>{t('cancel')}</Button><Button type="submit" disabled={isProcessing || !createForm.patientId}>{isProcessing ? t('processing') : t('billing_modal_create_generate_button')}</Button></div>
+          <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3"><Button type="button" variant="secondary" onClick={() => setIsCreateModalOpen(false)}>{t('cancel')}</Button><Button type="submit" disabled={processStatus === 'processing' || !createForm.patientId}>{processStatus === 'processing' ? t('processing') : t('billing_modal_create_generate_button')}</Button></div>
         </form>
       </Modal>
 
@@ -840,7 +903,7 @@ export const Billing = () => {
                 {paymentForm.method.toLowerCase() === 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><div className="md:col-span-2"><Select label={t('patients_modal_form_insurance_provider')} value={paymentForm.insuranceProvider} onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})} required className="text-slate-900 dark:text-white"><option value="">{t('patients_modal_form_insurance_provider_select')}</option>{insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}</Select></div><Input label={t('patients_modal_form_insurance_policy')} value={paymentForm.policyNumber} onChange={e => setPaymentForm({...paymentForm, policyNumber: e.target.value})} required /><Input label={t('patients_modal_form_insurance_expiry')} type="date" value={paymentForm.expiryDate} onChange={e => setPaymentForm({...paymentForm, expiryDate: e.target.value})} required /></div>)}
                 {paymentForm.method.toLowerCase() !== 'cash' && paymentForm.method.toLowerCase() !== 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><Input label={t('billing_modal_payment_ref')} value={paymentForm.transactionId} onChange={e => setPaymentForm({...paymentForm, transactionId: e.target.value})} required /><Input label={t('date')} type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required /></div>)}
             </div>
-            <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3"><Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)}>{t('cancel')}</Button><Button type="submit" icon={isProcessing ? undefined : CheckCircle} disabled={isProcessing}>{isProcessing ? t('processing') : t('billing_modal_payment_confirm_button')}</Button></div>
+            <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3"><Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)}>{t('cancel')}</Button><Button type="submit" icon={processStatus === 'processing' ? undefined : CheckCircle} disabled={processStatus === 'processing'}>{processStatus === 'processing' ? t('processing') : t('billing_modal_payment_confirm_button')}</Button></div>
           </form>
         )}
       </Modal>
@@ -868,7 +931,7 @@ export const Billing = () => {
             </Select>
             <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3">
                <Button type="button" variant="secondary" onClick={() => setIsRefundModalOpen(false)}>{t('cancel')}</Button>
-               <Button type="submit" variant="danger" icon={RotateCcw} disabled={isProcessing}>{isProcessing ? t('processing') : t('billing_modal_refund_confirm')}</Button>
+               <Button type="submit" variant="danger" icon={RotateCcw} disabled={processStatus === 'processing'}>{processStatus === 'processing' ? t('processing') : t('billing_modal_refund_confirm')}</Button>
             </div>
           </form>
         )}
@@ -897,7 +960,7 @@ export const Billing = () => {
           <Textarea label={t('billing_modal_expense_description')} rows={3} required value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} />
           <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700">
             <Button type="button" variant="secondary" onClick={() => setIsExpenseModalOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit" disabled={isProcessing}>{isProcessing ? t('processing') : (editingExpenseId ? t('save') : t('billing_modal_expense_save'))}</Button>
+            <Button type="submit" disabled={processStatus === 'processing'}>{processStatus === 'processing' ? t('processing') : (editingExpenseId ? t('save') : t('billing_modal_expense_save'))}</Button>
           </div>
         </form>
       </Modal>

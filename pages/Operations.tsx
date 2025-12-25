@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Badge, Modal, Input, Select, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Activity, CheckCircle, Clock, User, Syringe, Plus, Trash2, 
   Calculator, Save, ChevronRight, AlertTriangle, Stethoscope, 
-  Package, Zap, Calendar, DollarSign, ChevronDown, ChevronUp, FileText, Briefcase, Search, History, Filter
+  Package, Zap, Calendar, DollarSign, ChevronDown, ChevronUp, FileText, Briefcase, Search, History, Filter, Info, X
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
@@ -22,18 +22,48 @@ export const Operations = () => {
   const [ops, setOps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [staff, setStaff] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'requests' | 'schedule' | 'history'>('requests');
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Memoized Header Tabs
+  const HeaderTabs = useMemo(() => (
+    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+        <button 
+            onClick={() => setActiveTab('active')} 
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'active' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+        >
+            <Activity size={14}/> {t('Active Operations')} 
+            <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'active' ? 'bg-primary-100 text-primary-700' : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300'}`}>
+              {ops.filter(o => o.status !== 'completed' && o.status !== 'cancelled').length}
+            </span>
+        </button>
+        <button 
+            onClick={() => setActiveTab('history')} 
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+        >
+            <History size={14}/> {t('operations_tab_history')}
+        </button>
+    </div>
+  ), [activeTab, ops, t]);
+
   // Sync Header
-  useHeader(t('operations_title'), t('operations_subtitle'));
+  useHeader(t('operations_title'), t('operations_subtitle'), HeaderTabs);
 
   const [isEstimateModalOpen, setIsEstimateModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedOp, setSelectedOp] = useState<any>(null);
-  const [expandedSection, setExpandedSection] = useState<string>('team');
+  const [viewingOp, setViewingOp] = useState<any>(null);
   const [confirmState, setConfirmState] = useState<{isOpen: boolean, title: string, message: string, action: () => void}>({ isOpen: false, title: '', message: '', action: () => {} });
   
-  const [costForm, setCostForm] = useState({ surgeonFee: 0, theaterFee: 0, participants: [] as any[], consumables: [] as any[], equipment: [] as any[], others: [] as any[] });
+  const [costForm, setCostForm] = useState({ 
+    surgeonFee: 0, 
+    theaterFee: 0, 
+    participants: [] as any[], 
+    consumables: [] as any[], 
+    equipment: [] as any[], 
+    others: [] as any[],
+    notes: '' 
+  });
   const [processStatus, setProcessStatus] = useState('idle');
 
   const loadData = async () => {
@@ -52,9 +82,22 @@ export const Operations = () => {
         const doctor = staff.find(s => s.id === op.doctor_id);
         if (doctor) initialSurgeonFee = doctor.consultationFee * 5;
     }
-    setCostForm({ surgeonFee: initialSurgeonFee, theaterFee: initialSurgeonFee, participants: [], consumables: [], equipment: [], others: [] });
+    setCostForm({ 
+        surgeonFee: initialSurgeonFee, 
+        theaterFee: initialSurgeonFee, 
+        participants: [], 
+        consumables: [], 
+        equipment: [], 
+        others: [], 
+        notes: '' 
+    });
     setSelectedOp(op);
     setIsEstimateModalOpen(true);
+  };
+
+  const openDetailModal = (op: any) => {
+    setViewingOp(op);
+    setIsDetailModalOpen(true);
   };
 
   const handleSurgeonFeeChange = (val: string) => {
@@ -77,6 +120,28 @@ export const Operations = () => {
     });
   };
 
+  const addItem = (section: 'consumables' | 'equipment' | 'others') => {
+    setCostForm(prev => ({
+      ...prev,
+      [section]: [...prev[section], { id: Date.now(), name: '', cost: 0 }]
+    }));
+  };
+
+  const updateItem = (section: 'consumables' | 'equipment' | 'others', index: number, field: string, value: any) => {
+    setCostForm(prev => {
+      const list = [...prev[section]];
+      list[index] = { ...list[index], [field]: field === 'cost' ? (parseFloat(value) || 0) : value };
+      return { ...prev, [section]: list };
+    });
+  };
+
+  const removeItem = (section: 'consumables' | 'equipment' | 'others', index: number) => {
+    setCostForm(prev => ({
+      ...prev,
+      [section]: prev[section].filter((_, i) => i !== index)
+    }));
+  };
+
   const calculateTotal = () => {
     const partSum = costForm.participants.reduce((sum, p) => sum + p.fee, 0);
     const conSum = costForm.consumables.reduce((sum, i) => sum + i.cost, 0);
@@ -97,18 +162,380 @@ export const Operations = () => {
 
   const filteredOps = ops.filter(op => { const search = searchTerm.toLowerCase(); return op.patientName.toLowerCase().includes(search) || op.operation_name.toLowerCase().includes(search); });
 
+  const requestsAndEstimates = filteredOps.filter(o => o.status === 'requested' || o.status === 'pending_payment');
+  const scheduledOps = filteredOps.filter(o => o.status === 'confirmed');
+  const historyOps = filteredOps.filter(o => o.status === 'completed' || o.status === 'cancelled');
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-          <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" /><input type="text" placeholder={t('operations_search_placeholder')} className="pl-9 pr-4 py-2 w-full sm:w-64 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all shadow-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/></div>
-          <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg shrink-0 overflow-x-auto"><button onClick={() => setActiveTab('requests')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'requests' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><FileText size={16}/> {t('operations_tab_requests')} <span className="bg-primary-100 text-primary-700 text-xs px-2 py-0.5 rounded-full ml-1">{filteredOps.filter(o => o.status === 'requested').length}</span></button><button onClick={() => setActiveTab('schedule')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'schedule' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><Calendar size={16}/> {t('operations_tab_schedule')}</button><button onClick={() => setActiveTab('history')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'history' ? 'bg-white dark:bg-slate-800 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><History size={16}/> {t('operations_tab_history')}</button></div>
+          <div className="relative w-full sm:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <input 
+              type="text" 
+              placeholder={t('operations_search_placeholder')} 
+              className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all shadow-sm" 
+              value={searchTerm} 
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
       </div>
 
-      {activeTab === 'requests' && (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredOps.filter(o => o.status === 'requested' || o.status === 'pending_payment').map(op => (<Card key={op.id} className="relative group border-l-4 border-l-yellow-400"><div className="flex justify-between items-start mb-3"><Badge color={op.status === 'pending_payment' ? 'blue' : 'yellow'}>{op.status === 'pending_payment' ? t('operations_card_awaiting_payment') : t('operations_card_needs_estimation')}</Badge><span className="text-xs text-slate-400">{new Date(op.created_at).toLocaleDateString()}</span></div><h3 className="font-bold text-lg mb-1">{op.operation_name}</h3><p className="text-sm text-slate-500 mb-4">{op.patientName} • Dr. {op.doctorName}</p>{op.status === 'pending_payment' ? (<div className="bg-slate-50 p-3 rounded-lg flex justify-between items-center"><span className="text-sm font-medium">Est. Cost</span><span className="font-bold text-lg">${op.projected_cost.toLocaleString()}</span></div>) : (<Button className="w-full" onClick={() => openEstimateModal(op)} icon={Calculator}>{t('operations_card_process_button')}</Button>)}</Card>))}</div>)}
-      {activeTab === 'schedule' && (<Card className="!p-0 overflow-hidden"><table className="min-w-full divide-y"><thead className="bg-slate-50"><tr><th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase">{t('status')}</th><th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase">{t('date')}</th><th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase">{t('operations_schedule_header_procedure')}</th><th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase">{t('actions')}</th></tr></thead><tbody className="bg-white divide-y">{filteredOps.filter(o => o.status === 'confirmed').map(op => (<tr key={op.id} className="hover:bg-slate-50"><td className="px-6 py-4"><Badge color="green">Confirmed</Badge></td><td className="px-6 py-4 text-sm text-gray-500">{new Date(op.created_at).toLocaleDateString()}</td><td className="px-6 py-4"><div className="font-bold">{op.operation_name}</div><div className="text-xs text-slate-400">{op.patientName}</div></td><td className="px-6 py-4 text-right"><Button size="sm" variant="outline" onClick={() => handleCompleteOp(op.id)}>Complete</Button></td></tr>))}</tbody></table></Card>)}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <p className="text-slate-500 font-medium">{t('loading')}</p>
+        </div>
+      ) : (
+        <>
+          {activeTab === 'active' && (
+            <div className="space-y-8 animate-in fade-in">
+                {/* Requests Grid */}
+                <div>
+                    <h3 className="text-sm font-black uppercase text-slate-400 tracking-widest mb-4 flex items-center gap-2"><FileText size={16}/> Requests & Estimates</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {requestsAndEstimates.length === 0 ? (
+                            <div className="col-span-full py-8 text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                                <p className="text-slate-400">{t('operations_requests_empty')}</p>
+                            </div>
+                        ) : (
+                            requestsAndEstimates.map(op => (
+                                <Card key={op.id} className="relative group border-l-4 border-l-yellow-400">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <Badge color={op.status === 'pending_payment' ? 'blue' : 'yellow'}>
+                                            {op.status === 'pending_payment' ? t('operations_card_awaiting_payment') : t('operations_card_needs_estimation')}
+                                        </Badge>
+                                        <span className="text-xs text-slate-400">{new Date(op.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                    <h3 className="font-bold text-lg mb-1">{op.operation_name}</h3>
+                                    <p className="text-sm text-slate-500 mb-4">{op.patientName} • Dr. {op.doctorName}</p>
+                                    {op.status === 'pending_payment' ? (
+                                        <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg flex justify-between items-center">
+                                            <span className="text-sm font-medium">Est. Cost</span>
+                                            <span className="font-bold text-lg">${op.projected_cost.toLocaleString()}</span>
+                                        </div>
+                                    ) : (
+                                        <Button className="w-full" onClick={() => openEstimateModal(op)} icon={Calculator}>{t('operations_card_process_button')}</Button>
+                                    )}
+                                </Card>
+                            ))
+                        )}
+                    </div>
+                </div>
 
+                {/* Confirmed Schedule Table */}
+                <div>
+                    <h3 className="text-sm font-black uppercase text-slate-400 tracking-widest mb-4 flex items-center gap-2"><Calendar size={16}/> Confirmed Schedule</h3>
+                    <Card className="!p-0 overflow-hidden">
+                        <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
+                            <thead className="bg-slate-50 dark:bg-slate-900/50">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('status')}</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('date')}</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('operations_schedule_header_procedure')}</th>
+                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('actions')}</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+                                {scheduledOps.length === 0 ? (
+                                    <tr><td colSpan={4} className="text-center py-10 text-slate-400">{t('operations_schedule_empty')}</td></tr>
+                                ) : (
+                                    scheduledOps.map(op => (
+                                        <tr key={op.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                            <td className="px-6 py-4"><Badge color="green">Confirmed</Badge></td>
+                                            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{new Date(op.created_at).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-800 dark:text-white">{op.operation_name}</div>
+                                                <div className="text-xs text-slate-400">{op.patientName} • Dr. {op.doctorName}</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <Button size="sm" variant="outline" onClick={() => handleCompleteOp(op.id)}>Complete</Button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </Card>
+                </div>
+            </div>
+          )}
+
+          {activeTab === 'history' && (
+            <Card className="!p-0 overflow-hidden animate-in fade-in">
+                <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
+                    <thead className="bg-slate-50 dark:bg-slate-900/50">
+                        <tr>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('status')}</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('operations_history_header_date')}</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('operations_schedule_header_procedure')}</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('operations_history_header_cost')}</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider"></th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+                        {historyOps.length === 0 ? (
+                            <tr><td colSpan={5} className="text-center py-10 text-slate-400">{t('operations_history_empty')}</td></tr>
+                        ) : (
+                            historyOps.map(op => (
+                                <tr key={op.id} onClick={() => openDetailModal(op)} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer group">
+                                    <td className="px-6 py-4"><Badge color={op.status === 'completed' ? 'gray' : 'red'}>{op.status === 'completed' ? 'Completed' : 'Cancelled'}</Badge></td>
+                                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{new Date(op.created_at).toLocaleDateString()}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-bold text-slate-800 dark:text-white group-hover:text-primary-600 transition-colors">{op.operation_name}</div>
+                                        <div className="text-xs text-slate-400">{op.patientName} • Dr. {op.doctorName}</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-mono font-bold text-primary-600">${op.projected_cost.toLocaleString()}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <ChevronRight size={16} className="text-slate-300 group-hover:text-primary-500 transition-colors inline-block" />
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* ESTIMATION MODAL (WRITE) */}
       <Modal isOpen={isEstimateModalOpen} onClose={() => setIsEstimateModalOpen(false)} title={t('operations_modal_title')}>
-        <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-2 custom-scrollbar"><div className="bg-slate-900 text-white p-4 rounded-xl shadow-lg flex justify-between items-center sticky top-0 z-10"><div><h4 className="font-bold text-lg">{selectedOp?.operation_name}</h4><p className="text-xs text-slate-400">Dr. {selectedOp?.doctorName}</p></div><div className="text-right"><span className="block text-xs uppercase text-slate-400 font-bold">{t('ops_total_estimate')}</span><span className="text-2xl font-bold text-green-400">${calculateTotal().toLocaleString()}</span></div></div><div className="space-y-4"><Input label={t('operations_modal_surgeon_fee')} type="number" value={costForm.surgeonFee} onChange={e => handleSurgeonFeeChange(e.target.value)} /><Input label={t('operations_modal_theater_fee')} type="number" value={costForm.theaterFee} onChange={e => setCostForm({...costForm, theaterFee: parseFloat(e.target.value) || 0})} /><div className="space-y-3 pt-2"><div className="flex justify-between items-center"><h5 className="text-sm font-bold uppercase">{t('operations_modal_additional_staff')}</h5><Button size="sm" variant="secondary" onClick={addParticipant} icon={Plus} /></div>{costForm.participants.map((p, idx) => (<div key={p.id} className="flex gap-2 items-center bg-slate-50 p-2 rounded-lg border"><select className="w-1/3 rounded-md border-slate-300 text-xs py-1.5" value={p.role} onChange={e => updateParticipant(idx, 'role', e.target.value)}>{Object.keys(FEE_RATIOS).map(r => <option key={r} value={r}>{r}</option>)}</select><select className="flex-1 rounded-md border-slate-300 text-xs py-1.5" value={p.staffId} onChange={e => updateParticipant(idx, 'staffId', e.target.value)}><option value="">Select Staff...</option>{staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}</select><input type="number" className="w-20 rounded-md border-slate-300 text-xs py-1.5 px-2 font-bold" value={p.fee} onChange={e => updateParticipant(idx, 'fee', e.target.value)} /><button onClick={() => setCostForm(prev => ({...prev, participants: prev.participants.filter((_,i)=>i!==idx)}))} className="text-slate-400 hover:text-red-500"><Trash2 size={14}/></button></div>))}</div></div><div className="pt-4 border-t flex justify-end gap-3 sticky bottom-0 bg-white py-2"><Button variant="secondary" onClick={() => setIsEstimateModalOpen(false)}>{t('cancel')}</Button><Button onClick={handleProcessSubmit} disabled={processStatus === 'processing'} icon={Save}>{processStatus === 'processing' ? t('processing') : t('operations_modal_invoice_button')}</Button></div></div>
+        <div className="flex flex-col h-[80vh]">
+            {/* Sticky Header Summary */}
+            <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center shrink-0 mb-4 mx-1">
+                <div>
+                    <h4 className="font-black text-xl tracking-tight">{selectedOp?.operation_name}</h4>
+                    <p className="text-xs text-slate-400 font-medium mt-1 flex items-center gap-1">
+                        <Stethoscope size={12} /> Dr. {selectedOp?.doctorName}
+                    </p>
+                </div>
+                <div className="text-right">
+                    <span className="block text-[10px] uppercase text-slate-400 font-bold tracking-widest">{t('ops_total_estimate')}</span>
+                    <span className="text-3xl font-black text-emerald-400 tracking-tighter">${calculateTotal().toLocaleString()}</span>
+                </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6 pb-4">
+                
+                {/* Section 1: Base Fees */}
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <h5 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <DollarSign size={14} className="text-primary-600"/> Base Costs
+                    </h5>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input label={t('operations_modal_surgeon_fee')} type="number" value={costForm.surgeonFee} onChange={e => handleSurgeonFeeChange(e.target.value)} className="font-mono font-bold" />
+                        <Input label={t('operations_modal_theater_fee')} type="number" value={costForm.theaterFee} onChange={e => setCostForm({...costForm, theaterFee: parseFloat(e.target.value) || 0})} className="font-mono font-bold" />
+                    </div>
+                </div>
+                
+                {/* Section 2: Clinical Team */}
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <h5 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <User size={16} className="text-blue-500"/> {t('operations_modal_additional_staff')}
+                        </h5>
+                        <Button size="sm" variant="ghost" onClick={addParticipant} icon={Plus} className="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">Add</Button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                        {costForm.participants.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">No additional staff assigned.</p>}
+                        {costForm.participants.map((p, idx) => (
+                            <div key={p.id} className="grid grid-cols-12 gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-blue-200 transition-colors">
+                                <div className="col-span-3">
+                                    <select className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-2 font-medium focus:ring-2 focus:ring-blue-500/20 outline-none" value={p.role} onChange={e => updateParticipant(idx, 'role', e.target.value)}>
+                                        {Object.keys(FEE_RATIOS).map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                <div className="col-span-5">
+                                    <select className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-2 focus:ring-2 focus:ring-blue-500/20 outline-none" value={p.staffId} onChange={e => updateParticipant(idx, 'staffId', e.target.value)}>
+                                        <option value="">Select Staff...</option>
+                                        {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                                    </select>
+                                </div>
+                                <div className="col-span-3">
+                                    <div className="relative">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                                        <input type="number" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-blue-500/20 outline-none" value={p.fee} onChange={e => updateParticipant(idx, 'fee', e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="col-span-1 text-center">
+                                    <button onClick={() => setCostForm(prev => ({...prev, participants: prev.participants.filter((_,i)=>i!==idx)}))} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                        <Trash2 size={14}/>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Section 3: Consumables */}
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <h5 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <Package size={16} className="text-orange-500"/> {t('operations_modal_section_supplies')}
+                        </h5>
+                        <Button size="sm" variant="ghost" onClick={() => addItem('consumables')} icon={Plus} className="text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20">Add</Button>
+                    </div>
+                    <div className="space-y-2">
+                        {costForm.consumables.map((item, idx) => (
+                            <div key={item.id} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-orange-200 transition-colors">
+                                <input placeholder="Item Name / Drug" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-orange-500/20 outline-none" value={item.name} onChange={e => updateItem('consumables', idx, 'name', e.target.value)} />
+                                <div className="relative w-24">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                                    <input type="number" placeholder="0.00" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-orange-500/20 outline-none" value={item.cost} onChange={e => updateItem('consumables', idx, 'cost', e.target.value)} />
+                                </div>
+                                <button onClick={() => removeItem('consumables', idx)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={14}/></button>
+                            </div>
+                        ))}
+                        {costForm.consumables.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">{t('operations_modal_no_items')}</p>}
+                    </div>
+                </div>
+
+                {/* Section 4: Equipment */}
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <h5 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <Zap size={16} className="text-yellow-500"/> {t('operations_modal_section_equipment')}
+                        </h5>
+                        <Button size="sm" variant="ghost" onClick={() => addItem('equipment')} icon={Plus} className="text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20">Add</Button>
+                    </div>
+                    <div className="space-y-2">
+                        {costForm.equipment.map((item, idx) => (
+                            <div key={item.id} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-yellow-200 transition-colors">
+                                <input placeholder="Equipment Name" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-yellow-500/20 outline-none" value={item.name} onChange={e => updateItem('equipment', idx, 'name', e.target.value)} />
+                                <div className="relative w-24">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                                    <input type="number" placeholder="0.00" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-yellow-500/20 outline-none" value={item.cost} onChange={e => updateItem('equipment', idx, 'cost', e.target.value)} />
+                                </div>
+                                <button onClick={() => removeItem('equipment', idx)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={14}/></button>
+                            </div>
+                        ))}
+                        {costForm.equipment.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">{t('operations_modal_no_equipment')}</p>}
+                    </div>
+                </div>
+
+                {/* Section 5: Other Fees */}
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <h5 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <Briefcase size={16} className="text-violet-500"/> {t('operations_modal_section_misc')}
+                        </h5>
+                        <Button size="sm" variant="ghost" onClick={() => addItem('others')} icon={Plus} className="text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20">Add</Button>
+                    </div>
+                    <div className="space-y-2">
+                        {costForm.others.map((item, idx) => (
+                            <div key={item.id} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-violet-200 transition-colors">
+                                <input placeholder="Description" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-violet-500/20 outline-none" value={item.name} onChange={e => updateItem('others', idx, 'name', e.target.value)} />
+                                <div className="relative w-24">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                                    <input type="number" placeholder="0.00" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-violet-500/20 outline-none" value={item.cost} onChange={e => updateItem('others', idx, 'cost', e.target.value)} />
+                                </div>
+                                <button onClick={() => removeItem('others', idx)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={14}/></button>
+                            </div>
+                        ))}
+                        {costForm.others.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">{t('operations_modal_no_fees')}</p>}
+                    </div>
+                </div>
+
+                {/* Notes */}
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <Textarea label="Operation Notes" placeholder="Clinical notes, specific requirements, or cost breakdown details..." rows={3} value={costForm.notes} onChange={e => setCostForm({...costForm, notes: e.target.value})} className="bg-white dark:bg-slate-900" />
+                </div>
+            </div>
+        </div>
+        <div className="pt-4 border-t dark:border-slate-700 flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-slate-800 py-3 -mb-2 z-10">
+            <Button variant="secondary" onClick={() => setIsEstimateModalOpen(false)}>{t('cancel')}</Button>
+            <Button onClick={handleProcessSubmit} disabled={processStatus === 'processing'} icon={Save}>
+                {processStatus === 'processing' ? t('processing') : t('operations_modal_invoice_button')}
+            </Button>
+        </div>
+      </Modal>
+
+      {/* DETAILS VIEW MODAL (READ-ONLY) */}
+      <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Operation Details">
+        {viewingOp && (
+            <div className="space-y-6">
+                <div className="flex justify-between items-start bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <div>
+                        <h4 className="text-lg font-black text-slate-800 dark:text-white mb-1">{viewingOp.operation_name}</h4>
+                        <p className="text-sm text-slate-500">{viewingOp.patientName}</p>
+                        <div className="flex items-center gap-2 mt-2 text-xs font-bold text-slate-400">
+                            <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(viewingOp.created_at).toLocaleDateString()}</span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1"><Stethoscope size={12}/> Dr. {viewingOp.doctorName}</span>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <Badge color={viewingOp.status === 'completed' ? 'gray' : viewingOp.status === 'cancelled' ? 'red' : 'green'}>{viewingOp.status.toUpperCase()}</Badge>
+                        <p className="font-mono font-black text-2xl text-primary-600 mt-2">${viewingOp.projected_cost.toLocaleString()}</p>
+                    </div>
+                </div>
+
+                {viewingOp.costDetails && (
+                    <div className="space-y-4">
+                        {/* Summary Stats */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-3 border rounded-xl bg-white dark:bg-slate-800">
+                                <p className="text-[10px] font-black uppercase text-slate-400">Surgeon Fee</p>
+                                <p className="font-bold text-slate-800 dark:text-white">${(viewingOp.costDetails.surgeonFee || 0).toLocaleString()}</p>
+                            </div>
+                            <div className="p-3 border rounded-xl bg-white dark:bg-slate-800">
+                                <p className="text-[10px] font-black uppercase text-slate-400">Theater Fee</p>
+                                <p className="font-bold text-slate-800 dark:text-white">${(viewingOp.costDetails.theaterFee || 0).toLocaleString()}</p>
+                            </div>
+                        </div>
+
+                        {/* Team List */}
+                        {viewingOp.costDetails.participants && viewingOp.costDetails.participants.length > 0 && (
+                            <div>
+                                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Clinical Team</h5>
+                                <div className="space-y-2">
+                                    {viewingOp.costDetails.participants.map((p: any, i: number) => (
+                                        <div key={i} className="flex justify-between items-center p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-sm">
+                                            <span><span className="font-bold">{p.name || 'Unknown'}</span> <span className="text-slate-400 text-xs">({p.role})</span></span>
+                                            <span className="font-mono">${p.fee.toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Breakdown of other costs */}
+                        {['consumables', 'equipment', 'others'].map(cat => {
+                            const items = viewingOp.costDetails[cat];
+                            if (!items || items.length === 0) return null;
+                            return (
+                                <div key={cat}>
+                                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1 capitalize">{cat}</h5>
+                                    <div className="space-y-2">
+                                        {items.map((item: any, i: number) => (
+                                            <div key={i} className="flex justify-between items-center p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-sm">
+                                                <span className="text-slate-700 dark:text-slate-300">{item.name}</span>
+                                                <span className="font-mono">${item.cost.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {viewingOp.notes && (
+                    <div>
+                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Notes</h5>
+                        <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 italic">
+                            {viewingOp.notes}
+                        </div>
+                    </div>
+                )}
+
+                <div className="pt-4 flex justify-end">
+                    <Button variant="secondary" onClick={() => setIsDetailModalOpen(false)}>Close</Button>
+                </div>
+            </div>
+        )}
       </Modal>
 
       <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({ ...confirmState, isOpen: false })} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message}/>

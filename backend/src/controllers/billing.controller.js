@@ -6,7 +6,7 @@ exports.getAll = (req, res) => {
     SELECT 
       b.id, b.bill_number as billNumber, b.total_amount as totalAmount, 
       b.paid_amount as paidAmount, b.status, b.bill_date as date,
-      p.full_name as patientName, p.id as patientId,
+      p.full_name as patientName, p.id as patientId, p.phone as patientPhone,
       COALESCE(a.status, l.status, o.status, adm.status) as serviceStatus
     FROM billing b
     JOIN patients p ON b.patient_id = p.id
