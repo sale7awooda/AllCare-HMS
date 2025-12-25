@@ -14,7 +14,7 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-/* Fix: Using React.Component explicitly instead of a named import to ensure proper inheritance of setState and props in all TypeScript environments. */
+/* Fix: Explicitly extending React.Component to ensure setState and props are correctly inherited and recognized by the compiler. */
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   /* Fix: Initializing state directly as a class property with explicit typing to ensure it's correctly recognized as the component state. */
   public state: ErrorBoundaryState = {

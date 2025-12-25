@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, CalendarDays, Receipt, LogOut, X, Activity, Settings, 
   Lock, FlaskConical, Bed, ClipboardList, Wrench, Briefcase, Database, ChevronLeft, ChevronRight, Menu,
-  Bell, Check, Info, AlertTriangle, XCircle, Trash2
+  Bell, Check, Info, AlertTriangle, XCircle, Trash2, Palette
 } from 'lucide-react';
 import { canAccessRoute } from '../utils/rbac';
 import { Tooltip, Badge } from './UI';
@@ -101,7 +101,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         { labelKey: 'nav_reports', path: '/reports', icon: ClipboardList },
         { labelKey: 'nav_records', path: '/records', icon: Database },
         { labelKey: 'nav_configuration', path: '/configuration', icon: Wrench },
-        { labelKey: 'nav_settings', path: '/settings', icon: Settings },
+        { labelKey: 'nav_settings', path: '/settings', icon: Palette },
     ]}
   ];
 
