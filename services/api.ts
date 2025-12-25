@@ -1,9 +1,24 @@
 import axios from 'axios';
 
-// Helper to determine the correct base URL based on the current environment
+/**
+ * PRODUCTION_URL: Your deployed backend URL.
+ * In production (on Railway), the frontend is served by the backend, so relative '/api' works.
+ * In dev/sandbox (like AI Studio), we fallback to this absolute URL.
+ */
+const PRODUCTION_URL = 'https://allcare.up.railway.app';
+
 const getBaseUrl = () => {
-  // Use relative path '/api' to ensure same-origin requests work across all environments.
-  // This is critical for Railway and other proxy-based deployments.
+  const host = window.location.hostname;
+  const isLocal = host === 'localhost' || host === '127.0.0.1';
+  const isSandbox = host.includes('aistudio.google.com') || host.includes('webcontainer.io');
+
+  // If we're in a sandbox or local dev, and not explicitly on the production domain,
+  // we point to the absolute production URL to ensure the API is reachable.
+  if (isSandbox || (isLocal && !window.location.port.includes('8080'))) {
+    return `${PRODUCTION_URL}/api`;
+  }
+  
+  // Standard relative path for production or correctly proxied environments
   return '/api';
 };
 
@@ -13,7 +28,7 @@ const client = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
-  // Increased timeout to 60s to handle backend cold starts on Railway/Render/etc.
+  // High timeout (60s) to handle Railway cold starts
   timeout: 60000, 
 });
 
@@ -34,24 +49,23 @@ client.interceptors.response.use(
     // 1. Handle Rate Limiting (429)
     if (response?.status === 429 && !config._retry) {
       config._retry = true;
-      console.warn('[API] Rate limit hit, retrying in 2s...');
+      console.warn('[API] Rate limit reached. Waiting 2s before retry...');
       await new Promise(resolve => setTimeout(resolve, 2000));
       return client(config);
     }
 
-    // 2. Handle Network Errors / Backend Unreachable
-    // This specifically targets ERR_NETWORK, timeout, and cases where response is undefined
+    // 2. Handle Network Errors / Cold Starts
     const isNetworkError = error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response;
     
-    if (isNetworkError && !config._retryNetwork) {
-        config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
-        const MAX_RETRIES = 5; 
+    if (isNetworkError) {
+        config._retryCount = (config._retryCount || 0) + 1;
+        const MAX_RETRIES = 10; // Increased retries for cold starts
         
-        if (config._retryNetworkCount <= MAX_RETRIES) {
-            const delay = 2500; // Slightly longer delay for retries
+        if (config._retryCount <= MAX_RETRIES) {
+            const delay = 3000; // 3 second delay between retries
             const targetUrl = config.url ? (config.baseURL ? config.baseURL + config.url : config.url) : 'unknown';
             
-            console.log(`[API] Backend unreachable at ${targetUrl}. Attempt ${config._retryNetworkCount}/${MAX_RETRIES}. Retrying in ${delay}ms...`);
+            console.log(`[API] Connection attempt ${config._retryCount}/${MAX_RETRIES} failed at ${targetUrl}. The server might be waking up. Retrying in ${delay}ms...`);
             
             await new Promise(resolve => setTimeout(resolve, delay));
             return client(config);
@@ -60,25 +74,19 @@ client.interceptors.response.use(
 
     // 3. Handle Session Expiry (401)
     if (error.response?.status === 401) {
-      const isLoginRequest = config.url?.includes('/auth/login');
-      const isPublicRequest = config.url?.includes('/config/settings/public');
-      
-      if (!isLoginRequest && !isPublicRequest) {
-        console.warn('[API] Session expired. Clearing token.');
+      const isAuthRequest = config.url?.includes('/auth/login') || config.url?.includes('/auth/me');
+      if (!isAuthRequest) {
+        console.warn('[API] Session expired. Clearing credentials.');
         localStorage.removeItem('token');
         window.dispatchEvent(new Event('auth:expired'));
       }
     } 
     
-    // 4. Enhance Error Message for User
+    // 4. Detailed Error for UI
     if (isNetworkError) {
-        const isBackgroundPolling = config.url?.includes('/notifications') || config.url?.includes('/config/health');
-        if (!isBackgroundPolling) {
-            const enhancedError = new Error('Network Error: The hospital backend is currently unreachable. This may be due to a server restart or network connection issues.');
-            (enhancedError as any).code = 'ERR_NETWORK';
-            (enhancedError as any).isNetworkError = true;
-            return Promise.reject(enhancedError);
-        }
+        const enhancedError = new Error('Network Connectivity Error: The hospital management backend is unreachable. This usually happens during a server restart or "cold start" on hosting platforms. Please wait 30 seconds and try again.');
+        (enhancedError as any).isNetworkError = true;
+        return Promise.reject(enhancedError);
     }
 
     return Promise.reject(error);

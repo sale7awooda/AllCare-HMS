@@ -12,87 +12,85 @@ const apiRoutes = require('./src/routes/api');
 
 const app = express();
 
-// Port Selection Strategy:
-const isProduction = process.env.NODE_ENV === 'production';
-const PORT = process.env.PORT || 8080; // Railway and Render prefer 'PORT'
+// Port Selection Strategy for Cloud Providers (Railway, Render, Heroku)
+const PORT = process.env.PORT || 8080; 
 
 app.set('trust proxy', 1);
 
 // Initialize DB
 try {
   initDB();
-  console.log('Database initialized successfully.');
+  console.log('[Init] Database loaded and verified.');
 } catch (error) {
-  console.error('Failed to init DB:', error);
+  console.error('[Error] Critical Database Initialization Failure:', error);
 }
 
-// Middleware
+// Global Middleware
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      // Added data: and specific CDNs for flexibility
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://esm.sh"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-      connectSrc: ["'self'", "https://esm.sh", "*"], // Allow all connections for dev/proxy flexibility
+      connectSrc: ["'self'", "https://esm.sh", "*"],
       imgSrc: ["'self'", "data:", "https:", "http:"],
-      frameAncestors: ["'self'", "*"], // Allow being iframed in Google AI Studio
+      frameAncestors: ["'self'", "*"], 
       objectSrc: ["'none'"],
-      upgradeInsecureRequests: null, // Allow HTTP mixed content if necessary during transitions
     },
   },
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginEmbedderPolicy: false
 }));
 
-// Permissive CORS for Railway and AI Studio
+// Permissive CORS for demo/preview environments
 app.use(cors({
-    origin: '*', // Allow all for maximum compatibility in this demo environment
+    origin: '*', 
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 
-app.use(morgan('dev'));
+app.use(morgan('combined')); // Detailed logging for debugging Railway hits
 app.use(express.json());
 
-// Rate Limiting - Relaxed for Hospital System
+// Request Debugger (Helpful for diagnosing "Backend Unreachable" in AI Studio)
+app.use((req, res, next) => {
+    console.log(`[Request] ${req.method} ${req.originalUrl} from ${req.ip}`);
+    next();
+});
+
+// Rate Limiting
 const apiLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, 
   max: 10000, 
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' }
 });
 app.use('/api', apiLimiter);
 
-// Debug Middleware to log API hits
-app.use('/api', (req, res, next) => {
-  console.log(`[API Hit] ${req.method} ${req.url}`);
-  next();
-});
-
-// Routes
+// API Routes
 app.use('/api', apiRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', db: db && db.open ? 'connected' : 'disconnected' });
+  res.json({ 
+    status: 'online', 
+    timestamp: new Date().toISOString(),
+    database: db && db.open ? 'connected' : 'disconnected' 
+  });
 });
 
-// Serve Static Files
+// Static Assets
 const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
 
-// Catch-all route for SPA
+// catch-all for SPA
 app.get('*', (req, res) => {
   if (req.accepts('html')) {
     const indexPath = path.join(publicPath, 'index.html');
     res.sendFile(indexPath, (err) => {
-        if (err) {
-            if (!res.headersSent) {
-                res.status(404).json({ error: 'Frontend not found', details: 'Ensure build assets are copied to backend/public' });
-            }
+        if (err && !res.headersSent) {
+            res.status(404).send('Frontend application assets not found. Please run build script.');
         }
     });
   } else {
@@ -102,41 +100,33 @@ app.get('*', (req, res) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled Error:', err.stack);
+  console.error('[Fatal] Internal Server Error:', err);
   if (res.headersSent) return next(err);
-  res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  res.status(500).json({ error: 'Internal Server Error', details: err.message });
 });
 
-// Start Server
+// Bind to 0.0.0.0 for external accessibility in containers
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Backend Server running on port ${PORT}`);
-  console.log(`Serving static files from: ${publicPath}`);
+  console.log(`[Server] AllCare HMS Backend running on port ${PORT}`);
+  console.log(`[Server] Accessible at http://0.0.0.0:${PORT}`);
 });
 
 // Graceful Shutdown
 const shutdown = () => {
-  console.log('Received kill signal, shutting down gracefully');
+  console.log('[Shutdown] Terminating server process...');
   server.close(() => {
-    console.log('Closed remaining connections');
+    console.log('[Shutdown] HTTP connections closed.');
     try {
         if (db && db.open) {
             db.close();
-            console.log('Database connection closed.');
+            console.log('[Shutdown] Database connection finalized.');
         }
     } catch (e) {
-        console.error('Error closing database:', e);
+        console.error('[Error] Shutdown cleanup failed:', e);
     }
     process.exit(0);
   });
-
-  setTimeout(() => {
-    console.error('Forcefully shutting down');
-    process.exit(1);
-  }, 10000);
 };
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-});

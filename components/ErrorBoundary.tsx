@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -15,15 +15,13 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-/* Fix: Explicitly using React.Component and initializing state in a constructor to ensure proper inheritance of setState and props across different TypeScript environments. */
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null
-    };
-  }
+/* Fix: Using named Component import to ensure proper type inheritance from React's base component class. */
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  /* Fix: Initializing state directly as a class property to ensure it's correctly typed and recognized by the TypeScript compiler. */
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
 
   /**
    * Static method to update state when an error occurs during rendering.
@@ -43,12 +41,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    /* Fix: setState is correctly inherited from React.Component. */
+    /* Fix: setState is now correctly recognized as an inherited method from Component. */
     this.setState({ hasError: false, error: null });
   }
 
   public render(): ReactNode {
-    /* Fix: state is correctly inherited from React.Component. */
+    /* Fix: state property is now correctly recognized via inheritance. */
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -61,7 +59,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               The application encountered an unexpected error.
             </p>
             
-            {/* Fix: Accessing error property from the correctly typed state. */}
+            {/* Fix: safely accessing error property from the now-recognized state object. */}
             {this.state.error && (
                 <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded-lg text-left text-xs font-mono text-red-600 dark:text-red-400 overflow-auto max-h-32 mb-6">
                     {this.state.error.toString()}
@@ -80,7 +78,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    /* Fix: children is correctly accessed from the inherited props object. */
+    /* Fix: props property is now correctly recognized via inheritance. */
     return this.props.children;
   }
 }
