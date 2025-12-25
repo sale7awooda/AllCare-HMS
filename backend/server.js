@@ -12,8 +12,8 @@ const apiRoutes = require('./src/routes/api');
 
 const app = express();
 
-// Port Selection Strategy for Cloud Providers (Railway, Render, Heroku)
-const PORT = process.env.PORT || 8080; 
+// Sync default port with Vite proxy (3001). Railway/Cloud providers will still provide process.env.PORT.
+const PORT = process.env.PORT || 3001; 
 
 app.set('trust proxy', 1);
 
@@ -43,30 +43,20 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Permissive CORS for demo/preview environments
+// Permissive CORS for cross-domain frontend access (AI Studio -> Railway)
 app.use(cors({
-    origin: '*', 
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl) 
+        // or any origin for this specific production/demo hybrid use case
+        callback(null, true);
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: true
 }));
 
-app.use(morgan('combined')); // Detailed logging for debugging Railway hits
+app.use(morgan('dev')); 
 app.use(express.json());
-
-// Request Debugger (Helpful for diagnosing "Backend Unreachable" in AI Studio)
-app.use((req, res, next) => {
-    console.log(`[Request] ${req.method} ${req.originalUrl} from ${req.ip}`);
-    next();
-});
-
-// Rate Limiting
-const apiLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, 
-  max: 10000, 
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api', apiLimiter);
 
 // API Routes
 app.use('/api', apiRoutes);
@@ -105,25 +95,19 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error', details: err.message });
 });
 
-// Bind to 0.0.0.0 for external accessibility in containers
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Server] AllCare HMS Backend running on port ${PORT}`);
-  console.log(`[Server] Accessible at http://0.0.0.0:${PORT}`);
 });
 
 // Graceful Shutdown
 const shutdown = () => {
   console.log('[Shutdown] Terminating server process...');
   server.close(() => {
-    console.log('[Shutdown] HTTP connections closed.');
     try {
         if (db && db.open) {
             db.close();
-            console.log('[Shutdown] Database connection finalized.');
         }
-    } catch (e) {
-        console.error('[Error] Shutdown cleanup failed:', e);
-    }
+    } catch (e) {}
     process.exit(0);
   });
 };
