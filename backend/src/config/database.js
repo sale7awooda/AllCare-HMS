@@ -269,6 +269,91 @@ const seedData = () => {
     const stmt = db.prepare('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, 1)');
     pms.forEach(p => stmt.run(p.en, p.ar));
   }
+
+  // --- COMPREHENSIVE LAB TESTS SEEDING ---
+  const labTestCount = db.prepare('SELECT count(*) as count FROM lab_tests').get().count;
+  if (labTestCount === 0) {
+    const tests = [
+      // HEMATOLOGY
+      { 
+        en: 'Complete Blood Count (CBC)', ar: 'عد دم كامل', cat_en: 'Hematology', cat_ar: 'علم الدم', cost: 45, 
+        range: 'WBC: 4.0 - 11.0; RBC: 4.5 - 5.5; HGB: 12.0 - 16.0; HCT: 36.0 - 46.0; PLT: 150 - 450' 
+      },
+      { 
+        en: 'ESR', ar: 'سرعة الترسيب', cat_en: 'Hematology', cat_ar: 'علم الدم', cost: 15, 
+        range: 'Result: 0 - 20' 
+      },
+      { 
+        en: 'Blood Group & Rh', ar: 'فصيلة الدم', cat_en: 'Hematology', cat_ar: 'علم الدم', cost: 10, 
+        range: 'Result: A/B/O/AB; Rh: Positive/Negative' 
+      },
+      
+      // BIOCHEMISTRY
+      { 
+        en: 'Blood Sugar (Fasting)', ar: 'سكر الدم صائم', cat_en: 'Biochemistry', cat_ar: 'الكيمياء الحيوية', cost: 20, 
+        range: 'Glucose: 70 - 100' 
+      },
+      { 
+        en: 'HbA1c', ar: 'السكر التراكمي', cat_en: 'Biochemistry', cat_ar: 'الكيمياء الحيوية', cost: 40, 
+        range: 'Result: 4.0 - 5.6' 
+      },
+      { 
+        en: 'Liver Function Test (LFT)', ar: 'وظائف كبد', cat_en: 'Biochemistry', cat_ar: 'الكيمياء الحيوية', cost: 65, 
+        range: 'ALT: 7 - 56; AST: 10 - 40; ALP: 44 - 147; Bilirubin Total: 0.1 - 1.2; Albumin: 3.4 - 5.4' 
+      },
+      { 
+        en: 'Renal Function Test (RFT)', ar: 'وظائف كلى', cat_en: 'Biochemistry', cat_ar: 'الكيمياء الحيوية', cost: 55, 
+        range: 'Urea: 7 - 20; Creatinine: 0.6 - 1.2; Uric Acid: 3.5 - 7.2' 
+      },
+      { 
+        en: 'Lipid Profile', ar: 'دهون الدم', cat_en: 'Biochemistry', cat_ar: 'الكيمياء الحيوية', cost: 60, 
+        range: 'Cholesterol: 125 - 200; Triglycerides: 0 - 150; HDL: 40 - 60; LDL: 0 - 100' 
+      },
+      
+      // HORMONES
+      { 
+        en: 'Thyroid Function (T3, T4, TSH)', ar: 'وظائف الغدة الدرقية', cat_en: 'Immunology', cat_ar: 'المناعة', cost: 90, 
+        range: 'TSH: 0.4 - 4.0; Free T4: 0.8 - 1.8; Free T3: 2.3 - 4.2' 
+      },
+      { 
+        en: 'Vitamin D', ar: 'فيتامين د', cat_en: 'Immunology', cat_ar: 'المناعة', cost: 120, 
+        range: 'Result: 30 - 100' 
+      },
+      
+      // SEROLOGY & INFECTIOUS
+      { 
+        en: 'Hepatitis B (HBsAg)', ar: 'التهاب الكبد ب', cat_en: 'Serology', cat_ar: 'الأمصال', cost: 35, 
+        range: 'Result: Non-reactive' 
+      },
+      { 
+        en: 'Hepatitis C (HCV Ab)', ar: 'التهاب الكبد ج', cat_en: 'Serology', cat_ar: 'الأمصال', cost: 35, 
+        range: 'Result: Non-reactive' 
+      },
+      { 
+        en: 'HIV I & II', ar: 'فيروس نقص المناعة', cat_en: 'Serology', cat_ar: 'الأمصال', cost: 45, 
+        range: 'Result: Non-reactive' 
+      },
+      { 
+        en: 'Widal Test (Typhoid)', ar: 'فحص التيفوئيد', cat_en: 'Serology', cat_ar: 'الأمصال', cost: 25, 
+        range: 'TO: <1:80; TH: <1:80' 
+      },
+      
+      // URINE & STOOL
+      { 
+        en: 'Urine Analysis (Routine)', ar: 'تحليل بول كامل', cat_en: 'Clinical Pathology', cat_ar: 'الأمراض السريرية', cost: 15, 
+        range: 'pH: 4.5 - 8.0; Specific Gravity: 1.005 - 1.030; Glucose: Negative; Protein: Negative; Nitrite: Negative; Pus Cells: 0 - 5' 
+      },
+      { 
+        en: 'Stool Examination', ar: 'تحليل براز', cat_en: 'Clinical Pathology', cat_ar: 'الأمراض السريرية', cost: 15, 
+        range: 'Color: Brown; Consistency: Formed; Parasites: None; Occult Blood: Negative' 
+      }
+    ];
+
+    const stmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost, normal_range) VALUES (?, ?, ?, ?, ?, ?)');
+    tests.forEach(t => {
+      stmt.run(t.en, t.ar, t.cat_en, t.cat_ar, t.cost, t.range);
+    });
+  }
 };
 
 module.exports = { db, initDB };

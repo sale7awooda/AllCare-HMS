@@ -1,15 +1,13 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-// Added useNavigate import to fix "Cannot find name 'navigate'" error
 import { useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, Modal, Input, Textarea } from '../components/UI';
-import { FlaskConical, CheckCircle, Search, Clock, FileText, User, ChevronRight, Activity, History as HistoryIcon, Save, Calendar, DollarSign, Loader2, XCircle, AlertCircle, Info, ArrowRight } from 'lucide-react';
+import { FlaskConical, CheckCircle, Search, Clock, FileText, Activity, History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
 import { useHeader } from '../context/HeaderContext';
 
 export const Laboratory = () => {
-  // Initialize navigate hook for programmatic navigation to Billing
   const navigate = useNavigate();
   const { t, language } = useTranslation();
   const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
@@ -17,7 +15,6 @@ export const Laboratory = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Header Tabs
   const HeaderTabs = useMemo(() => (
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
         <button 
@@ -40,14 +37,10 @@ export const Laboratory = () => {
 
   useHeader(t('lab_title'), t('lab_subtitle'), HeaderTabs);
 
-  // Modal State
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
   const [selectedReq, setSelectedReq] = useState<any>(null);
-  
-  // Structured results state: { [testId]: { [componentName]: { value, evaluation } } }
   const [resultValues, setResultValues] = useState<any>({});
   const [resultNotes, setResultNotes] = useState('');
-
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
 
@@ -63,10 +56,10 @@ export const Laboratory = () => {
   useEffect(() => { loadData(); }, []);
 
   const getEvaluation = (value: string, range: string) => {
-    if (!value || !range) return '-';
+    if (!value || !range) return 'Observed';
     const val = parseFloat(value);
     
-    // Check for numeric range (e.g. "70 - 110", "4.5-5.5")
+    // Numeric range check
     const numericRangeMatch = range.match(/(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)/);
     if (numericRangeMatch && !isNaN(val)) {
       const low = parseFloat(numericRangeMatch[1]);
@@ -76,7 +69,7 @@ export const Laboratory = () => {
       return 'Normal';
     }
 
-    // Check for qualitative range (e.g. "Negative", "Non-reactive")
+    // Qualitative check
     const lowerVal = value.toLowerCase();
     const lowerRange = range.toLowerCase();
     if (lowerRange.includes('neg') || lowerRange.includes('non')) {
@@ -91,20 +84,16 @@ export const Laboratory = () => {
     setSelectedReq(req);
     setResultNotes(req.notes || '');
     
-    // Initialize results from existing data or create empty skeleton
     const initialResults: any = {};
     req.testDetails.forEach((test: any) => {
         let components: any[] = [];
-        // Support for sub-elements if normal_range is JSON-like or contains semicolons
-        if (test.normal_range?.startsWith('{')) {
-            try { components = JSON.parse(test.normal_range); } catch(e) { components = [{ name: 'Result', range: test.normal_range }]; }
-        } else if (test.normal_range?.includes(';')) {
+        if (test.normal_range?.includes(';')) {
             components = test.normal_range.split(';').map((s: string) => {
                 const parts = s.split(':');
-                return { name: parts[0]?.trim() || 'Component', range: parts[1]?.trim() || '' };
+                return { name: parts[0]?.trim() || 'Result', range: parts[1]?.trim() || '' };
             });
         } else {
-            components = [{ name: 'Result', range: test.normal_range }];
+            components = [{ name: 'Result', range: test.normal_range || '' }];
         }
 
         initialResults[test.id] = components.map(c => {
@@ -138,7 +127,6 @@ export const Laboratory = () => {
     e.preventDefault();
     if (!selectedReq) return;
     setProcessStatus('processing');
-    setProcessMessage('Saving structured lab results...');
     try {
       await api.completeLabRequest(selectedReq.id, {
           results_json: resultValues,
@@ -161,7 +149,6 @@ export const Laboratory = () => {
 
   return (
     <div className="space-y-6">
-      
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
@@ -172,7 +159,6 @@ export const Laboratory = () => {
         </div>
       )}
 
-      {/* Search Bar */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
         <input 
@@ -197,74 +183,59 @@ export const Laboratory = () => {
             </div>
         ) : (
             filteredRequests.map(req => (
-                <div key={req.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col group h-full">
-                    
+                <div key={req.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col group h-full">
                     <div className="flex justify-between items-start mb-3">
                         <div className="min-w-0 flex-1">
-                            <h3 className="text-sm font-black text-slate-800 dark:text-white truncate leading-tight" title={req.patientName}>{req.patientName}</h3>
+                            <h3 className="text-sm font-black text-slate-800 dark:text-white truncate leading-tight">{req.patientName}</h3>
                             <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1">
                                 <Calendar size={10} />
                                 <span>{new Date(req.created_at).toLocaleDateString()}</span>
                             </div>
                         </div>
-                        
                         <div className="flex flex-col items-end gap-1.5 ml-2">
-                            <span className="text-xs font-black text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 shadow-sm">
-                                <span className="text-[10px] text-slate-400 mr-0.5">$</span>
-                                {req.projected_cost.toLocaleString()}
-                            </span>
-                            {/* Payment/Request Status moved under the cost */}
-                            {req.status === 'completed' ? 
-                                <Badge color="green" className="text-[8px] px-1.5 py-0 uppercase font-black tracking-tighter">Completed</Badge> : 
-                                req.status === 'confirmed' ? 
-                                <Badge color="blue" className="text-[8px] px-1.5 py-0 uppercase font-black tracking-tighter">Paid / Ready</Badge> : 
-                                <Badge color="yellow" className="text-[8px] px-1.5 py-0 uppercase font-black tracking-tighter">Unpaid</Badge>
-                            }
+                            <Badge color={req.status === 'completed' ? 'green' : req.status === 'confirmed' ? 'blue' : 'yellow'} className="text-[8px] px-1.5 py-0 uppercase font-black">
+                                {req.status === 'confirmed' ? 'Paid / Ready' : req.status}
+                            </Badge>
                         </div>
                     </div>
-
                     <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 mb-3 flex-1">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><FlaskConical size={10}/> Tests</p>
                         <div className="flex flex-wrap gap-1">
-                            {(req.testNames || 'Panel').split(',').map((test: string, idx: number) => (
-                                <span key={idx} className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-bold text-slate-600 dark:text-slate-300 shadow-sm leading-tight">
+                            {(req.testNames || 'Tests').split(',').map((test: string, idx: number) => (
+                                <span key={idx} className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-bold text-slate-600 dark:text-slate-300 shadow-sm leading-tight truncate">
                                     {test.trim()}
                                 </span>
                             ))}
                         </div>
                     </div>
-
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
-                        <div className="w-full">
-                            {req.status === 'confirmed' && (
-                                <Button size="sm" onClick={() => openProcessModal(req)} icon={Activity} className="w-full justify-center text-xs py-2 shadow-sm">
-                                    {t('lab_card_enter_results')}
-                                </Button>
-                            )}
-                            {req.status === 'pending' && (
-                                <button onClick={() => navigate('/billing')} className="w-full px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-black uppercase rounded-lg border border-amber-200 transition-colors flex items-center justify-center gap-2">
-                                    <Clock size={12}/> {t('lab_card_awaiting_payment')}
-                                </button>
-                            )}
-                            {req.status === 'completed' && (
-                                <Button size="sm" variant="secondary" icon={FileText} onClick={() => openProcessModal(req)} className="w-full justify-center text-xs py-2">
-                                    {t('lab_view_results')}
-                                </Button>
-                            )}
-                        </div>
+                    <div className="pt-2">
+                        {req.status === 'confirmed' && (
+                            <Button size="sm" onClick={() => openProcessModal(req)} icon={Activity} className="w-full justify-center text-xs py-2 shadow-sm">
+                                {t('lab_card_enter_results')}
+                            </Button>
+                        )}
+                        {req.status === 'pending' && (
+                            <button onClick={() => navigate('/billing')} className="w-full px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-black uppercase rounded-lg border border-amber-200 transition-colors flex items-center justify-center gap-2">
+                                <Clock size={12}/> {t('lab_card_awaiting_payment')}
+                            </button>
+                        )}
+                        {req.status === 'completed' && (
+                            <Button size="sm" variant="secondary" icon={FileText} onClick={() => openProcessModal(req)} className="w-full justify-center text-xs py-2">
+                                {t('lab_view_results')}
+                            </Button>
+                        )}
                     </div>
                 </div>
             ))
         )}
       </div>
 
-      {/* LAB RESULTS MODAL - IMPROVED STRUCTURE */}
+      {/* LAB RESULTS MODAL - STRUCTURED COMPONENTS */}
       <Modal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)} title={`Lab Findings: ${selectedReq?.patientName}`}>
         <form onSubmit={handleComplete} className="space-y-6">
-            <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center shrink-0">
+            <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center">
                 <div>
                     <h4 className="font-black text-lg tracking-tight">Technical Analysis</h4>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Ref ID: #{selectedReq?.id}</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Order Ref: #{selectedReq?.id}</p>
                 </div>
                 <div className="text-right">
                     <span className="block text-[10px] uppercase text-slate-400 font-bold tracking-widest">Entry Date</span>
@@ -275,7 +246,7 @@ export const Laboratory = () => {
             <div className="space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                 {selectedReq?.testDetails?.map((test: any) => (
                     <div key={test.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                        <div className="bg-slate-50 dark:bg-slate-900/50 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                        <div className="bg-slate-50 dark:bg-slate-900/50 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700">
                             <h5 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest flex items-center gap-2">
                                 <FlaskConical size={14} className="text-primary-600" />
                                 {language === 'ar' ? test.name_ar : test.name_en}
@@ -285,10 +256,8 @@ export const Laboratory = () => {
                             {resultValues[test.id]?.map((comp: any, idx: number) => (
                                 <div key={idx} className="grid grid-cols-12 gap-4 items-center group">
                                     <div className="col-span-12 sm:col-span-3">
-                                        <p className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">{comp.name}</p>
-                                        <div className="text-[10px] bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded border dark:border-slate-700 inline-block font-mono text-slate-500">
-                                            Range: {comp.range || 'N/A'}
-                                        </div>
+                                        <p className="text-xs font-bold text-slate-600 dark:text-slate-400 leading-tight">{comp.name}</p>
+                                        <p className="text-[10px] font-mono text-slate-400 mt-1">Ref: {comp.range || 'N/A'}</p>
                                     </div>
                                     <div className="col-span-8 sm:col-span-6">
                                         <Input 
@@ -300,12 +269,11 @@ export const Laboratory = () => {
                                         />
                                     </div>
                                     <div className="col-span-4 sm:col-span-3 text-right">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Evaluation</p>
                                         <Badge color={
                                             comp.evaluation === 'Normal' ? 'green' : 
                                             comp.evaluation === 'Low' ? 'blue' : 
-                                            comp.evaluation === 'High/Positive' || comp.evaluation === 'High' ? 'red' : 'gray'
-                                        } className="font-black text-[10px] w-full justify-center">
+                                            comp.evaluation.includes('High') ? 'red' : 'gray'
+                                        } className="font-black text-[10px] w-full justify-center py-1">
                                             {comp.evaluation}
                                         </Badge>
                                     </div>
@@ -316,14 +284,14 @@ export const Laboratory = () => {
                 ))}
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Final Impression / Internal Notes</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Technician Remarks</label>
                     <Textarea 
-                        placeholder="Add summarizing comments or notes for the clinical team..." 
+                        placeholder="Add summarizing observations or critical flags for the clinical team..." 
                         rows={3} 
                         value={resultNotes} 
                         onChange={e => setResultNotes(e.target.value)} 
                         disabled={selectedReq?.status === 'completed'}
-                        className="rounded-2xl"
+                        className="rounded-xl"
                     />
                 </div>
             </div>
@@ -332,7 +300,7 @@ export const Laboratory = () => {
                 <Button type="button" variant="secondary" onClick={() => setIsProcessModalOpen(false)}>{t('close')}</Button>
                 {selectedReq?.status !== 'completed' && (
                     <Button type="submit" icon={Save} disabled={processStatus === 'processing'}>
-                        {processStatus === 'processing' ? t('processing') : 'Finalize & Authorize'}
+                        {processStatus === 'processing' ? t('processing') : 'Authorize & Sign Off'}
                     </Button>
                 )}
             </div>

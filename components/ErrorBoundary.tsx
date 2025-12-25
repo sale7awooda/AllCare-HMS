@@ -1,9 +1,8 @@
-
-import React from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -14,9 +13,9 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-// Fix: Directly extending React.Component to ensure props and state are correctly identified by the TS compiler
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Initializing state correctly within the class structure
+// Corrected inheritance by using Component directly to resolve type inheritance errors
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Initialize state at the class level
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null
@@ -32,7 +31,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   /**
    * Lifecycle method to log error details.
    */
-  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
@@ -40,12 +39,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
-    // Fix: setState is correctly inherited from React.Component
+    // Accessing setState inherited from Component
     this.setState({ hasError: false, error: null });
   }
 
   public render() {
-    // Fix: state property is correctly identified from the base class
+    // Accessing state inherited from Component
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -58,7 +57,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               The application encountered an unexpected error.
             </p>
             
-            {/* Fix: Accessing error from local state instance */}
             {this.state.error && (
                 <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded-lg text-left text-xs font-mono text-red-600 dark:text-red-400 overflow-auto max-h-32 mb-6">
                     {this.state.error.toString()}
@@ -77,7 +75,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    // Fix: props property is correctly inherited and used for rendering children
+    // Accessing props.children inherited from Component
     return this.props.children;
   }
 }

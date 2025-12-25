@@ -5,7 +5,7 @@ import {
   Wrench, Settings as SettingsIcon, Building, Database, Trash2, Plus, Save, Edit, 
   Bed, Users, Loader2, CheckCircle, XCircle, AlertTriangle, Upload, Download, Server, 
   CreditCard, RotateCcw, Shield, Lock, Activity, RefreshCw, Briefcase, FlaskConical, Stethoscope,
-  Landmark, ShieldCheck, Cpu, HardDrive, Clock, Hash, ChevronRight, ChevronLeft, Info
+  Landmark, ShieldCheck, Cpu, HardDrive, Clock, Hash, ChevronRight, ChevronLeft, Info, X
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Bed as BedType, User, Role, TaxRate, PaymentMethod, InsuranceProvider } from '../types';
@@ -45,7 +45,10 @@ export const Configuration = () => {
   const [taxForm, setTaxForm] = useState({ name_en: '', name_ar: '', rate: '', is_active: true });
   const [paymentForm, setPaymentForm] = useState({ name_en: '', name_ar: '', is_active: true });
   const [bedForm, setBedForm] = useState({ roomNumber: '', type: 'General', costPerDay: '', status: 'available' });
-  const [catalogForm, setCatalogForm] = useState<any>({ name_en: '', name_ar: '', description_en: '', cost: '', base_cost: '', category_en: '', related_role: '', is_active: true });
+  const [catalogForm, setCatalogForm] = useState<any>({ name_en: '', name_ar: '', description_en: '', cost: '', base_cost: '', category_en: '', related_role: '', is_active: true, normal_range: '' });
+  
+  // Lab Components state (for structured range builder)
+  const [labComponents, setLabComponents] = useState<{name: string, range: string}[]>([]);
 
   const tabContainerRef = useRef<HTMLDivElement>(null);
 
@@ -120,14 +123,41 @@ export const Configuration = () => {
         base_cost: item.base_cost || '',
         category_en: item.category_en || '',
         related_role: item.related_role || '',
-        is_active: item.isActive !== false && item.is_active !== 0
+        is_active: item.isActive !== false && item.is_active !== 0,
+        normal_range: item.normal_range || ''
       });
+
+      // Parse structured lab range if it's a lab test
+      if (activeCatalog === 'lab' && item.normal_range) {
+        const components = item.normal_range.split(';').map((s: string) => {
+          const parts = s.split(':');
+          return { name: parts[0]?.trim() || '', range: parts[1]?.trim() || '' };
+        }).filter((c: any) => c.name);
+        setLabComponents(components.length > 0 ? components : [{ name: 'Result', range: '' }]);
+      } else {
+        setLabComponents([{ name: 'Result', range: '' }]);
+      }
     } else {
       setSelectedItem(null);
-      setCatalogForm({ name_en: '', name_ar: '', description_en: '', cost: '', base_cost: '', category_en: '', related_role: '', is_active: true });
+      setCatalogForm({ name_en: '', name_ar: '', description_en: '', cost: '', base_cost: '', category_en: '', related_role: '', is_active: true, normal_range: '' });
+      setLabComponents([{ name: 'Result', range: '' }]);
     }
     setModalType('catalog');
     setIsModalOpen(true);
+  };
+
+  const addLabComponent = () => {
+    setLabComponents([...labComponents, { name: '', range: '' }]);
+  };
+
+  const removeLabComponent = (index: number) => {
+    setLabComponents(labComponents.filter((_, i) => i !== index));
+  };
+
+  const updateLabComponent = (index: number, field: 'name' | 'range', value: string) => {
+    const updated = [...labComponents];
+    updated[index][field] = value;
+    setLabComponents(updated);
   };
 
   const handleCatalogSubmit = async (e: React.FormEvent) => {
@@ -138,6 +168,14 @@ export const Configuration = () => {
       const payload = { ...catalogForm };
       if (payload.cost) payload.cost = parseFloat(payload.cost);
       if (payload.base_cost) payload.base_cost = parseFloat(payload.base_cost);
+
+      // Serialize lab components back to string format
+      if (activeCatalog === 'lab') {
+        payload.normal_range = labComponents
+          .filter(c => c.name)
+          .map(c => `${c.name}: ${c.range}`)
+          .join('; ');
+      }
 
       if (selectedItem) {
         switch(activeCatalog) {
@@ -489,7 +527,7 @@ export const Configuration = () => {
 
   return (
     <div className="space-y-6">
-      {/* IMPROVED SIZE PROCESS HUD */}
+      {/* PROCESS HUD */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
@@ -500,7 +538,7 @@ export const Configuration = () => {
         </div>
       )}
 
-      {/* Modern Tab Navigation Slider */}
+      {/* Navigation Slider */}
       <div className="relative group max-w-full">
          <button onClick={() => scrollTabs('left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 dark:bg-slate-800/90 shadow-lg rounded-full flex items-center justify-center border border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronLeft size={16}/></button>
          <div ref={tabContainerRef} className="flex bg-slate-100/80 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-x-auto custom-scrollbar scroll-smooth">
@@ -525,7 +563,6 @@ export const Configuration = () => {
       </div>
 
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-        {/* --- USERS & PERMISSIONS --- */}
         {activeTab === 'users' && (
           <div className="space-y-6">
             <Card title="Active System Accounts" action={<Button size="sm" icon={Plus} onClick={() => openUserModal()}>New Account</Button>} className="!p-0 overflow-hidden">
@@ -733,17 +770,40 @@ export const Configuration = () => {
          )}
 
          {modalType === 'catalog' && (
-            <form onSubmit={handleCatalogSubmit} className="space-y-4">
+            <form onSubmit={handleCatalogSubmit} className="space-y-5">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input label="Name (EN)" required value={catalogForm.name_en} onChange={e => setCatalogForm({...catalogForm, name_en: e.target.value})} />
                   <Input label="Name (AR)" required value={catalogForm.name_ar} onChange={e => setCatalogForm({...catalogForm, name_ar: e.target.value})} />
                </div>
-               {activeCatalog === 'specializations' && (<Select label="Linked Role" value={catalogForm.related_role} onChange={e => setCatalogForm({...catalogForm, related_role: e.target.value})}><option value="">Any</option><option value="doctor">Doctor</option><option value="nurse">Nurse</option><option value="technician">Technician</option><option value="pharmacist">Pharmacist</option></Select>)}
-               {(activeCatalog === 'lab' || activeCatalog === 'nurse') && (<Input label="Service Cost ($)" type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} />)}
+               
+               {activeCatalog === 'lab' && (
+                  <div className="space-y-3">
+                     <div className="flex justify-between items-center">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Structured Test Components</label>
+                        <Button size="sm" variant="secondary" type="button" onClick={addLabComponent} icon={Plus}>Add Row</Button>
+                     </div>
+                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                        {labComponents.map((comp, idx) => (
+                           <div key={idx} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                              <input placeholder="Component (e.g. WBC)" className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-primary-500/20 outline-none" value={comp.name} onChange={e => updateLabComponent(idx, 'name', e.target.value)} />
+                              <input placeholder="Range (e.g. 4.0 - 11.0)" className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-primary-500/20 outline-none" value={comp.range} onChange={e => updateLabComponent(idx, 'range', e.target.value)} />
+                              <button type="button" onClick={() => removeLabComponent(idx)} className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"><X size={16}/></button>
+                           </div>
+                        ))}
+                     </div>
+                     <Input label="Category (e.g. Hematology)" value={catalogForm.category_en} onChange={e => setCatalogForm({...catalogForm, category_en: e.target.value})} />
+                     <Input label="Service Cost ($)" type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} />
+                  </div>
+               )}
+
+               {activeCatalog === 'nurse' && (<div className="space-y-4"><Textarea label="Description (EN)" rows={2} value={catalogForm.description_en} onChange={e => setCatalogForm({...catalogForm, description_en: e.target.value})} /><Input label="Service Cost ($)" type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} /></div>)}
                {activeCatalog === 'ops' && (<Input label="Base Cost ($)" type="number" required value={catalogForm.base_cost} onChange={e => setCatalogForm({...catalogForm, base_cost: e.target.value})} />)}
-               {activeCatalog === 'lab' && (<Input label="Category (e.g. Hematology)" value={catalogForm.category_en} onChange={e => setCatalogForm({...catalogForm, category_en: e.target.value})} />)}
+               {activeCatalog === 'specializations' && (<Select label="Linked Role" value={catalogForm.related_role} onChange={e => setCatalogForm({...catalogForm, related_role: e.target.value})}><option value="">Any</option><option value="doctor">Doctor</option><option value="nurse">Nurse</option><option value="technician">Technician</option><option value="pharmacist">Pharmacist</option></Select>)}
                {(activeCatalog === 'insurance' || activeCatalog === 'banks') && (<div className="flex items-center gap-2 py-2"><input type="checkbox" id="catActive" checked={catalogForm.is_active} onChange={e => setCatalogForm({...catalogForm, is_active: e.target.checked})} /><label htmlFor="catActive" className="text-sm font-bold">Active Entry</label></div>)}
-               <Button type="submit" className="w-full">{selectedItem ? 'Update Catalog' : 'Add to Catalog'}</Button>
+               
+               <div className="pt-4 border-t dark:border-slate-700">
+                  <Button type="submit" className="w-full">{selectedItem ? 'Update Catalog' : 'Add to Catalog'}</Button>
+               </div>
             </form>
          )}
 
