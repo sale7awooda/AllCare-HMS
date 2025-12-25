@@ -483,94 +483,27 @@ export const Staff = () => {
     );
   };
 
-  // Header Tabs - Reconfigured to include controls
+  // Header Tabs - Simplified to just navigation tabs
   const HeaderTabs = useMemo(() => (
-    <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 w-full">
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto custom-scrollbar shrink-0">
-            {[
-                { id: 'directory', label: t('staff_tab_directory'), icon: Briefcase },
-                { id: 'attendance', label: t('staff_tab_attendance'), icon: Clock },
-                { id: 'leaves', label: t('staff_tab_leaves'), icon: Calendar },
-                { id: 'payroll', label: t('staff_tab_payroll'), icon: DollarSign },
-                { id: 'financials', label: t('staff_tab_financials'), icon: Wallet },
-            ].map(tab => (
-                <button 
-                    key={tab.id} 
-                    onClick={() => setActiveTab(tab.id as any)} 
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
-                >
-                    <tab.icon size={14}/> 
-                    <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-            ))}
-        </div>
-
-        {/* Dynamic Controls based on Active Tab */}
-        {activeTab === 'directory' && (
-            <div className="flex items-center gap-2 flex-1 w-full lg:w-auto animate-in fade-in">
-                <div className="relative flex-1 lg:max-w-xs">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <input 
-                        type="text" 
-                        placeholder={t('staff_search_placeholder')} 
-                        className="pl-9 pr-4 py-1.5 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 shadow-sm outline-none h-9" 
-                        value={searchTerm} 
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                {canManageHR && (
-                    <Button onClick={() => openStaffModal()} icon={Plus} size="sm" className="h-9 whitespace-nowrap shadow-sm">
-                        {t('staff_add_employee_button')}
-                    </Button>
-                )}
-            </div>
-        )}
-
-        {activeTab === 'attendance' && (
-            <div className="flex items-center gap-2 animate-in fade-in bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                <button className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md transition-colors text-slate-500" onClick={() => shiftDate(-1)}><ChevronLeft size={16}/></button>
-                <div className="relative">
-                    <input 
-                        type="date" 
-                        value={selectedDate} 
-                        onChange={e => setSelectedDate(e.target.value)} 
-                        className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-white outline-none w-[110px] text-center"
-                    />
-                </div>
-                <button className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md transition-colors text-slate-500" onClick={() => shiftDate(1)}><ChevronRight size={16}/></button>
-                <button className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded shadow-sm ml-1" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>Today</button>
-            </div>
-        )}
-
-        {activeTab === 'payroll' && (
-            <div className="flex items-center gap-2 animate-in fade-in">
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <button className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md transition-colors text-slate-500" onClick={() => shiftMonth('prev')}><ChevronLeft size={16}/></button>
-                    <input 
-                        type="month" 
-                        value={selectedMonth} 
-                        onChange={e => setSelectedMonth(e.target.value)} 
-                        className="bg-transparent border-none text-xs font-bold text-slate-700 dark:text-white outline-none w-32 text-center"
-                    />
-                    <button className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-md transition-colors text-slate-500" onClick={() => shiftMonth('next')}><ChevronRight size={16}/></button>
-                </div>
-                {canManageHR && (
-                    <Button icon={DollarSign} onClick={handleGeneratePayroll} size="sm" className="h-9 whitespace-nowrap shadow-sm">
-                        {t('staff_generate_payroll')}
-                    </Button>
-                )}
-            </div>
-        )}
-
-        {activeTab === 'leaves' && (
-             <Button icon={Plus} onClick={() => setIsLeaveModalOpen(true)} size="sm" className="h-9 whitespace-nowrap shadow-sm animate-in fade-in">{t('staff_leave_request')}</Button>
-        )}
-
-        {activeTab === 'financials' && canManageHR && (
-             <Button icon={Plus} onClick={() => setIsAdjustmentModalOpen(true)} size="sm" className="h-9 whitespace-nowrap shadow-sm animate-in fade-in">{t('staff_financial_add_entry')}</Button>
-        )}
+    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto custom-scrollbar">
+        {[
+            { id: 'directory', label: t('staff_tab_directory'), icon: Briefcase },
+            { id: 'attendance', label: t('staff_tab_attendance'), icon: Clock },
+            { id: 'leaves', label: t('staff_tab_leaves'), icon: Calendar },
+            { id: 'payroll', label: t('staff_tab_payroll'), icon: DollarSign },
+            { id: 'financials', label: t('staff_tab_financials'), icon: Wallet },
+        ].map(tab => (
+            <button 
+                key={tab.id} 
+                onClick={() => setActiveTab(tab.id as any)} 
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+            >
+                <tab.icon size={14}/> 
+                <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+        ))}
     </div>
-  ), [activeTab, t, searchTerm, selectedDate, selectedMonth, canManageHR]);
+  ), [activeTab, t]);
 
   useHeader(t('staff_title'), t('staff_subtitle'), HeaderTabs);
 
@@ -590,6 +523,81 @@ export const Staff = () => {
           </div>
         </div>
       )}
+
+      {/* TOOLBAR SECTION: Search, Dates, Actions */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-in fade-in slide-in-from-top-2">
+         {/* Left Side: Inputs/Filters */}
+         <div className="w-full md:w-auto flex-1">
+            {activeTab === 'directory' && (
+                <div className="relative max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <input 
+                        type="text" 
+                        placeholder={t('staff_search_placeholder')} 
+                        className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all" 
+                        value={searchTerm} 
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            )}
+            {activeTab === 'attendance' && (
+                <div className="flex items-center gap-2">
+                    <button className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-slate-500 border border-slate-200 dark:border-slate-700" onClick={() => shiftDate(-1)}><ChevronLeft size={16}/></button>
+                    <div className="relative group">
+                        <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                        <input 
+                            type="date" 
+                            value={selectedDate} 
+                            onChange={e => setSelectedDate(e.target.value)} 
+                            className="pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                    <button className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-slate-500 border border-slate-200 dark:border-slate-700" onClick={() => shiftDate(1)}><ChevronRight size={16}/></button>
+                    <button className="px-4 py-2.5 text-xs font-bold bg-primary-50 dark:bg-primary-900/20 text-primary-600 rounded-xl border border-primary-100 dark:border-primary-800 hover:bg-primary-100 transition-colors ml-1" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>Today</button>
+                </div>
+            )}
+            {activeTab === 'payroll' && (
+                <div className="flex items-center gap-2">
+                    <button className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-slate-500 border border-slate-200 dark:border-slate-700" onClick={() => shiftMonth('prev')}><ChevronLeft size={16}/></button>
+                    <div className="relative">
+                        <input 
+                            type="month" 
+                            value={selectedMonth} 
+                            onChange={e => setSelectedMonth(e.target.value)} 
+                            className="px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                    <button className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-slate-500 border border-slate-200 dark:border-slate-700" onClick={() => shiftMonth('next')}><ChevronRight size={16}/></button>
+                </div>
+            )}
+            {(activeTab === 'leaves' || activeTab === 'financials') && (
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                    <Info size={18} />
+                    <span className="text-sm font-medium">Manage {activeTab === 'leaves' ? 'Requests' : 'Adjustments'}</span>
+                </div>
+            )}
+         </div>
+
+         {/* Right Side: Actions */}
+         <div className="flex gap-3 w-full md:w-auto justify-end">
+            {activeTab === 'directory' && canManageHR && (
+                <Button onClick={() => openStaffModal()} icon={Plus} className="shadow-md">
+                    {t('staff_add_employee_button')}
+                </Button>
+            )}
+            {activeTab === 'payroll' && canManageHR && (
+                <Button icon={DollarSign} onClick={handleGeneratePayroll} className="shadow-md">
+                    {t('staff_generate_payroll')}
+                </Button>
+            )}
+            {activeTab === 'leaves' && (
+                 <Button icon={Plus} onClick={() => setIsLeaveModalOpen(true)} className="shadow-md">{t('staff_leave_request')}</Button>
+            )}
+            {activeTab === 'financials' && canManageHR && (
+                 <Button icon={Plus} onClick={() => setIsAdjustmentModalOpen(true)} className="shadow-md">{t('staff_financial_add_entry')}</Button>
+            )}
+         </div>
+      </div>
 
       {activeTab === 'directory' && (
           <div className="animate-in fade-in">
