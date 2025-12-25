@@ -101,7 +101,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         { labelKey: 'nav_reports', path: '/reports', icon: ClipboardList },
         { labelKey: 'nav_records', path: '/records', icon: Database },
         { labelKey: 'nav_configuration', path: '/configuration', icon: Wrench },
-        { labelKey: 'nav_settings', path: '/settings', icon: Palette },
+        { labelKey: 'nav_settings', path: '/customizations', icon: Palette },
     ]}
   ];
 
@@ -115,7 +115,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-200 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 overflow-hidden">
       <aside className={`
         fixed inset-y-0 ${isRtl ? 'right-0' : 'left-0'} z-50 bg-slate-900 dark:bg-slate-950 text-slate-300 border-r border-slate-800 dark:border-slate-900 shadow-xl transition-all duration-300 flex flex-col
         ${isMobileOpen ? 'translate-x-0' : (isRtl ? 'translate-x-full' : '-translate-x-full')} lg:translate-x-0

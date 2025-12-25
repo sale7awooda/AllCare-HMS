@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -14,41 +13,36 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-/* Fix: Use React.Component to ensure members like setState and props are inherited correctly from the React library. */
+// Fix: The class must extend React.Component to have access to state, props, and lifecycle methods.
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    /* Initializing state property in constructor for better type inference. */
-    this.state = {
-      hasError: false,
-      error: null
-    };
-  }
+  // Fix: Initialized state as a class property for modern syntax, removing the need for a constructor.
+  state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
 
   /**
    * Static method to update state when an error occurs during rendering.
    */
-  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
   /**
    * Lifecycle method to log error details.
    */
-  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
   /**
    * Resets the error state to allow the application to attempt re-rendering.
    */
-  public handleReload = () => {
-    /* Fix: Accessing inherited setState method from React.Component. */
+  handleReload = () => {
     this.setState({ hasError: false, error: null });
   }
 
-  public render(): React.ReactNode {
-    /* Accessing inherited state property from React.Component. */
+  render(): React.ReactNode {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
@@ -79,7 +73,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    /* Fix: Correctly returning children from the inherited props property from React.Component. */
     return this.props.children;
   }
 }

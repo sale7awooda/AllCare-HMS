@@ -4,9 +4,9 @@ import { X, Check, AlertCircle } from 'lucide-react';
 
 // --- Card ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string; title?: string; action?: React.ReactNode }> = ({ children, className = '', title, action }) => (
-  <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-card border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200 ${className}`}>
+  <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-card border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200 ${className}`}>
     {(title || action) && (
-      <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800">
+      <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-900">
         {title && <h3 className="text-base font-bold text-slate-800 dark:text-white tracking-tight">{title}</h3>}
         {action && <div>{action}</div>}
       </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { MemoryRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -10,7 +11,7 @@ import { Admissions } from './pages/Admissions';
 import { Laboratory } from './pages/Laboratory';
 import { Operations } from './pages/Operations';
 import { Configuration } from './pages/Configuration';
-import { Settings } from './pages/Settings'; 
+import { Customizations } from './pages/Customizations'; 
 import { Reports } from './pages/Reports'; 
 import { Records } from './pages/Records';
 import { Login } from './pages/Login';
@@ -52,7 +53,7 @@ function AppContent() {
             <Route path="/hr" element={<Staff />} /> 
             <Route path="/reports" element={<Reports />} /> 
             <Route path="/records" element={<Records />} /> 
-            <Route path="/settings" element={<Settings />} /> 
+            <Route path="/customizations" element={<Customizations />} /> 
             <Route path="/configuration" element={<Configuration />} /> 
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
@@ -74,7 +75,6 @@ export default function App() {
           const userData = await api.me();
           setUser(userData);
         } catch (e: any) {
-          // Silent handling for common 401 (expired session) during initial load
           if (e.response?.status !== 401) {
             console.error("Auth check failed:", e);
           }
