@@ -355,7 +355,8 @@ export const Admissions = () => {
           case 'reserved': return <Badge color="blue">{t('admissions_status_reserved')}</Badge>;
           case 'discharged': return <Badge color="green">{t('admissions_status_discharged')}</Badge>;
           case 'cancelled': return <Badge color="gray">{t('appointments_status_cancelled')}</Badge>;
-          default: return <Badge color="gray">{status}</Badge>;
+          case 'cleaning': return <Badge color="purple">{t('admissions_status_cleaning')}</Badge>;
+          default: return <Badge color="gray">{t(status) || status}</Badge>;
       }
   };
 
@@ -457,6 +458,7 @@ export const Admissions = () => {
                         <option value="discharged">{t('admissions_status_discharged')}</option>
                         <option value="cancelled">{t('appointments_status_cancelled')}</option>
                         <option value="reserved">{t('admissions_status_reserved')}</option>
+                        <option value="cleaning">{t('admissions_status_cleaning')}</option>
                     </select>
                 </div>
             </div>
@@ -494,7 +496,7 @@ export const Admissions = () => {
                                                 {adm.actual_discharge_date ? new Date(adm.actual_discharge_date).toLocaleDateString() : t('admissions_date_current')}
                                             </span>
                                         </div>
-                                        <div className="text-[10px] text-slate-400 mt-0.5">{adm.stayDuration} {t('admissions_bed_days', {count: ''})}</div>
+                                        <div className="text-[10px] text-slate-400 mt-0.5">{t('admissions_bed_days', {count: adm.stayDuration})}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{adm.doctorName}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusBadge(adm.status)}</td>
