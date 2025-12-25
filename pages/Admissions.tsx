@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, Modal, Input, Textarea, Select, ConfirmationDialog } from '../components/UI';
@@ -60,26 +59,26 @@ export const Admissions = () => {
   const [noteForm, setNoteForm] = useState({ note: '', bp: '', temp: '', pulse: '', resp: '' });
   const [dischargeForm, setDischargeForm] = useState({ notes: '', status: 'Recovered' });
 
-  // Sync Header
-  useHeader(
-    t('admissions_title'), 
-    t('admissions_subtitle'),
-    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
+  // Sync Header - Unified with Appointments Style
+  const HeaderTabs = useMemo(() => (
+    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
       <button 
         onClick={() => setActiveMainTab('ward')} 
-        className={`flex items-center gap-2 px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${activeMainTab === 'ward' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${activeMainTab === 'ward' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
       >
         <LayoutGrid size={14}/> {t('admissions_title')} 
-        <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full ${activeMainTab === 'ward' ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300' : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300'}`}>{activeAdmissions.length}</span>
+        <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${activeMainTab === 'ward' ? 'bg-primary-100 text-primary-700' : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300'}`}>{activeAdmissions.length}</span>
       </button>
       <button 
         onClick={() => setActiveMainTab('history')} 
-        className={`flex items-center gap-2 px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap ${activeMainTab === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${activeMainTab === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
       >
         <History size={14}/> History
       </button>
     </div>
-  );
+  ), [activeMainTab, activeAdmissions.length, t]);
+
+  useHeader(t('admissions_title'), t('admissions_subtitle'), HeaderTabs);
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -381,7 +380,12 @@ export const Admissions = () => {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {loading ? <div className="col-span-full py-20 text-center"><Loader2 className="animate-spin mx-auto text-primary-600 mb-2"/><p className="text-slate-500 font-medium">{t('admissions_loading')}</p></div> : 
+                {loading ? (
+                  <div className="col-span-full flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+                    <p className="text-slate-500 font-medium">{t('admissions_loading')}</p>
+                  </div>
+                ) : 
                 beds.map(bed => {
                 const admission = activeAdmissions.find(a => a.bedId === bed.id);
                 const isOccupied = bed.status === 'occupied';
