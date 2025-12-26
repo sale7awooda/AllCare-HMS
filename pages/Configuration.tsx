@@ -40,10 +40,10 @@ export const Configuration = () => {
   const [confirmState, setConfirmState] = useState<any>({ isOpen: false, title: '', message: '', action: () => {} });
 
   // Form States
-  const [userForm, setUserForm] = useState({ username: '', password: '', fullName: '', role: 'receptionist', email: '', isActive: true });
+  const [userForm, setUserForm] = useState({ username: '', password: '', fullName: '', role: 'receptionist' as Role, email: '', isActive: true });
   const [taxForm, setTaxForm] = useState({ name_en: '', name_ar: '', rate: '', is_active: true });
   const [paymentForm, setPaymentForm] = useState({ name_en: '', name_ar: '', is_active: true });
-  const [bedForm, setBedForm] = useState({ roomNumber: '', type: 'General', costPerDay: '', status: 'available' });
+  const [bedForm, setBedForm] = useState({ roomNumber: '', type: 'General' as BedType['type'], costPerDay: '', status: 'available' as BedType['status'] });
   const [catalogForm, setCatalogForm] = useState<any>({ name_en: '', name_ar: '', description_en: '', cost: '', base_cost: '', category_en: '', related_role: '', is_active: true, normal_range: '' });
   
   // Lab Components state (for structured range builder)
@@ -53,6 +53,15 @@ export const Configuration = () => {
 
   // Sync Header
   useHeader(t('nav_configuration'), '');
+  
+  const catalogTabs = useMemo(() => [
+    { id: 'departments', icon: Building, labelKey: 'config_catalog_departments' },
+    { id: 'specializations', icon: Stethoscope, labelKey: 'config_catalog_specializations' },
+    { id: 'lab', icon: FlaskConical, labelKey: 'nav_laboratory' },
+    { id: 'nurse', icon: Activity, labelKey: 'patients_modal_action_nurse' },
+    { id: 'ops', icon: Activity, labelKey: 'nav_operations' },
+    { id: 'insurance', icon: ShieldCheck, labelKey: 'patients_modal_form_insurance_title' }
+  ], [t]);
 
   const loadData = async () => {
     setLoading(true);
@@ -93,7 +102,6 @@ export const Configuration = () => {
         case 'nurse': data = await api.getNurseServices(); break;
         case 'ops': data = await api.getOperations(); break;
         case 'insurance': data = await api.getInsuranceProviders(); break;
-        // case 'banks': data = await api.getBanks(); break;
       }
       setCatalogData(data || []);
     } catch (e) { console.error(e); }
@@ -126,7 +134,6 @@ export const Configuration = () => {
         normal_range: item.normal_range || ''
       });
 
-      // Parse structured lab range if it's a lab test
       if (activeCatalog === 'lab' && item.normal_range) {
         const components = item.normal_range.split(';').map((s: string) => {
           const parts = s.split(':');
@@ -168,7 +175,6 @@ export const Configuration = () => {
       if (payload.cost) payload.cost = parseFloat(payload.cost);
       if (payload.base_cost) payload.base_cost = parseFloat(payload.base_cost);
 
-      // Serialize lab components back to string format
       if (activeCatalog === 'lab') {
         payload.normal_range = labComponents
           .filter(c => c.name)
@@ -184,7 +190,6 @@ export const Configuration = () => {
           case 'nurse': await api.updateNurseService(selectedItem.id, payload); break;
           case 'ops': await api.updateOperationCatalog(selectedItem.id, payload); break;
           case 'insurance': await api.updateInsuranceProvider(selectedItem.id, payload); break;
-          // case 'banks': await api.updateBank(selectedItem.id, payload); break;
         }
       } else {
         switch(activeCatalog) {
@@ -194,7 +199,6 @@ export const Configuration = () => {
           case 'nurse': await api.addNurseService(payload); break;
           case 'ops': await api.addOperationCatalog(payload); break;
           case 'insurance': await api.addInsuranceProvider(payload); break;
-          // case 'banks': await api.addBank(payload); break;
         }
       }
       setProcessStatus('success');
@@ -221,7 +225,6 @@ export const Configuration = () => {
             case 'nurse': await api.deleteNurseService(id); break;
             case 'ops': await api.deleteOperationCatalog(id); break;
             case 'insurance': await api.deleteInsuranceProvider(id); break;
-            // case 'banks': await api.deleteBank(id); break;
           }
           setProcessStatus('success'); loadCatalog(activeCatalog); setTimeout(() => setProcessStatus('idle'), 1000);
         } catch (err: any) { 
@@ -232,7 +235,6 @@ export const Configuration = () => {
     });
   };
 
-  // --- USER HANDLERS ---
   const openUserModal = (user?: User) => {
     if (user) {
       setSelectedItem(user);
@@ -261,7 +263,7 @@ export const Configuration = () => {
 
   const deleteUserAccount = (id: number, username: string) => {
     setConfirmState({
-      isOpen: true, title: t('delete'), message: `${t('confirm')} @${username}?`,
+      isOpen: true, title: t('delete'), message: t('confirm') + ` @${username}?`,
       action: async () => {
         setProcessStatus('processing');
         setProcessMessage(t('processing'));
@@ -279,7 +281,6 @@ export const Configuration = () => {
     });
   };
 
-  // --- TAX HANDLERS ---
   const openTaxModal = (tax?: TaxRate) => {
     if (tax) {
       setSelectedItem(tax);
@@ -325,7 +326,6 @@ export const Configuration = () => {
     });
   };
 
-  // --- PAYMENT METHOD HANDLERS ---
   const openPaymentModal = (pm?: PaymentMethod) => {
     if (pm) {
       setSelectedItem(pm);
@@ -370,7 +370,6 @@ export const Configuration = () => {
     });
   };
 
-  // --- BED HANDLERS ---
   const openBedModal = (bed?: BedType) => {
     if (bed) {
       if (bed.status === 'occupied' || bed.status === 'reserved') {
@@ -502,10 +501,10 @@ export const Configuration = () => {
   };
 
   const getPermissionLabel = (perm: string) => {
-    return perm.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+    return t(`permission_${perm}`) || perm.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
   };
 
-  const permissionGroups = [
+  const permissionGroups = useMemo(() => [
     { name: t('permission_group_general'), perms: [Permissions.VIEW_DASHBOARD, Permissions.VIEW_REPORTS, Permissions.VIEW_RECORDS] },
     { name: t('permission_group_patients'), perms: [Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS, Permissions.DELETE_PATIENTS] },
     { name: t('permission_group_appointments'), perms: [Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, Permissions.DELETE_APPOINTMENTS] },
@@ -515,7 +514,7 @@ export const Configuration = () => {
     { name: t('permission_group_laboratory'), perms: [Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, Permissions.DELETE_LABORATORY] },
     { name: t('permission_group_operations'), perms: [Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS, Permissions.DELETE_OPERATIONS] },
     { name: t('permission_group_system'), perms: [Permissions.VIEW_SETTINGS, Permissions.MANAGE_SETTINGS, Permissions.MANAGE_CONFIGURATION] },
-  ];
+  ], [t]);
 
   if (loading && !catalogData.length && !users.length) return (
     <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
@@ -526,7 +525,6 @@ export const Configuration = () => {
 
   return (
     <div className="space-y-6">
-      {/* PROCESS HUD */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
@@ -537,7 +535,6 @@ export const Configuration = () => {
         </div>
       )}
 
-      {/* Navigation Slider */}
       <div className="relative group max-w-full no-print">
          <button onClick={() => scrollTabs('left')} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 dark:bg-slate-800/90 shadow-lg rounded-full flex items-center justify-center border border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronLeft size={16}/></button>
          <div ref={tabContainerRef} className="flex bg-slate-100/80 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-x-auto custom-scrollbar scroll-smooth">
@@ -580,8 +577,8 @@ export const Configuration = () => {
                       <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
                         <td className="px-6 py-4 text-sm font-mono text-primary-600">@{u.username}</td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{u.fullName}</td>
-                        <td className="px-6 py-4"><Badge color="blue" className="capitalize">{t('staff_role_' + u.role)}</Badge></td>
-                        <td className="px-6 py-4"><Badge color={u.is_active ? 'green' : 'gray'}>{u.is_active ? t('active') : t('locked')}</Badge></td>
+                        <td className="px-6 py-4"><Badge color="blue" className="capitalize">{t(`staff_role_${u.role}`)}</Badge></td>
+                        <td className="px-6 py-4"><Badge color={u.is_active ? 'green' : 'gray'}>{t(u.is_active ? 'active' : 'locked')}</Badge></td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
                             <Button size="sm" variant="outline" onClick={() => openUserModal(u)} icon={Edit}>{t('edit')}</Button>
@@ -598,7 +595,7 @@ export const Configuration = () => {
                <div className="overflow-x-auto">
                  <table className="min-w-full">
                     <thead className="bg-slate-50 dark:bg-slate-900/50">
-                       <tr><th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('config_matrix_group')}</th>{Object.keys(rolePermissions).map(role => (<th key={role} className="px-4 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[100px] border-l border-slate-200 dark:border-slate-700">{t('staff_role_' + role)}</th>))}</tr>
+                       <tr><th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('config_matrix_group')}</th>{Object.keys(rolePermissions).map(role => (<th key={role} className="px-4 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[100px] border-l border-slate-200 dark:border-slate-700">{t(`staff_role_${role}`)}</th>))}</tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                        {permissionGroups.map(group => (
@@ -623,14 +620,13 @@ export const Configuration = () => {
           </div>
         )}
 
-        {/* --- FINANCIAL --- */}
         {activeTab === 'financial' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <Card title={t('config_tax_title')} action={<Button size="sm" icon={Plus} onClick={() => openTaxModal()} />}>
                 <div className="space-y-4">
                    {taxRates.map(t_rate => (
                      <div key={t_rate.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <div><p className="font-bold text-sm">{language === 'ar' ? t_rate.name_ar : t_rate.name_en}</p><div className="flex items-center gap-2"><span className="text-xs font-black text-primary-600">{t_rate.rate}%</span><Badge color={t_rate.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{t_rate.isActive ? t('active') : t('hidden')}</Badge></div></div>
+                        <div><p className="font-bold text-sm">{language === 'ar' ? t_rate.name_ar : t_rate.name_en}</p><div className="flex items-center gap-2"><span className="text-xs font-black text-primary-600">{t_rate.rate}%</span><Badge color={t_rate.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{t_rate.isActive ? t('enabled') : t('disabled')}</Badge></div></div>
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => openTaxModal(t_rate)} icon={Edit}>{t('edit')}</Button>
                           <Button size="sm" variant="danger" onClick={() => deleteTaxRateEntry(t_rate.id)} icon={Trash2}>{t('delete')}</Button>
@@ -643,7 +639,7 @@ export const Configuration = () => {
                 <div className="space-y-4">
                    {paymentMethods.map(m => (
                      <div key={m.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm"><CreditCard size={18}/></div><div><p className="font-bold text-sm">{language === 'ar' ? m.name_ar : m.name_en}</p><Badge color={m.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{m.isActive ? t('enabled') : t('disabled')}</Badge></div></div>
+                        <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm"><CreditCard size={18}/></div><div><p className="font-bold text-sm">{language === 'ar' ? m.name_ar : m.name_en}</p><Badge color={m.isActive ? 'green' : 'gray'} className="text-[9px] uppercase">{t(m.isActive ? 'enabled' : 'disabled')}</Badge></div></div>
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => openPaymentModal(m)} icon={Edit}>{t('edit')}</Button>
                           <Button size="sm" variant="danger" onClick={() => deletePaymentMethodEntry(m.id)} icon={Trash2}>{t('delete')}</Button>
@@ -655,7 +651,6 @@ export const Configuration = () => {
           </div>
         )}
 
-        {/* --- WARDS & BEDS --- */}
         {activeTab === 'beds' && (
           <Card title={t('config_beds_title')} action={<Button size="sm" icon={Plus} onClick={() => openBedModal()}>{t('config_beds_add')}</Button>} className="!p-0 overflow-hidden">
             <div className="overflow-x-auto">
@@ -675,8 +670,8 @@ export const Configuration = () => {
                     return (
                       <tr key={b.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 group">
                         <td className="px-6 py-4 font-black text-slate-800 dark:text-white flex items-center gap-2"><Bed size={14} className="text-slate-300 group-hover:text-primary-500 transition-colors" />{b.roomNumber}</td>
-                        <td className="px-6 py-4 text-sm font-medium">{t(b.type) || b.type}</td>
-                        <td className="px-6 py-4"><Badge color={b.status === 'available' ? 'green' : (b.status === 'occupied' || b.status === 'reserved') ? 'red' : 'orange'}>{t('admissions_status_' + b.status) || b.status}</Badge></td>
+                        <td className="px-6 py-4 text-sm font-medium">{t(`bed_type_${b.type.toLowerCase()}`) || b.type}</td>
+                        <td className="px-6 py-4"><Badge color={b.status === 'available' ? 'green' : (b.status === 'occupied' || b.status === 'reserved') ? 'red' : 'orange'}>{t(`admissions_status_${b.status}`) || b.status}</Badge></td>
                         <td className="px-6 py-4 text-right font-mono font-bold text-primary-600">${b.costPerDay}</td>
                         <td className="px-6 py-4 text-right">
                            <div className="flex justify-end gap-2">
@@ -699,24 +694,14 @@ export const Configuration = () => {
           </Card>
         )}
 
-        {/* --- CATALOGS --- */}
         {activeTab === 'catalogs' && (
           <div className="space-y-6">
              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar no-print">
-                {[
-                  { id: 'departments', icon: Building, label: t('nav_hr') },
-                  { id: 'specializations', icon: Stethoscope, label: t('staff_form_specialization') },
-                  { id: 'lab', icon: FlaskConical, label: t('nav_laboratory') },
-                  { id: 'nurse', icon: Activity, label: t('patients_modal_action_nurse') },
-                  { id: 'ops', icon: Activity, label: t('nav_operations') },
-                  { id: 'insurance', icon: ShieldCheck, label: t('patients_modal_form_insurance_title') },
-                  // Fix: Removed unimplemented 'banks' catalog item.
-                  // { id: 'banks', icon: Landmark, label: t('billing_treasury_tab_banks') || 'Banks' },
-                ].map(cat => (
-                  <button key={cat.id} onClick={() => setActiveCatalog(cat.id as any)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${activeCatalog === cat.id ? 'bg-primary-50 border-primary-200 text-primary-700 shadow-sm' : 'bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-slate-300'}`}><cat.icon size={14}/> {cat.label}</button>
+                {catalogTabs.map(cat => (
+                  <button key={cat.id} onClick={() => setActiveCatalog(cat.id as any)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${activeCatalog === cat.id ? 'bg-primary-50 border-primary-200 text-primary-700 shadow-sm' : 'bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-slate-300'}`}><cat.icon size={14}/> {t(cat.labelKey)}</button>
                 ))}
              </div>
-             <Card title={t('config_catalog_title', { type: t('nav_' + activeCatalog) || activeCatalog })} action={<Button size="sm" icon={Plus} onClick={() => openCatalogModal()}>{t('config_catalog_add')}</Button>} className="!p-0 overflow-hidden">
+             <Card title={t('config_catalog_title', { type: t(catalogTabs.find(c => c.id === activeCatalog)?.labelKey || 'config_catalog_items') })} action={<Button size="sm" icon={Plus} onClick={() => openCatalogModal()}>{t('config_catalog_add')}</Button>} className="!p-0 overflow-hidden">
                 <table className="min-w-full divide-y">
                    <thead className="bg-slate-50 dark:bg-slate-900/50">
                       <tr>
@@ -746,16 +731,14 @@ export const Configuration = () => {
           </div>
         )}
 
-        {/* --- DATA --- */}
         {activeTab === 'data' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
              <Card title={t('config_data_snapshot_title')}><p className="text-sm text-slate-500 mb-6 leading-relaxed">{t('config_data_snapshot_desc')}</p><Button variant="outline" icon={Download} onClick={handleBackup} className="w-full py-4 text-md">{t('config_data_snapshot_btn')}</Button></Card>
-             <Card title={t('config_data_restore_title')}><p className="text-sm text-slate-500 mb-6 leading-relaxed">{t('config_data_restore_desc')}</p><div className="relative"><input type="file" title="restore database" name="restore_db" id="restore_db" accept=".db,.sqlite,.sqlite3" onChange={handleRestore} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><Button variant="secondary" icon={Upload} className="w-full py-4 text-md">{t('config_data_restore_btn')}</Button></div></Card>
+             <Card title={t('config_data_restore_title')}><p className="text-sm text-slate-500 mb-6 leading-relaxed">{t('config_data_restore_desc')}</p><div className="relative"><input type="file" title={t('config_data_restore_btn')} name="restore_db" id="restore_db" accept=".db,.sqlite,.sqlite3" onChange={handleRestore} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><Button variant="secondary" icon={Upload} className="w-full py-4 text-md">{t('config_data_restore_btn')}</Button></div></Card>
              <Card title={t('config_data_danger_title')} className="border-rose-100 bg-rose-50/20"><p className="text-sm text-rose-600 mb-6 font-bold uppercase tracking-wider flex items-center gap-2"><AlertTriangle size={16}/> {t('config_data_danger_warning')}</p><p className="text-xs text-rose-500/80 mb-6 italic">{t('config_data_danger_desc')}</p><Button variant="danger" icon={RotateCcw} onClick={handleReset} className="w-full py-4 text-md">{t('config_data_danger_btn')}</Button></Card>
           </div>
         )}
 
-        {/* --- DIAGNOSTICS --- */}
         {activeTab === 'diagnostics' && (
           <div className="space-y-6">
              <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border shadow-soft">
@@ -770,7 +753,7 @@ export const Configuration = () => {
                   <HealthStat icon={HardDrive} label={t('config_health_ram')} value={healthData.memory?.rss || '-'} color="text-orange-500" />
                   <div className="md:col-span-2 lg:col-span-4 mt-4"><Card title={t('config_health_tech_json')}><pre className="text-[10px] font-mono bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto">{JSON.stringify(healthData, null, 2)}</pre></Card></div>
                </div>
-             ) : (<div className="p-20 text-center border-2 border-dashed rounded-3xl opacity-50"><Activity size={48} className="mx-auto mb-4 text-slate-300" /><p className="font-bold text-slate-400">Run diagnostics to see live metrics.</p></div>)}
+             ) : (<div className="p-20 text-center border-2 border-dashed rounded-3xl opacity-50"><Activity size={48} className="mx-auto mb-4 text-slate-300" /><p className="font-bold text-slate-400">{t('config_health_run_prompt')}</p></div>)}
           </div>
         )}
       </div>
@@ -782,15 +765,12 @@ export const Configuration = () => {
                <div className="grid grid-cols-2 gap-4">
                  <Input label={t('login_id_label')} required disabled={!!selectedItem} value={userForm.username} onChange={e => setUserForm({...userForm, username: e.target.value})} />
                  <Select label={t('config_modal_user_role')} value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value as Role})}>
-                   <option value="admin">{t('staff_role_admin')}</option>
-                   <option value="manager">{t('staff_role_manager')}</option>
-                   <option value="receptionist">{t('staff_role_receptionist')}</option>
-                   <option value="doctor">{t('staff_role_doctor')}</option>
-                   <option value="accountant">{t('staff_role_accountant')}</option>
-                   <option value="hr">{t('staff_role_hr')}</option>
+                   {Object.keys(rolePermissions).map(role => (
+                     <option key={role} value={role}>{t(`staff_role_${role}`)}</option>
+                   ))}
                  </Select>
                </div>
-               <Input label={t('login_password_label')} type="password" required={!selectedItem} placeholder={selectedItem ? t('login_password_placeholder') : "••••••••"} value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} />
+               <Input label={t('login_password_label')} type="password" required={!selectedItem} placeholder={selectedItem ? t('config_modal_password_placeholder') : "••••••••"} value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} />
                <div className="flex items-center gap-2 py-2">
                  <input type="checkbox" id="userActive" className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" checked={userForm.isActive} onChange={e => setUserForm({...userForm, isActive: e.target.checked})} />
                  <label htmlFor="userActive" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer">{t('config_modal_user_active')}</label>
@@ -815,8 +795,8 @@ export const Configuration = () => {
                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                         {labComponents.map((comp, idx) => (
                            <div key={idx} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
-                              <input placeholder={t('billing_modal_create_quick_add')} className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-primary-500/20 outline-none" value={comp.name} onChange={e => updateLabComponent(idx, 'name', e.target.value)} />
-                              <input placeholder={t('lab_modal_remarks_placeholder')} className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-primary-500/20 outline-none" value={comp.range} onChange={e => updateLabComponent(idx, 'range', e.target.value)} />
+                              <input placeholder={t('config_modal_catalog_lab_comp_name')} className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-primary-500/20 outline-none" value={comp.name} onChange={e => updateLabComponent(idx, 'name', e.target.value)} />
+                              <input placeholder={t('config_modal_catalog_lab_comp_range')} className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-primary-500/20 outline-none" value={comp.range} onChange={e => updateLabComponent(idx, 'range', e.target.value)} />
                               <button type="button" onClick={() => removeLabComponent(idx)} className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"><X size={16}/></button>
                            </div>
                         ))}
@@ -829,7 +809,7 @@ export const Configuration = () => {
                {activeCatalog === 'nurse' && (<div className="space-y-4"><Textarea label={t('billing_treasury_table_description')} rows={2} value={catalogForm.description_en} onChange={e => setCatalogForm({...catalogForm, description_en: e.target.value})} /><Input label={t('config_modal_catalog_cost')} type="number" required value={catalogForm.cost} onChange={e => setCatalogForm({...catalogForm, cost: e.target.value})} /></div>)}
                {activeCatalog === 'ops' && (<Input label={t('config_modal_catalog_base_cost')} type="number" required value={catalogForm.base_cost} onChange={e => setCatalogForm({...catalogForm, base_cost: e.target.value})} />)}
                {activeCatalog === 'specializations' && (<Select label={t('config_modal_catalog_role')} value={catalogForm.related_role} onChange={e => setCatalogForm({...catalogForm, related_role: e.target.value})}><option value="">{t('records_filter_all')}</option><option value="doctor">{t('staff_role_doctor')}</option><option value="nurse">{t('staff_role_nurse')}</option><option value="technician">{t('staff_role_technician')}</option><option value="pharmacist">{t('staff_role_pharmacist')}</option></Select>)}
-               {(activeCatalog === 'insurance' || activeCatalog === 'banks') && (<div className="flex items-center gap-2 py-2"><input type="checkbox" id="catActive" className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" checked={catalogForm.is_active} onChange={e => setCatalogForm({...catalogForm, is_active: e.target.checked})} /><label htmlFor="catActive" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer">{t('config_modal_catalog_active')}</label></div>)}
+               {(activeCatalog === 'insurance') && (<div className="flex items-center gap-2 py-2"><input type="checkbox" id="catActive" className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500" checked={catalogForm.is_active} onChange={e => setCatalogForm({...catalogForm, is_active: e.target.checked})} /><label htmlFor="catActive" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer">{t('config_modal_catalog_active')}</label></div>)}
                
                <div className="pt-4 border-t dark:border-slate-700">
                   <Button type="submit" className="w-full" icon={CheckCircle}>{selectedItem ? t('save') : t('add')}</Button>
@@ -858,11 +838,11 @@ export const Configuration = () => {
             <form onSubmit={handleBedSubmit} className="space-y-4">
                <div className="grid grid-cols-2 gap-4">
                  <Input label={t('config_modal_bed_no')} required value={bedForm.roomNumber} onChange={e => setBedForm({...bedForm, roomNumber: e.target.value})} />
-                 <Select label={t('config_beds_type')} value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value})}>
-                   <option value="General">{t('General')}</option>
-                   <option value="Private">{t('Private')}</option>
-                   <option value="ICU">{t('ICU')}</option>
-                   <option value="Emergency">{t('Emergency')}</option>
+                 <Select label={t('config_beds_type')} value={bedForm.type} onChange={e => setBedForm({...bedForm, type: e.target.value as BedType['type']})}>
+                   <option value="General">{t('bed_type_general')}</option>
+                   <option value="Private">{t('bed_type_private')}</option>
+                   <option value="ICU">{t('bed_type_icu')}</option>
+                   <option value="Emergency">{t('bed_type_emergency')}</option>
                  </Select>
                </div>
                <Input label={t('config_modal_bed_cost')} type="number" required value={bedForm.costPerDay} onChange={e => setBedForm({...bedForm, costPerDay: e.target.value})} />

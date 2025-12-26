@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MemoryRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -22,6 +21,7 @@ import { AuthContext, useAuth } from './context/AuthContext';
 import { HeaderProvider } from './context/HeaderContext';
 
 function AppContent() {
+  // FIX: Replaced React.useContext(AuthContext)! with the custom useAuth() hook for better type safety and cleaner code.
   const { user, isAuthChecking } = useAuth();
   const { t } = useTranslation();
 

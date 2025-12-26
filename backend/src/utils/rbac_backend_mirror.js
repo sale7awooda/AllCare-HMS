@@ -1,4 +1,3 @@
-
 // This file is a mirror of the frontend's src/utils/rbac.ts for backend (Node.js) consumption.
 
 const Permissions = {
@@ -81,6 +80,7 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY,
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS,
     Permissions.VIEW_RECORDS,
+    // FIX: Added VIEW_SETTINGS to align with other roles that have access to basic customization.
     Permissions.VIEW_SETTINGS
   ],
   technician: [ 
@@ -88,9 +88,7 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_PATIENTS, 
     Permissions.VIEW_APPOINTMENTS, 
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY, 
-    Permissions.VIEW_OPERATIONS,
-    Permissions.VIEW_HR,
-    Permissions.VIEW_SETTINGS
+    Permissions.VIEW_OPERATIONS 
   ],
   accountant: [
     Permissions.VIEW_DASHBOARD, 
@@ -99,46 +97,8 @@ const ROLE_PERMISSIONS = {
     Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING, 
     Permissions.VIEW_REPORTS, Permissions.MANAGE_REPORTS,
     Permissions.VIEW_RECORDS,
-    Permissions.VIEW_SETTINGS,
-    Permissions.VIEW_HR
+    Permissions.VIEW_SETTINGS
   ],
-  doctor: [
-    Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS,
-    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS,
-    Permissions.VIEW_LABORATORY,
-    Permissions.VIEW_OPERATIONS,
-    Permissions.VIEW_ADMISSIONS,
-    Permissions.VIEW_SETTINGS,
-    Permissions.VIEW_HR,
-    Permissions.VIEW_BILLING
-  ],
-  nurse: [
-    Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS, Permissions.MANAGE_PATIENTS,
-    Permissions.VIEW_APPOINTMENTS, Permissions.MANAGE_APPOINTMENTS, 
-    Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
-    Permissions.VIEW_LABORATORY,
-    Permissions.VIEW_OPERATIONS,
-    Permissions.VIEW_SETTINGS,
-    Permissions.VIEW_HR,
-    Permissions.VIEW_BILLING
-  ],
-  pharmacist: [
-    Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_PATIENTS, 
-    Permissions.VIEW_BILLING, 
-    Permissions.VIEW_LABORATORY, 
-    Permissions.VIEW_SETTINGS,
-    Permissions.VIEW_HR
-  ],
-  hr: [ 
-    Permissions.VIEW_DASHBOARD,
-    Permissions.VIEW_HR, Permissions.MANAGE_HR, 
-    Permissions.VIEW_REPORTS, 
-    Permissions.VIEW_SETTINGS,
-    Permissions.VIEW_BILLING
-  ]
 };
 
 module.exports = { ROLE_PERMISSIONS, Permissions };

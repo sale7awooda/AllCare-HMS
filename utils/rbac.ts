@@ -1,4 +1,3 @@
-
 import { User, Role } from '../types';
 
 // Define granular permissions for all modules and actions, including DELETE
@@ -84,7 +83,9 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_HR,
     Permissions.VIEW_LABORATORY, Permissions.MANAGE_LABORATORY,
     Permissions.VIEW_OPERATIONS, Permissions.MANAGE_OPERATIONS,
-    Permissions.VIEW_RECORDS
+    Permissions.VIEW_RECORDS,
+    // FIX: Added VIEW_SETTINGS to allow receptionists to customize their interface.
+    Permissions.VIEW_SETTINGS
   ],
   technician: [ 
     Permissions.VIEW_DASHBOARD, 
@@ -109,6 +110,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_LABORATORY,
     Permissions.VIEW_OPERATIONS,
     Permissions.VIEW_ADMISSIONS,
+    Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS,
   ],
   nurse: [
@@ -118,6 +120,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_ADMISSIONS, 
     Permissions.VIEW_LABORATORY,
     Permissions.VIEW_OPERATIONS,
+    Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS,
   ],
   pharmacist: [
@@ -125,12 +128,14 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_PATIENTS, 
     Permissions.VIEW_BILLING, 
     Permissions.VIEW_LABORATORY, 
+    Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS,
   ],
   hr: [ 
     Permissions.VIEW_DASHBOARD,
     Permissions.VIEW_HR, Permissions.MANAGE_HR, 
     Permissions.VIEW_REPORTS, 
+    Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS,
   ]
 };
@@ -169,7 +174,7 @@ export const canAccessRoute = (user: User | null, path: string): boolean => {
     case '/operations': return hasPermission(user, Permissions.VIEW_OPERATIONS);
     case '/reports': return hasPermission(user, Permissions.VIEW_REPORTS);
     case '/records': return hasPermission(user, Permissions.VIEW_RECORDS);
-    case '/settings': return hasPermission(user, Permissions.VIEW_SETTINGS);
+    case '/customizations': return hasPermission(user, Permissions.VIEW_SETTINGS);
     case '/configuration': return hasPermission(user, Permissions.MANAGE_CONFIGURATION);
     default: return false; 
   }
