@@ -7,8 +7,7 @@ exports.getLabRequests = (req, res) => {
   try {
     const requests = db.prepare(`
       SELECT 
-        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, 
-        lr.test_ids, lr.results_json, lr.notes,
+        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json,
         p.full_name as patientName
       FROM lab_requests lr
       JOIN patients p ON lr.patient_id = p.id
@@ -31,7 +30,7 @@ exports.getLabRequests = (req, res) => {
         let results = null;
         try { if(r.results_json) results = JSON.parse(r.results_json); } catch(e) {}
 
-        return { ...r, testNames, testDetails, results, notes: r.notes };
+        return { ...r, testNames, testDetails, results };
     });
 
     res.json(enriched);
@@ -84,9 +83,8 @@ exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
     const { results_json, notes } = req.body;
     try {
-        db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ?, notes = ? WHERE id = ?").run(
+        db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ? WHERE id = ?").run(
             results_json ? JSON.stringify(results_json) : null,
-            notes || null,
             id
         );
         res.json({success: true});
@@ -235,7 +233,7 @@ exports.getActiveAdmissions = (req, res) => {
     res.json(admissions.map(a => ({
         ...a,
         bedId: a.bed_id,
-        stayDuration: Math.ceil((Date.now() - new Date(a.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1
+        stayDuration: Math.ceil((Date.now() - new Date(a.entry_date).getTime()) / (1000 * 60 * 60 * 24))
     })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -359,6 +357,7 @@ exports.getInpatientDetails = (req, res) => {
 
     if (!admission) return res.status(404).json({ error: 'Admission not found' });
 
+    // FIX: Using LEFT JOIN to ensure notes are returned even if doctor record has inconsistencies
     const notes = db.prepare(`SELECT n.*, m.full_name as doctorName FROM inpatient_notes n LEFT JOIN medical_staff m ON n.doctor_id = m.id WHERE n.admission_id = ? ORDER BY n.created_at DESC`).all(id);
     const endDate = admission.actual_discharge_date ? new Date(admission.actual_discharge_date) : new Date();
     const daysStayed = Math.ceil((endDate.getTime() - new Date(admission.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1;
