@@ -305,14 +305,33 @@ const seedData = () => {
           ['CBC', 'عد دم كامل', 'Hematology', 'WBC: 4.0-11.0; RBC: 4.5-5.5; HGB: 12.0-16.0; PLT: 150-450', 45],
           ['PT / INR', 'زمن التخثر', 'Hematology', 'PT: 11-13.5s; INR: 0.8-1.1', 35],
           ['Blood Group & Rh', 'فصيلة الدم', 'Hematology', 'Result: A/B/AB/O; Rh: +/-', 20],
+          ['ESR', 'سرعة الترسيب', 'Hematology', 'Male: 0-15 mm/hr; Female: 0-20 mm/hr', 15],
+          ['Reticulocyte Count', 'عدد الخلايا الشبكية', 'Hematology', '0.5-2.5%', 30],
+          ['Ferritin', 'الفيريتين', 'Hematology', 'Male: 24-336 ng/mL; Female: 11-307 ng/mL', 80],
+          ['Iron Profile', 'ملف الحديد', 'Hematology', 'Iron: 60-170; TIBC: 240-450', 100],
+
           // Biochemistry
           ['Blood Sugar (Fasting)', 'سكر صائم', 'Biochemistry', 'Result: 70-100 mg/dL', 20],
+          ['Blood Sugar (Random)', 'سكر عشوائي', 'Biochemistry', 'Result: < 200 mg/dL', 20],
           ['HbA1c', 'السكر التراكمي', 'Biochemistry', 'Normal: <5.7%; Pre-diabetes: 5.7-6.4%; Diabetes: >=6.5%', 50],
           ['Lipid Profile', 'دهون كاملة', 'Biochemistry', 'Cholesterol: <200; HDL: >40; LDL: <130; Trig: <150', 80],
           ['Liver Function Test (LFT)', 'وظائف كبد', 'Biochemistry', 'ALT: 7-56; AST: 10-40; Bilirubin: 0.1-1.2; Albumin: 3.4-5.4', 120],
           ['Renal Function Test (RFT)', 'وظائف كلى', 'Biochemistry', 'Urea: 15-45; Creatinine: 0.6-1.2; Sodium: 135-145; Potassium: 3.5-5.0', 100],
           ['Uric Acid', 'حمض اليوريك', 'Biochemistry', 'Male: 3.4-7.0; Female: 2.4-6.0 mg/dL', 25],
-          ['Troponin I', 'نزيمات القلب', 'Biochemistry', 'Normal: <0.04 ng/mL', 150],
+          ['Troponin I', 'إنزيمات القلب', 'Biochemistry', 'Normal: <0.04 ng/mL', 150],
+          ['Calcium', 'الكالسيوم', 'Biochemistry', '8.6-10.3 mg/dL', 25],
+          ['Magnesium', 'المغنيسيوم', 'Biochemistry', '1.7-2.2 mg/dL', 30],
+          ['Phosphorus', 'الفوسفور', 'Biochemistry', '2.5-4.5 mg/dL', 30],
+          ['Amylase', 'الأميليز', 'Biochemistry', '30-110 U/L', 60],
+          ['Lipase', 'الليباز', 'Biochemistry', '0-160 U/L', 65],
+          ['LDH', 'نازعة هيدروجين اللاكتات', 'Biochemistry', '140-280 U/L', 40],
+          ['CK (Creatine Kinase)', 'كيناز الكرياتين', 'Biochemistry', 'Male: 39-308 U/L; Female: 26-192 U/L', 50],
+          ['CK-MB', 'كيناز الكرياتين القلبي', 'Biochemistry', '< 5.0 ng/mL', 70],
+          ['Total Protein', 'البروتين الكلي', 'Biochemistry', '6.0-8.3 g/dL', 30],
+          ['Albumin', 'الألبومين', 'Biochemistry', '3.4-5.4 g/dL', 30],
+          ['GGT', 'ناقلة جاما جلوتاميل', 'Biochemistry', '5-40 U/L', 45],
+          ['Alkaline Phosphatase (ALP)', 'الفوسفاتاز القلوي', 'Biochemistry', '44-147 IU/L', 40],
+
           // Serology / Immunology
           ['H. Pylori (Antigen)', 'جرثومة المعدة', 'Serology', 'Result: Negative', 60],
           ['CRP (Quantitative)', 'البروتين التفاعلي', 'Serology', 'Normal: <1.0 mg/dL', 40],
@@ -320,16 +339,55 @@ const seedData = () => {
           ['HIV 1&2 (Rapid)', 'فيروس نقص المناعة', 'Serology', 'Result: Non-reactive', 100],
           ['HBsAg (Hepatitis B)', 'فيروس الكبد ب', 'Serology', 'Result: Negative', 70],
           ['HCV (Hepatitis C)', 'فيروس الكبد ج', 'Serology', 'Result: Negative', 70],
+          ['ASO Titre', 'عيار ASO', 'Serology', '< 200 IU/mL', 50],
+          ['ANA', 'الأجسام المضادة للنواة', 'Serology', 'Negative', 120],
+          ['VDRL / RPR', 'فحص الزهري', 'Serology', 'Non-reactive', 40],
+          ['TPHA', 'تأكيد الزهري', 'Serology', 'Non-reactive', 80],
+          ['Dengue NS1/IgM/IgG', 'حمى الضنك', 'Serology', 'Negative', 150],
+          ['Brucella Ab', 'الحمى المالطية', 'Serology', 'Negative', 60],
+          ['Anti-CCP', 'الأجسام المضادة للببتيد', 'Serology', '< 20.0 U', 130],
+
           // Microbiology / Parasitology
           ['Malaria (Rapid)', 'ملاريا سريع', 'Parasitology', 'Result: Negative', 15],
           ['Malaria (Blood Film)', 'ملاريا فيلم', 'Parasitology', 'Result: No parasites seen', 25],
           ['Widal Test', 'تيفويد', 'Serology', 'Result: Negative', 30],
           ['Urine Analysis', 'فحص بول', 'Microscopy', 'Pus Cells: 0-5; RBCs: 0-2; Crystals: None', 25],
           ['Stool Analysis', 'فحص براز', 'Microscopy', 'Parasites: None seen; Occult Blood: Negative', 30],
+          ['Blood Culture', 'مزرعة دم', 'Microbiology', 'No growth', 200],
+          ['Urine Culture', 'مزرعة بول', 'Microbiology', 'No growth', 150],
+          ['Stool Culture', 'مزرعة براز', 'Microbiology', 'No growth of pathogens', 150],
+          ['Gram Stain', 'صبغة جرام', 'Microbiology', 'Result based on sample', 40],
+
           // Hormones
           ['TSH', 'هرمون الغدة الدرقية', 'Hormones', 'Normal: 0.4-4.0 mIU/L', 60],
           ['Free T4', 'ثايروكسين حر', 'Hormones', 'Normal: 0.8-1.8 ng/dL', 60],
-          ['PSA (Total)', 'بروستاتا', 'Hormones', 'Normal: <4.0 ng/mL', 120]
+          ['Free T3', 'ثلاثي يودوثيرونين حر', 'Hormones', 'Normal: 2.0-4.4 pg/mL', 65],
+          ['Prolactin', 'البرولاكتين', 'Hormones', 'Male: 4-15 ng/mL; Female: 5-23 ng/mL', 70],
+          ['LH', 'الهرمون الملوتن', 'Hormones', 'Varies with cycle', 70],
+          ['FSH', 'الهرمون المنبه للجريب', 'Hormones', 'Varies with cycle', 70],
+          ['Estradiol (E2)', 'استراديول', 'Hormones', 'Varies with cycle', 80],
+          ['Progesterone', 'البروجسترون', 'Hormones', 'Varies with cycle', 80],
+          ['Testosterone (Total)', 'التستوستيرون الكلي', 'Hormones', 'Male: 280-1100 ng/dL', 90],
+          ['Cortisol (AM)', 'الكورتيزول صباحا', 'Hormones', '6-23 mcg/dL', 100],
+          ['beta-hCG (Pregnancy Test)', 'اختبار حمل بالدم', 'Hormones', 'Negative: <5 mIU/mL', 50],
+
+          // Tumor Markers
+          ['PSA (Total)', 'مستضد البروستاتا النوعي', 'Tumor Markers', 'Normal: <4.0 ng/mL', 120],
+          ['AFP', 'ألفا فيتو بروتين', 'Tumor Markers', '< 10 ng/mL', 110],
+          ['CEA', 'المستضد السرطاني المضغي', 'Tumor Markers', '< 5.0 ng/mL', 110],
+          ['CA 125', 'دلالة أورام المبيض', 'Tumor Markers', '< 35 U/mL', 140],
+          ['CA 19-9', 'دلالة أورام البنكرياس', 'Tumor Markers', '< 37 U/mL', 140],
+          ['CA 15-3', 'دلالة أورام الثدي', 'Tumor Markers', '< 30 U/mL', 140],
+
+          // Vitamins & Minerals
+          ['Vitamin D (25-OH)', 'فيتامين د', 'Vitamins', 'Deficiency: <20; Insufficiency: 20-29; Sufficiency: 30-100 ng/mL', 150],
+          ['Vitamin B12', 'فيتامين ب12', 'Vitamins', '190-950 pg/mL', 100],
+          ['Folic Acid', 'حمض الفوليك', 'Vitamins', '> 5.4 ng/mL', 90],
+          
+          // Coagulation
+          ['D-Dimer', 'دي-دايمر', 'Coagulation', '< 0.50 mcg/mL', 180],
+          ['Fibrinogen', 'الفيبرينوجين', 'Coagulation', '200-400 mg/dL', 70],
+          ['APTT', 'زمن الثرومبوبلاستين الجزئي', 'Coagulation', '25-35 seconds', 40]
         ];
         const stmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, normal_range, cost) VALUES (?, ?, ?, ?, ?)');
         tests.forEach(t => stmt.run(t[0], t[1], t[2], t[3], t[4]));
@@ -408,16 +466,8 @@ const seedData = () => {
     // 9. Demo Patients
     const patientCount = db.prepare('SELECT count(*) as count FROM patients').get()?.count || 0;
     if (patientCount === 0) {
-      const demoPatients = [
-          { id: 'P250301', n: 'Ahmed Ibrahim', p: '0912345678', a: 'Atbara, Sector 1', age: 45, g: 'male', t: 'outpatient', b: 'O+' },
-          { id: 'P250302', n: 'Sara Abdelrahman', p: '0998765432', a: 'Atbara, Market St.', age: 28, g: 'female', t: 'inpatient', b: 'A-' }
-      ];
-      const stmt = db.prepare(`
-        INSERT INTO patients (patient_id, full_name, phone, address, age, gender, type, blood_group, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '-2 days'))
-      `);
-      demoPatients.forEach(p => stmt.run(p.id, p.n, p.p, p.a, p.age, p.g, p.t, p.b));
-      console.log('- [Seed] Demo patients created.');
+      // Data seeding for patients has been removed as per user request.
+      console.log('- [Seed] Demo patients seeding skipped.');
     }
 
     // 10. Beds
