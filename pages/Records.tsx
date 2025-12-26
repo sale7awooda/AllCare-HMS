@@ -100,7 +100,7 @@ export const Records = () => {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
         r.primaryEntity.toLowerCase().includes(searchLower) ||
-        r.refId.toLowerCase().includes(searchLower) ||
+        (r.refId && r.refId.toLowerCase().includes(searchLower)) ||
         (r.secondaryEntity && r.secondaryEntity.toLowerCase().includes(searchLower));
       const matchesType = filterType === 'all' || r.type.toLowerCase() === filterType;
       return matchesSearch && matchesType;
@@ -177,7 +177,22 @@ export const Records = () => {
         </div>
         
         <div className="p-4 flex flex-col sm:flex-row justify-between items-center border-t border-slate-200 dark:border-slate-700 gap-4">
-            <p className="text-xs text-slate-500">{t('records_pagination_showing', { count: paginatedRecords.length, total: filteredRecords.length })}</p>
+            <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
+              <p className="text-xs">{t('records_pagination_showing', { count: paginatedRecords.length, total: filteredRecords.length })}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs whitespace-nowrap">{t('patients_pagination_rows')}</span>
+                <select 
+                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                  value={itemsPerPage}
+                  onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                >
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
             <div className="flex gap-2">
                 <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
                 <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
@@ -188,17 +203,40 @@ export const Records = () => {
       <Modal isOpen={!!selectedRecord} onClose={() => setSelectedRecord(null)} title={t('records_modal_analysis_title', { ref: selectedRecord?.refId })}>
         {selectedRecord && (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className={`flex flex-wrap items-center gap-3 p-4 rounded-2xl border ${
+              selectedRecord.type === 'Patient' ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/20' : 
+              selectedRecord.type === 'Appointment' ? 'bg-violet-50 border-violet-100 dark:bg-violet-900/20' : 
+              selectedRecord.type === 'Invoice' ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20' :
+              'bg-orange-50 border-orange-100 dark:bg-orange-900/20'
+            }`}>
+              <div className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-primary-600">
+                 {getTypeIcon(selectedRecord.type)}
+              </div>
+              <div className="flex-1">
+                 <h3 className="font-black text-slate-900 dark:text-white text-lg leading-tight">{selectedRecord.primaryEntity}</h3>
+                 <div className="flex items-center gap-2 mt-1">
+                    <Badge color="blue" className="capitalize">{t(`records_type_${selectedRecord.type.toLowerCase()}`)}</Badge>
+                    {selectedRecord.rawData.status && <Badge color="gray">{selectedRecord.rawData.status}</Badge>}
+                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <RecordDetailItem label={t('records_modal_logged_time')} value={new Date(selectedRecord.date).toLocaleString()} icon={Clock} />
               <RecordDetailItem label={t('records_modal_ref_id')} value={selectedRecord.refId} icon={Hash} />
-              <RecordDetailItem label={t('records_modal_db_id')} value={selectedRecord.id} icon={Database} />
+              {selectedRecord.type === 'Patient' && <RecordDetailItem label={t('patients_modal_form_age')} value={`${selectedRecord.rawData.age} yrs`} icon={Users} />}
+              {selectedRecord.type === 'Appointment' && <RecordDetailItem label={t('nav_hr')} value={selectedRecord.rawData.staffName} icon={User} />}
             </div>
+
             <div className="space-y-3">
-               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('records_modal_context')}</h4>
-               <pre className="text-xs font-mono bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto custom-scrollbar">
+               <h4 className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest px-1">
+                 <Database size={14}/> {t('records_modal_context')}
+               </h4>
+               <pre className="text-xs font-mono bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto custom-scrollbar max-h-60">
                   {JSON.stringify(selectedRecord.rawData, null, 2)}
                </pre>
             </div>
+
             <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-700">
               <Button variant="ghost" icon={Printer}>{t('records_modal_print')}</Button>
               <Button variant="secondary" onClick={() => setSelectedRecord(null)}>{t('records_modal_dismiss')}</Button>

@@ -14,8 +14,7 @@ interface ErrorBoundaryState {
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Initialized state as a class property and removed the constructor to resolve issues with 'this' context.
-  // This resolves errors where `this.state`, `this.setState`, and `this.props` were not found.
+  // FIX: Replaced the constructor with a class property initializer for state. This is a more modern approach and resolves the issue where 'this.state', 'this.setState', and 'this.props' were not found on the component instance.
   state: ErrorBoundaryState = {
     hasError: false,
     error: null

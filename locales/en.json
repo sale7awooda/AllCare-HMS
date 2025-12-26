@@ -488,7 +488,7 @@
   "admissions_report_no_notes": "No clinical notes recorded.",
   "admissions_report_discharge_summary": "Discharge Summary",
   "admissions_report_blocked_title": "Discharge Blocked",
-  "admissions_report_blocked_msg": "Outstanding balance: ${balance}. Please settle bills to proceed.",
+  "admissions_report_blocked_msg": "Outstanding balance: {balance}. Please settle bills to proceed.",
   "admissions_report_go_billing": "Go to Billing",
   "admissions_report_final_note_label": "Final Discharge Note",
   "admissions_report_final_note_placeholder": "Summary of treatment, medication, and follow-up instructions...",
@@ -567,5 +567,17 @@
   "billing_status_paid": "Paid",
   "billing_status_overdue": "Overdue",
   "billing_status_refunded": "Refunded",
-  "billing_status_cancelled": "Cancelled"
+  "billing_status_cancelled": "Cancelled",
+  "lab_title": "Laboratory Queue",
+  "lab_subtitle": "Manage incoming test requests and enter results.",
+  "lab_tab_queue": "Queue",
+  "lab_tab_history": "History",
+  "lab_save_error": "Failed to save results.",
+  "lab_search_placeholder": "Search for a patient name...",
+  "lab_loading": "Loading lab queue...",
+  "lab_empty": "The {tab} is empty.",
+  "lab_card_enter_results": "Enter Results",
+  "lab_card_awaiting_payment": "Awaiting Payment",
+  "lab_view_results": "View Results",
+  "lab_print_results": "Print Results"
 }
