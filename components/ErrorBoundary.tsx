@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -13,38 +13,35 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Added a constructor to properly initialize state. This ensures 'this.state' is correctly set up for the component instance, resolving errors where properties like 'setState' and 'props' were not found on 'this'.
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null
-    };
-  }
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // FIX: Using a class field for state initialization and explicitly extending Component from react to ensure the TypeScript compiler correctly identifies inherited properties (state, props, setState). This resolves errors where these properties were reported as non-existent on type 'ErrorBoundary'.
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
 
   /**
    * Static method to update state when an error occurs during rendering.
    */
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
   /**
    * Lifecycle method to log error details.
    */
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
   /**
    * Resets the error state to allow the application to attempt re-rendering.
    */
-  handleReload = () => {
+  public handleReload = () => {
     this.setState({ hasError: false, error: null });
   }
 
-  render(): React.ReactNode {
+  public render(): ReactNode {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">

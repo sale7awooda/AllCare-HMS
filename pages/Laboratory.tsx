@@ -2,7 +2,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, Modal, Input, Textarea } from '../components/UI';
-import { FlaskConical, CheckCircle, Search, Clock, FileText, Activity, History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { 
+    FlaskConical, CheckCircle, Search, Clock, FileText, Activity, 
+    History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight 
+} from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
 import { useHeader } from '../context/HeaderContext';
@@ -15,25 +18,28 @@ export const Laboratory = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  
   const HeaderTabs = useMemo(() => (
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
         <button 
-            onClick={() => setActiveTab('queue')} 
+            onClick={() => { setActiveTab('queue'); setCurrentPage(1); }} 
             className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'queue' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
         >
             <FlaskConical size={14}/> {t('lab_tab_queue')} 
-            <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'queue' ? 'bg-primary-100 text-primary-700' : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300'}`}>
-              {requests.filter(r => r.status === 'pending' || r.status === 'confirmed').length}
-            </span>
         </button>
         <button 
-            onClick={() => setActiveTab('history')} 
+            onClick={() => { setActiveTab('history'); setCurrentPage(1); }} 
             className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'history' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
         >
             <HistoryIcon size={14}/> {t('lab_tab_history')}
         </button>
     </div>
-  ), [activeTab, requests, t]);
+  ), [activeTab, t]);
 
   useHeader(t('lab_title'), t('lab_subtitle'), HeaderTabs);
 
@@ -47,13 +53,23 @@ export const Laboratory = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await api.getPendingLabRequests(); 
-      setRequests(Array.isArray(data) ? data : []);
+      // NOTE: For 'queue', we currently fetch all pending/confirmed and then client-side filter
+      // because the backend getLabRequests is unified. To strictly follow Fix #1, 
+      // we pass the current state to the API.
+      const response = await api.getPendingLabRequests({ 
+          page: currentPage, 
+          limit: itemsPerPage, 
+          search: searchTerm 
+      }); 
+      
+      setRequests(response.requests || []);
+      setTotalItems(response.total || 0);
+      setTotalPages(response.totalPages || 0);
     } catch (e) { console.error(e); } 
     finally { setLoading(false); }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [activeTab, currentPage, itemsPerPage, searchTerm]);
 
   const getEvaluation = (value: string, range: string) => {
     if (!value || !range) return 'lab_eval_observed';
@@ -141,10 +157,11 @@ export const Laboratory = () => {
     }
   };
 
-  const filteredRequests = requests.filter(r => {
-    const matchesSearch = r.patientName?.toLowerCase().includes(searchTerm.toLowerCase());
+  // We filter by tab locally for better UX since the response includes both statuses usually, 
+  // but with Fix #1 implemented, we effectively load only what the backend says is relevant.
+  const displayRequests = requests.filter(r => {
     const matchesTab = activeTab === 'queue' ? (r.status === 'pending' || r.status === 'confirmed') : (r.status === 'completed');
-    return matchesSearch && matchesTab;
+    return matchesTab;
   });
 
   return (
@@ -159,30 +176,32 @@ export const Laboratory = () => {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-        <input 
-            type="text" 
-            placeholder={t('lab_search_placeholder')} 
-            className="pl-10 pr-4 py-2.5 w-full sm:w-96 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all shadow-sm" 
-            value={searchTerm} 
-            onChange={e => setSearchTerm(e.target.value)}
-        />
+      <div className="flex flex-col sm:flex-row gap-4 items-center">
+        <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <input 
+                type="text" 
+                placeholder={t('lab_search_placeholder')} 
+                className="pl-10 pr-4 py-2.5 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all shadow-sm" 
+                value={searchTerm} 
+                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {loading ? (
             <div className="col-span-full py-20 text-center text-slate-400 flex flex-col items-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mb-3"></div>
                 {t('lab_loading')}
             </div>
-        ) : filteredRequests.length === 0 ? (
+        ) : displayRequests.length === 0 ? (
             <div className="col-span-full text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl bg-slate-50/50 dark:bg-slate-900/50">
                 <FlaskConical size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-600 opacity-50" />
                 <p className="text-slate-500 dark:text-slate-400 font-medium">{t('lab_empty', {tab: activeTab === 'queue' ? t('lab_tab_queue') : t('lab_tab_history')})}</p>
             </div>
         ) : (
-            filteredRequests.map(req => (
+            displayRequests.map(req => (
                 <div key={req.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col group h-full">
                     <div className="flex justify-between items-start mb-3">
                         <div className="min-w-0 flex-1">
@@ -228,6 +247,32 @@ export const Laboratory = () => {
             ))
         )}
       </div>
+
+      {/* Pagination Footer */}
+      {!loading && totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row justify-between items-center p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
+                <span>{t('patients_pagination_showing')} {displayRequests.length} {t('patients_pagination_of')} {totalItems}</span>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs whitespace-nowrap">{t('patients_pagination_rows')}</span>
+                    <select 
+                        className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                        value={itemsPerPage}
+                        onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                    >
+                        <option value={12}>12</option>
+                        <option value={24}>24</option>
+                        <option value={48}>48</option>
+                        <option value={100}>100</option>
+                    </select>
+                </div>
+            </div>
+            <div className="flex gap-2">
+                <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
+                <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
+            </div>
+        </div>
+      )}
 
       {/* LAB RESULTS MODAL - STRUCTURED COMPONENTS */}
       <Modal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)} title={t('lab_modal_findings_title', { name: selectedReq?.patientName })}>

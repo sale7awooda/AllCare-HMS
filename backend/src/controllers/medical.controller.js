@@ -5,14 +5,29 @@ const notificationController = require('./notification.controller');
 // --- LAB ---
 exports.getLabRequests = (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
+    const search = req.query.search || '';
+    const offset = (page - 1) * limit;
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM lab_requests lr
+      JOIN patients p ON lr.patient_id = p.id
+      WHERE p.full_name LIKE ?
+    `;
+    const totalRecords = db.prepare(countQuery).get(`%${search}%`).total;
+
     const requests = db.prepare(`
       SELECT 
         lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json,
         p.full_name as patientName
       FROM lab_requests lr
       JOIN patients p ON lr.patient_id = p.id
+      WHERE p.full_name LIKE ?
       ORDER BY lr.created_at DESC
-    `).all();
+      LIMIT ? OFFSET ?
+    `).all(`%${search}%`, limit, offset);
 
     const enriched = requests.map(r => {
         let testNames = '';
@@ -33,7 +48,13 @@ exports.getLabRequests = (req, res) => {
         return { ...r, testNames, testDetails, results };
     });
 
-    res.json(enriched);
+    res.json({
+      requests: enriched,
+      total: totalRecords,
+      page,
+      limit,
+      totalPages: Math.ceil(totalRecords / limit)
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

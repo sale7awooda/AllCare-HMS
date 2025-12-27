@@ -1,3 +1,4 @@
+
 import axios from 'axios';
 
 /**
@@ -146,7 +147,10 @@ export const api = {
   markBedClean: (id) => put(`/admissions/beds/${id}/clean`),
 
   getLabTests: () => get('/config/lab-tests'),
-  getPendingLabRequests: () => get('/lab/requests'),
+  getPendingLabRequests: (params?: { page?: number; limit?: number; search?: string }) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return get(`/lab/requests${query}`);
+  },
   createLabRequest: (data) => post('/lab/requests', data),
   completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`),
   confirmLabRequest: (id) => post(`/lab/requests/${id}/confirm`),
