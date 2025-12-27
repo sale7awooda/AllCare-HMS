@@ -19,7 +19,7 @@ const appointmentController = require('../controllers/appointment.controller');
 const billingController = require('../controllers/billing.controller');
 const medicalController = require('../controllers/medical.controller');
 const configurationController = require('../controllers/configuration.controller');
-const notificationController = require('./notification.controller');
+const notificationController = require('../controllers/notification.controller');
 
 // --- PUBLIC ROUTES ---
 router.post('/auth/login', validate(schemas.login), authController.login);
