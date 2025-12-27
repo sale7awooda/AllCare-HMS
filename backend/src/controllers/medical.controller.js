@@ -1,4 +1,3 @@
-
 const { db } = require('../config/database');
 const notificationController = require('./notification.controller');
 
@@ -7,7 +6,7 @@ exports.getLabRequests = (req, res) => {
   try {
     const requests = db.prepare(`
       SELECT 
-        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json,
+        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json, lr.notes,
         p.full_name as patientName
       FROM lab_requests lr
       JOIN patients p ON lr.patient_id = p.id
@@ -83,8 +82,9 @@ exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
     const { results_json, notes } = req.body;
     try {
-        db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ? WHERE id = ?").run(
+        db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ?, notes = ? WHERE id = ?").run(
             results_json ? JSON.stringify(results_json) : null,
+            notes || null,
             id
         );
         res.json({success: true});
@@ -233,7 +233,7 @@ exports.getActiveAdmissions = (req, res) => {
     res.json(admissions.map(a => ({
         ...a,
         bedId: a.bed_id,
-        stayDuration: Math.ceil((Date.now() - new Date(a.entry_date).getTime()) / (1000 * 60 * 60 * 24))
+        stayDuration: Math.ceil((Date.now() - new Date(a.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1
     })));
   } catch (err) {
     res.status(500).json({ error: err.message });
