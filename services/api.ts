@@ -154,6 +154,7 @@ export const api = {
   createLabRequest: (data) => post('/lab/requests', data),
   completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`),
   confirmLabRequest: (id) => post(`/lab/requests/${id}/confirm`),
+  amendLabRequest: (id) => post(`/lab/requests/${id}/amend`),
 
   getNurseServices: () => get('/config/nurse-services'),
   createNurseRequest: (data) => post('/nurse/requests', data),

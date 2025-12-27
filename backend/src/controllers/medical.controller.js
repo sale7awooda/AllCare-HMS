@@ -114,6 +114,17 @@ exports.completeLabRequest = (req, res) => {
     }
 };
 
+exports.amendLabRequest = (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = db.prepare("UPDATE lab_requests SET status = 'confirmed' WHERE id = ? AND status = 'completed'").run(id);
+        if (result.changes === 0) return res.status(404).json({ error: 'Completed record not found' });
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
 // --- NURSE ---
 exports.getNurseRequests = (req, res) => {
     try {

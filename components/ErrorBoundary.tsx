@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
@@ -13,12 +13,15 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Using a class field for state initialization and explicitly extending Component from react to ensure the TypeScript compiler correctly identifies inherited properties (state, props, setState). This resolves errors where these properties were reported as non-existent on type 'ErrorBoundary'.
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+// Fix: Explicitly extending React.Component and using a constructor for state initialization to resolve property access issues.
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   /**
    * Static method to update state when an error occurs during rendering.
@@ -38,6 +41,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
    * Resets the error state to allow the application to attempt re-rendering.
    */
   public handleReload = () => {
+    // Fix: Access setState from React.Component context
     this.setState({ hasError: false, error: null });
   }
 
@@ -72,6 +76,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
+    // Fix: Correctly access children from props via React.Component context
     return this.props.children;
   }
 }

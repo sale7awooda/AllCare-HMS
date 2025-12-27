@@ -1,23 +1,28 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Button, Badge, Modal, Input, Textarea } from '../components/UI';
+import { Card, Button, Badge, Modal, Input, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
     FlaskConical, CheckCircle, Search, Clock, FileText, Activity, 
-    History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight 
+    History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, RotateCcw, Eye
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
 import { useHeader } from '../context/HeaderContext';
+import { useAuth } from '../context/AuthContext';
+import { hasPermission, Permissions } from '../utils/rbac';
 
 export const Laboratory = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { t, language } = useTranslation();
   const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
+  const canAmend = hasPermission(user, Permissions.MANAGE_CONFIGURATION) || hasPermission(user, Permissions.MANAGE_HR);
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
@@ -49,13 +54,11 @@ export const Laboratory = () => {
   const [resultNotes, setResultNotes] = useState('');
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
+  const [confirmState, setConfirmState] = useState<any>({ isOpen: false, title: '', message: '', action: () => {} });
 
   const loadData = async () => {
     setLoading(true);
     try {
-      // NOTE: For 'queue', we currently fetch all pending/confirmed and then client-side filter
-      // because the backend getLabRequests is unified. To strictly follow Fix #1, 
-      // we pass the current state to the API.
       const response = await api.getPendingLabRequests({ 
           page: currentPage, 
           limit: itemsPerPage, 
@@ -103,11 +106,16 @@ export const Laboratory = () => {
     const initialResults: any = {};
     req.testDetails.forEach((test: any) => {
         let components: any[] = [];
-        if (test.normal_range?.includes(';')) {
+        // Resilient Range Parsing (#3)
+        if (test.normal_range?.includes(';') || test.normal_range?.includes(':')) {
             components = test.normal_range.split(';').map((s: string) => {
                 const parts = s.split(':');
-                return { name: parts[0]?.trim() || 'Result', range: parts[1]?.trim() || '' };
-            });
+                const name = parts[0]?.trim();
+                const range = parts[1]?.trim() || '';
+                // If there's only one part, use it as range and default name
+                if (parts.length === 1) return { name: 'Result', range: parts[0]?.trim() || '' };
+                return { name: name || 'Result', range };
+            }).filter((c: any) => c.name);
         } else {
             components = [{ name: 'Result', range: test.normal_range || '' }];
         }
@@ -157,8 +165,27 @@ export const Laboratory = () => {
     }
   };
 
-  // We filter by tab locally for better UX since the response includes both statuses usually, 
-  // but with Fix #1 implemented, we effectively load only what the backend says is relevant.
+  const handleAmend = (req: any) => {
+    setConfirmState({
+        isOpen: true,
+        title: t('lab_amend_confirm_title'),
+        message: t('lab_amend_confirm_msg'),
+        action: async () => {
+            setProcessStatus('processing');
+            try {
+                await api.amendLabRequest(req.id);
+                setProcessStatus('success');
+                setActiveTab('queue');
+                loadData();
+                setTimeout(() => setProcessStatus('idle'), 1000);
+            } catch (e: any) {
+                setProcessStatus('error');
+                setProcessMessage(e.response?.data?.error || "Amendment failed");
+            }
+        }
+    });
+  };
+
   const displayRequests = requests.filter(r => {
     const matchesTab = activeTab === 'queue' ? (r.status === 'pending' || r.status === 'confirmed') : (r.status === 'completed');
     return matchesTab;
@@ -226,21 +253,33 @@ export const Laboratory = () => {
                             ))}
                         </div>
                     </div>
-                    <div className="pt-2">
+                    <div className="pt-2 space-y-2">
                         {req.status === 'confirmed' && (
                             <Button size="sm" onClick={() => openProcessModal(req)} icon={Activity} className="w-full justify-center text-xs py-2 shadow-sm">
                                 {t('lab_card_enter_results')}
                             </Button>
                         )}
                         {req.status === 'pending' && (
-                            <button onClick={() => navigate('/billing')} className="w-full px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-black uppercase rounded-lg border border-amber-200 transition-colors flex items-center justify-center gap-2">
-                                <Clock size={12}/> {t('lab_card_awaiting_payment')}
-                            </button>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button size="sm" variant="outline" onClick={() => openProcessModal(req)} icon={Eye} className="justify-center text-[10px] py-2">
+                                    {t('lab_action_view_order')}
+                                </Button>
+                                <button onClick={() => navigate('/billing')} className="px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-black uppercase rounded-lg border border-amber-200 transition-colors flex items-center justify-center gap-1.5">
+                                    <Clock size={10}/> {t('lab_card_awaiting_payment')}
+                                </button>
+                            </div>
                         )}
                         {req.status === 'completed' && (
-                            <Button size="sm" variant="secondary" icon={FileText} onClick={() => openProcessModal(req)} className="w-full justify-center text-xs py-2">
-                                {t('lab_view_results')}
-                            </Button>
+                            <div className="space-y-2">
+                                <Button size="sm" variant="secondary" icon={FileText} onClick={() => openProcessModal(req)} className="w-full justify-center text-xs py-2">
+                                    {t('lab_view_results')}
+                                </Button>
+                                {canAmend && (
+                                    <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => handleAmend(req)} className="w-full justify-center text-[10px] py-1 text-slate-400 hover:text-primary-600">
+                                        {t('lab_action_amend')}
+                                    </Button>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>
@@ -310,7 +349,7 @@ export const Laboratory = () => {
                                             value={comp.value} 
                                             onChange={e => updateResultValue(test.id, idx, e.target.value, comp.range)}
                                             className="!py-2 font-mono font-bold"
-                                            disabled={selectedReq?.status === 'completed'}
+                                            disabled={selectedReq?.status === 'completed' || selectedReq?.status === 'pending'}
                                         />
                                     </div>
                                     <div className="col-span-4 sm:col-span-3 text-right">
@@ -335,7 +374,7 @@ export const Laboratory = () => {
                         rows={3} 
                         value={resultNotes} 
                         onChange={e => setResultNotes(e.target.value)} 
-                        disabled={selectedReq?.status === 'completed'}
+                        disabled={selectedReq?.status === 'completed' || selectedReq?.status === 'pending'}
                         className="rounded-xl"
                     />
                 </div>
@@ -343,7 +382,7 @@ export const Laboratory = () => {
             
             <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
                 <Button type="button" variant="secondary" onClick={() => setIsProcessModalOpen(false)}>{t('close')}</Button>
-                {selectedReq?.status !== 'completed' && (
+                {selectedReq?.status === 'confirmed' && (
                     <Button type="submit" icon={Save} disabled={processStatus === 'processing'}>
                         {processStatus === 'processing' ? t('processing') : t('lab_modal_authorize_button')}
                     </Button>
@@ -351,6 +390,14 @@ export const Laboratory = () => {
             </div>
         </form>
       </Modal>
+
+      <ConfirmationDialog 
+        isOpen={confirmState.isOpen} 
+        onClose={() => setConfirmState({...confirmState, isOpen: false})} 
+        onConfirm={() => { confirmState.action(); setConfirmState({...confirmState, isOpen: false}); }} 
+        title={confirmState.title} 
+        message={confirmState.message} 
+      />
     </div>
   );
 };

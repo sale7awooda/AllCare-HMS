@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -18,7 +19,7 @@ const appointmentController = require('../controllers/appointment.controller');
 const billingController = require('../controllers/billing.controller');
 const medicalController = require('../controllers/medical.controller');
 const configurationController = require('../controllers/configuration.controller');
-const notificationController = require('../controllers/notification.controller');
+const notificationController = require('./notification.controller');
 
 // --- PUBLIC ROUTES ---
 router.post('/auth/login', validate(schemas.login), authController.login);
@@ -90,6 +91,7 @@ router.get('/lab/requests', authorizeRoles(Permissions.VIEW_LABORATORY), medical
 router.post('/lab/requests', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.createLabRequest);
 router.post('/lab/requests/:id/complete', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.completeLabRequest);
 router.post('/lab/requests/:id/confirm', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.confirmLabRequest);
+router.post('/lab/requests/:id/amend', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.MANAGE_HR), medicalController.amendLabRequest);
 
 // Medical: Nurse
 router.get('/nurse/requests', authorizeRoles(Permissions.VIEW_DASHBOARD), medicalController.getNurseRequests);
