@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { Card, Button, Badge } from '../components/UI';
 import { api } from '../services/api';
@@ -53,7 +54,7 @@ export const Dashboard = () => {
         }
       };
 
-      const [pts, apts, bills, bedsData, labsResponse, staffData] = await Promise.all([
+      const [pts, apts, bills, bedsData, labs, staffData] = await Promise.all([
         wrapApi(api.getPatients()),
         wrapApi(api.getAppointments()),
         wrapApi(api.getBills()),
@@ -61,9 +62,6 @@ export const Dashboard = () => {
         wrapApi(api.getPendingLabRequests()),
         wrapApi(api.getStaff())
       ]);
-
-      // Handle paginated response for labs
-      const labs = Array.isArray(labsResponse?.requests) ? labsResponse.requests : (Array.isArray(labsResponse) ? labsResponse : []);
 
       const totalRev = bills.reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
       const outstanding = bills.reduce((sum: number, b: any) => sum + ((b.totalAmount || 0) - (b.paidAmount || 0)), 0);

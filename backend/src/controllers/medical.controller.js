@@ -5,11 +5,8 @@ const notificationController = require('./notification.controller');
 // --- LAB ---
 exports.getLabRequests = (req, res) => {
   try {
-    const pageRaw = parseInt(req.query.page);
-    const limitRaw = parseInt(req.query.limit);
-    
-    const page = !isNaN(pageRaw) && pageRaw > 0 ? pageRaw : 1;
-    const limit = !isNaN(limitRaw) && limitRaw > 0 ? limitRaw : 12;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
     const search = req.query.search || '';
     const offset = (page - 1) * limit;
 
@@ -19,8 +16,7 @@ exports.getLabRequests = (req, res) => {
       JOIN patients p ON lr.patient_id = p.id
       WHERE p.full_name LIKE ?
     `;
-    const countResult = db.prepare(countQuery).get(`%${search}%`);
-    const totalRecords = countResult ? countResult.total : 0;
+    const totalRecords = db.prepare(countQuery).get(`%${search}%`).total;
 
     const requests = db.prepare(`
       SELECT 
@@ -37,18 +33,14 @@ exports.getLabRequests = (req, res) => {
         let testNames = '';
         let testDetails = [];
         try {
-            if (r.test_ids) {
-                const ids = JSON.parse(r.test_ids);
-                if (Array.isArray(ids) && ids.length > 0) {
-                    const placeholders = ids.map(() => '?').join(',');
-                    const tests = db.prepare(`SELECT id, name_en, name_ar, normal_range FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
-                    testNames = tests.map(t => t.name_en).join(', ');
-                    testDetails = tests;
-                }
+            const ids = JSON.parse(r.test_ids);
+            if (Array.isArray(ids) && ids.length > 0) {
+                const placeholders = ids.map(() => '?').join(',');
+                const tests = db.prepare(`SELECT id, name_en, name_ar, normal_range FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
+                testNames = tests.map(t => t.name_en).join(', ');
+                testDetails = tests;
             }
-        } catch(e) {
-            console.error(`Error processing test_ids for lab request ${r.id}:`, e.message);
-        }
+        } catch(e) {}
         
         let results = null;
         try { if(r.results_json) results = JSON.parse(r.results_json); } catch(e) {}
@@ -64,8 +56,7 @@ exports.getLabRequests = (req, res) => {
       totalPages: Math.ceil(totalRecords / limit)
     });
   } catch (err) {
-    console.error('[MedicalController] getLabRequests failed:', err.message);
-    res.status(500).json({ error: 'Failed to fetch lab requests.' });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -113,6 +104,7 @@ exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
     const { results_json, notes } = req.body;
     try {
+        // FIXED: Correctly saving both results_json AND notes
         db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ?, notes = ? WHERE id = ?").run(
             results_json ? JSON.stringify(results_json) : null,
             notes || null,
@@ -399,6 +391,7 @@ exports.getInpatientDetails = (req, res) => {
 
     if (!admission) return res.status(404).json({ error: 'Admission not found' });
 
+    // FIX: Using LEFT JOIN to ensure notes are returned even if doctor record has inconsistencies
     const notes = db.prepare(`SELECT n.*, m.full_name as doctorName FROM inpatient_notes n LEFT JOIN medical_staff m ON n.doctor_id = m.id WHERE n.admission_id = ? ORDER BY n.created_at DESC`).all(id);
     const endDate = admission.actual_discharge_date ? new Date(admission.actual_discharge_date) : new Date();
     const daysStayed = Math.ceil((endDate.getTime() - new Date(admission.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1;
@@ -412,6 +405,7 @@ exports.getInpatientDetails = (req, res) => {
 
     const unpaidBills = db.prepare(`SELECT id, bill_number, total_amount, paid_amount, bill_date FROM billing WHERE patient_id = ? AND status IN ('pending', 'partial')`).all(admission.patient_id);
     
+    // Enrich unpaid bills with their line items
     const billsWithItems = unpaidBills.map(bill => {
         const items = db.prepare('SELECT description, amount FROM billing_items WHERE billing_id = ?').all(bill.id);
         return { ...bill, items };
@@ -502,6 +496,7 @@ exports.dischargePatient = (req, res) => {
 };
 
 exports.settleAndDischarge = (req, res) => {
+    // This is a legacy endpoint, usually handled via generateSettlementBill + dischargePatient
     res.status(501).json({ error: 'Endpoint deprecated. Use final settlement workflow.' });
 };
 

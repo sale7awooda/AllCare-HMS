@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, Modal, Input, Textarea, ConfirmationDialog } from '../components/UI';
@@ -118,7 +119,7 @@ export const Laboratory = () => {
             components = [{ name: 'Result', range: test.normal_range || '' }];
         }
 
-        // Check for existing results (handles both string and numeric keys)
+        // FIXED: Ensure we check both string and numeric keys when loading existing results
         const existingResultsForTest = req.results?.[String(test.id)] || req.results?.[test.id];
 
         initialResults[test.id] = components.map(c => {
@@ -130,7 +131,7 @@ export const Laboratory = () => {
                 name: c.name,
                 range: c.range,
                 value: existingValue?.value || '',
-                evaluation: existingValue?.evaluation || 'lab_eval_observed'
+                evaluation: existingValue?.evaluation || '-'
             };
         });
     });
@@ -240,6 +241,7 @@ export const Laboratory = () => {
                 <div key={req.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col group h-full">
                     <div className="flex justify-between items-start mb-3">
                         <div className="min-w-0 flex-1">
+                            {/* FIXED: Removed truncate and added line-clamp-2 to allow long names to wrap */}
                             <h3 className="text-sm font-black text-slate-800 dark:text-white leading-tight line-clamp-2 min-h-[2.5rem] break-words">{req.patientName}</h3>
                             <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1">
                                 <Calendar size={10} />
@@ -321,7 +323,7 @@ export const Laboratory = () => {
         </div>
       )}
 
-      {/* LAB RESULTS MODAL */}
+      {/* LAB RESULTS MODAL - STRUCTURED COMPONENTS */}
       <Modal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)} title={t('lab_modal_findings_title', { name: selectedReq?.patientName })}>
         <form onSubmit={handleComplete} className="space-y-6 print-container">
             <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center print:bg-white print:text-black print:border-b print:shadow-none print:p-2">
