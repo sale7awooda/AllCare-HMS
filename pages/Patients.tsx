@@ -244,10 +244,10 @@ export const Patients = () => {
 
   const isDoctorAvailableOnDate = (doctor: MedicalStaff, dateString: string) => {
     if (doctor.availableDays && doctor.availableDays.length === 0) return false;
-    if (!doctor.availableDays) return true; 
+    if (!doctor.availableDays) return true;
 
     const [y, m, d] = dateString.split('-').map(Number);
-    const date = new Date(y, m - 1, d); 
+    const date = new Date(y, m - 1, d);
     
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const currentDayName = dayNames[date.getDay()];
@@ -394,7 +394,6 @@ export const Patients = () => {
       const normalizedStr = typeof dateStr === 'string' ? dateStr.replace(' ', 'T') : dateStr;
       const d = new Date(normalizedStr);
       if (isNaN(d.getTime())) return t('patients_modal_view_na');
-      if (d.getFullYear() <= 1970 && d.getMonth() === 0 && d.getDate() === 1) return t('patients_modal_view_na');
       return d.toLocaleDateString();
   };
 
@@ -410,6 +409,12 @@ export const Patients = () => {
   const selectedDocForFee = useMemo(() => {
     return staff.find(s => s.id.toString() === actionFormData.staffId);
   }, [actionFormData.staffId, staff]);
+
+  const translateType = (type: string, t: any) => {
+    const key = `patients_modal_action_${type.toLowerCase().replace('-up', 'Up')}`;
+    const translation = t(key);
+    return translation === key ? type : translation;
+  };
 
   return (
     <div className="space-y-6">
@@ -535,12 +540,13 @@ export const Patients = () => {
                 </div>
                 <div className="flex gap-2">
                     <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
-                    <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages}>{t('billing_pagination_next')}</Button>
+                    <Button size="sm" variant="secondary" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
                 </div>
             </div>
         )}
       </Card>
 
+      {/* PATIENT REGISTRATION MODAL */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? t('patients_modal_edit_title') : t('patients_modal_new_title')}>
         <form onSubmit={handlePatientSubmit} className="space-y-8">
           <div className="space-y-5">
@@ -632,6 +638,7 @@ export const Patients = () => {
         </form>
       </Modal>
 
+      {/* QUICK ACTION MENU */}
       <Modal isOpen={isActionMenuOpen} onClose={() => setIsActionMenuOpen(false)} title={t('patients_modal_action_menu_title', {name: selectedPatient?.fullName})}>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[
@@ -657,6 +664,7 @@ export const Patients = () => {
         </div>
       </Modal>
 
+      {/* DETAILED ACTION MODAL */}
       <Modal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} title={currentAction ? t(`patients_modal_action_specific_title_${currentAction}`) : 'Action'}>
         <div className="flex flex-col h-full max-h-[85vh]">
           <div className="mb-4">
@@ -697,13 +705,13 @@ export const Patients = () => {
                                 >
                                     <div className={`absolute top-0 bottom-0 ${isRtl ? 'right-0' : 'left-0'} w-8 flex items-center justify-center transition-colors ${selected ? 'bg-primary-500 text-white' : isAvailable ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'}`}>
                                         <span className={`rotate-180 [writing-mode:vertical-lr] text-[9px] font-black uppercase tracking-tighter leading-none whitespace-nowrap`}>
-                                            {isAvailable ? t('patients_modal_action_doctor_available') : 'OFF DUTY'}
+                                            {isAvailable ? t('patients_modal_action_doctor_available') : t('patients_modal_action_off_duty')}
                                         </span>
                                     </div>
                                     <div className="min-w-0">
                                         <p className={`font-bold text-sm truncate leading-tight ${selected ? 'text-primary-900 dark:text-white' : 'text-slate-700 dark:text-slate-200'}`}>{doc.fullName}</p>
                                         <p className="text-[10px] text-slate-500 uppercase font-black truncate mt-1 tracking-wider">{doc.specialization}</p>
-                                        {!isAvailable && <p className="text-[9px] text-red-500 font-bold mt-0.5">Unavailable Today</p>}
+                                        {!isAvailable && <p className="text-[9px] text-red-500 font-bold mt-0.5">{t('patients_modal_action_doctor_unavailable')}</p>}
                                     </div>
                                     {selected && (
                                       <div className={`absolute top-2 ${isRtl ? 'left-2' : 'right-2'} text-primary-600 animate-in zoom-in-50 duration-200`}>
@@ -787,7 +795,7 @@ export const Patients = () => {
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-3 flex flex-col">
-                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Syringe size={16} className="text-primary-500" /> {t('patients_process_error_select_service')}</label>
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Syringe size={16} className="text-primary-500" /> {t('patients_modal_action_select_service')}</label>
                             <div className="max-h-[300px] overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-xl p-1.5 space-y-2 custom-scrollbar">
                                 {nurseServices.map(s => (
                                     <div key={s.id} onClick={() => setSelectedService(s)} className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex justify-between items-center ${selectedService?.id === s.id ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500' : 'border-slate-100 hover:border-slate-200 bg-white dark:bg-slate-800'}`}>
@@ -818,7 +826,7 @@ export const Patients = () => {
                                     })}
                                 </div>
                             </div>
-                            <Textarea label={t('patients_modal_action_notes')} placeholder="Instructions for nurse..." rows={3} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
+                            <Textarea label={t('patients_modal_action_instructions_label')} placeholder={t('patients_modal_action_instructions_placeholder')} rows={3} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
                         </div>
                     </div>
                 </div>
@@ -830,7 +838,7 @@ export const Patients = () => {
                         <div className="md:col-span-2 space-y-6">
                             {Object.entries(getBedGrouped()).map(([type, items]) => (
                                 <div key={type} className="space-y-3">
-                                    <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Layers size={14} /> {t('bed_type_' + type.toLowerCase())} {t('admissions_wards_label')}</h4>
+                                    <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Layers size={14} /> {t(`bed_type_${type.toLowerCase()}`)} {t('patients_modal_action_ward_suffix')}</h4>
                                     <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                                         {items.map(bed => {
                                             const isAvailable = bed.status === 'available';
@@ -865,13 +873,13 @@ export const Patients = () => {
                             <Input label={t('patients_modal_action_admission_date')} type="date" value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
                             <Input label={t('patients_modal_action_required_deposit')} type="number" value={actionFormData.deposit} onChange={e => setActionFormData({...actionFormData, deposit: parseFloat(e.target.value)})} />
                             <div className="pt-2 border-t border-slate-200 dark:border-slate-700 mt-2">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">{t('admissions_selected_accommodation')}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">{t('patients_modal_action_selected_accommodation')}</p>
                                 {selectedBed ? (
                                     <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-lg shadow-sm border border-primary-100">
                                         <span className="text-sm font-bold">{t('admissions_history_header_room')} {selectedBed.roomNumber}</span>
                                         <Badge color="blue">${formatMoney(selectedBed.costPerDay)} {t('patients_modal_action_bed_cost_per_day')}</Badge>
                                     </div>
-                                ) : <p className="text-xs text-red-500 italic">{t('admissions_no_bed_selected')}</p>}
+                                ) : <p className="text-xs text-red-500 italic">{t('patients_modal_action_no_bed_selected')}</p>}
                             </div>
                         </div>
                     </div>
@@ -901,7 +909,7 @@ export const Patients = () => {
                     </div>
                     <div className="space-y-4">
                         <Textarea label={t('patients_modal_action_pre_op_notes')} placeholder={t('patients_modal_action_pre_op_notes_placeholder')} rows={8} value={actionFormData.notes} onChange={e => setActionFormData({...actionFormData, notes: e.target.value})} />
-                        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                             <p className="text-xs font-black uppercase text-slate-400 mb-3 tracking-widest flex items-center gap-2"><Briefcase size={14} /> {t('patients_modal_action_estimate_base')}</p>
                             <div className="flex justify-between items-center">
                                 <span className="text-sm font-medium text-slate-600">{t('patients_modal_action_base_surgical_fee')}</span>
@@ -1042,7 +1050,7 @@ export const Patients = () => {
                                     <span className="text-[10px] text-slate-400 uppercase font-bold">{new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                 </div>
                                 <div>
-                                    <div className="font-bold text-sm text-slate-800 dark:text-white">{apt.type}</div>
+                                    <div className="font-bold text-sm text-slate-800 dark:text-white">{translateType(apt.type, t)}</div>
                                     <div className="text-xs text-slate-500">{t('admissions_bed_doctor', {name: apt.staffName})}</div>
                                     <Badge color={getStatusColor(apt.status) as any} className="mt-1">{t(`appointments_status_${apt.status}`)}</Badge>
                                 </div>
@@ -1086,7 +1094,7 @@ export const Patients = () => {
                                                     <div>
                                                         <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('lab_modal_findings')}</h5>
                                                         <div className="text-sm text-slate-700 dark:text-slate-300 bg-emerald-50/30 dark:bg-emerald-900/10 p-3 rounded-lg border border-emerald-100 dark:border-emerald-800 italic leading-relaxed whitespace-pre-wrap">
-                                                            {lab.results}
+                                                            {JSON.stringify(lab.results)}
                                                         </div>
                                                     </div>
                                                 )}
