@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
@@ -55,7 +54,6 @@ export const Patients = () => {
   
   const [actionFormData, setActionFormData] = useState({
     staffId: '',
-    // Use local date string to avoid timezone shifts on initialization
     date: new Date().toLocaleDateString('en-CA'),
     time: new Date().toTimeString().slice(0, 5), 
     notes: '',
@@ -101,18 +99,35 @@ export const Patients = () => {
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [pts, apts, b, stf, labs] = await Promise.all([
-        api.getPatients(), 
-        api.getAppointments(),
-        api.getBills(),
-        api.getStaff(),
-        api.getPendingLabRequests()
+      // Helper to wrap API calls so one failing doesn't stop the others (e.g. 403 Forbidden)
+      const wrapApi = async (promise: Promise<any>) => {
+        try {
+          return await promise;
+        } catch (e: any) {
+          if (e.response?.status === 403) return [];
+          return [];
+        }
+      };
+
+      const [pts, apts, b, stf, labsResponse] = await Promise.all([
+        wrapApi(api.getPatients()), 
+        wrapApi(api.getAppointments()),
+        wrapApi(api.getBills()),
+        wrapApi(api.getStaff()),
+        wrapApi(api.getPendingLabRequests())
       ]);
+
       setPatients(Array.isArray(pts) ? pts : []);
       setAppointments(Array.isArray(apts) ? apts : []);
       setBills(Array.isArray(b) ? b : []);
       setStaff(Array.isArray(stf) ? stf : []);
-      setAllLabRequests(Array.isArray(labs) ? labs : []);
+
+      // Handle the paginated lab response structure
+      const labRequests = labsResponse?.requests && Array.isArray(labsResponse.requests) 
+        ? labsResponse.requests 
+        : (Array.isArray(labsResponse) ? labsResponse : []);
+      setAllLabRequests(labRequests);
+
     } catch (error) {
       console.error("Failed to load core data:", error);
     } finally {
@@ -122,12 +137,16 @@ export const Patients = () => {
 
   const loadCatalogs = async () => {
     try {
+      const wrapApi = async (promise: Promise<any>) => {
+        try { return await promise; } catch (e) { return []; }
+      };
+
       const [l, n, b, o, ip] = await Promise.all([
-        api.getLabTests(), 
-        api.getNurseServices(), 
-        api.getBeds(), 
-        api.getOperations(),
-        api.getInsuranceProviders()
+        wrapApi(api.getLabTests()), 
+        wrapApi(api.getNurseServices()), 
+        wrapApi(api.getBeds()), 
+        wrapApi(api.getOperations()),
+        wrapApi(api.getInsuranceProviders())
       ]);
       setLabTests(Array.isArray(l) ? l : []);
       setNurseServices(Array.isArray(n) ? n : []);
@@ -245,15 +264,11 @@ export const Patients = () => {
 
   const isDoctorAvailableOnDate = (doctor: MedicalStaff, dateString: string) => {
     if (doctor.availableDays && doctor.availableDays.length === 0) return false;
-    if (!doctor.availableDays) return true; // Fallback if undefined
-
-    // Robust parsing to avoid timezone shifts: manually construct local date
+    if (!doctor.availableDays) return true;
     const [y, m, d] = dateString.split('-').map(Number);
-    const date = new Date(y, m - 1, d); // Month is 0-indexed
-    
+    const date = new Date(y, m - 1, d); 
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const currentDayName = dayNames[date.getDay()];
-    
     return doctor.availableDays.includes(currentDayName);
   };
 
@@ -369,10 +384,13 @@ export const Patients = () => {
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
-      const matchesSearch = 
-        p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.phone.includes(searchTerm) ||
-        p.patientId.toLowerCase().includes(searchTerm.toLowerCase());
+      // Safe string matching with null/undefined checks
+      const name = p.fullName?.toLowerCase() || '';
+      const phone = p.phone || '';
+      const id = p.patientId?.toLowerCase() || '';
+      const query = searchTerm.toLowerCase();
+
+      const matchesSearch = name.includes(query) || phone.includes(query) || id.includes(query);
       const matchesType = filterType === 'all' || p.type === filterType;
       return matchesSearch && matchesType;
     });
@@ -382,7 +400,6 @@ export const Patients = () => {
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
 
   const getFilteredDoctors = () => {
-    // FIX: Removed status check to show all doctors as requested
     let docs = staff.filter(s => s.type === 'doctor');
     if (selectedSpecialty) docs = docs.filter(s => s.specialization === selectedSpecialty);
     return docs;
@@ -397,7 +414,6 @@ export const Patients = () => {
       const normalizedStr = typeof dateStr === 'string' ? dateStr.replace(' ', 'T') : dateStr;
       const d = new Date(normalizedStr);
       if (isNaN(d.getTime())) return t('patients_modal_view_na');
-      if (d.getFullYear() <= 1970 && d.getMonth() === 0 && d.getDate() === 1) return t('patients_modal_view_na');
       return d.toLocaleDateString();
   };
 
@@ -487,7 +503,7 @@ export const Patients = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center group/name cursor-pointer" onClick={() => openViewModal(patient)}>
                         <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500 group-hover/name:bg-primary-100 group-hover/name:text-primary-600 transition-colors">
-                          {patient.fullName.charAt(0)}
+                          {patient.fullName?.charAt(0) || '?'}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-bold text-slate-900 dark:text-white group-hover/name:text-primary-600 transition-colors">{patient.fullName}</div>
@@ -943,7 +959,7 @@ export const Patients = () => {
           <div className="space-y-6">
             <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
               <div className="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-2xl font-bold text-primary-600 shadow-sm">
-                {selectedPatient.fullName.charAt(0)}
+                {selectedPatient.fullName?.charAt(0) || '?'}
               </div>
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">{selectedPatient.fullName}</h2>
