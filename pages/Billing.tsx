@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog, Tooltip } from '../components/UI';
 import { 
   Plus, Printer, CreditCard, 
@@ -19,6 +19,7 @@ import { useHeader } from '../context/HeaderContext';
 export const Billing = () => {
   const { t, language } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'invoices' | 'treasury'>('invoices');
   const [bills, setBills] = useState<Bill[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -181,7 +182,7 @@ export const Billing = () => {
         case 'partial': return t('billing_status_partial');
         case 'refunded': return t('billing_status_refunded');
         case 'overdue': return t('billing_status_overdue');
-        case 'cancelled': return t('appointments_status_cancelled');
+        case 'cancelled': return t('billing_status_cancelled');
         default: return status;
     }
   };
@@ -219,11 +220,9 @@ export const Billing = () => {
       ];
       setCatalogItems(catalog);
 
-      // Pending Collection Calculation: 
       const pendingBills = billsArr.filter(b => b.status === 'pending' || b.status === 'partial');
       const pendingTotal = pendingBills.reduce((acc, curr) => acc + (curr.totalAmount - curr.paidAmount), 0);
 
-      // Total Revenue is purely based on transactions (Income) or paidAmount sum
       const activeBills = billsArr.filter(x => x.status !== 'cancelled'); 
       const totalRev = activeBills.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0);
       
@@ -268,7 +267,6 @@ export const Billing = () => {
 
   useEffect(() => { loadData(); }, [language]);
 
-  // Handle Quick Action Trigger
   useEffect(() => {
     const state = location.state as any;
     if (state?.trigger === 'new' && canManageBilling) {
@@ -447,7 +445,7 @@ export const Billing = () => {
     setConfirmState({
       isOpen: true,
       title: t('billing_action_cancel_process'),
-      message: "Are you sure you want to cancel the service associated with this invoice? This action is required before a refund can be processed.",
+      message: t('billing_action_cancel_confirm_msg'),
       action: async () => {
         setProcessStatus('processing');
         setProcessMessage(t('processing'));
@@ -580,7 +578,7 @@ export const Billing = () => {
                 <div className="text-right">
                     <h2 className="text-xl font-bold text-primary-600">{hospitalName}</h2>
                     <div className="text-sm text-slate-500 mt-2 space-y-1">
-                        <p>{hospitalInfo.hospitalAddress || 'Atbara'}</p>
+                        <p>{hospitalInfo.hospitalAddress || t('billing_invoice_na')}</p>
                         <p>{hospitalInfo.hospitalPhone || '-'}</p>
                     </div>
                 </div>
@@ -663,7 +661,7 @@ export const Billing = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <Card className="hover:shadow-lg transition-all"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_revenue')}</h4><p className="text-3xl font-black text-emerald-600 mt-2">${stats.totalRevenue.toLocaleString()}</p></Card>
                     <Card className="hover:shadow-lg transition-all border-l-4 border-l-orange-400"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_pending')}</h4><p className="text-3xl font-black text-orange-500 mt-2">${stats.pendingAmount.toLocaleString()}</p></Card>
-                    <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary-400"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_paid')}</h4><div className="flex items-baseline gap-2 mt-2"><p className="text-3xl font-black text-slate-800 dark:text-white">{stats.paidInvoices}</p><span className="text-sm font-bold text-slate-400">/ {stats.totalPendingInvoices} Pending</span></div></Card>
+                    <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary-400"><h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">{t('billing_stat_paid')}</h4><div className="flex items-baseline gap-2 mt-2"><p className="text-3xl font-black text-slate-800 dark:text-white">{stats.paidInvoices}</p><span className="text-sm font-bold text-slate-400">/ {stats.totalPendingInvoices} {t('billing_status_pending')}</span></div></Card>
                 </div>
                 
                 <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
@@ -817,7 +815,7 @@ export const Billing = () => {
                   <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                       <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
                           <div className="flex items-center gap-2 flex-1"><Landmark size={18} className="text-slate-500"/> <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3></div>
-                          <div className="flex gap-2 items-center"><select className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white" value={treasuryFilter} onChange={(e) => setTreasuryFilter(e.target.value)}><option value="all">{t('patients_filter_type_all')}</option><option value="income">{t('billing_treasury_type_income')}</option><option value="expense">{t('billing_treasury_type_expense')}</option></select></div>
+                          <div className="flex gap-2 items-center"><select className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white" value={treasuryFilter} onChange={(e) => setTreasuryFilter(e.target.value)}><option value="all">{t('billing_treasury_filter_all')}</option><option value="income">{t('billing_treasury_type_income')}</option><option value="expense">{t('billing_treasury_type_expense')}</option></select></div>
                       </div>
                       <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300 font-mono">{new Date(tx.date).toLocaleDateString()}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-bold dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300 font-bold">{tx.method}</td><td className={`px-6 py-3 text-sm font-black text-right font-mono ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td><td className="px-6 py-3 text-right">{tx.type === 'expense' && canManageBilling && (<Tooltip content={t('edit')} side="top"><button onClick={() => openExpenseModal(tx)} className="p-2 text-slate-500 hover:text-primary-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><Edit size={20} /></button></Tooltip>)}</td></tr>))}</tbody></table></div>
                       <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4">
@@ -852,7 +850,7 @@ export const Billing = () => {
       {/* --- MODALS --- */}
       <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title={t('billing_modal_create_title')}>
         <form onSubmit={handleCreateSubmit} className="space-y-4">
-          <div className="space-y-1 relative">
+          <div className="space-y-1 relative" ref={setShowPatientResults ? undefined : undefined}>
             <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">{t('billing_modal_create_select_patient')}</label>
             {createForm.patientId ? (
               <div className="flex items-center justify-between p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl">
@@ -955,7 +953,7 @@ export const Billing = () => {
                </Select>
             </div>
             <Select label={t('billing_modal_refund_reason')} value={refundForm.reason} onChange={e => setRefundForm({...refundForm, reason: e.target.value})} required>
-               <option value="">Select Reason...</option>
+               <option value="">{t('billing_modal_refund_select_reason')}</option>
                <option value="Service Not Performed">{t('billing_modal_refund_reason_service')}</option>
                <option value="Incorrect Pricing">{t('billing_modal_refund_reason_overcharged')}</option>
                <option value="Double Payment">{t('billing_modal_refund_reason_duplicate')}</option>
@@ -974,11 +972,11 @@ export const Billing = () => {
         <form onSubmit={handleExpenseSubmit} className="space-y-4">
           <Select label={t('billing_modal_expense_category')} value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})} required className="text-slate-900 dark:text-white">
             <option value="General">{t('billing_modal_expense_cat_general')}</option>
-            <option value="Pharmacy Refill">Pharmacy Inventory Refill</option>
-            <option value="Laboratory Supplies">Lab Reagents & Consumables</option>
+            <option value="Pharmacy Refill">{t('billing_modal_expense_cat_pharmacy')}</option>
+            <option value="Laboratory Supplies">{t('billing_modal_expense_cat_lab')}</option>
             <option value="Medical Supplies">{t('billing_modal_expense_cat_supplies')}</option>
-            <option value="Staff Salaries">Staff Monthly Salaries</option>
-            <option value="Facility Rent">Facility / Real Estate Rent</option>
+            <option value="Staff Salaries">{t('billing_modal_expense_cat_salaries')}</option>
+            <option value="Facility Rent">{t('billing_modal_expense_cat_rent')}</option>
             <option value="Utilities">{t('billing_modal_expense_cat_utilities')}</option>
             <option value="Facility Maintenance">{t('billing_modal_expense_cat_maintenance')}</option>
             <option value="Medical Equipment">{t('billing_modal_expense_cat_equipment')}</option>
@@ -1004,15 +1002,4 @@ export const Billing = () => {
       <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({ ...confirmState, isOpen: false })} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message} />
     </div>
   );
-};
-
-const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Admission': return 'orange';
-      case 'Operation': return 'red';
-      case 'Lab Test': return 'purple';
-      case 'Appointment': return 'blue';
-      case 'Procedure': return 'cyan';
-      default: return 'gray';
-    }
 };
