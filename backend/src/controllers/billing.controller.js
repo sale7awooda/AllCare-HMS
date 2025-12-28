@@ -103,6 +103,9 @@ exports.cancelService = (req, res) => {
     db.prepare("UPDATE appointments SET status = 'cancelled' WHERE bill_id = ?").run(id);
     db.prepare("UPDATE lab_requests SET status = 'cancelled' WHERE bill_id = ?").run(id);
     
+    // Ensure the bill status is also updated to cancelled
+    db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ?").run(id);
+    
     const op = db.prepare("SELECT id FROM operations WHERE bill_id = ?").get(id);
     if (op) {
         db.prepare("UPDATE operations SET status = 'cancelled' WHERE id = ?").run(op.id);

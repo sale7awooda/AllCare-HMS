@@ -998,6 +998,27 @@ export const Billing = () => {
         {selectedBill && (<div><InvoiceView bill={selectedBill} /><div className="mt-6 flex justify-end gap-3 no-print"><Button variant="secondary" onClick={() => setSelectedBill(null)}>{t('close')}</Button><Button icon={Printer} onClick={() => window.print()}>{t('billing_modal_preview_print_button')}</Button></div></div>)}
       </Modal>
       <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({ ...confirmState, isOpen: false })} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message} />
+      
+      {/* ADDED STYLE BLOCK FOR PRINTING */}
+      <style>{`
+        @media print {
+          body { visibility: hidden; }
+          #invoice-print { 
+            visibility: visible; 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            margin: 0; 
+            padding: 0; 
+            background: white; 
+            color: black;
+          }
+          #invoice-print * { visibility: visible; }
+          .no-print { display: none !important; }
+          .fixed { position: absolute !important; }
+        }
+      `}</style>
     </div>
   );
 };
