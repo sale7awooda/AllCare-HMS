@@ -52,7 +52,7 @@ const CurrencyInput = ({ label, value, onChange, prefix, ...props }: any) => {
   return (
     <Input
       {...props}
-      type="text" // This removes the number input "slider" (arrows/spinners)
+      type="text" 
       label={label}
       value={displayValue}
       onChange={handleChange}
@@ -63,21 +63,21 @@ const CurrencyInput = ({ label, value, onChange, prefix, ...props }: any) => {
 };
 
 export const Operations = () => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [ops, setOps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [staff, setStaff] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Memoized Header Tabs
+  // Unified Header Tabs
   const HeaderTabs = useMemo(() => (
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
         <button 
             onClick={() => setActiveTab('active')} 
             className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'active' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
         >
-            <Activity size={14}/> {t('Active Operations')} 
+            <Activity size={14}/> {t('operations_tab_active')} 
             <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'active' ? 'bg-primary-100 text-primary-700' : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300'}`}>
               {ops.filter(o => o.status !== 'completed' && o.status !== 'cancelled').length}
             </span>
@@ -91,8 +91,7 @@ export const Operations = () => {
     </div>
   ), [activeTab, ops, t]);
 
-  // Sync Header
-  useHeader(t('operations_title'), t('operations_subtitle'), HeaderTabs);
+  useHeader(t('nav_operations'), '', HeaderTabs);
 
   const [isEstimateModalOpen, setIsEstimateModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -204,7 +203,7 @@ export const Operations = () => {
   const handleProcessSubmit = async () => {
     if (!selectedOp) return;
     setProcessStatus('processing');
-    setProcessMessage('Creating surgical estimate and billing...');
+    setProcessMessage(t('processing'));
     try { 
       await api.processOperationRequest(selectedOp.id, { details: costForm, totalCost: calculateTotal() }); 
       setProcessStatus('success'); 
@@ -213,7 +212,7 @@ export const Operations = () => {
       setTimeout(() => setProcessStatus('idle'), 1000);
     } catch (e: any) { 
         setProcessStatus('error');
-        setProcessMessage(e.response?.data?.error || "Failed to process request");
+        setProcessMessage(e.response?.data?.error || t('error'));
     }
   };
 
@@ -231,10 +230,16 @@ export const Operations = () => {
                 setTimeout(() => setProcessStatus('idle'), 1000);
             } catch (e: any) { 
                 setProcessStatus('error');
-                setProcessMessage(e.response?.data?.error || "Failed to update status");
+                setProcessMessage(e.response?.data?.error || t('error'));
             } 
         } 
     });
+  };
+
+  const getTranslatedStatus = (status: string) => {
+    const key = `operations_status_${status.toLowerCase()}`;
+    const val = t(key);
+    return val === key ? status : val;
   };
 
   const filteredOps = ops.filter(op => { const search = searchTerm.toLowerCase(); return op.patientName.toLowerCase().includes(search) || op.operation_name.toLowerCase().includes(search); });
@@ -245,7 +250,6 @@ export const Operations = () => {
 
   return (
     <div className="space-y-6">
-      {/* HUD Overlay */}
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
@@ -280,7 +284,7 @@ export const Operations = () => {
             <div className="space-y-8 animate-in fade-in">
                 {/* Requests Grid */}
                 <div>
-                    <h3 className="text-sm font-black uppercase text-slate-400 tracking-widest mb-4 flex items-center gap-2"><FileText size={16}/> Requests & Estimates</h3>
+                    <h3 className="text-sm font-black uppercase text-slate-400 tracking-widest mb-4 flex items-center gap-2"><FileText size={16}/> {t('operations_section_requests')}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {requestsAndEstimates.length === 0 ? (
                             <div className="col-span-full py-8 text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
@@ -299,7 +303,7 @@ export const Operations = () => {
                                     <p className="text-sm text-slate-500 mb-4">{op.patientName} • Dr. {op.doctorName}</p>
                                     {op.status === 'pending_payment' ? (
                                         <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg flex justify-between items-center">
-                                            <span className="text-sm font-medium">Est. Cost</span>
+                                            <span className="text-sm font-medium">{t('operations_card_est_cost')}</span>
                                             <span className="font-bold text-lg">${op.projected_cost.toLocaleString()}</span>
                                         </div>
                                     ) : (
@@ -313,7 +317,7 @@ export const Operations = () => {
 
                 {/* Confirmed Schedule Table */}
                 <div>
-                    <h3 className="text-sm font-black uppercase text-slate-400 tracking-widest mb-4 flex items-center gap-2"><Calendar size={16}/> Confirmed Schedule</h3>
+                    <h3 className="text-sm font-black uppercase text-slate-400 tracking-widest mb-4 flex items-center gap-2"><Calendar size={16}/> {t('operations_section_confirmed')}</h3>
                     <Card className="!p-0 overflow-hidden">
                         <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
                             <thead className="bg-slate-50 dark:bg-slate-900/50">
@@ -330,14 +334,14 @@ export const Operations = () => {
                                 ) : (
                                     scheduledOps.map(op => (
                                         <tr key={op.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                            <td className="px-6 py-4"><Badge color="green">Confirmed</Badge></td>
+                                            <td className="px-6 py-4"><Badge color="green">{getTranslatedStatus('confirmed')}</Badge></td>
                                             <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{new Date(op.created_at).toLocaleDateString()}</td>
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-slate-800 dark:text-white">{op.operation_name}</div>
                                                 <div className="text-xs text-slate-400">{op.patientName} • Dr. {op.doctorName}</div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <Button size="sm" variant="outline" onClick={() => handleCompleteOp(op.id)}>Complete</Button>
+                                                <Button size="sm" variant="outline" onClick={() => handleCompleteOp(op.id)}>{t('completed')}</Button>
                                             </td>
                                         </tr>
                                     ))
@@ -367,7 +371,7 @@ export const Operations = () => {
                         ) : (
                             historyOps.map(op => (
                                 <tr key={op.id} onClick={() => openDetailModal(op)} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer group">
-                                    <td className="px-6 py-4"><Badge color={op.status === 'completed' ? 'gray' : 'red'}>{op.status === 'completed' ? 'Completed' : 'Cancelled'}</Badge></td>
+                                    <td className="px-6 py-4"><Badge color={op.status === 'completed' ? 'gray' : 'red'}>{getTranslatedStatus(op.status)}</Badge></td>
                                     <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{new Date(op.created_at).toLocaleDateString()}</td>
                                     <td className="px-6 py-4">
                                         <div className="font-bold text-slate-800 dark:text-white group-hover:text-primary-600 transition-colors">{op.operation_name}</div>
@@ -375,7 +379,7 @@ export const Operations = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono font-bold text-primary-600">${op.projected_cost.toLocaleString()}</td>
                                     <td className="px-6 py-4 text-right">
-                                        <ChevronRight size={16} className="text-slate-300 group-hover:text-primary-500 transition-colors inline-block" />
+                                        <ChevronRight size={16} className={`text-slate-300 group-hover:text-primary-500 transition-colors inline-block ${language === 'ar' ? 'rotate-180' : ''}`} />
                                     </td>
                                 </tr>
                             ))
@@ -387,10 +391,9 @@ export const Operations = () => {
         </>
       )}
 
-      {/* ESTIMATION MODAL (WRITE) - IMPROVED SCROLLING AND CURRENCY INPUTS */}
-      <Modal isOpen={isEstimateModalOpen} onClose={() => setIsEstimateModalOpen(false)} title={t('operations_modal_title')}>
+      {/* ESTIMATION MODAL */}
+      <Modal isOpen={isEstimateModalOpen} onClose={() => setIsEstimateModalOpen(false)} title={t('operations_modal_estimate_title')}>
         <div className="flex flex-col h-[75vh] min-h-[400px]">
-            {/* Sticky Header Summary */}
             <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center shrink-0 mb-4 mx-1">
                 <div>
                     <h4 className="font-black text-xl tracking-tight">{selectedOp?.operation_name}</h4>
@@ -399,7 +402,7 @@ export const Operations = () => {
                     </p>
                 </div>
                 <div className="text-right">
-                    <span className="block text-[10px] uppercase text-slate-400 font-bold tracking-widest">{t('ops_total_estimate')}</span>
+                    <span className="block text-[10px] uppercase text-slate-400 font-bold tracking-widest">{t('operations_modal_total_label')}</span>
                     <span className="text-3xl font-black text-emerald-400 tracking-tighter">${calculateTotal().toLocaleString()}</span>
                 </div>
             </div>
@@ -409,7 +412,7 @@ export const Operations = () => {
                 {/* Section 1: Base Fees */}
                 <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
                     <h5 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <DollarSign size={14} className="text-primary-600"/> Base Costs
+                        <DollarSign size={14} className="text-primary-600"/> {t('operations_modal_section_base')}
                     </h5>
                     <div className="grid grid-cols-2 gap-4">
                         <CurrencyInput label={t('operations_modal_surgeon_fee')} value={costForm.surgeonFee} onChange={(val: string) => handleSurgeonFeeChange(val)} className="font-mono font-bold" />
@@ -421,35 +424,34 @@ export const Operations = () => {
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                     <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
                         <h5 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                            <User size={16} className="text-blue-500"/> {t('operations_modal_additional_staff')}
+                            <User size={16} className="text-blue-500"/> {t('operations_modal_section_team')}
                         </h5>
-                        <Button size="sm" variant="ghost" onClick={addParticipant} icon={Plus} className="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">Add</Button>
+                        <Button size="sm" variant="ghost" onClick={addParticipant} icon={Plus} className="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">{t('operations_modal_add_member')}</Button>
                     </div>
                     
                     <div className="space-y-3">
-                        {costForm.participants.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">No additional staff assigned.</p>}
+                        {costForm.participants.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">{t('no_data')}</p>}
                         {costForm.participants.map((p, idx) => (
                             <div key={p.id} className="grid grid-cols-12 gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-blue-200 transition-colors">
                                 <div className="col-span-3">
                                     <select className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-2 font-medium focus:ring-2 focus:ring-blue-500/20 outline-none" value={p.role} onChange={e => updateParticipant(idx, 'role', e.target.value)}>
-                                        {Object.keys(FEE_RATIOS).map(r => <option key={r} value={r}>{r}</option>)}
+                                        {Object.keys(FEE_RATIOS).map(r => <option key={r} value={r}>{t(`staff_role_${r}`)}</option>)}
                                     </select>
                                 </div>
                                 <div className="col-span-5">
                                     <select className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-2 focus:ring-2 focus:ring-blue-500/20 outline-none" value={p.staffId} onChange={e => updateParticipant(idx, 'staffId', e.target.value)}>
-                                        <option value="">Select Staff...</option>
+                                        <option value="">{t('appointments_form_select_staff')}</option>
                                         {staff.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
                                     </select>
                                 </div>
                                 <div className="col-span-3">
                                     <div className="relative">
-                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">$</span>
+                                        <span className={`absolute ${language === 'ar' ? 'right-2' : 'left-2'} top-1/2 -translate-y-1/2 text-slate-400 text-[10px]`}>$</span>
                                         <input 
                                           type="text" 
-                                          className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-blue-500/20 outline-none" 
+                                          className={`w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 ${language === 'ar' ? 'pr-5 pl-2' : 'pl-5 pr-2'} font-mono font-bold focus:ring-2 focus:ring-blue-500/20 outline-none`} 
                                           value={formatNumber(p.fee)} 
                                           onChange={e => updateParticipant(idx, 'fee', parseNumber(e.target.value))} 
-                                          onBlur={(e) => updateParticipant(idx, 'fee', parseNumber(e.target.value))}
                                         />
                                     </div>
                                 </div>
@@ -469,27 +471,26 @@ export const Operations = () => {
                         <h5 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                             <Package size={16} className="text-orange-500"/> {t('operations_modal_section_supplies')}
                         </h5>
-                        <Button size="sm" variant="ghost" onClick={() => addItem('consumables')} icon={Plus} className="text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20">Add</Button>
+                        <Button size="sm" variant="ghost" onClick={() => addItem('consumables')} icon={Plus} className="text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20">{t('operations_modal_add_item')}</Button>
                     </div>
                     <div className="space-y-2">
                         {costForm.consumables.map((item, idx) => (
                             <div key={item.id} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-orange-200 transition-colors">
-                                <input placeholder="Item Name / Drug" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-orange-500/20 outline-none" value={item.name} onChange={e => updateItem('consumables', idx, 'name', e.target.value)} />
+                                <input placeholder={t('operations_modal_item_name')} className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-orange-500/20 outline-none" value={item.name} onChange={e => updateItem('consumables', idx, 'name', e.target.value)} />
                                 <div className="relative w-28">
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">$</span>
+                                    <span className={`absolute ${language === 'ar' ? 'right-2' : 'left-2'} top-1/2 -translate-y-1/2 text-slate-400 text-[10px]`}>$</span>
                                     <input 
                                       type="text" 
                                       placeholder="0.00" 
-                                      className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-orange-500/20 outline-none" 
+                                      className={`w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 ${language === 'ar' ? 'pr-5 pl-2' : 'pl-5 pr-2'} font-mono font-bold focus:ring-2 focus:ring-orange-500/20 outline-none`} 
                                       value={formatNumber(item.cost)} 
                                       onChange={e => updateItem('consumables', idx, 'cost', parseNumber(e.target.value))}
-                                      onBlur={e => updateItem('consumables', idx, 'cost', parseNumber(e.target.value))}
                                     />
                                 </div>
                                 <button onClick={() => removeItem('consumables', idx)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={14}/></button>
                             </div>
                         ))}
-                        {costForm.consumables.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">{t('operations_modal_no_items')}</p>}
+                        {costForm.consumables.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">{t('no_data')}</p>}
                     </div>
                 </div>
 
@@ -499,27 +500,26 @@ export const Operations = () => {
                         <h5 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                             <Zap size={16} className="text-yellow-500"/> {t('operations_modal_section_equipment')}
                         </h5>
-                        <Button size="sm" variant="ghost" onClick={() => addItem('equipment')} icon={Plus} className="text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20">Add</Button>
+                        <Button size="sm" variant="ghost" onClick={() => addItem('equipment')} icon={Plus} className="text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20">{t('operations_modal_add_item')}</Button>
                     </div>
                     <div className="space-y-2">
                         {costForm.equipment.map((item, idx) => (
                             <div key={item.id} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-yellow-200 transition-colors">
-                                <input placeholder="Equipment Name" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-yellow-500/20 outline-none" value={item.name} onChange={e => updateItem('equipment', idx, 'name', e.target.value)} />
+                                <input placeholder={t('operations_modal_item_name')} className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-yellow-500/20 outline-none" value={item.name} onChange={e => updateItem('equipment', idx, 'name', e.target.value)} />
                                 <div className="relative w-28">
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">$</span>
+                                    <span className={`absolute ${language === 'ar' ? 'right-2' : 'left-2'} top-1/2 -translate-y-1/2 text-slate-400 text-[10px]`}>$</span>
                                     <input 
                                       type="text" 
                                       placeholder="0.00" 
-                                      className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-yellow-500/20 outline-none" 
+                                      className={`w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 ${language === 'ar' ? 'pr-5 pl-2' : 'pl-5 pr-2'} font-mono font-bold focus:ring-2 focus:ring-yellow-500/20 outline-none`} 
                                       value={formatNumber(item.cost)} 
                                       onChange={e => updateItem('equipment', idx, 'cost', parseNumber(e.target.value))}
-                                      onBlur={e => updateItem('equipment', idx, 'cost', parseNumber(e.target.value))}
                                     />
                                 </div>
                                 <button onClick={() => removeItem('equipment', idx)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={14}/></button>
                             </div>
                         ))}
-                        {costForm.equipment.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">{t('operations_modal_no_equipment')}</p>}
+                        {costForm.equipment.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">{t('no_data')}</p>}
                     </div>
                 </div>
 
@@ -529,33 +529,31 @@ export const Operations = () => {
                         <h5 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                             <Briefcase size={16} className="text-violet-500"/> {t('operations_modal_section_misc')}
                         </h5>
-                        <Button size="sm" variant="ghost" onClick={() => addItem('others')} icon={Plus} className="text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20">Add</Button>
+                        <Button size="sm" variant="ghost" onClick={() => addItem('others')} icon={Plus} className="text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20">{t('operations_modal_add_item')}</Button>
                     </div>
                     <div className="space-y-2">
                         {costForm.others.map((item, idx) => (
                             <div key={item.id} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-violet-200 transition-colors">
-                                <input placeholder="Description" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-violet-500/20 outline-none" value={item.name} onChange={e => updateItem('others', idx, 'name', e.target.value)} />
+                                <input placeholder={t('billing_treasury_table_description')} className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 px-3 focus:ring-2 focus:ring-violet-500/20 outline-none" value={item.name} onChange={e => updateItem('others', idx, 'name', e.target.value)} />
                                 <div className="relative w-28">
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">$</span>
+                                    <span className={`absolute ${language === 'ar' ? 'right-2' : 'left-2'} top-1/2 -translate-y-1/2 text-slate-400 text-[10px]`}>$</span>
                                     <input 
                                       type="text" 
                                       placeholder="0.00" 
-                                      className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 pl-5 pr-2 font-mono font-bold focus:ring-2 focus:ring-violet-500/20 outline-none" 
+                                      className={`w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs py-2 ${language === 'ar' ? 'pr-5 pl-2' : 'pl-5 pr-2'} font-mono font-bold focus:ring-2 focus:ring-violet-500/20 outline-none`} 
                                       value={formatNumber(item.cost)} 
                                       onChange={e => updateItem('others', idx, 'cost', parseNumber(e.target.value))}
-                                      onBlur={e => updateItem('others', idx, 'cost', parseNumber(e.target.value))}
                                     />
                                 </div>
                                 <button onClick={() => removeItem('others', idx)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={14}/></button>
                             </div>
                         ))}
-                        {costForm.others.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">{t('operations_modal_no_fees')}</p>}
+                        {costForm.others.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">{t('no_data')}</p>}
                     </div>
                 </div>
 
-                {/* Notes */}
                 <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-                    <Textarea label="Operation Notes" placeholder="Clinical notes, specific requirements, or cost breakdown details..." rows={3} value={costForm.notes} onChange={e => setCostForm({...costForm, notes: e.target.value})} className="bg-white dark:bg-slate-900" />
+                    <Textarea label={t('operations_modal_notes_label')} placeholder={t('operations_modal_notes_placeholder')} rows={3} value={costForm.notes} onChange={e => setCostForm({...costForm, notes: e.target.value})} className="bg-white dark:bg-slate-900" />
                 </div>
             </div>
             
@@ -568,11 +566,11 @@ export const Operations = () => {
         </div>
       </Modal>
 
-      {/* DETAILS VIEW MODAL (READ-ONLY) */}
-      <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Operation Details">
+      {/* DETAILS VIEW MODAL */}
+      <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title={t('admissions_history_action_details')}>
         {viewingOp && (
             <div className="space-y-6">
-                <div className="flex justify-between items-start bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div className="flex justify-between items-start bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-100">
                     <div>
                         <h4 className="text-lg font-black text-slate-800 dark:text-white mb-1">{viewingOp.operation_name}</h4>
                         <p className="text-sm text-slate-500">{viewingOp.patientName}</p>
@@ -583,33 +581,31 @@ export const Operations = () => {
                         </div>
                     </div>
                     <div className="text-right">
-                        <Badge color={viewingOp.status === 'completed' ? 'gray' : viewingOp.status === 'cancelled' ? 'red' : 'green'}>{viewingOp.status.toUpperCase()}</Badge>
+                        <Badge color={viewingOp.status === 'completed' ? 'gray' : viewingOp.status === 'cancelled' ? 'red' : 'green'}>{getTranslatedStatus(viewingOp.status)}</Badge>
                         <p className="font-mono font-black text-2xl text-primary-600 mt-2">${viewingOp.projected_cost.toLocaleString()}</p>
                     </div>
                 </div>
 
                 {viewingOp.costDetails && (
                     <div className="space-y-4">
-                        {/* Summary Stats */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-3 border rounded-xl bg-white dark:bg-slate-800">
-                                <p className="text-[10px] font-black uppercase text-slate-400">Surgeon Fee</p>
+                                <p className="text-[10px] font-black uppercase text-slate-400">{t('operations_modal_surgeon_fee')}</p>
                                 <p className="font-bold text-slate-800 dark:text-white">${(viewingOp.costDetails.surgeonFee || 0).toLocaleString()}</p>
                             </div>
                             <div className="p-3 border rounded-xl bg-white dark:bg-slate-800">
-                                <p className="text-[10px] font-black uppercase text-slate-400">Theater Fee</p>
+                                <p className="text-[10px] font-black uppercase text-slate-400">{t('operations_modal_theater_fee')}</p>
                                 <p className="font-bold text-slate-800 dark:text-white">${(viewingOp.costDetails.theaterFee || 0).toLocaleString()}</p>
                             </div>
                         </div>
 
-                        {/* Team List */}
                         {viewingOp.costDetails.participants && viewingOp.costDetails.participants.length > 0 && (
                             <div>
-                                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Clinical Team</h5>
+                                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">{t('operations_modal_section_team')}</h5>
                                 <div className="space-y-2">
                                     {viewingOp.costDetails.participants.map((p: any, i: number) => (
                                         <div key={i} className="flex justify-between items-center p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-sm">
-                                            <span><span className="font-bold">{p.name || 'Unknown'}</span> <span className="text-slate-400 text-xs">({p.role})</span></span>
+                                            <span><span className="font-bold">{p.name || t('patients_modal_view_na')}</span> <span className="text-slate-400 text-xs">({t(`staff_role_${p.role}`)})</span></span>
                                             <span className="font-mono">${p.fee.toLocaleString()}</span>
                                         </div>
                                     ))}
@@ -617,13 +613,13 @@ export const Operations = () => {
                             </div>
                         )}
 
-                        {/* Breakdown of other costs */}
                         {['consumables', 'equipment', 'others'].map(cat => {
                             const items = viewingOp.costDetails[cat];
                             if (!items || items.length === 0) return null;
+                            const sectionKey = cat === 'consumables' ? 'operations_modal_section_supplies' : cat === 'equipment' ? 'operations_modal_section_equipment' : 'operations_modal_section_misc';
                             return (
                                 <div key={cat}>
-                                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1 capitalize">{cat}</h5>
+                                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1 capitalize">{t(sectionKey)}</h5>
                                     <div className="space-y-2">
                                         {items.map((item: any, i: number) => (
                                             <div key={i} className="flex justify-between items-center p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-sm">
@@ -640,7 +636,7 @@ export const Operations = () => {
 
                 {viewingOp.notes && (
                     <div>
-                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Notes</h5>
+                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">{t('patients_modal_action_notes')}</h5>
                         <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 italic">
                             {viewingOp.notes}
                         </div>
@@ -648,7 +644,7 @@ export const Operations = () => {
                 )}
 
                 <div className="pt-4 flex justify-end">
-                    <Button variant="secondary" onClick={() => setIsDetailModalOpen(false)}>Close</Button>
+                    <Button variant="secondary" onClick={() => setIsDetailModalOpen(false)}>{t('close')}</Button>
                 </div>
             </div>
         )}
