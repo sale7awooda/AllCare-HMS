@@ -5,29 +5,14 @@ const notificationController = require('./notification.controller');
 // --- LAB ---
 exports.getLabRequests = (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12;
-    const search = req.query.search || '';
-    const offset = (page - 1) * limit;
-
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM lab_requests lr
-      JOIN patients p ON lr.patient_id = p.id
-      WHERE p.full_name LIKE ?
-    `;
-    const totalRecords = db.prepare(countQuery).get(`%${search}%`).total;
-
     const requests = db.prepare(`
       SELECT 
-        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json, lr.notes,
+        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json,
         p.full_name as patientName
       FROM lab_requests lr
       JOIN patients p ON lr.patient_id = p.id
-      WHERE p.full_name LIKE ?
       ORDER BY lr.created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(`%${search}%`, limit, offset);
+    `).all();
 
     const enriched = requests.map(r => {
         let testNames = '';
@@ -48,13 +33,7 @@ exports.getLabRequests = (req, res) => {
         return { ...r, testNames, testDetails, results };
     });
 
-    res.json({
-      requests: enriched,
-      total: totalRecords,
-      page,
-      limit,
-      totalPages: Math.ceil(totalRecords / limit)
-    });
+    res.json(enriched);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -104,26 +83,13 @@ exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
     const { results_json, notes } = req.body;
     try {
-        // FIXED: Correctly saving both results_json AND notes
-        db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ?, notes = ? WHERE id = ?").run(
+        db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ? WHERE id = ?").run(
             results_json ? JSON.stringify(results_json) : null,
-            notes || null,
             id
         );
         res.json({success: true});
     } catch(e) {
         res.status(500).json({error: e.message});
-    }
-};
-
-exports.amendLabRequest = (req, res) => {
-    const { id } = req.params;
-    try {
-        const result = db.prepare("UPDATE lab_requests SET status = 'confirmed' WHERE id = ? AND status = 'completed'").run(id);
-        if (result.changes === 0) return res.status(404).json({ error: 'Completed record not found' });
-        res.json({ success: true });
-    } catch(e) {
-        res.status(500).json({ error: e.message });
     }
 };
 
