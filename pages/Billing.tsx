@@ -553,9 +553,8 @@ export const Billing = () => {
     const taxItem = bill.items.find(i => i.description.toLowerCase().includes('tax'));
     const subtotal = bill.items.filter(i => !i.description.toLowerCase().includes('tax')).reduce((sum, i) => sum + i.amount, 0);
     const taxAmount = taxItem ? taxItem.amount : 0;
-    const hospitalName = localStorage.getItem('h_name') || 'AllCare Hospital';
-    const [hospitalInfo, setHospitalInfo] = useState<any>({});
-    useEffect(() => { api.getPublicSettings().then(setHospitalInfo); }, []);
+    const hospitalName = 'AllCare Hospital';
+    const hospitalAddress = 'Atbara ,alsoug alkabeer';
 
     return (
         <div className="p-10 bg-white min-h-[600px] text-slate-800 font-sans" id="invoice-print">
@@ -578,8 +577,7 @@ export const Billing = () => {
                 <div className="text-right">
                     <h2 className="text-xl font-bold text-primary-600">{hospitalName}</h2>
                     <div className="text-sm text-slate-500 mt-2 space-y-1">
-                        <p>{hospitalInfo.hospitalAddress || t('billing_invoice_na')}</p>
-                        <p>{hospitalInfo.hospitalPhone || '-'}</p>
+                        <p>{hospitalAddress}</p>
                     </div>
                 </div>
             </div>

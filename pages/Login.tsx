@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Role } from '../types';
 import { 
@@ -28,7 +29,6 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [serverStatus, setServerStatus] = useState<'connecting' | 'online' | 'offline'>('connecting');
   const { t } = useTranslation();
   
   const [hospitalInfo] = useState(() => ({
@@ -39,20 +39,6 @@ export const Login: React.FC = () => {
   
   const [activeProfile, setActiveProfile] = useState<Role | null>(null);
   const [passwordVisible, setPasswordVisible] = useState(false);
-
-  useEffect(() => {
-    const checkServer = async () => {
-      try {
-        await api.getPublicSettings();
-        setServerStatus('online');
-      } catch (e) {
-        setServerStatus('offline');
-      }
-    };
-    checkServer();
-    const interval = setInterval(checkServer, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
