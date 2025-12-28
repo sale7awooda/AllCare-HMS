@@ -1,3 +1,4 @@
+
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
@@ -12,6 +13,16 @@ exports.getAll = (req, res) => {
         } catch (e) {
           bankDetails = s.bank_details;
         }
+      }
+
+      let availableDays = [];
+      if (s.available_days) {
+          try {
+              availableDays = JSON.parse(s.available_days);
+          } catch(e) {
+              console.warn(`Malformed availability for staff ${s.id}`);
+              availableDays = [];
+          }
       }
 
       return {
@@ -31,7 +42,7 @@ exports.getAll = (req, res) => {
         baseSalary: s.base_salary,
         joinDate: s.join_date,
         bankDetails: bankDetails,
-        availableDays: s.available_days ? JSON.parse(s.available_days) : [],
+        availableDays: availableDays,
         availableTimeStart: s.available_time_start,
         availableTimeEnd: s.available_time_end
       }
@@ -39,7 +50,7 @@ exports.getAll = (req, res) => {
 
     res.json(mapped);
   } catch (err) {
-    console.error('Error fetching staff:', err);
+    console.error('Error fetching staff:', err.message);
     res.status(500).json({ error: 'Failed to fetch staff list' });
   }
 };
@@ -401,8 +412,6 @@ exports.updatePayrollStatus = (req, res) => {
 
         // Sync with Treasury if marked as Paid
         if (status === 'paid') {
-            // FIX: Explicitly including 'details' column to match billing controller pattern
-            // and ensure parameter counts match the Prepare statement exactly.
             db.prepare(`
                 INSERT INTO transactions (type, category, amount, method, reference_id, details, date, description)
                 VALUES ('expense', 'Staff Salaries', ?, ?, ?, ?, datetime('now'), ?)
@@ -420,7 +429,7 @@ exports.updatePayrollStatus = (req, res) => {
         tx();
         res.json({ success: true });
     } catch(e) {
-        console.error('Payroll status update error:', e);
+        console.error('Payroll status update error:', e.message);
         res.status(500).json({ error: e.message });
     }
 };

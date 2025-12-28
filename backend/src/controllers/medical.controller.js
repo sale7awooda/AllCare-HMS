@@ -1,11 +1,15 @@
+
 const { db } = require('../config/database');
 const notificationController = require('./notification.controller');
 
 // --- LAB ---
 exports.getLabRequests = (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12;
+    const pageRaw = parseInt(req.query.page);
+    const limitRaw = parseInt(req.query.limit);
+    
+    const page = !isNaN(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+    const limit = !isNaN(limitRaw) && limitRaw > 0 ? limitRaw : 12;
     const search = req.query.search || '';
     const offset = (page - 1) * limit;
 
@@ -15,7 +19,8 @@ exports.getLabRequests = (req, res) => {
       JOIN patients p ON lr.patient_id = p.id
       WHERE p.full_name LIKE ?
     `;
-    const totalRecords = db.prepare(countQuery).get(`%${search}%`).total;
+    const countResult = db.prepare(countQuery).get(`%${search}%`);
+    const totalRecords = countResult ? countResult.total : 0;
 
     const requests = db.prepare(`
       SELECT 
@@ -32,14 +37,18 @@ exports.getLabRequests = (req, res) => {
         let testNames = '';
         let testDetails = [];
         try {
-            const ids = JSON.parse(r.test_ids);
-            if (Array.isArray(ids) && ids.length > 0) {
-                const placeholders = ids.map(() => '?').join(',');
-                const tests = db.prepare(`SELECT id, name_en, name_ar, normal_range FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
-                testNames = tests.map(t => t.name_en).join(', ');
-                testDetails = tests;
+            if (r.test_ids) {
+                const ids = JSON.parse(r.test_ids);
+                if (Array.isArray(ids) && ids.length > 0) {
+                    const placeholders = ids.map(() => '?').join(',');
+                    const tests = db.prepare(`SELECT id, name_en, name_ar, normal_range FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
+                    testNames = tests.map(t => t.name_en).join(', ');
+                    testDetails = tests;
+                }
             }
-        } catch(e) {}
+        } catch(e) {
+            console.error(`Error processing test_ids for lab request ${r.id}:`, e.message);
+        }
         
         let results = null;
         try { if(r.results_json) results = JSON.parse(r.results_json); } catch(e) {}
@@ -55,7 +64,8 @@ exports.getLabRequests = (req, res) => {
       totalPages: Math.ceil(totalRecords / limit)
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[MedicalController] getLabRequests failed:', err.message);
+    res.status(500).json({ error: 'Failed to fetch lab requests.' });
   }
 };
 

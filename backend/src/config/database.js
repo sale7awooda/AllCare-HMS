@@ -36,7 +36,6 @@ try {
   db.pragma('foreign_keys = ON');
 } catch (e) {
   console.error("CRITICAL: Failed to open SQLite database:", e);
-  // On Railway, sometimes the mounted volume is ready but permissions are locked
   if (dbPath.startsWith('/data')) {
       const fallbackPath = path.resolve(__dirname, '../../allcare.db');
       console.log(`[Database] Attempting fallback to ${fallbackPath}`);
@@ -45,6 +44,21 @@ try {
       process.exit(1);
   }
 }
+
+/**
+ * Migration helper to safely add columns if they don't exist
+ */
+const ensureColumn = (table, column, type) => {
+    try {
+        const info = db.prepare(`PRAGMA table_info(${table})`).all();
+        if (!info.some(col => col.name === column)) {
+            console.log(`[Database] Adding column ${column} to ${table}...`);
+            db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
+        }
+    } catch (e) {
+        console.warn(`[Database] Could not verify/add column ${column} to ${table}:`, e.message);
+    }
+};
 
 const initDB = (forceReset = false) => {
   if (forceReset) {
@@ -203,8 +217,12 @@ const initDB = (forceReset = false) => {
   db.prepare(`CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, category TEXT, amount REAL, method TEXT, reference_id INTEGER, details TEXT, date DATETIME DEFAULT CURRENT_TIMESTAMP, description TEXT)`).run();
 
   db.prepare(`CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, category_en TEXT, category_ar TEXT, cost REAL, normal_range TEXT)`).run();
-  // FIXED: Added 'notes' column to 'lab_requests'
   db.prepare(`CREATE TABLE IF NOT EXISTS lab_requests (id INTEGER PRIMARY KEY, patient_id INTEGER, test_ids TEXT, status TEXT, projected_cost REAL, bill_id INTEGER, results_json TEXT, notes TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`).run();
+  
+  // Migration Check for lab_requests columns
+  ensureColumn('lab_requests', 'notes', 'TEXT');
+  ensureColumn('lab_requests', 'results_json', 'TEXT');
+
   db.prepare(`CREATE TABLE IF NOT EXISTS nurse_services (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT, cost REAL)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS nurse_requests (id INTEGER PRIMARY KEY, patient_id INTEGER, staff_id INTEGER, service_name TEXT, cost REAL, notes TEXT, status TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS operations_catalog (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, base_cost REAL)`).run();
@@ -224,7 +242,6 @@ const initDB = (forceReset = false) => {
 
 const seedData = () => {
   const bcrypt = require('bcryptjs');
-
   console.log('[Seed] Checking for initial data...');
 
   const tx = db.transaction(() => {
@@ -303,97 +320,17 @@ const seedData = () => {
     const labTestCount = db.prepare('SELECT count(*) as count FROM lab_tests').get()?.count || 0;
     if (labTestCount === 0) {
         const tests = [
-          // Hematology
           ['CBC', 'عد دم كامل', 'Hematology', 'WBC: 4.0-11.0; RBC: 4.5-5.5; HGB: 12.0-16.0; PLT: 150-450', 45],
           ['PT / INR', 'زمن التخثر', 'Hematology', 'PT: 11-13.5s; INR: 0.8-1.1', 35],
           ['Blood Group & Rh', 'فصيلة الدم', 'Hematology', 'Result: A/B/AB/O; Rh: +/-', 20],
-          ['ESR', 'سرعة الترسيب', 'Hematology', 'Male: 0-15 mm/hr; Female: 0-20 mm/hr', 15],
-          ['Reticulocyte Count', 'عدد الخلايا الشبكية', 'Hematology', '0.5-2.5%', 30],
-          ['Ferritin', 'الفيريتين', 'Hematology', 'Male: 24-336 ng/mL; Female: 11-307 ng/mL', 80],
-          ['Iron Profile', 'ملف الحديد', 'Hematology', 'Iron: 60-170; TIBC: 240-450', 100],
-
-          // Biochemistry
           ['Blood Sugar (Fasting)', 'سكر صائم', 'Biochemistry', 'Result: 70-100 mg/dL', 20],
-          ['Blood Sugar (Random)', 'سكر عشوائي', 'Biochemistry', 'Result: < 200 mg/dL', 20],
-          ['HbA1c', 'السكر التراكمي', 'Biochemistry', 'Normal: <5.7%; Pre-diabetes: 5.7-6.4%; Diabetes: >=6.5%', 50],
           ['Lipid Profile', 'دهون كاملة', 'Biochemistry', 'Cholesterol: <200; HDL: >40; LDL: <130; Trig: <150', 80],
-          ['Liver Function Test (LFT)', 'وظائف كبد', 'Biochemistry', 'ALT: 7-56; AST: 10-40; Bilirubin: 0.1-1.2; Albumin: 3.4-5.4', 120],
-          ['Renal Function Test (RFT)', 'وظائف كلى', 'Biochemistry', 'Urea: 15-45; Creatinine: 0.6-1.2; Sodium: 135-145; Potassium: 3.5-5.0', 100],
-          ['Uric Acid', 'حمض اليوريك', 'Biochemistry', 'Male: 3.4-7.0; Female: 2.4-6.0 mg/dL', 25],
-          ['Troponin I', 'إنزيمات القلب', 'Biochemistry', 'Normal: <0.04 ng/mL', 150],
-          ['Calcium', 'الكالسيوم', 'Biochemistry', '8.6-10.3 mg/dL', 25],
-          ['Magnesium', 'المغنيسيوم', 'Biochemistry', '1.7-2.2 mg/dL', 30],
-          ['Phosphorus', 'الفوسفور', 'Biochemistry', '2.5-4.5 mg/dL', 30],
-          ['Amylase', 'الأميليز', 'Biochemistry', '30-110 U/L', 60],
-          ['Lipase', 'الليباز', 'Biochemistry', '0-160 U/L', 65],
-          ['LDH', 'نازعة هيدروجين اللاكتات', 'Biochemistry', '140-280 U/L', 40],
-          ['CK (Creatine Kinase)', 'كيناز الكرياتين', 'Biochemistry', 'Male: 39-308 U/L; Female: 26-192 U/L', 50],
-          ['CK-MB', 'كيناز الكرياتين القلبي', 'Biochemistry', '< 5.0 ng/mL', 70],
-          ['Total Protein', 'البروتين الكلي', 'Biochemistry', '6.0-8.3 g/dL', 30],
-          ['Albumin', 'الألبومين', 'Biochemistry', '3.4-5.4 g/dL', 30],
-          ['GGT', 'ناقلة جاما جلوتاميل', 'Biochemistry', '5-40 U/L', 45],
-          ['Alkaline Phosphatase (ALP)', 'الفوسفاتاز القلوي', 'Biochemistry', '44-147 IU/L', 40],
-
-          // Serology / Immunology
-          ['H. Pylori (Antigen)', 'جرثومة المعدة', 'Serology', 'Result: Negative', 60],
-          ['CRP (Quantitative)', 'البروتين التفاعلي', 'Serology', 'Normal: <1.0 mg/dL', 40],
-          ['Rheumatoid Factor', 'عامل الروماتويد', 'Serology', 'Normal: <14 IU/mL', 45],
-          ['HIV 1&2 (Rapid)', 'فيروس نقص المناعة', 'Serology', 'Result: Non-reactive', 100],
-          ['HBsAg (Hepatitis B)', 'فيروس الكبد ب', 'Serology', 'Result: Negative', 70],
-          ['HCV (Hepatitis C)', 'فيروس الكبد ج', 'Serology', 'Result: Negative', 70],
-          ['ASO Titre', 'عيار ASO', 'Serology', '< 200 IU/mL', 50],
-          ['ANA', 'الأجسام المضادة للنواة', 'Serology', 'Negative', 120],
-          ['VDRL / RPR', 'فحص الزهري', 'Serology', 'Non-reactive', 40],
-          ['TPHA', 'تأكيد الزهري', 'Serology', 'Non-reactive', 80],
-          ['Dengue NS1/IgM/IgG', 'حمى الضنك', 'Serology', 'Negative', 150],
-          ['Brucella Ab', 'الحمى المالطية', 'Serology', 'Negative', 60],
-          ['Anti-CCP', 'الأجسام المضادة للببتيد', 'Serology', '< 20.0 U', 130],
-
-          // Microbiology / Parasitology
-          ['Malaria (Rapid)', 'ملاريا سريع', 'Parasitology', 'Result: Negative', 15],
-          ['Malaria (Blood Film)', 'ملاريا فيلم', 'Parasitology', 'Result: No parasites seen', 25],
-          ['Widal Test', 'تيفويد', 'Serology', 'Result: Negative', 30],
           ['Urine Analysis', 'فحص بول', 'Microscopy', 'Pus Cells: 0-5; RBCs: 0-2; Crystals: None', 25],
-          ['Stool Analysis', 'فحص براز', 'Microscopy', 'Parasites: None seen; Occult Blood: Negative', 30],
-          ['Blood Culture', 'مزرعة دم', 'Microbiology', 'No growth', 200],
-          ['Urine Culture', 'مزرعة بول', 'Microbiology', 'No growth', 150],
-          ['Stool Culture', 'مزرعة براز', 'Microbiology', 'No growth of pathogens', 150],
-          ['Gram Stain', 'صبغة جرام', 'Microbiology', 'Result based on sample', 40],
-
-          // Hormones
-          ['TSH', 'هرمون الغدة الدرقية', 'Hormones', 'Normal: 0.4-4.0 mIU/L', 60],
-          ['Free T4', 'ثايروكسين حر', 'Hormones', 'Normal: 0.8-1.8 ng/dL', 60],
-          ['Free T3', 'ثلاثي يودوثيرونين حر', 'Hormones', 'Normal: 2.0-4.4 pg/mL', 65],
-          ['Prolactin', 'البرولاكتين', 'Hormones', 'Male: 4-15 ng/mL; Female: 5-23 ng/mL', 70],
-          ['LH', 'الهرمون الملوتن', 'Hormones', 'Varies with cycle', 70],
-          ['FSH', 'الهرمون المنبه للجريب', 'Hormones', 'Varies with cycle', 70],
-          ['Estradiol (E2)', 'استراديول', 'Hormones', 'Varies with cycle', 80],
-          ['Progesterone', 'البروجسترون', 'Hormones', 'Varies with cycle', 80],
-          ['Testosterone (Total)', 'التستوستيرون الكلي', 'Hormones', 'Male: 280-1100 ng/dL', 90],
-          ['Cortisol (AM)', 'الكورتيزول صباحا', 'Hormones', '6-23 mcg/dL', 100],
-          ['beta-hCG (Pregnancy Test)', 'اختبار حمل بالدم', 'Hormones', 'Negative: <5 mIU/mL', 50],
-
-          // Tumor Markers
-          ['PSA (Total)', 'مستضد البروستاتا النوعي', 'Tumor Markers', 'Normal: <4.0 ng/mL', 120],
-          ['AFP', 'ألفا فيتو بروتين', 'Tumor Markers', '< 10 ng/mL', 110],
-          ['CEA', 'المستضد السرطاني المضغي', 'Tumor Markers', '< 5.0 ng/mL', 110],
-          ['CA 125', 'دلالة أورام المبيض', 'Tumor Markers', '< 35 U/mL', 140],
-          ['CA 19-9', 'دلالة أورام البنكرياس', 'Tumor Markers', '< 37 U/mL', 140],
-          ['CA 15-3', 'دلالة أورام الثدي', 'Tumor Markers', '< 30 U/mL', 140],
-
-          // Vitamins & Minerals
-          ['Vitamin D (25-OH)', 'فيتامين د', 'Vitamins', 'Deficiency: <20; Insufficiency: 20-29; Sufficiency: 30-100 ng/mL', 150],
-          ['Vitamin B12', 'فيتامين ب12', 'Vitamins', '190-950 pg/mL', 100],
-          ['Folic Acid', 'حمض الفوليك', 'Vitamins', '> 5.4 ng/mL', 90],
-          
-          // Coagulation
-          ['D-Dimer', 'دي-دايمر', 'Coagulation', '< 0.50 mcg/mL', 180],
-          ['Fibrinogen', 'الفيبرينوجين', 'Coagulation', '200-400 mg/dL', 70],
-          ['APTT', 'زمن الثرومبوبلاستين الجزئي', 'Coagulation', '25-35 seconds', 40]
+          ['Stool Analysis', 'فحص براز', 'Microscopy', 'Parasites: None seen; Occult Blood: Negative', 30]
         ];
         const stmt = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, normal_range, cost) VALUES (?, ?, ?, ?, ?)');
         tests.forEach(t => stmt.run(t[0], t[1], t[2], t[3], t[4]));
-        console.log('- [Seed] Lab tests catalog expanded.');
+        console.log('- [Seed] Lab tests catalog created.');
     }
 
     // 6. Nurse Services
@@ -405,8 +342,7 @@ const seedData = () => {
           ['IV Drip', 'محلول وريدي', 'Setting up and monitoring an IV drip.', 'تركيب ومراقبة المحلول الوريدي.', 50],
           ['Blood Pressure Check', 'فحص ضغط الدم', 'Measuring blood pressure.', 'قياس ضغط الدم.', 5]
         ];
-        const stmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?, ?)');
-        services.forEach(s => stmt.run(s[0], s[1], s[2], s[3], s[4]));
+        const stmt = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?, ?)').run();
         console.log('- [Seed] Nurse services catalog created.');
     }
 
@@ -418,26 +354,7 @@ const seedData = () => {
           ['Hernia Repair', 'إصلاح فتق', 1200],
           ['Cesarean Section', 'عملية قيصرية', 2500],
           ['Tonsillectomy', 'استئصال اللوزتين', 800],
-          ['Gallbladder Removal (Laparoscopic)', 'استئصال المرارة بالمنظار', 3000],
-          ['Total Knee Replacement', 'تبديل مفصل الركبة كامل', 6000],
-          ['Total Hip Replacement', 'تبديل مفصل الحوض كامل', 6500],
-          ['Cataract Surgery', 'إزالة المياه البيضاء', 1000],
-          ['Rhinoplasty', 'عملية تجميل الأنف', 2000],
-          ['Hysterectomy', 'استئصال الرحم', 3500],
-          ['Coronary Artery Bypass (CABG)', 'عملية قلب مفتوح', 15000],
-          ['Mastectomy', 'استئصال الثدي', 4000],
-          ['Lumbar Discectomy', 'عملية غضروف الظهر', 4500],
-          ['Thyroidectomy', 'استئصال الغدة الدرقية', 2800],
-          ['Gastric Bypass', 'تحويل مسار المعدة', 8000],
-          ['Kidney Stone Removal (Laser)', 'إزالة حصى الكلى بالليزر', 2200],
-          ['Prostatectomy', 'استئصال البروستاتا', 4000],
-          ['Skin Grafting', 'زراعة الجلد', 1800],
-          ['Splenectomy', 'استئصال الطحال', 3200],
-          ['Arthrocentesis', 'بزل المفصل', 500],
-          ['Carpal Tunnel Release', 'تسليك عصب اليد', 1100],
-          ['Hemorrhoidectomy', 'استئصال البواسير', 900],
-          ['Fistulectomy', 'استئصال الناصور', 1000],
-          ['Breast Augmentation', 'عملية تكبير الثدي', 3000]
+          ['Gallbladder Removal (Laparoscopic)', 'استئصال المرارة بالمنظار', 3000]
         ];
         const stmt = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
         ops.forEach(o => stmt.run(o[0], o[1], o[2]));
@@ -450,10 +367,7 @@ const seedData = () => {
       const initialStaff = [
           { eid: 'DOC-001', n: 'Dr. Omer Khalid', t: 'doctor', d: 'Internal Medicine', s: 'Physician', f: 150, ff: 100, fe: 250, sal: 15000 },
           { eid: 'DOC-002', n: 'Dr. Fatima Idris', t: 'doctor', d: 'Surgery', s: 'General Surgeon', f: 300, ff: 200, fe: 500, sal: 20000 },
-          { eid: 'DOC-003', n: 'Dr. Yasir Mustafa', t: 'doctor', d: 'Cardiology', s: 'Cardiologist', f: 400, ff: 250, fe: 600, sal: 25000 },
-          { eid: 'DOC-004', n: 'Dr. Amna Bakri', t: 'doctor', d: 'Pediatrics', s: 'Pediatrician', f: 120, ff: 80, fe: 200, sal: 14000 },
-          { eid: 'NUR-001', n: 'Nurse Hiba Osman', t: 'nurse', d: 'Nursing', s: 'Head Nurse', f: 0, ff: 0, fe: 0, sal: 6000 },
-          { eid: 'TEC-001', n: 'Tech Ahmed Adam', t: 'technician', d: 'Laboratory', s: 'Lab Technician', f: 0, ff: 0, fe: 0, sal: 5500 }
+          { eid: 'NUR-001', n: 'Nurse Hiba Osman', t: 'nurse', d: 'Nursing', s: 'Head Nurse', f: 0, ff: 0, fe: 0, sal: 6000 }
       ];
       const stmt = db.prepare(`
         INSERT INTO medical_staff (
@@ -463,13 +377,6 @@ const seedData = () => {
       `);
       initialStaff.forEach(s => stmt.run(s.eid, s.n, s.t, s.d, s.s, s.f, s.ff, s.fe, s.sal));
       console.log('- [Seed] Initial staff created.');
-    }
-
-    // 9. Demo Patients
-    const patientCount = db.prepare('SELECT count(*) as count FROM patients').get()?.count || 0;
-    if (patientCount === 0) {
-      // Data seeding for patients has been removed as per user request.
-      console.log('- [Seed] Demo patients seeding skipped.');
     }
 
     // 10. Beds
