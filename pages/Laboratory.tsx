@@ -87,9 +87,11 @@ export const Laboratory = () => {
 
   const extractResults = (req: any) => {
     const resultsData = req.results;
-    const isNested = resultsData && typeof resultsData === 'object' && 'results_json' in resultsData;
+    if (!resultsData) return { values: {}, notes: '' };
+    
+    const isNested = typeof resultsData === 'object' && 'results_json' in resultsData;
     const values = isNested ? resultsData.results_json : (resultsData || {});
-    const notes = isNested ? resultsData.notes : '';
+    const notes = isNested ? (resultsData.notes || '') : '';
     return { values, notes };
   };
 
@@ -104,14 +106,14 @@ export const Laboratory = () => {
         if (test.normal_range?.includes(';')) {
             components = test.normal_range.split(';').map((s: string) => {
                 const parts = s.split(':');
-                return { name: parts[0]?.trim() || t('view'), range: parts[1]?.trim() || '' };
+                return { name: parts[0]?.trim() || 'Result', range: parts[1]?.trim() || '' };
             });
         } else {
-            components = [{ name: t('lab_modal_technical_analysis'), range: test.normal_range || '' }];
+            components = [{ name: 'Default Component', range: test.normal_range || '' }];
         }
 
-        initialResults[test.id] = components.map(c => {
-            const testEntries = values?.[test.id] || values?.[test.id.toString()] || [];
+        initialResults[test.id.toString()] = components.map(c => {
+            const testEntries = values?.[test.id.toString()] || [];
             const existingValue = testEntries.find((er: any) => er.name === c.name);
             return {
                 name: c.name,
@@ -136,13 +138,16 @@ export const Laboratory = () => {
 
   const updateResultValue = (testId: number, componentIndex: number, value: string, range: string) => {
     setResultValues((prev: any) => {
-        const testResults = [...prev[testId]];
-        testResults[componentIndex] = {
-            ...testResults[componentIndex],
-            value,
-            evaluation: getEvaluation(value, range)
-        };
-        return { ...prev, [testId]: testResults };
+        const idStr = testId.toString();
+        const testResults = [...(prev[idStr] || [])];
+        if (testResults[componentIndex]) {
+            testResults[componentIndex] = {
+                ...testResults[componentIndex],
+                value,
+                evaluation: getEvaluation(value, range)
+            };
+        }
+        return { ...prev, [idStr]: testResults };
     });
   };
 
@@ -329,10 +334,12 @@ export const Laboratory = () => {
                             </h5>
                         </div>
                         <div className="p-4 space-y-4">
-                            {resultValues[test.id]?.map((comp: any, idx: number) => (
+                            {(resultValues[test.id.toString()] || []).map((comp: any, idx: number) => (
                                 <div key={idx} className="grid grid-cols-12 gap-4 items-center group">
                                     <div className="col-span-12 sm:col-span-3">
-                                        <p className="text-xs font-bold text-slate-600 dark:text-slate-400 leading-tight">{comp.name}</p>
+                                        <p className="text-xs font-bold text-slate-600 dark:text-slate-400 leading-tight">
+                                          {comp.name === 'Default Component' ? t('view') : comp.name}
+                                        </p>
                                         <p className="text-[10px] font-mono text-slate-400 mt-1">Ref: {comp.range || 'N/A'}</p>
                                     </div>
                                     <div className="col-span-8 sm:col-span-6">
@@ -457,10 +464,12 @@ export const Laboratory = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {(resultValues[test.id] || resultValues[test.id.toString()] || []).map((comp: any, idx: number) => (
+                                    {(resultValues?.[test.id.toString()] || []).map((comp: any, idx: number) => (
                                         <tr key={idx} className="group hover:bg-slate-50 transition-colors">
                                             <td className="px-5 py-4">
-                                                <p className="text-sm font-bold text-slate-800 leading-tight">{comp.name}</p>
+                                                <p className="text-sm font-bold text-slate-800 leading-tight">
+                                                  {comp.name === 'Default Component' ? t('view') : comp.name}
+                                                </p>
                                             </td>
                                             <td className="px-5 py-4 text-center">
                                                 <span className={`font-mono font-black text-lg ${

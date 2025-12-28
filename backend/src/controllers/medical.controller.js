@@ -77,8 +77,7 @@ exports.confirmLabRequest = (req, res) => {
 exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
     try {
-        // Store the incoming body. The body structure is { results_json: {...}, notes: "..." }
-        // Ensure we handle both cases where results_json is the root or nested.
+        // req.body usually contains { results_json: {...}, notes: "..." }
         db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ? WHERE id = ?").run(
             JSON.stringify(req.body),
             id
@@ -361,7 +360,6 @@ exports.getInpatientDetails = (req, res) => {
 
     if (!admission) return res.status(404).json({ error: 'Admission not found' });
 
-    // FIX: Using LEFT JOIN to ensure notes are returned even if doctor record has inconsistencies
     const notes = db.prepare(`SELECT n.*, m.full_name as doctorName FROM inpatient_notes n LEFT JOIN medical_staff m ON n.doctor_id = m.id WHERE n.admission_id = ? ORDER BY n.created_at DESC`).all(id);
     const endDate = admission.actual_discharge_date ? new Date(admission.actual_discharge_date) : new Date();
     const daysStayed = Math.ceil((endDate.getTime() - new Date(admission.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1;
