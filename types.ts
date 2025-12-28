@@ -73,7 +73,6 @@ export interface MedicalStaff {
   availableTimeEnd?: string;
   baseSalary?: number;
   joinDate?: string;
-  bankDetails?: any;
 }
 
 export interface Attendance {

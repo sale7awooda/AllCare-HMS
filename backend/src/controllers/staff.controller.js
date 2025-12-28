@@ -1,3 +1,4 @@
+
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
@@ -5,15 +6,6 @@ exports.getAll = (req, res) => {
     const staff = db.prepare('SELECT * FROM medical_staff ORDER BY full_name').all();
     
     const mapped = staff.map(s => {
-      let bankDetails = null;
-      if (s.bank_details) {
-        try {
-          bankDetails = JSON.parse(s.bank_details);
-        } catch (e) {
-          bankDetails = s.bank_details;
-        }
-      }
-
       return {
         id: s.id,
         employeeId: s.employee_id,
@@ -30,7 +22,6 @@ exports.getAll = (req, res) => {
         address: s.address || '',
         baseSalary: s.base_salary,
         joinDate: s.join_date,
-        bankDetails: bankDetails,
         availableDays: s.available_days ? JSON.parse(s.available_days) : [],
         availableTimeStart: s.available_time_start,
         availableTimeEnd: s.available_time_end
@@ -48,7 +39,7 @@ exports.create = (req, res) => {
   const { 
     fullName, type, department, specialization, 
     consultationFee, consultationFeeFollowup, consultationFeeEmergency, 
-    email, phone, address, baseSalary, joinDate, bankDetails,
+    email, phone, address, baseSalary, joinDate,
     availableDays, availableTimeStart, availableTimeEnd, status
   } = req.body;
 
@@ -56,22 +47,20 @@ exports.create = (req, res) => {
   const employeeId = `${prefix}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
 
   const daysJson = availableDays ? JSON.stringify(availableDays) : '[]';
-  const bankDetailsJson = bankDetails ? JSON.stringify(bankDetails) : null;
 
   try {
     const info = db.prepare(`
       INSERT INTO medical_staff (
         employee_id, full_name, type, department, specialization, 
         consultation_fee, consultation_fee_followup, consultation_fee_emergency, 
-        email, phone, address, base_salary, join_date, bank_details,
+        email, phone, address, base_salary, join_date,
         available_days, available_time_start, available_time_end, status
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       employeeId, fullName, type, department, specialization, 
       consultationFee || 0, consultationFeeFollowup || 0, consultationFeeEmergency || 0, 
       email, phone, address || null, baseSalary || 0, joinDate || new Date().toISOString().split('T')[0],
-      bankDetailsJson,
       daysJson, availableTimeStart || null, availableTimeEnd || null, status || 'active'
     );
     res.status(201).json({ id: info.lastInsertRowid, employeeId, ...req.body });
@@ -85,25 +74,24 @@ exports.update = (req, res) => {
   const { 
     fullName, type, department, specialization, 
     consultationFee, consultationFeeFollowup, consultationFeeEmergency, 
-    email, phone, address, baseSalary, joinDate, bankDetails,
+    email, phone, address, baseSalary, joinDate,
     availableDays, availableTimeStart, availableTimeEnd, status
   } = req.body;
 
   const daysJson = availableDays ? JSON.stringify(availableDays) : '[]';
-  const bankDetailsJson = bankDetails ? JSON.stringify(bankDetails) : null;
 
   try {
     db.prepare(`
       UPDATE medical_staff SET
         full_name = ?, type = ?, department = ?, specialization = ?,
         consultation_fee = ?, consultation_fee_followup = ?, consultation_fee_emergency = ?,
-        email = ?, phone = ?, address = ?, base_salary = ?, join_date = ?, bank_details = ?,
+        email = ?, phone = ?, address = ?, base_salary = ?, join_date = ?,
         available_days = ?, available_time_start = ?, available_time_end = ?, status = ?
       WHERE id = ?
     `).run(
       fullName, type, department, specialization,
       consultationFee || 0, consultationFeeFollowup || 0, consultationFeeEmergency || 0,
-      email, phone, address || null, baseSalary || 0, joinDate, bankDetailsJson,
+      email, phone, address || null, baseSalary || 0, joinDate,
       daysJson, availableTimeStart, availableTimeEnd, status,
       id
     );
