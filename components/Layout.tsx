@@ -1,18 +1,15 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, Users, CalendarDays, Receipt, LogOut, X, Activity, Settings, 
-  Lock, FlaskConical, Bed, ClipboardList, Wrench, Briefcase, Database, ChevronLeft, ChevronRight, Menu,
-  Bell, Check, Info, AlertTriangle, XCircle, Trash2, Palette
+  LayoutDashboard, Users, CalendarDays, Receipt, LogOut, X, Activity, Wrench, Briefcase, Database, ChevronLeft, ChevronRight, Menu,
+  FlaskConical, Bed, ClipboardList, Palette, Lock
 } from 'lucide-react';
 import { canAccessRoute } from '../utils/rbac';
-import { Tooltip, Badge } from './UI';
+import { Tooltip } from './UI';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
 import { useHeader } from '../context/HeaderContext';
-import { api } from '../services/api';
-import { Notification } from '../types';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout: onLogout } = useAuth();
@@ -25,10 +22,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const ChevronStart = isRtl ? ChevronRight : ChevronLeft;
   const ChevronEnd = isRtl ? ChevronLeft : ChevronRight;
 
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
-
   const hospitalName = localStorage.getItem('h_name') || 'AllCare HMS';
 
   useEffect(() => {
@@ -40,49 +33,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  const loadNotifications = async () => {
-    try {
-      const data = await api.getNotifications();
-      setNotifications(data || []);
-    } catch (e) {
-      console.error('Failed to load notifications');
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      loadNotifications();
-      const interval = setInterval(loadNotifications, 30000); // Poll every 30s
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setIsNotifOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const markRead = async (id: number) => {
-    try {
-      await api.markNotificationRead(id);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-    } catch (e) {}
-  };
-
-  const markAllRead = async () => {
-    try {
-      await api.markAllNotificationsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    } catch (e) {}
-  };
-
-  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const navGroups = [
     { items: [{ labelKey: 'nav_dashboard', path: '/', icon: LayoutDashboard }] },
@@ -104,15 +54,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         { labelKey: 'nav_settings', path: '/customizations', icon: Palette },
     ]}
   ];
-
-  const getNotifIcon = (type: string) => {
-    switch(type) {
-      case 'success': return <Check size={14} className="text-emerald-500" />;
-      case 'warning': return <AlertTriangle size={14} className="text-amber-500" />;
-      case 'error': return <XCircle size={14} className="text-rose-500" />;
-      default: return <Info size={14} className="text-blue-500" />;
-    }
-  };
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 overflow-hidden">
@@ -204,55 +145,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0 ml-4 rtl:mr-4 rtl:ml-0">
-            {/* Notifications Bell */}
-            <div className="relative" ref={notifRef}>
-              <button 
-                onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className={`p-2.5 rounded-xl transition-all relative ${isNotifOpen ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-              >
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                  <span className="absolute top-2 right-2 w-4 h-4 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-900 animate-in zoom-in">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {isNotifOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                  <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                    <h3 className="font-black text-sm text-slate-800 dark:text-white uppercase tracking-wider">{t('settings_tab_notifications')}</h3>
-                    {unreadCount > 0 && (
-                      <button onClick={markAllRead} className="text-[10px] font-black text-primary-600 uppercase hover:underline">Mark all as read</button>
-                    )}
-                  </div>
-                  <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                    {notifications.length === 0 ? (
-                      <div className="p-10 text-center text-slate-400 italic text-sm">No notifications.</div>
-                    ) : (
-                      notifications.map(n => (
-                        <div 
-                          key={n.id} 
-                          onClick={() => !n.isRead && markRead(n.id)}
-                          className={`p-4 border-b border-slate-50 dark:border-slate-700/50 flex gap-3 transition-colors cursor-pointer group ${!n.isRead ? 'bg-primary-50/30 dark:bg-primary-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-                        >
-                          <div className="mt-1 shrink-0">{getNotifIcon(n.type)}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm leading-tight ${!n.isRead ? 'font-bold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>{n.title}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-500 mt-1 line-clamp-2">{n.message}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-bold uppercase">{new Date(n.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
-                          </div>
-                          {!n.isRead && <div className="w-2 h-2 rounded-full bg-primary-500 self-center shrink-0"></div>}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <div className="p-3 text-center border-t border-slate-100 dark:border-slate-700">
-                     <Link to="/records" onClick={() => setIsNotifOpen(false)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-primary-600 transition-colors">View All Activity</Link>
-                  </div>
-                </div>
-              )}
-            </div>
             {actions}
           </div>
         </header>

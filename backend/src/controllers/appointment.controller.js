@@ -1,6 +1,5 @@
 
 const { db } = require('../config/database');
-const notificationController = require('./notification.controller');
 
 exports.getAll = (req, res) => {
   try {
@@ -80,22 +79,6 @@ exports.create = (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(apptNumber, patientId, staffId, datetime, type, reason || null, 'pending', 'billed', bill.lastInsertRowid, dailyToken);
     
-    const patient = db.prepare('SELECT full_name FROM patients WHERE id = ?').get(patientId);
-
-    // Notify assigned staff if they have a system account
-    const userAccount = db.prepare('SELECT id FROM users WHERE full_name = ?').get(staff?.full_name);
-    if (userAccount) {
-        notificationController.createInternal(
-            userAccount.id, 
-            'New Appointment Scheduled', 
-            `${patient.full_name} has been scheduled for a ${type} at ${new Date(datetime).toLocaleTimeString()}`,
-            'info'
-        );
-    }
-    
-    // Notify managers/admins
-    notificationController.notifyRole('manager', 'New Appointment', `${patient.full_name} scheduled with Dr. ${staff?.full_name}`);
-
     return { id: info.lastInsertRowid, appointmentNumber: apptNumber, dailyToken, ...req.body };
   });
 
