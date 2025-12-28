@@ -1,4 +1,3 @@
-
 const { db } = require('../config/database');
 const notificationController = require('./notification.controller');
 
@@ -20,7 +19,7 @@ exports.getLabRequests = (req, res) => {
 
     const requests = db.prepare(`
       SELECT 
-        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json,
+        lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json, lr.notes,
         p.full_name as patientName
       FROM lab_requests lr
       JOIN patients p ON lr.patient_id = p.id
@@ -104,8 +103,9 @@ exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
     const { results_json, notes } = req.body;
     try {
-        db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ? WHERE id = ?").run(
+        db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ?, notes = ? WHERE id = ?").run(
             results_json ? JSON.stringify(results_json) : null,
+            notes || null,
             id
         );
         res.json({success: true});
@@ -389,7 +389,6 @@ exports.getInpatientDetails = (req, res) => {
 
     if (!admission) return res.status(404).json({ error: 'Admission not found' });
 
-    // FIX: Using LEFT JOIN to ensure notes are returned even if doctor record has inconsistencies
     const notes = db.prepare(`SELECT n.*, m.full_name as doctorName FROM inpatient_notes n LEFT JOIN medical_staff m ON n.doctor_id = m.id WHERE n.admission_id = ? ORDER BY n.created_at DESC`).all(id);
     const endDate = admission.actual_discharge_date ? new Date(admission.actual_discharge_date) : new Date();
     const daysStayed = Math.ceil((endDate.getTime() - new Date(admission.entry_date).getTime()) / (1000 * 60 * 60 * 24)) || 1;
@@ -403,7 +402,6 @@ exports.getInpatientDetails = (req, res) => {
 
     const unpaidBills = db.prepare(`SELECT id, bill_number, total_amount, paid_amount, bill_date FROM billing WHERE patient_id = ? AND status IN ('pending', 'partial')`).all(admission.patient_id);
     
-    // Enrich unpaid bills with their line items
     const billsWithItems = unpaidBills.map(bill => {
         const items = db.prepare('SELECT description, amount FROM billing_items WHERE billing_id = ?').all(bill.id);
         return { ...bill, items };
@@ -494,7 +492,6 @@ exports.dischargePatient = (req, res) => {
 };
 
 exports.settleAndDischarge = (req, res) => {
-    // This is a legacy endpoint, usually handled via generateSettlementBill + dischargePatient
     res.status(501).json({ error: 'Endpoint deprecated. Use final settlement workflow.' });
 };
 

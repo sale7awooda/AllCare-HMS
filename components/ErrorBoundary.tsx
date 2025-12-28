@@ -13,8 +13,9 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch rendering errors in the component tree.
  */
+// Fix: Use named Component import to ensure inherited properties are correctly typed
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly declare state with type to resolve "Property 'state' does not exist" error
+  // Fix: Explicitly typed state property
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null
@@ -78,7 +79,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    // Fix: Correctly access children from props context
+    // Fix: Correctly access children from props property inherited from Component
     return this.props.children;
   }
 }
