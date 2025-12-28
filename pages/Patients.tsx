@@ -441,14 +441,14 @@ export const Patients = () => {
               name="patient_search_query"
               autoComplete="off"
               placeholder={t('patients_search_placeholder')} 
-              className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+              className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
               value={searchTerm}
               onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
           <div className="flex gap-2">
              <select 
-               className="pl-3 pr-8 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+               className="pl-3 pr-8 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
                value={filterType}
                onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}
              >
@@ -547,8 +547,29 @@ export const Patients = () => {
       </Card>
 
       {/* PATIENT REGISTRATION MODAL */}
-      <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? t('patients_modal_edit_title') : t('patients_modal_new_title')}>
-        <form onSubmit={handlePatientSubmit} className="space-y-8">
+      <Modal 
+        isOpen={isFormModalOpen} 
+        onClose={() => setIsFormModalOpen(false)} 
+        title={isEditing ? t('patients_modal_edit_title') : t('patients_modal_new_title')}
+        footer={
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-primary-50 dark:bg-primary-900/30 rounded-lg text-primary-600">
+                <User size={16} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('patients_table_header_patient')}</p>
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate max-w-[150px]">{formData.fullName || '...'}</p>
+              </div>
+            </div>
+            <div className="flex gap-3 w-full sm:w-auto">
+              <Button type="button" variant="secondary" onClick={() => setIsFormModalOpen(false)}>{t('cancel')}</Button>
+              <Button type="submit" form="patient-registration-form" icon={CheckCircle}>{t('patients_modal_save_button')}</Button>
+            </div>
+          </div>
+        }
+      >
+        <form id="patient-registration-form" onSubmit={handlePatientSubmit} className="space-y-8">
           <div className="space-y-5">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
                 <UserPlus size={18} className="text-primary-600" />
@@ -630,11 +651,6 @@ export const Patients = () => {
                </div>
             )}
           </div>
-
-          <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700 sticky bottom-0 bg-white dark:bg-slate-800 py-3 z-10">
-            <Button type="button" variant="secondary" onClick={() => setIsFormModalOpen(false)}>{t('cancel')}</Button>
-            <Button type="submit" icon={CheckCircle}>{t('patients_modal_save_button')}</Button>
-          </div>
         </form>
       </Modal>
 
@@ -665,15 +681,34 @@ export const Patients = () => {
       </Modal>
 
       {/* DETAILED ACTION MODAL */}
-      <Modal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} title={currentAction ? t(`patients_modal_action_specific_title_${currentAction}`) : 'Action'}>
-        <div className="flex flex-col h-full max-h-[85vh]">
-          <div className="mb-4">
+      <Modal 
+        isOpen={isActionModalOpen} 
+        onClose={() => setIsActionModalOpen(false)} 
+        title={currentAction ? t(`patients_modal_action_specific_title_${currentAction}`) : 'Action'}
+        footer={
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-primary-50 dark:bg-primary-900/30 rounded-full text-primary-600">
+                <Info size={18} />
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">{t('patients_table_header_patient')}</p>
+                <p className="text-sm font-black text-slate-800 dark:text-white truncate max-w-[150px]">{selectedPatient?.fullName}</p>
+              </div>
+            </div>
+            <div className="flex gap-3 w-full sm:w-auto">
+              <Button type="button" variant="secondary" onClick={() => setIsActionModalOpen(false)}>{t('cancel')}</Button>
+              <Button type="submit" form="patient-action-form" disabled={processStatus === 'processing'} className="flex-1 sm:flex-none">{processStatus === 'processing' ? t('processing') : t('submit')}</Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="flex flex-col">
+          <div className="mb-1.5">
             <Button size="sm" variant="ghost" icon={ChevronLeft} onClick={handleBackToActionMenu}>{t('patients_modal_action_back_button')}</Button>
           </div>
 
-          <form onSubmit={submitAction} className="flex-1 overflow-hidden flex flex-col">
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6">
-              
+          <form id="patient-action-form" onSubmit={submitAction} className="space-y-6">
               {currentAction === 'appointment' && (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -737,13 +772,13 @@ export const Patients = () => {
               )}
 
               {currentAction === 'lab' && (
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 h-full">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                     <div className="lg:col-span-3 space-y-4 flex flex-col">
                         <div className="relative shrink-0">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                             <Input placeholder={t('patients_modal_action_search_tests_placeholder')} value={testSearch} onChange={e => setTestSearch(e.target.value)} className="pl-10" />
                         </div>
-                        <div className="max-h-[400px] overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-xl p-2 bg-slate-50/50 dark:bg-slate-900/50 space-y-2 custom-scrollbar">
+                        <div className="max-h-[300px] overflow-y-auto border border-slate-100 dark:border-slate-800 rounded-xl p-2 bg-slate-50/50 dark:bg-slate-900/50 space-y-2 custom-scrollbar">
                             {labTests.filter(t => t.name_en.toLowerCase().includes(testSearch.toLowerCase()) || t.name_ar.includes(testSearch)).map(test => {
                                 const inCart = selectedTests.some(t => t.id === test.id);
                                 return (
@@ -763,7 +798,7 @@ export const Patients = () => {
                             })}
                         </div>
                     </div>
-                    <div className="lg:col-span-2 bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[500px]">
+                    <div className="lg:col-span-2 bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[360px]">
                         <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-4 shrink-0"><ShoppingCart size={18} /> {t('patients_modal_action_basket_title')}</h4>
                         <div className="flex-1 overflow-y-auto space-y-3 mb-4 custom-scrollbar">
                             {selectedTests.length === 0 ? (
@@ -919,28 +954,21 @@ export const Patients = () => {
                     </div>
                 </div>
               )}
-            </div>
-
-            <div className="pt-6 mt-6 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-800 z-20">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-primary-50 dark:bg-primary-900/30 rounded-full text-primary-600">
-                        <Info size={20} />
-                    </div>
-                    <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">{t('patients_table_header_patient')}</p>
-                        <p className="text-sm font-black text-slate-800 dark:text-white">{selectedPatient?.fullName}</p>
-                    </div>
-                </div>
-                <div className="flex gap-3 w-full sm:w-auto">
-                    <Button type="button" variant="secondary" onClick={() => setIsActionModalOpen(false)}>{t('cancel')}</Button>
-                    <Button type="submit" disabled={processStatus === 'processing'} className="flex-1 sm:flex-none">{processStatus === 'processing' ? t('processing') : t('submit')}</Button>
-                </div>
-            </div>
           </form>
         </div>
       </Modal>
 
-      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title={t('patients_modal_view_title')}>
+      {/* VIEW MODAL (360 VIEW) */}
+      <Modal 
+        isOpen={isViewModalOpen} 
+        onClose={() => setIsViewModalOpen(false)} 
+        title={t('patients_modal_view_title')}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setIsViewModalOpen(false)}>{t('close')}</Button>
+          </div>
+        }
+      >
         {selectedPatient && (
           <div className="space-y-6">
             <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -1153,9 +1181,6 @@ export const Patients = () => {
 
           </div>
         )}
-        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-700 mt-4">
-          <Button variant="secondary" onClick={() => setIsViewModalOpen(false)}>{t('close')}</Button>
-        </div>
       </Modal>
 
     </div>
@@ -1179,5 +1204,3 @@ const translateStatus = (status: string, t: any) => {
     if (s === 'refunded') return t('billing_status_refunded');
     return status;
 };
-
-const HashIcon = ({ size, className }: any) => <span className={className}>#</span>;

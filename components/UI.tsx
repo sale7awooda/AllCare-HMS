@@ -66,18 +66,25 @@ export const Badge: React.FC<{ children: React.ReactNode; color?: 'green' | 'red
 };
 
 // --- Modal ---
-export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }> = ({ isOpen, onClose, title, children }) => {
+export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode }> = ({ isOpen, onClose, title, children, footer }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/5 dark:ring-white/10 overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-50 dark:border-slate-700 shrink-0">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-50 dark:border-slate-700 shrink-0 bg-white dark:bg-slate-800">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white">{title}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg p-2 transition-colors">
             <X size={20} />
           </button>
         </div>
-        <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar dark:text-slate-200">{children}</div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 dark:text-slate-200">
+          {children}
+        </div>
+        {footer && (
+          <div className="px-6 py-4 border-t border-slate-50 dark:border-slate-700 shrink-0 bg-white dark:bg-slate-800 z-10">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -121,8 +128,6 @@ export const ConfirmationDialog: React.FC<{
 };
 
 // --- Form Input ---
-// Fixed: Using Omit to remove the existing 'prefix' property from InputHTMLAttributes 
-// to prevent intersection type errors with our custom prefix property.
 export const Input = React.forwardRef<HTMLInputElement, Omit<React.InputHTMLAttributes<HTMLInputElement>, 'prefix'> & { label?: string; error?: string; prefix?: React.ReactNode }>(
   ({ label, error, className = '', prefix, ...props }, ref) => (
     <div className="w-full">

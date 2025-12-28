@@ -57,7 +57,7 @@ export const Admissions = () => {
   const [selectedPatientForAdmission, setSelectedPatientForAdmission] = useState<any>(null);
   
   const [admitForm, setAdmitForm] = useState({ patientId: '', doctorId: '', entryDate: new Date().toISOString().split('T')[0], deposit: '', notes: '' });
-  const [noteForm, setNoteForm] = useState({ note: '', bp: '', temp: '', pulse: '', resp: '' });
+  const [noteForm, setNoteForm] = useState({ note: '', bp: '', temp: '', pulse: '', resp: '', insulin: '', gcs: '', spo2: '', sugar: '' });
   const [dischargeForm, setDischargeForm] = useState({ notes: '', status: 'Recovered' });
 
   // Sync Header - Unified with Appointments Style
@@ -278,12 +278,16 @@ export const Admissions = () => {
           bp: noteForm.bp,
           temp: noteForm.temp,
           pulse: noteForm.pulse,
-          resp: noteForm.resp
+          resp: noteForm.resp,
+          insulin: noteForm.insulin,
+          gcs: noteForm.gcs,
+          spo2: noteForm.spo2,
+          sugar: noteForm.sugar
         }
       });
       const updated = await api.getInpatientDetails(inpatientDetails.id);
       setInpatientDetails(updated);
-      setNoteForm({ note: '', bp: '', temp: '', pulse: '', resp: '' });
+      setNoteForm({ note: '', bp: '', temp: '', pulse: '', resp: '', insulin: '', gcs: '', spo2: '', sugar: '' });
       setProcessStatus('success');
       setTimeout(() => setProcessStatus('idle'), 1000);
     } catch (e) {
@@ -360,6 +364,12 @@ export const Admissions = () => {
       }
   };
 
+  const formatDoctorName = (name: string) => {
+    if (!name) return '';
+    const cleanName = name.replace(/^Dr\.\s+/i, '');
+    return `Dr. ${cleanName}`;
+  };
+
   return (
     <div className="space-y-6">
       {processStatus !== 'idle' && (
@@ -410,18 +420,18 @@ export const Admissions = () => {
                         </div>
                         <div className={`w-3 h-3 rounded-full shrink-0 shadow-sm ${isOccupied ? 'bg-red-500 animate-pulse' : isReserved ? 'bg-blue-500' : bed.status === 'cleaning' ? 'bg-purple-500' : 'bg-green-500'}`} />
                     </div>
-                    <div className="flex-1 flex flex-col justify-center items-center w-full">
+                    <div className="flex-1 flex flex-col justify-center items-center w-full min-h-0">
                         {isOccupied || isReserved ? (
-                        <div className="w-full text-center">
-                            <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-tight mb-2 min-h-[2.5rem]">{admission?.patientName}</p>
-                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 w-full border-t border-slate-200 dark:border-slate-700 pt-2">
-                            <span className="truncate max-w-[60%]">{t('admissions_bed_doctor', {name: admission?.doctorName})}</span>
+                        <div className="w-full text-center flex flex-col justify-center items-center flex-1">
+                            <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-tight mb-2 w-full">{admission?.patientName}</p>
+                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 w-full border-t border-slate-200 dark:border-slate-700 pt-2 mt-auto">
+                            <span className="truncate max-w-[60%]">{formatDoctorName(admission?.doctorName)}</span>
                             <span className="bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border">{calculateDays(admission?.entry_date)}d</span>
                             </div>
                         </div>
                         ) : (
-                        <div className="text-center opacity-40 group-hover:opacity-100 transition-all duration-300 transform group-hover:scale-110">
-                            <Plus size={40} className="text-slate-300 dark:text-slate-600 mx-auto mb-1"/>
+                        <div className="text-center opacity-40 group-hover:opacity-100 transition-all duration-300 transform group-hover:scale-110 flex flex-col justify-center items-center flex-1">
+                            <Plus size={40} className="text-slate-300 dark:text-slate-600 mb-1"/>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{bed.status === 'cleaning' ? t('admissions_status_cleaning') : t('admissions_status_available')}</p>
                         </div>
                         )}
@@ -652,7 +662,7 @@ export const Admissions = () => {
                 </div>
                 <div className="text-right">
                    <Badge color="red" className="mb-1 font-black">{t('admissions_history_header_room')} {inpatientDetails.roomNumber}</Badge>
-                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dr. {inpatientDetails.doctorName}</p>
+                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{formatDoctorName(inpatientDetails.doctorName)}</p>
                 </div>
             </div>
             <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-x-auto no-print">
@@ -753,6 +763,10 @@ export const Admissions = () => {
                        <Input label={t('admissions_care_vitals_temp_short')} placeholder="37.2" value={noteForm.temp} onChange={e => setNoteForm({...noteForm, temp: e.target.value})} className="text-xs" />
                        <Input label={t('admissions_care_vitals_pulse_short')} placeholder="72" value={noteForm.pulse} onChange={e => setNoteForm({...noteForm, pulse: e.target.value})} className="text-xs" />
                        <Input label={t('admissions_care_vitals_resp_short')} placeholder="18" value={noteForm.resp} onChange={e => setNoteForm({...noteForm, resp: e.target.value})} className="text-xs" />
+                       <Input label="SpO2 (%)" placeholder="98" value={noteForm.spo2} onChange={e => setNoteForm({...noteForm, spo2: e.target.value})} className="text-xs" />
+                       <Input label="GCS" placeholder="15/15" value={noteForm.gcs} onChange={e => setNoteForm({...noteForm, gcs: e.target.value})} className="text-xs" />
+                       <Input label="Insulin (U)" placeholder="0" value={noteForm.insulin} onChange={e => setNoteForm({...noteForm, insulin: e.target.value})} className="text-xs" />
+                       <Input label="Sugar (mg/dL)" placeholder="100" value={noteForm.sugar} onChange={e => setNoteForm({...noteForm, sugar: e.target.value})} className="text-xs" />
                     </div>
                     <Textarea label={t('admissions_care_observations')} rows={3} required placeholder={t('admissions_care_observations_placeholder')} value={noteForm.note} onChange={e => setNoteForm({...noteForm, note: e.target.value})} />
                     <Button type="submit" className="w-full" icon={Save}>{t('admissions_care_add_note_button')}</Button>
@@ -766,13 +780,16 @@ export const Admissions = () => {
                            <div className="absolute top-0 left-0 w-1 h-full bg-primary-500 opacity-20"></div>
                            <div className="flex justify-between items-start mb-3">
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(note.created_at).toLocaleString()}</span>
-                              <Badge color="blue">Dr. {note.doctorName}</Badge>
+                              <Badge color="blue">{formatDoctorName(note.doctorName)}</Badge>
                            </div>
                            <div className="grid grid-cols-4 gap-2 mb-3 py-2 border-y border-slate-50 dark:border-slate-700">
                               <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">{t('admissions_care_vitals_bp_short')}</p><p className="text-xs font-bold">{note.vitals?.bp || '-'}</p></div>
                               <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">{t('admissions_care_vitals_temp_short')}</p><p className="text-xs font-bold">{note.vitals?.temp || '-'}</p></div>
                               <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">{t('admissions_care_vitals_pulse_short')}</p><p className="text-xs font-bold">{note.vitals?.pulse || '-'}</p></div>
-                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">{t('admissions_care_vitals_resp_short')}</p><p className="text-xs font-bold">{note.vitals?.resp || '-'}</p></div>
+                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">SpO2</p><p className="text-xs font-bold">{note.vitals?.spo2 || '-'}</p></div>
+                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">GCS</p><p className="text-xs font-bold">{note.vitals?.gcs || '-'}</p></div>
+                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">Insulin</p><p className="text-xs font-bold">{note.vitals?.insulin || '-'}</p></div>
+                              <div className="text-center"><p className="text-[8px] font-black text-slate-400 uppercase">Sugar</p><p className="text-xs font-bold">{note.vitals?.sugar || '-'}</p></div>
                            </div>
                            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic">"{note.note}"</p>
                         </div>
@@ -799,7 +816,7 @@ export const Admissions = () => {
                              <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
                                 <p><span className="font-bold">{t('admissions_report_patient_label')}</span> {inpatientDetails.patientName} ({inpatientDetails.patientCode})</p>
                                 <p><span className="font-bold">{t('admissions_report_admission_label')}</span> {new Date(inpatientDetails.entry_date).toLocaleDateString()}</p>
-                                <p><span className="font-bold">{t('admissions_report_doctor_label')}</span> Dr. {inpatientDetails.doctorName}</p>
+                                <p><span className="font-bold">{t('admissions_report_doctor_label')}</span> {formatDoctorName(inpatientDetails.doctorName)}</p>
                              </div>
                           </div>
                           <div className="text-right">
@@ -827,12 +844,14 @@ export const Admissions = () => {
                                          <span className="text-xs font-bold text-slate-500">{new Date(note.created_at).toLocaleString()}</span>
                                       </div>
                                       <p className="text-sm text-slate-800 dark:text-slate-300 mb-2 leading-relaxed">{note.note}</p>
-                                      <div className="flex gap-3 text-[10px] text-slate-500 font-mono bg-slate-50 dark:bg-slate-900/50 p-2 rounded inline-flex">
+                                      <div className="flex flex-wrap gap-3 text-[10px] text-slate-500 font-mono bg-slate-50 dark:bg-slate-900/50 p-2 rounded inline-flex">
                                          <span>{t('admissions_care_vitals_bp_short')}: {note.vitals?.bp || '-'}</span>
                                          <span className="w-px h-3 bg-slate-300 dark:bg-slate-600"></span>
                                          <span>{t('admissions_care_vitals_temp_short')}: {note.vitals?.temp || '-'}°C</span>
                                          <span className="w-px h-3 bg-slate-300 dark:bg-slate-600"></span>
-                                         <span>HR: {note.vitals?.pulse || '-'}</span>
+                                         <span>SpO2: {note.vitals?.spo2 || '-'}%</span>
+                                         <span className="w-px h-3 bg-slate-300 dark:bg-slate-600"></span>
+                                         <span>Sugar: {note.vitals?.sugar || '-'}</span>
                                       </div>
                                    </div>
                                 ))}
