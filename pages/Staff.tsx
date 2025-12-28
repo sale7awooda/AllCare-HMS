@@ -870,10 +870,18 @@ export const Staff = () => {
           </div>
           <div className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2"><DollarSign size={14}/> {t('staff_form_financials')}</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormattedInput label={t('staff_form_base_salary')} required value={staffForm.baseSalary} onChange={(val: string) => setStaffForm({...staffForm, baseSalary: val})} prefix={<Hash size={14}/>} />
-                <FormattedInput label="Consultation (Initial)" value={staffForm.consultationFee} onChange={(val: string) => setStaffForm({...staffForm, consultationFee: val})} disabled={staffForm.type !== 'doctor'} prefix={<Hash size={14}/>} />
-            </div>
+            
+            {staffForm.type === 'doctor' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormattedInput label={t('staff_form_base_salary')} required value={staffForm.baseSalary} onChange={(val: string) => setStaffForm({...staffForm, baseSalary: val})} prefix={<Hash size={14}/>} />
+                    <FormattedInput label={t('staff_form_fee_initial')} value={staffForm.consultationFee} onChange={(val: string) => setStaffForm({...staffForm, consultationFee: val})} prefix={<Hash size={14}/>} />
+                </div>
+            ) : (
+                <div className="grid grid-cols-1">
+                    <FormattedInput label={t('staff_form_base_salary')} required value={staffForm.baseSalary} onChange={(val: string) => setStaffForm({...staffForm, baseSalary: val})} prefix={<Hash size={14}/>} />
+                </div>
+            )}
+
             {staffForm.type === 'doctor' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-top-2">
                     <FormattedInput label={t('staff_form_fee_followup')} value={staffForm.consultationFeeFollowup} onChange={(val: string) => setStaffForm({...staffForm, consultationFeeFollowup: val})} prefix={<Hash size={14}/>} />

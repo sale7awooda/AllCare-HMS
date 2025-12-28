@@ -1,3 +1,4 @@
+
 {
   "app_loading": "Loading application...",
   "nav_dashboard": "Dashboard",
@@ -279,7 +280,7 @@
   "patients_modal_action_discharge_date": "Discharge (Exp.)",
   "patients_modal_action_required_deposit": "Required Deposit",
   "patients_modal_action_unpaid": "Unpaid",
-  "patients_modal_action_deposit_note": "Minimum deposit calculated based on estimated stay.",
+  "patients_modal_action_deposit_note": "الحد الأدنى محسوب بناءً على الإقامة المقدرة.",
   "patients_modal_action_clinical_request": "Clinical Request",
   "patients_modal_action_clinical_request_desc": "Surgical procedures require detailed medical justification and pre-op clearance.",
   "patients_modal_action_op_note": "This request will be sent to the Operations management screen for detailed costing and team assignment.",
@@ -774,6 +775,9 @@
   "staff_form_specialization": "Clinical Specialty",
   "staff_form_financials": "Financial Terms",
   "staff_form_base_salary": "Monthly Base Salary",
+  "staff_form_fee_initial": "Consultation (Initial) ($)",
+  "staff_form_fee_followup": "Follow-up Fee ($)",
+  "staff_form_fee_emergency": "Emergency Fee ($)",
   "staff_form_availability": "Work Schedule",
   "staff_form_start_time": "Shift Start",
   "staff_form_end_time": "Shift End",
@@ -810,6 +814,12 @@
   "staff_action_reject": "Reject",
   "hr_approve": "Approve",
   "hr_reject": "Reject",
+  "reports_tab_financial": "Financial",
+  "reports_tab_operational": "Operational",
+  "reports_tab_demographics": "Demographics",
+  "reports_time_week": "Weekly (7 Days)",
+  "reports_time_month": "Monthly (30 Days)",
+  "reports_time_custom": "Custom Range",
   "reports_tab_activity": "Activity Log",
   "reports_filter_quarterly": "Quarterly (90 Days)",
   "reports_export_pdf_desc": "Save as high-quality PDF report for archiving.",
@@ -930,5 +940,6 @@
   "config_dialog_delete_item_title": "Archive Item?",
   "config_dialog_delete_item_msg": "Archive this catalog entry? Historical records will remain unaffected.",
   "config_dialog_delete_room_title": "Remove Ward Bed?",
-  "config_dialog_delete_room_msg": "Permanently remove this accommodation from the ward registry?"
+  "config_dialog_delete_room_msg": "Permanently remove this accommodation from the ward registry?",
+  "reports_export_button": "Export Report"
 }
