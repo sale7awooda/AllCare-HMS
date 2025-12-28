@@ -1,20 +1,25 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Button, Badge, Modal, Input, Textarea } from '../components/UI';
-import { FlaskConical, CheckCircle, Search, Clock, FileText, Activity, History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Card, Button, Badge, Modal, Input, Textarea, Tooltip } from '../components/UI';
+import { FlaskConical, CheckCircle, Search, Clock, FileText, Activity, History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
+import { useAuth } from '../context/AuthContext';
 import { useHeader } from '../context/HeaderContext';
+import { hasPermission, Permissions } from '../utils/rbac';
 
 export const Laboratory = () => {
   const navigate = useNavigate();
   const { t, language } = useTranslation();
+  const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
+  const canManage = hasPermission(currentUser, Permissions.MANAGE_LABORATORY);
+
   const HeaderTabs = useMemo(() => (
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
         <button 
@@ -82,7 +87,14 @@ export const Laboratory = () => {
 
   const openProcessModal = (req: any) => {
     setSelectedReq(req);
-    setResultNotes(req.notes || '');
+    
+    // Fix: Correctly handle results structure for retrieval
+    const resultsData = req.results;
+    const isNewFormat = resultsData && typeof resultsData === 'object' && 'results_json' in resultsData;
+    const values = isNewFormat ? resultsData.results_json : (resultsData || {});
+    const notes = isNewFormat ? resultsData.notes : '';
+
+    setResultNotes(notes);
     
     const initialResults: any = {};
     req.testDetails.forEach((test: any) => {
@@ -97,7 +109,7 @@ export const Laboratory = () => {
         }
 
         initialResults[test.id] = components.map(c => {
-            const existingValue = req.results?.[test.id]?.find((er: any) => er.name === c.name);
+            const existingValue = values?.[test.id]?.find((er: any) => er.name === c.name);
             return {
                 name: c.name,
                 range: c.range,
@@ -138,6 +150,20 @@ export const Laboratory = () => {
     } catch (error: any) { 
         setProcessStatus('error'); 
         setProcessMessage(error.response?.data?.error || t('lab_save_error')); 
+    }
+  };
+
+  const handleReopen = async (id: number) => {
+    setProcessStatus('processing');
+    setProcessMessage(t('processing'));
+    try {
+        await api.reopenLabRequest(id);
+        setProcessStatus('success');
+        await loadData();
+        setTimeout(() => setProcessStatus('idle'), 1000);
+    } catch (e: any) {
+        setProcessStatus('error');
+        setProcessMessage(e.response?.data?.error || t('error'));
     }
   };
 
@@ -228,9 +254,18 @@ export const Laboratory = () => {
                             </button>
                         )}
                         {req.status === 'completed' && (
-                            <Button size="sm" variant="secondary" icon={FileText} onClick={() => openProcessModal(req)} className="w-full justify-center text-xs py-2">
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="secondary" icon={FileText} onClick={() => openProcessModal(req)} className="flex-1 justify-center text-xs py-2">
                                 {t('lab_view_results')}
                             </Button>
+                            {canManage && (
+                                <Tooltip content={isRtl ? 'إعادة فتح' : 'Re-open'} side="top">
+                                    <button onClick={() => handleReopen(req.id)} className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 rounded-lg transition-colors">
+                                        <RefreshCw size={16} />
+                                    </button>
+                                </Tooltip>
+                            )}
+                          </div>
                         )}
                     </div>
                 </div>
@@ -238,10 +273,24 @@ export const Laboratory = () => {
         )}
       </div>
 
-      {/* LAB RESULTS MODAL - STRUCTURED COMPONENTS */}
-      <Modal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)} title={t('lab_modal_findings_title', { name: selectedReq?.patientName })}>
-        <form onSubmit={handleComplete} className="space-y-6">
-            <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center">
+      {/* LAB RESULTS MODAL - IMPROVED STRUCTURE */}
+      <Modal 
+        isOpen={isProcessModalOpen} 
+        onClose={() => setIsProcessModalOpen(false)} 
+        title={t('lab_modal_findings_title', { name: selectedReq?.patientName })}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={() => setIsProcessModalOpen(false)}>{t('close')}</Button>
+            {selectedReq?.status !== 'completed' && (
+                <Button type="submit" form="lab-complete-form" icon={Save} disabled={processStatus === 'processing'}>
+                    {processStatus === 'processing' ? t('processing') : t('lab_modal_authorize_button')}
+                </Button>
+            )}
+          </div>
+        }
+      >
+        <form id="lab-complete-form" onSubmit={handleComplete} className="space-y-6 -mt-4">
+            <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center shrink-0">
                 <div>
                     <h4 className="font-black text-lg tracking-tight">{t('lab_modal_technical_analysis')}</h4>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{t('lab_modal_order_ref', { id: selectedReq?.id })}</p>
@@ -252,7 +301,7 @@ export const Laboratory = () => {
                 </div>
             </div>
             
-            <div className="space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+            <div className="space-y-6">
                 {selectedReq?.testDetails?.map((test: any) => (
                     <div key={test.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
                         <div className="bg-slate-50 dark:bg-slate-900/50 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700">
@@ -304,17 +353,10 @@ export const Laboratory = () => {
                     />
                 </div>
             </div>
-            
-            <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
-                <Button type="button" variant="secondary" onClick={() => setIsProcessModalOpen(false)}>{t('close')}</Button>
-                {selectedReq?.status !== 'completed' && (
-                    <Button type="submit" icon={Save} disabled={processStatus === 'processing'}>
-                        {processStatus === 'processing' ? t('processing') : t('lab_modal_authorize_button')}
-                    </Button>
-                )}
-            </div>
         </form>
       </Modal>
     </div>
   );
 };
+
+const isRtl = document.documentElement.dir === 'rtl';

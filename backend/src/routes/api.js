@@ -85,6 +85,7 @@ router.get('/lab/requests', authorizeRoles(Permissions.VIEW_LABORATORY), medical
 router.post('/lab/requests', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.createLabRequest);
 router.post('/lab/requests/:id/complete', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.completeLabRequest);
 router.post('/lab/requests/:id/confirm', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.confirmLabRequest);
+router.post('/lab/requests/:id/reopen', authorizeRoles(Permissions.MANAGE_LABORATORY), medicalController.reopenLabRequest);
 
 // Medical: Nurse
 router.get('/nurse/requests', authorizeRoles(Permissions.VIEW_DASHBOARD), medicalController.getNurseRequests);

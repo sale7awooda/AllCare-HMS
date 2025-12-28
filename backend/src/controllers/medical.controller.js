@@ -76,15 +76,25 @@ exports.confirmLabRequest = (req, res) => {
 
 exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
-    const { results_json, notes } = req.body;
     try {
+        // Store the entire body as results_json to capture values and notes
         db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ? WHERE id = ?").run(
-            results_json ? JSON.stringify(results_json) : null,
+            JSON.stringify(req.body),
             id
         );
         res.json({success: true});
     } catch(e) {
         res.status(500).json({error: e.message});
+    }
+};
+
+exports.reopenLabRequest = (req, res) => {
+    const { id } = req.params;
+    try {
+        db.prepare("UPDATE lab_requests SET status = 'confirmed' WHERE id = ?").run(id);
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
     }
 };
 
