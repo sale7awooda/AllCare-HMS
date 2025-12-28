@@ -96,6 +96,18 @@ export interface LeaveRequest {
   status: 'pending' | 'approved' | 'rejected';
 }
 
+export interface FinancialAdjustment {
+  id: number;
+  staffId: number;
+  staffName: string;
+  /* Fix: Added 'extra' type for clinical operation fees participation */
+  type: 'bonus' | 'fine' | 'loan' | 'extra';
+  amount: number;
+  reason: string;
+  date: string;
+  status?: string;
+}
+
 export interface PayrollRecord {
   id: number;
   staffId: number;
@@ -111,18 +123,7 @@ export interface PayrollRecord {
   transactionRef?: string;
   paymentNotes?: string;
   paymentDate?: string;
-}
-
-export interface FinancialAdjustment {
-  id: number;
-  staffId: number;
-  staffName: string;
-  /* Fix: Added 'extra' type for clinical operation fees participation */
-  type: 'bonus' | 'fine' | 'loan' | 'extra';
-  amount: number;
-  reason: string;
-  date: string;
-  status?: string;
+  adjustments?: FinancialAdjustment[]; // Added for detailed breakdown
 }
 
 export interface Appointment {

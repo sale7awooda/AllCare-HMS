@@ -97,7 +97,7 @@ export const Staff = () => {
   const [leaveForm, setLeaveForm] = useState({ staffId: '', type: 'sick' as LeaveRequest['type'], startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0], reason: '' });
   const [attendanceModal, setAttendanceModal] = useState<any>(null);
   
-  const [selectedPayroll, setSelectedPayroll] = useState<any>(null);
+  const [selectedPayroll, setSelectedPayroll] = useState<PayrollRecord | null>(null);
   const [isPayrollDetailModalOpen, setIsPayrollDetailModalOpen] = useState(false);
   const [isPayNowModalOpen, setIsPayNowModalOpen] = useState(false);
   const [payNowForm, setPayNowForm] = useState({ method: 'Cash', reference: '', notes: '' });
@@ -236,9 +236,7 @@ export const Staff = () => {
         address: s.address || '', 
         department: s.department || '',
         specialization: s.specialization || '',
-        /* Fix: Corrected property naming available_time_start -> availableTimeStart */
         availableTimeStart: s.availableTimeStart || '09:00',
-        /* Fix: Corrected property naming available_time_end -> availableTimeEnd */
         availableTimeEnd: s.availableTimeEnd || '17:00'
       } : { 
         fullName: '', 
@@ -424,6 +422,8 @@ export const Staff = () => {
           setPayroll(await api.getPayroll(selectedMonth));
           setProcessStatus('success'); 
           setIsPayNowModalOpen(false);
+          // If called from details modal, close it too
+          setIsPayrollDetailModalOpen(false);
           setTimeout(() => setProcessStatus('idle'), 1000);
       } catch(e: any) { 
         setProcessStatus('error'); 
@@ -453,7 +453,6 @@ export const Staff = () => {
   const handleApproveAdjustment = async (id: number) => {
       setProcessStatus('processing');
       try {
-          /* Fix: Corrected api call name to updateFinancialStatus which was added to api service */
           await api.updateFinancialStatus(id, 'approved');
           loadFinancials();
           setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
@@ -466,7 +465,6 @@ export const Staff = () => {
           action: async () => {
               setProcessStatus('processing');
               try {
-                  /* Fix: Corrected api call name to updateFinancialStatus which was added to api service */
                   await api.updateFinancialStatus(id, 'declined');
                   loadFinancials();
                   setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
@@ -676,6 +674,8 @@ export const Staff = () => {
          </div>
       </div>
 
+      {/* ... (Loading and Tab Contents for Directory, Attendance, Leaves, Financials remain unchanged) ... */}
+      
       {loading ? (
         <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
@@ -761,7 +761,23 @@ export const Staff = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                        {filteredPayroll.length === 0 ? <tr><td colSpan={5} className="text-center py-20 text-slate-300 font-bold">{t('staff_payroll_empty')}</td></tr> : filteredPayroll.map(p => (<tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40"><td><div className="px-6 py-4 font-bold text-slate-800 dark:text-white">{p.staffName}</div></td><td className="px-6 py-4 text-right font-mono text-slate-500">${p.baseSalary.toLocaleString()}</td><td className="px-6 py-4 text-right font-mono font-black text-primary-600 text-base">${p.netSalary.toLocaleString()}</td><td className="px-6 py-4 text-center"><Badge color={p.status === 'paid' ? 'green' : 'yellow'}>{p.status}</Badge></td><td className="px-6 py-4 text-right no-print"><div className="flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => openPayrollDetails(p)} icon={Eye}>{t('view')}</Button>{canManageHR && p.status === 'draft' && <Button size="sm" onClick={() => openPayNowModal(p)} icon={CreditCard}>{t('staff_payroll_paid_via')}</Button>}</div></td></tr>))}
+                        {filteredPayroll.length === 0 ? <tr><td colSpan={5} className="text-center py-20 text-slate-300 font-bold">{t('staff_payroll_empty')}</td></tr> : filteredPayroll.map(p => {
+                          const isNegative = p.netSalary < 0;
+                          return (
+                            <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                              <td><div className="px-6 py-4 font-bold text-slate-800 dark:text-white">{p.staffName}</div></td>
+                              <td className="px-6 py-4 text-right font-mono text-slate-500">${p.baseSalary.toLocaleString()}</td>
+                              <td className={`px-6 py-4 text-right font-mono font-black text-base ${isNegative ? 'text-red-600' : 'text-primary-600'}`}>${p.netSalary.toLocaleString()}</td>
+                              <td className="px-6 py-4 text-center"><Badge color={p.status === 'paid' ? 'green' : 'yellow'}>{p.status}</Badge></td>
+                              <td className="px-6 py-4 text-right no-print">
+                                <div className="flex justify-end gap-2">
+                                  <Button size="sm" variant="ghost" onClick={() => openPayrollDetails(p)} icon={Eye}>{t('view')}</Button>
+                                  {canManageHR && p.status === 'draft' && !isNegative && <Button size="sm" onClick={() => openPayNowModal(p)} icon={CreditCard}>{t('staff_payroll_paid_via')}</Button>}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </Card>
@@ -783,19 +799,16 @@ export const Staff = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {filteredFinancials.length === 0 ? <tr><td colSpan={6} className="text-center py-20 text-slate-300 font-bold">{t('no_data')}</td></tr> : filteredFinancials.map(f => {
-                      /* Fix: Comparison error resolved by updating FinancialAdjustment type in types.ts */
                       const isPendingExtra = f.type === 'extra' && f.status === 'pending';
                       return (
                         <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
                           <td className="px-6 py-4 text-slate-500 font-medium">{new Date(f.date).toLocaleDateString()}</td>
                           <td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{f.staffName}</td>
                           <td className="px-6 py-4">
-                            {/* Fix: Badge color 'violet' changed to 'purple' to align with UI component constraints */}
                             <Badge color={f.type === 'bonus' ? 'green' : f.type === 'loan' ? 'blue' : f.type === 'extra' ? 'purple' : 'red'}>{f.type}</Badge>
                             {f.status && f.status !== 'approved' && <span className="ml-2 text-[10px] opacity-60">({f.status})</span>}
                           </td>
                           <td className="px-6 py-4 text-slate-500 text-xs italic">"{f.reason}"</td>
-                          {/* Fix: Unintentional comparison logic resolved by types.ts update */}
                           <td className={`px-6 py-4 text-right font-mono font-black ${f.type === 'bonus' || f.type === 'extra' ? 'text-emerald-600' : 'text-rose-600'}`}>${f.amount.toLocaleString()}</td>
                           {canManageHR && (
                             <td className="px-6 py-4 text-right">
@@ -817,6 +830,8 @@ export const Staff = () => {
         </>
       )}
 
+      {/* ... Attendance, Leave, Adjustment, User modals remain unchanged ... */}
+      
       <Modal isOpen={!!attendanceModal} onClose={() => setAttendanceModal(null)} title={t('staff_modal_attendance_title')}>
         {attendanceModal && (
           <form onSubmit={handleAttendanceSubmit} className="space-y-6">
@@ -1002,7 +1017,7 @@ export const Staff = () => {
           <form onSubmit={handlePayNowSubmit} className="space-y-6">
             <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-center">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('staff_payroll_breakdown_title', { name: selectedPayroll.staffName })}</p>
-                <p className="text-4xl font-black text-primary-600 font-mono tracking-tighter">${selectedPayroll.netSalary.toLocaleString()}</p>
+                <p className={`text-4xl font-black font-mono tracking-tighter ${selectedPayroll.netSalary < 0 ? 'text-red-600' : 'text-primary-600'}`}>${selectedPayroll.netSalary.toLocaleString()}</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Select label={t('staff_form_payment_method')} value={payNowForm.method} onChange={e => setPayNowForm({...payNowForm, method: e.target.value})} required>
@@ -1024,7 +1039,7 @@ export const Staff = () => {
             <div className="space-y-6">
                 <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-center">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('staff_payroll_net')} ({selectedPayroll.month})</p>
-                    <p className="text-4xl font-black text-primary-600 font-mono tracking-tighter">${selectedPayroll.netSalary.toLocaleString()}</p>
+                    <p className={`text-4xl font-black font-mono tracking-tighter ${selectedPayroll.netSalary < 0 ? 'text-red-600' : 'text-primary-600'}`}>${selectedPayroll.netSalary.toLocaleString()}</p>
                     <div className="mt-4 flex justify-center"><Badge color={selectedPayroll.status === 'paid' ? 'green' : 'yellow'}>{selectedPayroll.status.toUpperCase()}</Badge></div>
                 </div>
 
@@ -1046,6 +1061,36 @@ export const Staff = () => {
                     </div>
                 </div>
 
+                {selectedPayroll.adjustments && selectedPayroll.adjustments.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Detailed Adjustments</h4>
+                    <div className="bg-white dark:bg-slate-800 border rounded-2xl overflow-hidden shadow-sm">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-slate-50 dark:bg-slate-900">
+                          <tr>
+                            <th className="px-4 py-2 font-bold text-slate-500">{t('date')}</th>
+                            <th className="px-4 py-2 font-bold text-slate-500">{t('staff_form_adj_type')}</th>
+                            <th className="px-4 py-2 font-bold text-slate-500">{t('staff_form_reason_notes')}</th>
+                            <th className="px-4 py-2 font-bold text-right text-slate-500">{t('billing_table_header_amount')}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y dark:divide-slate-700">
+                          {selectedPayroll.adjustments.map((adj) => (
+                            <tr key={adj.id}>
+                              <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{new Date(adj.date).toLocaleDateString()}</td>
+                              <td className="px-4 py-2 capitalize"><Badge color={adj.type === 'bonus' || adj.type === 'extra' ? 'green' : 'red'}>{adj.type}</Badge></td>
+                              <td className="px-4 py-2 text-slate-600 dark:text-slate-400 max-w-[150px] truncate" title={adj.reason}>{adj.reason}</td>
+                              <td className={`px-4 py-2 text-right font-mono font-bold ${adj.type === 'bonus' || adj.type === 'extra' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {adj.type === 'bonus' || adj.type === 'extra' ? '+' : '-'}${adj.amount.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {selectedPayroll.status === 'paid' && (
                   <div className="space-y-3">
                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">{t('staff_payroll_disbursement_title')}</h4>
@@ -1059,6 +1104,9 @@ export const Staff = () => {
 
                 <div className="pt-4 border-t dark:border-slate-700 flex justify-end gap-3">
                     <Button variant="secondary" onClick={() => setIsPayrollDetailModalOpen(false)}>{t('close')}</Button>
+                    {canManageHR && selectedPayroll.status === 'draft' && selectedPayroll.netSalary >= 0 && (
+                      <Button onClick={() => openPayNowModal(selectedPayroll)} icon={CreditCard}>{t('staff_payroll_paid_via')}</Button>
+                    )}
                 </div>
             </div>
          )}

@@ -1,4 +1,5 @@
 
+
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
@@ -263,23 +264,46 @@ exports.getPayroll = (req, res) => {
       WHERE p.month = ?
       ORDER BY p.generated_at DESC
     `).all(month);
+
+    // Fetch related financial adjustments for breakdown
+    const adjustments = db.prepare(`
+      SELECT * FROM hr_financials 
+      WHERE strftime('%Y-%m', date) = ?
+      AND (
+          type IN ('bonus', 'fine', 'loan') 
+          OR (type = 'extra' AND status = 'approved')
+      )
+    `).all(month);
     
-    res.json(records.map(p => ({
-      id: p.id,
-      staffId: p.staff_id,
-      staffName: p.staffName,
-      month: p.month,
-      baseSalary: p.base_salary,
-      totalBonuses: p.total_bonuses,
-      totalFines: p.total_fines,
-      netSalary: p.net_salary,
-      status: p.status,
-      generatedAt: p.generated_at,
-      paymentMethod: p.payment_method,
-      transactionRef: p.transaction_ref,
-      paymentNotes: p.payment_notes,
-      paymentDate: p.payment_date
-    })));
+    res.json(records.map(p => {
+      const staffAdjustments = adjustments.filter(a => a.staff_id === p.staff_id);
+      return {
+        id: p.id,
+        staffId: p.staff_id,
+        staffName: p.staffName,
+        month: p.month,
+        baseSalary: p.base_salary,
+        totalBonuses: p.total_bonuses,
+        totalFines: p.total_fines,
+        netSalary: p.net_salary,
+        status: p.status,
+        generatedAt: p.generated_at,
+        paymentMethod: p.payment_method,
+        transactionRef: p.transaction_ref,
+        paymentNotes: p.payment_notes,
+        paymentDate: p.payment_date,
+        adjustments: staffAdjustments.map(a => ({
+          id: a.id,
+          staffId: a.staff_id,
+          staffName: p.staffName,
+          type: a.type,
+          amount: a.amount,
+          reason: a.reason,
+          date: a.date,
+          status: a.status
+        }))
+      };
+    }));
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -333,7 +357,7 @@ exports.generatePayroll = (req, res) => {
 
       const totalDeservedFines = currentFinesAdjust + currentAttendanceFines;
       const totalDeservedBonuses = currentBonuses;
-      const targetNet = Math.max(0, baseSalary + totalDeservedBonuses - totalDeservedFines);
+      const targetNet = baseSalary + totalDeservedBonuses - totalDeservedFines; // removed Math.max(0, ...) to allow negative carry over if needed
 
       const existingRecords = db.prepare("SELECT SUM(net_salary) as totalNet, SUM(base_salary) as totalBase, SUM(total_bonuses) as totalBonuses, SUM(total_fines) as totalFines FROM hr_payroll WHERE staff_id = ? AND month = ?").get(s.id, month);
       
