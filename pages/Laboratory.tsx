@@ -75,11 +75,12 @@ export const Laboratory = () => {
       return 'lab_eval_normal';
     }
 
-    const lowerVal = value.toLowerCase();
-    const lowerRange = range.toLowerCase();
+    const lowerVal = value.toLowerCase().trim();
+    const lowerRange = range.toLowerCase().trim();
+    
     if (lowerRange.includes('neg') || lowerRange.includes('non')) {
-        if (lowerVal.includes('pos')) return 'lab_eval_high';
-        if (lowerVal.includes('neg')) return 'lab_eval_normal';
+        if (lowerVal.includes('pos') || lowerVal.includes('reactive')) return 'lab_eval_high';
+        if (lowerVal.includes('neg') || lowerVal.includes('non')) return 'lab_eval_normal';
     }
     
     return 'lab_eval_observed';
@@ -89,6 +90,7 @@ export const Laboratory = () => {
     const resultsData = req.results;
     if (!resultsData) return { values: {}, notes: '' };
     
+    // The backend structure for completed lab requests is usually { results_json: object, notes: string }
     const isNested = typeof resultsData === 'object' && 'results_json' in resultsData;
     const values = isNested ? resultsData.results_json : (resultsData || {});
     const notes = isNested ? (resultsData.notes || '') : '';
@@ -103,23 +105,35 @@ export const Laboratory = () => {
     const initialResults: any = {};
     req.testDetails.forEach((test: any) => {
         let components: any[] = [];
-        if (test.normal_range?.includes(';')) {
+        if (test.normal_range?.includes(':')) {
+            // Multi-component test (e.g., "Parameter: Range; Parameter2: Range2")
             components = test.normal_range.split(';').map((s: string) => {
                 const parts = s.split(':');
-                return { name: parts[0]?.trim() || 'Result', range: parts[1]?.trim() || '' };
-            });
+                return { 
+                    name: parts[0]?.trim() || (isRtl ? 'النتيجة' : 'Result'), 
+                    range: parts[1]?.trim() || '' 
+                };
+            }).filter((c: any) => c.name);
         } else {
-            components = [{ name: 'Default Component', range: test.normal_range || '' }];
+            // Single-component test
+            components = [{ 
+                name: isRtl ? 'النتيجة' : 'Result', 
+                range: test.normal_range || '' 
+            }];
         }
 
-        initialResults[test.id.toString()] = components.map(c => {
-            const testEntries = values?.[test.id.toString()] || [];
-            const existingValue = testEntries.find((er: any) => er.name === c.name);
+        const idStr = test.id.toString();
+        initialResults[idStr] = components.map(c => {
+            const savedEntries = values?.[idStr] || [];
+            const existingValue = Array.isArray(savedEntries) 
+                ? savedEntries.find((er: any) => er.name === c.name) 
+                : null;
+
             return {
                 name: c.name,
                 range: c.range,
                 value: existingValue?.value || '',
-                evaluation: existingValue?.evaluation || '-'
+                evaluation: existingValue?.evaluation || 'lab_eval_observed'
             };
         });
     });
@@ -162,7 +176,11 @@ export const Laboratory = () => {
       });
       setProcessStatus('success');
       await loadData();
-      setTimeout(() => { setIsProcessModalOpen(false); setProcessStatus('idle'); }, 1000);
+      setTimeout(() => { 
+          setIsProcessModalOpen(false); 
+          setProcessStatus('idle'); 
+          setSelectedReq(null);
+      }, 1000);
     } catch (error: any) { 
         setProcessStatus('error'); 
         setProcessMessage(error.response?.data?.error || t('lab_save_error')); 
@@ -338,7 +356,7 @@ export const Laboratory = () => {
                                 <div key={idx} className="grid grid-cols-12 gap-4 items-center group">
                                     <div className="col-span-12 sm:col-span-3">
                                         <p className="text-xs font-bold text-slate-600 dark:text-slate-400 leading-tight">
-                                          {comp.name === 'Default Component' ? t('view') : comp.name}
+                                          {comp.name}
                                         </p>
                                         <p className="text-[10px] font-mono text-slate-400 mt-1">Ref: {comp.range || 'N/A'}</p>
                                     </div>
@@ -444,63 +462,74 @@ export const Laboratory = () => {
 
             {/* Test Results Table */}
             <div className="space-y-6">
-                {selectedReq?.testDetails?.map((test: any) => (
-                    <div key={test.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm print:shadow-none print:border-slate-300">
-                        <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center print:bg-slate-100">
-                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-[0.15em] flex items-center gap-2">
-                                <FlaskConical size={14} className="text-emerald-600" />
-                                {language === 'ar' ? test.name_ar : test.name_en}
-                            </h5>
-                            <Badge color="gray" className="text-[9px] uppercase font-black">{test.category_en}</Badge>
-                        </div>
-                        <div className="p-0">
-                            <table className="w-full text-left">
-                                <thead className="bg-slate-50/50 text-[10px] font-black uppercase text-slate-400 tracking-wider print:bg-white">
-                                    <tr className="border-b border-slate-100">
-                                        <th className="px-5 py-3 font-black">{isRtl ? 'العنصر' : 'Parameter'}</th>
-                                        <th className="px-5 py-3 font-black text-center">{isRtl ? 'النتيجة' : 'Result'}</th>
-                                        <th className="px-5 py-3 font-black text-center">{isRtl ? 'المجال المرجعي' : 'Ref. Range'}</th>
-                                        <th className="px-5 py-3 font-black text-right">{isRtl ? 'التقييم' : 'Evaluation'}</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {(resultValues?.[test.id.toString()] || []).map((comp: any, idx: number) => (
-                                        <tr key={idx} className="group hover:bg-slate-50 transition-colors">
-                                            <td className="px-5 py-4">
-                                                <p className="text-sm font-bold text-slate-800 leading-tight">
-                                                  {comp.name === 'Default Component' ? t('view') : comp.name}
-                                                </p>
-                                            </td>
-                                            <td className="px-5 py-4 text-center">
-                                                <span className={`font-mono font-black text-lg ${
-                                                    comp.evaluation === 'lab_eval_normal' ? 'text-slate-900' : 
-                                                    comp.evaluation === 'lab_eval_low' ? 'text-blue-600' : 
-                                                    comp.evaluation === 'lab_eval_high' ? 'text-red-600' : 'text-slate-900'
-                                                }`}>
-                                                    {comp.value || '-'}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-4 text-center">
-                                                <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                                                    {comp.range || 'N/A'}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-4 text-right">
-                                                <Badge color={
-                                                    comp.evaluation === 'lab_eval_normal' ? 'green' : 
-                                                    comp.evaluation === 'lab_eval_low' ? 'blue' : 
-                                                    comp.evaluation === 'lab_eval_high' ? 'red' : 'gray'
-                                                } className="font-black text-[9px] tracking-widest uppercase">
-                                                    {t(comp.evaluation) || comp.evaluation}
-                                                </Badge>
-                                            </td>
+                {selectedReq?.testDetails?.map((test: any) => {
+                    const idStr = test.id.toString();
+                    const testResults = resultValues?.[idStr] || [];
+                    
+                    return (
+                        <div key={test.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm print:shadow-none print:border-slate-300">
+                            <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center print:bg-slate-100">
+                                <h5 className="text-xs font-black text-slate-800 uppercase tracking-[0.15em] flex items-center gap-2">
+                                    <FlaskConical size={14} className="text-emerald-600" />
+                                    {language === 'ar' ? test.name_ar : test.name_en}
+                                </h5>
+                                <Badge color="gray" className="text-[9px] uppercase font-black">{test.category_en}</Badge>
+                            </div>
+                            <div className="p-0">
+                                <table className="w-full text-left">
+                                    <thead className="bg-slate-50/50 text-[10px] font-black uppercase text-slate-400 tracking-wider print:bg-white">
+                                        <tr className="border-b border-slate-100">
+                                            <th className="px-5 py-3 font-black">{isRtl ? 'العنصر' : 'Parameter'}</th>
+                                            <th className="px-5 py-3 font-black text-center">{isRtl ? 'النتيجة' : 'Result'}</th>
+                                            <th className="px-5 py-3 font-black text-center">{isRtl ? 'المجال المرجعي' : 'Ref. Range'}</th>
+                                            <th className="px-5 py-3 font-black text-right">{isRtl ? 'التقييم' : 'Evaluation'}</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {testResults.length > 0 ? testResults.map((comp: any, idx: number) => (
+                                            <tr key={idx} className="group hover:bg-slate-50 transition-colors">
+                                                <td className="px-5 py-4">
+                                                    <p className="text-sm font-bold text-slate-800 leading-tight">
+                                                      {comp.name}
+                                                    </p>
+                                                </td>
+                                                <td className="px-5 py-4 text-center">
+                                                    <span className={`font-mono font-black text-lg ${
+                                                        comp.evaluation === 'lab_eval_normal' ? 'text-slate-900' : 
+                                                        comp.evaluation === 'lab_eval_low' ? 'text-blue-600' : 
+                                                        comp.evaluation === 'lab_eval_high' ? 'text-red-600' : 'text-slate-900'
+                                                    }`}>
+                                                        {comp.value || '-'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-4 text-center">
+                                                    <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                                        {comp.range || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-4 text-right">
+                                                    <Badge color={
+                                                        comp.evaluation === 'lab_eval_normal' ? 'green' : 
+                                                        comp.evaluation === 'lab_eval_low' ? 'blue' : 
+                                                        comp.evaluation === 'lab_eval_high' ? 'red' : 'gray'
+                                                    } className="font-black text-[9px] tracking-widest uppercase">
+                                                        {t(comp.evaluation) || comp.evaluation}
+                                                    </Badge>
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr>
+                                                <td colSpan={4} className="px-5 py-8 text-center text-slate-400 italic text-sm">
+                                                    {isRtl ? 'لا توجد نتائج مسجلة لهذا الفحص.' : 'No results recorded for this test.'}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
 
                 {resultNotes && (
                     <div className="space-y-2 pt-4 border-t border-slate-100 print:border-slate-300">
@@ -545,7 +574,6 @@ export const Laboratory = () => {
                 }
                 .no-print { display: none !important; }
                 .Modal { position: absolute !important; padding: 0 !important; box-shadow: none !important; }
-                .Card { border: 1px solid #ccc !important; page-break-inside: avoid; }
                 thead { display: table-header-group !important; }
             }
         `}</style>
