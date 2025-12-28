@@ -19,6 +19,7 @@ export const Laboratory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const canManage = hasPermission(currentUser, Permissions.MANAGE_LABORATORY);
+  const isRtl = language === 'ar';
 
   const HeaderTabs = useMemo(() => (
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -88,7 +89,6 @@ export const Laboratory = () => {
   const openProcessModal = (req: any) => {
     setSelectedReq(req);
     
-    // Fix: Correctly handle results structure for retrieval
     const resultsData = req.results;
     const isNewFormat = resultsData && typeof resultsData === 'object' && 'results_json' in resultsData;
     const values = isNewFormat ? resultsData.results_json : (resultsData || {});
@@ -255,12 +255,15 @@ export const Laboratory = () => {
                         )}
                         {req.status === 'completed' && (
                           <div className="flex gap-2">
-                            <Button size="sm" variant="secondary" icon={FileText} onClick={() => openProcessModal(req)} className="flex-1 justify-center text-xs py-2">
+                            <Button size="sm" variant="primary" icon={FileText} onClick={() => openProcessModal(req)} className="flex-1 justify-center text-xs py-2 shadow-sm">
                                 {t('lab_view_results')}
                             </Button>
                             {canManage && (
                                 <Tooltip content={isRtl ? 'إعادة فتح' : 'Re-open'} side="top">
-                                    <button onClick={() => handleReopen(req.id)} className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 rounded-lg transition-colors">
+                                    <button 
+                                        onClick={() => handleReopen(req.id)} 
+                                        className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center border border-slate-200 dark:border-slate-600"
+                                    >
                                         <RefreshCw size={16} />
                                     </button>
                                 </Tooltip>
@@ -273,7 +276,6 @@ export const Laboratory = () => {
         )}
       </div>
 
-      {/* LAB RESULTS MODAL - IMPROVED STRUCTURE */}
       <Modal 
         isOpen={isProcessModalOpen} 
         onClose={() => setIsProcessModalOpen(false)} 
@@ -358,5 +360,3 @@ export const Laboratory = () => {
     </div>
   );
 };
-
-const isRtl = document.documentElement.dir === 'rtl';
