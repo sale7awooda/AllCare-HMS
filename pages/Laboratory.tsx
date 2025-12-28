@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, Modal, Input, Textarea, Tooltip } from '../components/UI';
-import { FlaskConical, CheckCircle, Search, Clock, FileText, Activity, History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp, RefreshCw, Eye, ClipboardCheck } from 'lucide-react';
+import { FlaskConical, CheckCircle, Search, Clock, FileText, Activity, History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp, RefreshCw, Eye, ClipboardCheck, Printer } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
@@ -85,7 +85,6 @@ export const Laboratory = () => {
     return 'lab_eval_observed';
   };
 
-  // Helper to extract values consistently from potentially nested result objects
   const extractResults = (req: any) => {
     const resultsData = req.results;
     const isNested = resultsData && typeof resultsData === 'object' && 'results_json' in resultsData;
@@ -112,7 +111,6 @@ export const Laboratory = () => {
         }
 
         initialResults[test.id] = components.map(c => {
-            // Check for both string and number keys in the values map
             const testEntries = values?.[test.id] || values?.[test.id.toString()] || [];
             const existingValue = testEntries.find((er: any) => er.name === c.name);
             return {
@@ -195,6 +193,10 @@ export const Laboratory = () => {
       }
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="space-y-6">
       {processStatus !== 'idle' && (
@@ -267,19 +269,20 @@ export const Laboratory = () => {
                             </button>
                         )}
                         {req.status === 'completed' && (
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="primary" icon={Eye} onClick={() => openViewResultsModal(req)} className="flex-1 justify-center text-xs py-2 shadow-sm">
+                          <div className="flex flex-col gap-2">
+                            <Button size="sm" variant="primary" icon={Eye} onClick={() => openViewResultsModal(req)} className="w-full justify-center text-xs py-2 shadow-sm">
                                 {t('lab_view_results')}
                             </Button>
                             {canManage && (
-                                <Tooltip content={isRtl ? 'إعادة فتح' : 'Re-open'} side="top">
-                                    <button 
-                                        onClick={() => handleReopen(req.id)} 
-                                        className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm"
-                                    >
-                                        <RefreshCw size={16} />
-                                    </button>
-                                </Tooltip>
+                                <Button 
+                                    size="sm"
+                                    variant="secondary"
+                                    icon={RefreshCw}
+                                    onClick={() => handleReopen(req.id)} 
+                                    className="w-full justify-center text-xs py-2 border border-slate-200 dark:border-slate-600"
+                                >
+                                    {isRtl ? 'إعادة فتح النتائج' : 'Re-open Findings'}
+                                </Button>
                             )}
                           </div>
                         )}
@@ -369,78 +372,174 @@ export const Laboratory = () => {
         </form>
       </Modal>
 
-      {/* VIEW RESULTS MODAL (READ ONLY) */}
+      {/* VIEW RESULTS MODAL (READ ONLY & PRINTABLE) */}
       <Modal
         isOpen={isViewResultsModalOpen}
         onClose={() => setIsViewResultsModalOpen(false)}
-        title={t('lab_view_results') + ": " + selectedReq?.patientName}
-        footer={<div className="flex justify-end"><Button variant="secondary" onClick={() => setIsViewResultsModalOpen(false)}>{t('close')}</Button></div>}
+        title={t('lab_view_results')}
+        footer={
+            <div className="flex justify-between items-center no-print">
+                <Button variant="ghost" icon={Printer} onClick={handlePrint}>{isRtl ? 'طباعة التقرير' : 'Print Report'}</Button>
+                <Button variant="secondary" onClick={() => setIsViewResultsModalOpen(false)}>{t('close')}</Button>
+            </div>
+        }
       >
-        <div className="space-y-6 -mt-4">
-            <div className="bg-emerald-600 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center shrink-0">
+        <div className="space-y-8 -mt-4 print:mt-0 print:space-y-6" id="printable-lab-report">
+            {/* Report Header for Print */}
+            <div className="hidden print:flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
+                <div>
+                    <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">AllCare HMS</h1>
+                    <p className="text-sm font-bold text-slate-600 mt-1">Laboratory Information System</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Automated Clinical Analysis Center</p>
+                </div>
+                <div className="text-right">
+                    <p className="text-xs font-bold text-slate-800">Hospital Administration Center</p>
+                    <p className="text-[10px] text-slate-500">Certified Diagnostic Facility</p>
+                </div>
+            </div>
+
+            {/* Banner for UI */}
+            <div className="bg-emerald-600 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center shrink-0 print:bg-slate-100 print:text-slate-900 print:shadow-none print:border print:border-slate-200">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-xl">
+                    <div className="p-2 bg-white/20 rounded-xl print:bg-slate-200">
                         <ClipboardCheck size={24} />
                     </div>
                     <div>
-                        <h4 className="font-black text-lg tracking-tight">{t('lab_status_completed')}</h4>
-                        <p className="text-[10px] text-emerald-100 font-bold uppercase tracking-widest mt-1">{t('lab_modal_order_ref', { id: selectedReq?.id })}</p>
+                        <h4 className="font-black text-lg tracking-tight uppercase print:text-xl">{t('lab_status_completed')}</h4>
+                        <p className="text-[10px] text-emerald-100 font-bold uppercase tracking-widest mt-1 print:text-slate-500">{t('lab_modal_order_ref', { id: selectedReq?.id })}</p>
                     </div>
                 </div>
                 <div className="text-right">
-                    <span className="block text-[10px] uppercase text-emerald-100 font-bold tracking-widest">{t('lab_modal_entry_date')}</span>
+                    <span className="block text-[10px] uppercase text-emerald-100 font-bold tracking-widest print:text-slate-500">{t('lab_modal_entry_date')}</span>
                     <span className="text-sm font-bold">{selectedReq && new Date(selectedReq.created_at).toLocaleDateString()}</span>
                 </div>
             </div>
 
-            <div className="space-y-5">
+            {/* Patient Header Section */}
+            <div className="grid grid-cols-2 gap-8 print:gap-12 bg-slate-50 p-5 rounded-2xl border border-slate-100 print:bg-white print:border-none print:px-0">
+                <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5">{isRtl ? 'بيانات المريض' : 'Patient Information'}</p>
+                    <h3 className="text-xl font-black text-slate-900 leading-tight">{selectedReq?.patientName}</h3>
+                    <div className="flex gap-3 mt-2 text-xs font-bold text-slate-500">
+                        <span>ID: #{selectedReq?.patient_id}</span>
+                        <span>•</span>
+                        <span>{selectedReq?.patientGender || '-'}</span>
+                        <span>•</span>
+                        <span>{selectedReq?.patientAge || '-'} yrs</span>
+                    </div>
+                </div>
+                <div className="text-right flex flex-col justify-end">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5">{isRtl ? 'المختبر المحول' : 'Referring Laboratory'}</p>
+                    <p className="text-sm font-bold text-slate-800">AllCare Diagnostic Unit</p>
+                    <p className="text-xs text-slate-500 mt-1">{isRtl ? 'نتائج مخبرية معتمدة' : 'Verified Clinical Records'}</p>
+                </div>
+            </div>
+
+            {/* Test Results Table */}
+            <div className="space-y-6">
                 {selectedReq?.testDetails?.map((test: any) => (
-                    <div key={test.id} className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-                        <div className="bg-white dark:bg-slate-800 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                            <h5 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
-                                <FlaskConical size={14} className="text-primary-600" />
+                    <div key={test.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm print:shadow-none print:border-slate-300">
+                        <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center print:bg-slate-100">
+                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-[0.15em] flex items-center gap-2">
+                                <FlaskConical size={14} className="text-emerald-600" />
                                 {language === 'ar' ? test.name_ar : test.name_en}
                             </h5>
-                            <Badge color="gray" className="text-[9px] uppercase">{test.category_en}</Badge>
+                            <Badge color="gray" className="text-[9px] uppercase font-black">{test.category_en}</Badge>
                         </div>
-                        <div className="p-4 divide-y divide-slate-100 dark:divide-slate-800">
-                            {/* Handle both number and string keys from the parsed JSON */}
-                            {(resultValues[test.id] || resultValues[test.id.toString()] || []).map((comp: any, idx: number) => (
-                                <div key={idx} className="grid grid-cols-12 gap-4 py-3 first:pt-0 last:pb-0 items-center">
-                                    <div className="col-span-5">
-                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{comp.name}</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">Ref: {comp.range || 'N/A'}</p>
-                                    </div>
-                                    <div className="col-span-4 text-center">
-                                        <span className="font-mono font-black text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-3 py-1 rounded-lg border dark:border-slate-700 shadow-sm">
-                                            {comp.value || '-'}
-                                        </span>
-                                    </div>
-                                    <div className="col-span-3 text-right">
-                                        <Badge color={
-                                            comp.evaluation === 'lab_eval_normal' ? 'green' : 
-                                            comp.evaluation === 'lab_eval_low' ? 'blue' : 
-                                            comp.evaluation === 'lab_eval_high' ? 'red' : 'gray'
-                                        } className="font-black text-[9px] w-full justify-center py-1">
-                                            {t(comp.evaluation) || comp.evaluation}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="p-0">
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50/50 text-[10px] font-black uppercase text-slate-400 tracking-wider print:bg-white">
+                                    <tr className="border-b border-slate-100">
+                                        <th className="px-5 py-3 font-black">{isRtl ? 'العنصر' : 'Parameter'}</th>
+                                        <th className="px-5 py-3 font-black text-center">{isRtl ? 'النتيجة' : 'Result'}</th>
+                                        <th className="px-5 py-3 font-black text-center">{isRtl ? 'المجال المرجعي' : 'Ref. Range'}</th>
+                                        <th className="px-5 py-3 font-black text-right">{isRtl ? 'التقييم' : 'Evaluation'}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {(resultValues[test.id] || resultValues[test.id.toString()] || []).map((comp: any, idx: number) => (
+                                        <tr key={idx} className="group hover:bg-slate-50 transition-colors">
+                                            <td className="px-5 py-4">
+                                                <p className="text-sm font-bold text-slate-800 leading-tight">{comp.name}</p>
+                                            </td>
+                                            <td className="px-5 py-4 text-center">
+                                                <span className={`font-mono font-black text-lg ${
+                                                    comp.evaluation === 'lab_eval_normal' ? 'text-slate-900' : 
+                                                    comp.evaluation === 'lab_eval_low' ? 'text-blue-600' : 
+                                                    comp.evaluation === 'lab_eval_high' ? 'text-red-600' : 'text-slate-900'
+                                                }`}>
+                                                    {comp.value || '-'}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-4 text-center">
+                                                <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                                    {comp.range || 'N/A'}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-4 text-right">
+                                                <Badge color={
+                                                    comp.evaluation === 'lab_eval_normal' ? 'green' : 
+                                                    comp.evaluation === 'lab_eval_low' ? 'blue' : 
+                                                    comp.evaluation === 'lab_eval_high' ? 'red' : 'gray'
+                                                } className="font-black text-[9px] tracking-widest uppercase">
+                                                    {t(comp.evaluation) || comp.evaluation}
+                                                </Badge>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 ))}
 
                 {resultNotes && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 pt-4 border-t border-slate-100 print:border-slate-300">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('lab_modal_remarks_label')}</label>
-                        <div className="p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300 italic leading-relaxed shadow-sm">
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm text-slate-600 italic leading-relaxed print:bg-white print:border-slate-300">
                             "{resultNotes}"
                         </div>
                     </div>
                 )}
             </div>
+
+            {/* Report Footer for Print */}
+            <div className="hidden print:grid grid-cols-2 gap-8 pt-16 border-t border-slate-200 mt-12">
+                <div className="text-center border-t border-slate-900 pt-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Technician Signature</p>
+                    <p className="text-sm font-bold text-slate-900 italic">Medical Analysis Department</p>
+                </div>
+                <div className="text-center border-t border-slate-900 pt-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pathologist Approval</p>
+                    <p className="text-sm font-bold text-slate-900">Dr. Clinic Administrator</p>
+                </div>
+            </div>
+            
+            <div className="hidden print:block text-center mt-12 pt-8 text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em]">
+                Verified Report • {new Date().toLocaleString()} • Page 1 of 1
+            </div>
         </div>
+
+        <style>{`
+            @media print {
+                body * { visibility: hidden !important; }
+                #printable-lab-report, #printable-lab-report * { visibility: visible !important; }
+                #printable-lab-report { 
+                    position: fixed !important; 
+                    left: 0 !important; 
+                    top: 0 !important; 
+                    width: 100% !important; 
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    background: white !important;
+                    color: black !important;
+                }
+                .no-print { display: none !important; }
+                .Modal { position: absolute !important; padding: 0 !important; box-shadow: none !important; }
+                .Card { border: 1px solid #ccc !important; page-break-inside: avoid; }
+                thead { display: table-header-group !important; }
+            }
+        `}</style>
       </Modal>
     </div>
   );
