@@ -40,6 +40,8 @@ export const Patients = () => {
   
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
+  // Fix: Added missing confirmState state definition to satisfy JSX usage
+  const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', action: () => {} });
 
   const [isFormModalOpen, setIsFormModalOpen] = useState(false); 
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false); 
@@ -85,6 +87,13 @@ export const Patients = () => {
   const formatMoney = (val: number | string) => {
     const num = typeof val === 'string' ? parseFloat(val) : val;
     return new Intl.NumberFormat().format(num || 0);
+  };
+
+  const formatStaffName = (name: string) => {
+    if (!name) return t('patients_modal_view_na');
+    const lowerName = name.toLowerCase();
+    if (lowerName.startsWith('dr.') || lowerName.startsWith('nurse ') || lowerName.startsWith('tech.')) return name;
+    return `${t('admissions_bed_doctor', {name})}`;
   };
 
   useHeader(
@@ -173,13 +182,13 @@ export const Patients = () => {
         allergies: fullDetails.allergies || '',
         bloodGroup: fullDetails.bloodGroup || '',
         hasInsurance: fullDetails.hasInsurance,
-        emergencyName: fullDetails.emergencyContact?.name || '',
-        emergencyPhone: fullDetails.emergencyContact?.phone || '',
-        emergencyRelation: fullDetails.emergencyContact?.relation || '',
-        insProvider: fullDetails.insuranceDetails?.provider || '',
-        insPolicy: fullDetails.insuranceDetails?.policyNumber || '',
-        insExpiry: fullDetails.insuranceDetails?.expiryDate || '',
-        insNotes: fullDetails.insuranceDetails?.notes || ''
+        emergencyName: fullDetails.emergencyName || '',
+        emergencyPhone: fullDetails.emergencyPhone || '',
+        emergencyRelation: fullDetails.emergencyRelation || '',
+        insProvider: fullDetails.insProvider || '',
+        insPolicy: fullDetails.insPolicy || '',
+        insExpiry: fullDetails.insExpiry || '',
+        insNotes: fullDetails.insNotes || ''
       });
       setSelectedPatient(fullDetails);
       setIsEditing(true);
@@ -704,7 +713,7 @@ export const Patients = () => {
         }
       >
         <div className="flex flex-col">
-          <div className="mb-1.5">
+          <div className="-mt-1 mb-1">
             <Button size="sm" variant="ghost" icon={ChevronLeft} onClick={handleBackToActionMenu}>{t('patients_modal_action_back_button')}</Button>
           </div>
 
@@ -984,7 +993,7 @@ export const Patients = () => {
               </div>
             </div>
 
-            <div className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
+            <div className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto no-print">
                 {[
                     {id: 'info', label: t('patients_modal_view_overview_tab')},
                     {id: 'visits', label: t('patients_modal_view_timeline_tab')},
@@ -1001,188 +1010,193 @@ export const Patients = () => {
                 ))}
             </div>
 
-            {viewTab === 'info' && (
-                <div className="space-y-6 animate-in fade-in">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_contact_personal')}</h4>
-                        <div className="text-sm space-y-2">
-                            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
-                                <span className="text-slate-500">{t('patients_modal_view_phone')}</span>
-                                <span className="font-medium">{selectedPatient.phone}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
-                                <span className="text-slate-500">{t('patients_modal_form_age')} / {t('patients_modal_form_gender')}</span>
-                                <span className="font-medium">{selectedPatient.age} / {t(`patients_modal_form_gender_${selectedPatient.gender}`)}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
-                                <span className="text-slate-500">{t('patients_modal_view_address')}</span>
-                                <span className="font-medium truncate max-w-[150px]">{selectedPatient.address || t('patients_modal_view_na')}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="space-y-1">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_medical_profile')}</h4>
-                        <div className="text-sm space-y-2">
-                            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
-                                <span className="text-slate-500">{t('patients_modal_view_blood_group')}</span>
-                                <span className="font-bold text-red-500">{selectedPatient.bloodGroup || t('patients_modal_view_na')}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
-                                <span className="text-slate-500">{t('patients_modal_view_allergies')}</span>
-                                <span className="font-medium text-red-600 truncate max-w-[150px]">{selectedPatient.allergies || t('patients_modal_view_none')}</span>
-                            </div>
-                        </div>
-                    </div>
-                    </div>
-                    {selectedPatient.emergencyContact && (
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_emergency_contact')}</h4>
-                            <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg text-sm border border-slate-100 dark:border-slate-800">
-                                <span className="font-bold text-slate-800 dark:text-white">{selectedPatient.emergencyContact.name}</span>
-                                <span className="text-slate-500"> ({selectedPatient.emergencyContact.relation || t('patients_modal_view_na')})</span>
-                                <div className="text-slate-600 dark:text-slate-400 mt-1">{selectedPatient.emergencyContact.phone}</div>
-                            </div>
-                        </div>
-                    )}
-                    {selectedPatient.insuranceDetails && selectedPatient.hasInsurance && (
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_insurance_coverage')}</h4>
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-sm border border-blue-100 dark:border-blue-800">
-                                <div className="flex justify-between mb-1">
-                                    <span className="text-blue-600 dark:text-blue-400 font-bold">{selectedPatient.insuranceDetails.provider}</span>
-                                    <span className="text-blue-500 text-xs">{selectedPatient.insuranceDetails.expiryDate}</span>
+            <div className="min-h-[300px] max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+                {viewTab === 'info' && (
+                    <div className="space-y-6 animate-in fade-in">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_contact_personal')}</h4>
+                            <div className="text-sm space-y-2">
+                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                                    <span className="text-slate-500">{t('patients_modal_view_phone')}</span>
+                                    <span className="font-medium">{selectedPatient.phone}</span>
                                 </div>
-                                <div className="text-blue-700 dark:text-blue-300 font-mono text-xs">{t('patients_modal_view_policy_no')}: #{selectedPatient.insuranceDetails.policyNumber}</div>
-                            </div>
-                        </div>
-                    )}
-                    <div>
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_medical_history')}</h4>
-                        <p className="text-sm bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300 italic">
-                            {selectedPatient.medicalHistory || t('patients_modal_view_no_history')}
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            {viewTab === 'visits' && (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in">
-                    {patientVisits.length === 0 ? (
-                        <p className="text-sm text-slate-400 text-center py-8">{t('patients_modal_view_no_timeline')}</p>
-                    ) : (
-                        patientVisits.map(apt => (
-                            <div key={apt.id} className="flex gap-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
-                                <div className="flex flex-col items-center min-w-[60px]">
-                                    <span className="text-xs font-bold text-slate-500">{new Date(apt.datetime).toLocaleDateString()}</span>
-                                    <span className="text-[10px] text-slate-400 uppercase font-bold">{new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                                    <span className="text-slate-500">{t('patients_modal_form_age')} / {t('patients_modal_form_gender')}</span>
+                                    <span className="font-medium">{selectedPatient.age} / {t(`patients_modal_form_gender_${selectedPatient.gender}`)}</span>
                                 </div>
-                                <div>
-                                    <div className="font-bold text-sm text-slate-800 dark:text-white">{translateType(apt.type, t)}</div>
-                                    <div className="text-xs text-slate-500">{t('admissions_bed_doctor', {name: apt.staffName})}</div>
-                                    <Badge color={getStatusColor(apt.status) as any} className="mt-1">{t(`appointments_status_${apt.status}`)}</Badge>
+                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                                    <span className="text-slate-500">{t('patients_modal_view_address')}</span>
+                                    <span className="font-medium truncate max-w-[150px]">{selectedPatient.address || t('patients_modal_view_na')}</span>
                                 </div>
                             </div>
-                        ))
-                    )}
-                </div>
-            )}
-
-            {viewTab === 'labs' && (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in">
-                    {patientLabs.length === 0 ? (
-                        <p className="text-sm text-slate-400 text-center py-8">{t('lab_empty', {tab: t('patients_modal_action_lab')})}</p>
-                    ) : (
-                        patientLabs.map(lab => {
-                            const isExpanded = expandedLabId === lab.id;
-                            return (
-                                <div key={lab.id} className="flex flex-col bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800 overflow-hidden">
-                                    <div className="flex gap-4 p-3 items-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors" onClick={() => setExpandedLabId(isExpanded ? null : lab.id)}>
-                                        <div className="flex flex-col items-center min-w-[60px] justify-center">
-                                            <FlaskConical size={20} className="text-orange-500 mb-1" />
-                                            <span className="text-[10px] font-bold text-slate-500">{new Date(lab.created_at).toLocaleDateString()}</span>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-bold text-sm text-slate-800 dark:text-white truncate">{lab.testNames || t('patients_modal_view_lab_request_label')}</div>
-                                            <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-0.5">ID: {lab.id}</div>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                            <Badge color={lab.status === 'completed' ? 'green' : 'yellow'} className="text-[10px]">{lab.status}</Badge>
-                                            {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-                                        </div>
+                        </div>
+                        <div className="space-y-1">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_medical_profile')}</h4>
+                            <div className="text-sm space-y-2">
+                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                                    <span className="text-slate-500">{t('patients_modal_view_blood_group')}</span>
+                                    <span className="font-bold text-red-500">{selectedPatient.bloodGroup || t('patients_modal_view_na')}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                                    <span className="text-slate-500">{t('patients_modal_view_allergies')}</span>
+                                    <span className="font-medium text-red-600 truncate max-w-[150px]">{selectedPatient.allergies || t('patients_modal_view_none')}</span>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+                        {selectedPatient.emergencyContact && (
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_emergency_contact')}</h4>
+                                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg text-sm border border-slate-100 dark:border-slate-800">
+                                    <span className="font-bold text-slate-800 dark:text-white">{selectedPatient.emergencyContact.name}</span>
+                                    <span className="text-slate-500"> ({selectedPatient.emergencyContact.relation || t('patients_modal_view_na')})</span>
+                                    <div className="text-slate-600 dark:text-slate-400 mt-1">{selectedPatient.emergencyContact.phone}</div>
+                                </div>
+                            </div>
+                        )}
+                        {selectedPatient.insuranceDetails && selectedPatient.hasInsurance && (
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_insurance_coverage')}</h4>
+                                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-sm border border-blue-100 dark:border-blue-800">
+                                    <div className="flex justify-between mb-1">
+                                        <span className="text-blue-600 dark:text-blue-400 font-bold">{selectedPatient.insuranceDetails.provider}</span>
+                                        <span className="text-blue-500 text-xs">{selectedPatient.insuranceDetails.expiryDate}</span>
                                     </div>
-                                    {isExpanded && (
-                                        <div className="p-4 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('billing_modal_create_items_label')}</h5>
-                                                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg">{lab.testNames || 'Multiple tests requested'}</div>
-                                                </div>
-                                                {lab.results && (
-                                                    <div>
-                                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('lab_modal_findings')}</h5>
-                                                        <div className="text-sm text-slate-700 dark:text-slate-300 bg-emerald-50/30 dark:bg-emerald-900/10 p-3 rounded-lg border border-emerald-100 dark:border-emerald-800 italic leading-relaxed whitespace-pre-wrap">
-                                                            {JSON.stringify(lab.results)}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {lab.notes && (
-                                                    <div>
-                                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('lab_modal_notes')}</h5>
-                                                        <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed italic">
-                                                            "{lab.notes}"
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                <div className="pt-2 flex justify-between items-center border-t border-slate-50 dark:border-slate-800">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase">{t('billing_table_header_amount')}</span>
-                                                    <span className="font-mono font-bold text-primary-600">${formatMoney(lab.projected_cost)}</span>
-                                                </div>
+                                    <div className="text-blue-700 dark:text-blue-300 font-mono text-xs">{t('patients_modal_view_policy_no')}: #{selectedPatient.insuranceDetails.policyNumber}</div>
+                                </div>
+                            </div>
+                        )}
+                        <div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('patients_modal_view_medical_history')}</h4>
+                            <p className="text-sm bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-300 italic">
+                                {selectedPatient.medicalHistory || t('patients_modal_view_no_history')}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {viewTab === 'visits' && (
+                    <div className="space-y-3 animate-in fade-in">
+                        {patientVisits.length === 0 ? (
+                            <p className="text-sm text-slate-400 text-center py-8">{t('patients_modal_view_no_timeline')}</p>
+                        ) : (
+                            patientVisits.map(apt => (
+                                <div key={apt.id} className="flex gap-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                                    <div className="flex flex-col items-center min-w-[60px]">
+                                        <span className="text-xs font-bold text-slate-500">{new Date(apt.datetime).toLocaleDateString()}</span>
+                                        <span className="text-[10px] text-slate-400 uppercase font-bold">{new Date(apt.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-sm text-slate-800 dark:text-white">{translateType(apt.type, t)}</div>
+                                        <div className="text-xs text-slate-500">{formatStaffName(apt.staffName)}</div>
+                                        <Badge color={getStatusColor(apt.status) as any} className="mt-1">
+                                            {t(`appointments_status_${apt.status}`) || apt.status}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
+
+                {viewTab === 'labs' && (
+                    <div className="space-y-3 animate-in fade-in">
+                        {patientLabs.length === 0 ? (
+                            <p className="text-sm text-slate-400 text-center py-8">{t('lab_empty', {tab: t('patients_modal_action_lab')})}</p>
+                        ) : (
+                            patientLabs.map(lab => {
+                                const isExpanded = expandedLabId === lab.id;
+                                return (
+                                    <div key={lab.id} className="flex flex-col bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800 overflow-hidden">
+                                        <div className="flex gap-4 p-3 items-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors" onClick={() => setExpandedLabId(isExpanded ? null : lab.id)}>
+                                            <div className="flex flex-col items-center min-w-[60px] justify-center">
+                                                <FlaskConical size={20} className="text-orange-500 mb-1" />
+                                                <span className="text-[10px] font-bold text-slate-500">{new Date(lab.created_at).toLocaleDateString()}</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-bold text-sm text-slate-800 dark:text-white truncate">{lab.testNames || t('patients_modal_view_lab_request_label')}</div>
+                                                <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-0.5">ID: {lab.id}</div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                                <Badge color={lab.status === 'completed' ? 'green' : 'yellow'} className="text-[10px]">{t(`lab_status_${lab.status.toLowerCase()}`) || lab.status}</Badge>
+                                                {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            )}
-
-            {viewTab === 'financials' && (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in">
-                    {patientFinancials.length === 0 ? (
-                        <p className="text-sm text-slate-400 text-center py-8">{t('patients_modal_view_no_billing')}</p>
-                    ) : (
-                        patientFinancials.map(bill => (
-                            <div key={bill.id} className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm group">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <div className="font-bold text-sm text-slate-800 dark:text-white flex items-center gap-2 group-hover:text-primary-600 transition-colors">
-                                            <DollarSign size={14} className="text-emerald-600" />
-                                            {t('patients_modal_view_invoice_label')} #{bill.billNumber}
-                                        </div>
-                                        <div className="text-[10px] text-slate-400 font-bold mt-0.5">{formatDateSafely(bill.date)}</div>
+                                        {isExpanded && (
+                                            <div className="p-4 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('billing_modal_create_items_label')}</h5>
+                                                        <div className="text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg">{lab.testNames || 'Multiple tests requested'}</div>
+                                                    </div>
+                                                    {lab.results && (
+                                                        <div>
+                                                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('lab_modal_findings')}</h5>
+                                                            <div className="text-sm text-slate-700 dark:text-slate-300 bg-emerald-50/30 dark:bg-emerald-900/10 p-3 rounded-lg border border-emerald-100 dark:border-emerald-800 italic leading-relaxed whitespace-pre-wrap">
+                                                                {JSON.stringify(lab.results)}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {lab.notes && (
+                                                        <div>
+                                                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('lab_modal_notes')}</h5>
+                                                            <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed italic">
+                                                                "{lab.notes}"
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <div className="pt-2 flex justify-between items-center border-t border-slate-50 dark:border-slate-800">
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase">{t('billing_table_header_amount')}</span>
+                                                        <span className="font-mono font-bold text-primary-600">${formatMoney(lab.projected_cost)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{translateStatus(bill.status, t)}</Badge>
+                                );
+                            })
+                        )}
+                    </div>
+                )}
+
+                {viewTab === 'financials' && (
+                    <div className="space-y-3 animate-in fade-in">
+                        {patientFinancials.length === 0 ? (
+                            <p className="text-sm text-slate-400 text-center py-8">{t('patients_modal_view_no_billing')}</p>
+                        ) : (
+                            patientFinancials.map(bill => (
+                                <div key={bill.id} className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm group">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <div className="font-bold text-sm text-slate-800 dark:text-white flex items-center gap-2 group-hover:text-primary-600 transition-colors">
+                                                <DollarSign size={14} className="text-emerald-600" />
+                                                {t('patients_modal_view_invoice_label')} #{bill.billNumber}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 font-bold mt-0.5">{formatDateSafely(bill.date)}</div>
+                                        </div>
+                                        <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : 'red'}>{translateStatus(bill.status, t)}</Badge>
+                                    </div>
+                                    <div className="flex justify-between text-sm border-t border-slate-100 dark:border-slate-800 pt-2 mt-2">
+                                        <span className="text-slate-500 font-medium">{t('billing_table_header_amount')}</span>
+                                        <span className="font-bold font-mono">${formatMoney(bill.totalAmount)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-slate-500 font-medium">{t('billing_table_paid_amount')}</span>
+                                        <span className="font-bold font-mono text-emerald-600">${formatMoney(bill.paidAmount)}</span>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between text-sm border-t border-slate-100 dark:border-slate-800 pt-2 mt-2">
-                                    <span className="text-slate-500 font-medium">{t('billing_table_header_amount')}</span>
-                                    <span className="font-bold font-mono">${formatMoney(bill.totalAmount)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500 font-medium">{t('billing_table_paid_amount')}</span>
-                                    <span className="font-bold font-mono text-emerald-600">${formatMoney(bill.paidAmount)}</span>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            )}
+                            ))
+                        )}
+                    </div>
+                )}
+            </div>
 
           </div>
         )}
       </Modal>
 
+      <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({...confirmState, isOpen: false})} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message} />
     </div>
   );
 };
