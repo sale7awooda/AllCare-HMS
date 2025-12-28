@@ -35,7 +35,7 @@ export const Laboratory = () => {
     </div>
   ), [activeTab, requests, t]);
 
-  useHeader(t('lab_title'), t('lab_subtitle'), HeaderTabs);
+  useHeader(t('nav_laboratory'), '', HeaderTabs);
 
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
   const [selectedReq, setSelectedReq] = useState<any>(null);
@@ -90,10 +90,10 @@ export const Laboratory = () => {
         if (test.normal_range?.includes(';')) {
             components = test.normal_range.split(';').map((s: string) => {
                 const parts = s.split(':');
-                return { name: parts[0]?.trim() || 'Result', range: parts[1]?.trim() || '' };
+                return { name: parts[0]?.trim() || t('view'), range: parts[1]?.trim() || '' };
             });
         } else {
-            components = [{ name: 'Result', range: test.normal_range || '' }];
+            components = [{ name: t('lab_modal_technical_analysis'), range: test.normal_range || '' }];
         }
 
         initialResults[test.id] = components.map(c => {
@@ -147,6 +147,15 @@ export const Laboratory = () => {
     return matchesSearch && matchesTab;
   });
 
+  const getStatusKey = (status: string) => {
+      switch(status.toLowerCase()) {
+          case 'pending': return 'lab_status_pending';
+          case 'confirmed': return 'lab_status_ready';
+          case 'completed': return 'lab_status_completed';
+          default: return status;
+      }
+  };
+
   return (
     <div className="space-y-6">
       {processStatus !== 'idle' && (
@@ -194,7 +203,7 @@ export const Laboratory = () => {
                         </div>
                         <div className="flex flex-col items-end gap-1.5 ml-2">
                             <Badge color={req.status === 'completed' ? 'green' : req.status === 'confirmed' ? 'blue' : 'yellow'} className="text-[8px] px-1.5 py-0 uppercase font-black">
-                                {req.status === 'confirmed' ? t('lab_status_ready') : req.status}
+                                {t(getStatusKey(req.status))}
                             </Badge>
                         </div>
                     </div>
