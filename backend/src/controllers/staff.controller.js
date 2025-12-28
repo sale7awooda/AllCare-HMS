@@ -229,12 +229,23 @@ exports.getFinancials = (req, res) => {
 };
 
 exports.addAdjustment = (req, res) => {
-  const { staffId, type, amount, reason, date } = req.body;
+  const { staffId, type, amount, reason, date, status } = req.body;
   try {
     db.prepare(`
-      INSERT INTO hr_financials (staff_id, type, amount, reason, date)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(staffId, type, amount, reason, date);
+      INSERT INTO hr_financials (staff_id, type, amount, reason, date, status)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(staffId, type, amount, reason, date, status || 'pending');
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+exports.updateFinancialStatus = (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  try {
+    db.prepare('UPDATE hr_financials SET status = ? WHERE id = ?').run(status, id);
     res.json({ success: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -284,12 +295,18 @@ exports.generatePayroll = (req, res) => {
       const baseSalary = s.base_salary || 0;
       const dailyRate = baseSalary / 30;
 
+      // Filter: Only include 'bonus' or 'approved extra' adjustments
       const adjustments = db.prepare(`
         SELECT type, amount FROM hr_financials 
-        WHERE staff_id = ? AND strftime('%Y-%m', date) = ?
+        WHERE staff_id = ? 
+        AND strftime('%Y-%m', date) = ?
+        AND (
+          type IN ('bonus', 'fine', 'loan') 
+          OR (type = 'extra' AND status = 'approved')
+        )
       `).all(s.id, month);
       
-      const currentBonuses = adjustments.filter(a => a.type === 'bonus').reduce((acc, a) => acc + a.amount, 0);
+      const currentBonuses = adjustments.filter(a => a.type === 'bonus' || a.type === 'extra').reduce((acc, a) => acc + a.amount, 0);
       const currentFinesAdjust = adjustments.filter(a => a.type === 'fine' || a.type === 'loan').reduce((acc, a) => acc + a.amount, 0);
       
       const leaves = db.prepare("SELECT start_date, end_date FROM hr_leaves WHERE staff_id = ? AND status = 'approved'").all(s.id);
@@ -389,8 +406,6 @@ exports.updatePayrollStatus = (req, res) => {
 
         // Sync with Treasury if marked as Paid
         if (status === 'paid') {
-            // FIX: Explicitly including 'details' column to match billing controller pattern
-            // and ensure parameter counts match the Prepare statement exactly.
             db.prepare(`
                 INSERT INTO transactions (type, category, amount, method, reference_id, details, date, description)
                 VALUES ('expense', 'Staff Salaries', ?, ?, ?, ?, datetime('now'), ?)

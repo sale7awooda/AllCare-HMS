@@ -102,7 +102,14 @@ exports.cancelService = (req, res) => {
   const tx = db.transaction(() => {
     db.prepare("UPDATE appointments SET status = 'cancelled' WHERE bill_id = ?").run(id);
     db.prepare("UPDATE lab_requests SET status = 'cancelled' WHERE bill_id = ?").run(id);
-    db.prepare("UPDATE operations SET status = 'cancelled' WHERE bill_id = ?").run(id);
+    
+    const op = db.prepare("SELECT id FROM operations WHERE bill_id = ?").get(id);
+    if (op) {
+        db.prepare("UPDATE operations SET status = 'cancelled' WHERE id = ?").run(op.id);
+        // Decline linked 'extra' adjustments
+        db.prepare("UPDATE hr_financials SET status = 'declined' WHERE reference_id = ? AND type = 'extra'").run(op.id);
+    }
+
     const adm = db.prepare("SELECT * FROM admissions WHERE bill_id = ?").get(id);
     if (adm) {
         db.prepare("UPDATE admissions SET status = 'cancelled' WHERE id = ?").run(adm.id);

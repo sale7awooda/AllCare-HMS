@@ -182,7 +182,21 @@ const initDB = (forceReset = false) => {
       FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
     )
   `).run();
-  db.prepare(`CREATE TABLE IF NOT EXISTS hr_financials (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, type TEXT, amount REAL, reason TEXT, date DATE, status TEXT, FOREIGN KEY(staff_id) REFERENCES medical_staff(id))`).run();
+  
+  // Updated hr_financials with reference_id and improved status handling
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS hr_financials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, 
+      staff_id INTEGER NOT NULL, 
+      type TEXT, 
+      amount REAL, 
+      reason TEXT, 
+      date DATE, 
+      status TEXT DEFAULT 'pending', 
+      reference_id INTEGER,
+      FOREIGN KEY(staff_id) REFERENCES medical_staff(id)
+    )
+  `).run();
 
   db.prepare(`
     CREATE TABLE IF NOT EXISTS billing (

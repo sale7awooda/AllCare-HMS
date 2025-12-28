@@ -60,6 +60,7 @@ router.put('/hr/payroll/:id/status', authorizeRoles(Permissions.MANAGE_HR), staf
 
 router.get('/hr/financials', authorizeRoles(Permissions.VIEW_HR), staffController.getFinancials);
 router.post('/hr/financials', authorizeRoles(Permissions.MANAGE_HR), staffController.addAdjustment);
+router.put('/hr/financials/:id/status', authorizeRoles(Permissions.MANAGE_HR), staffController.updateFinancialStatus);
 
 // Appointments
 router.get('/appointments', authorizeRoles(Permissions.VIEW_APPOINTMENTS), appointmentController.getAll);

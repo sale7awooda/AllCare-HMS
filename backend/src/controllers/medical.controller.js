@@ -187,6 +187,21 @@ exports.processOperationRequest = (req, res) => {
     `).run(billInfo.lastInsertRowid, `Surgery: ${op.operation_name}`, totalCost);
 
     db.prepare('UPDATE operations SET bill_id = ? WHERE id = ?').run(billInfo.lastInsertRowid, id);
+
+    // Add 'extra' adjustments for participants
+    if (details.participants && Array.isArray(details.participants)) {
+      const adjStmt = db.prepare(`
+        INSERT INTO hr_financials (staff_id, type, amount, reason, date, status, reference_id)
+        VALUES (?, 'extra', ?, ?, date('now'), 'pending', ?)
+      `);
+      
+      details.participants.forEach(p => {
+        if (p.staffId) {
+          const reason = `Operation participation: ${op.operation_name} (Role: ${p.role})`;
+          adjStmt.run(p.staffId, p.fee, reason, id);
+        }
+      });
+    }
   });
 
   try {
@@ -209,8 +224,14 @@ exports.confirmOperation = (req, res) => {
 
 exports.completeOperation = (req, res) => {
     const { id } = req.params;
-    try {
+    const tx = db.transaction(() => {
         db.prepare("UPDATE operations SET status = 'completed' WHERE id = ?").run(id);
+        // Automatically approve linked 'extra' adjustments
+        db.prepare("UPDATE hr_financials SET status = 'approved' WHERE reference_id = ? AND type = 'extra'").run(id);
+    });
+
+    try {
+        tx();
         res.json({success: true});
     } catch(e) {
         res.status(500).json({error: e.message});
@@ -231,7 +252,7 @@ exports.getActiveAdmissions = (req, res) => {
       JOIN patients p ON a.patient_id = p.id
       JOIN beds b ON a.bed_id = b.id
       JOIN medical_staff m ON a.doctor_id = m.id
-      LEFT JOIN billing bill ON a.bill_id = bill.id
+      LEFT JOIN billing bill ON a.bill_id = b.id
       WHERE a.status IN ('active', 'reserved')
     `).all();
     

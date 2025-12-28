@@ -64,7 +64,7 @@ export interface MedicalStaff {
   consultationFee: number;
   consultationFeeFollowup?: number;
   consultationFeeEmergency?: number;
-  status: 'active' | 'inactive' | 'dismissed';
+  status: 'active' | 'inactive' | 'dismissed' | 'onleave';
   email?: string;
   phone?: string;
   address?: string;
@@ -107,13 +107,18 @@ export interface PayrollRecord {
   netSalary: number;
   status: 'draft' | 'paid';
   generatedAt: string;
+  paymentMethod?: string;
+  transactionRef?: string;
+  paymentNotes?: string;
+  paymentDate?: string;
 }
 
 export interface FinancialAdjustment {
   id: number;
   staffId: number;
   staffName: string;
-  type: 'bonus' | 'fine' | 'loan';
+  /* Fix: Added 'extra' type for clinical operation fees participation */
+  type: 'bonus' | 'fine' | 'loan' | 'extra';
   amount: number;
   reason: string;
   date: string;
@@ -192,7 +197,7 @@ export interface NurseServiceCatalog {
 export interface Bed {
   id: number;
   roomNumber: string;
-  type: 'General' | 'Private' | 'ICU';
+  type: 'General' | 'Private' | 'ICU' | 'Emergency';
   status: 'available' | 'occupied' | 'maintenance' | 'cleaning' | 'reserved';
   costPerDay: number;
 }

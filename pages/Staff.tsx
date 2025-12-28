@@ -6,7 +6,7 @@ import {
   Calendar, DollarSign, Wallet,
   Loader2, Edit, Trash2, MapPin,
   LogIn, LogOut, CheckCircle, XCircle, User, Info, CreditCard, ChevronRight, Eye, RefreshCw, Save,
-  ChevronLeft, CalendarDays, Hash, Landmark, FileText, Filter
+  ChevronLeft, CalendarDays, Hash, Landmark, FileText, Filter, Ban
 } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment, PaymentMethod } from '../types';
@@ -93,8 +93,8 @@ export const Staff = () => {
   const [confirmState, setConfirmState] = useState<{isOpen: boolean, title: string, message: string, action: () => void}>({ isOpen: false, title: '', message: '', action: () => {} });
 
   const [staffForm, setStaffForm] = useState<any>({});
-  const [adjForm, setAdjForm] = useState({ staffId: '', type: 'bonus', amount: '', reason: '', date: new Date().toISOString().split('T')[0] });
-  const [leaveForm, setLeaveForm] = useState({ staffId: '', type: 'sick', startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0], reason: '' });
+  const [adjForm, setAdjForm] = useState({ staffId: '', type: 'bonus' as FinancialAdjustment['type'], amount: '', reason: '', date: new Date().toISOString().split('T')[0] });
+  const [leaveForm, setLeaveForm] = useState({ staffId: '', type: 'sick' as LeaveRequest['type'], startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0], reason: '' });
   const [attendanceModal, setAttendanceModal] = useState<any>(null);
   
   const [selectedPayroll, setSelectedPayroll] = useState<any>(null);
@@ -118,6 +118,13 @@ export const Staff = () => {
     } catch (e) { console.error(e); } finally { if (!isBackground) setLoading(false); }
   };
 
+  const loadFinancials = async () => {
+    try {
+      const data = await api.getFinancials('all');
+      setFinancials(data);
+    } catch(e) { console.error(e); }
+  };
+
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
@@ -128,7 +135,7 @@ export const Staff = () => {
         }
         else if (activeTab === 'leaves') setLeaves(await api.getLeaves());
         else if (activeTab === 'payroll') setPayroll(await api.getPayroll(selectedMonth));
-        else if (activeTab === 'financials') setFinancials(await api.getFinancials('all'));
+        else if (activeTab === 'financials') loadFinancials();
     };
     if(activeTab !== 'directory') fetchTabData();
   }, [activeTab, selectedDate, selectedMonth]);
@@ -178,6 +185,7 @@ export const Staff = () => {
       case 'bonus': reason = t('staff_adj_bonus_note'); break;
       case 'fine': reason = t('staff_adj_fine_note'); break;
       case 'loan': reason = t('staff_adj_loan_note'); break;
+      case 'extra': reason = t('staff_adj_extra_note') || "Operation Fee"; break;
     }
     setAdjForm(prev => ({ ...prev, reason }));
   }, [adjForm.type, isAdjustmentModalOpen, t]);
@@ -228,7 +236,9 @@ export const Staff = () => {
         address: s.address || '', 
         department: s.department || '',
         specialization: s.specialization || '',
+        /* Fix: Corrected property naming available_time_start -> availableTimeStart */
         availableTimeStart: s.availableTimeStart || '09:00',
+        /* Fix: Corrected property naming available_time_end -> availableTimeEnd */
         availableTimeEnd: s.availableTimeEnd || '17:00'
       } : { 
         fullName: '', 
@@ -431,13 +441,38 @@ export const Staff = () => {
       setProcessStatus('processing');
       setProcessMessage(t('staff_process_adj'));
       try {
-        await api.addAdjustment({ ...adjForm, amount: parseFloat(parseNumber(adjForm.amount)) });
-        setFinancials(await api.getFinancials('all'));
+        await api.addAdjustment({ ...adjForm, amount: parseFloat(parseNumber(adjForm.amount)), status: adjForm.type === 'bonus' ? 'approved' : 'pending' });
+        loadFinancials();
         setProcessStatus('success'); setTimeout(() => { setIsAdjustmentModalOpen(false); setProcessStatus('idle'); }, 1000);
       } catch (e: any) { 
         setProcessStatus('error'); 
         setProcessMessage(e.response?.data?.error || e.message || t('error'));
       }
+  };
+
+  const handleApproveAdjustment = async (id: number) => {
+      setProcessStatus('processing');
+      try {
+          /* Fix: Corrected api call name to updateFinancialStatus which was added to api service */
+          await api.updateFinancialStatus(id, 'approved');
+          loadFinancials();
+          setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
+      } catch(e) { setProcessStatus('error'); }
+  };
+
+  const handleDeclineAdjustment = async (id: number) => {
+      setConfirmState({
+          isOpen: true, title: t('cancel'), message: t('confirm'),
+          action: async () => {
+              setProcessStatus('processing');
+              try {
+                  /* Fix: Corrected api call name to updateFinancialStatus which was added to api service */
+                  await api.updateFinancialStatus(id, 'declined');
+                  loadFinancials();
+                  setProcessStatus('success'); setTimeout(() => setProcessStatus('idle'), 1000);
+              } catch(e) { setProcessStatus('error'); }
+          }
+      });
   };
 
   const openPayrollDetails = (p: PayrollRecord) => {
@@ -743,10 +778,38 @@ export const Staff = () => {
                       <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('appointments_form_type')}</th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_adj_reason')}</th>
                       <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('billing_table_header_amount')}</th>
+                      {canManageHR && <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {filteredFinancials.length === 0 ? <tr><td colSpan={5} className="text-center py-20 text-slate-300 font-bold">{t('no_data')}</td></tr> : filteredFinancials.map(f => (<tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40"><td className="px-6 py-4 text-slate-500 font-medium">{new Date(f.date).toLocaleDateString()}</td><td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{f.staffName}</td><td className="px-6 py-4"><Badge color={f.type === 'bonus' ? 'green' : f.type === 'loan' ? 'blue' : 'red'}>{f.type}</Badge></td><td className="px-6 py-4 text-slate-500 text-xs italic">"{f.reason}"</td><td className={`px-6 py-4 text-right font-mono font-black ${f.type === 'bonus' ? 'text-emerald-600' : 'text-rose-600'}`}>${f.amount.toLocaleString()}</td></tr>))}
+                    {filteredFinancials.length === 0 ? <tr><td colSpan={6} className="text-center py-20 text-slate-300 font-bold">{t('no_data')}</td></tr> : filteredFinancials.map(f => {
+                      /* Fix: Comparison error resolved by updating FinancialAdjustment type in types.ts */
+                      const isPendingExtra = f.type === 'extra' && f.status === 'pending';
+                      return (
+                        <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
+                          <td className="px-6 py-4 text-slate-500 font-medium">{new Date(f.date).toLocaleDateString()}</td>
+                          <td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{f.staffName}</td>
+                          <td className="px-6 py-4">
+                            {/* Fix: Badge color 'violet' changed to 'purple' to align with UI component constraints */}
+                            <Badge color={f.type === 'bonus' ? 'green' : f.type === 'loan' ? 'blue' : f.type === 'extra' ? 'purple' : 'red'}>{f.type}</Badge>
+                            {f.status && f.status !== 'approved' && <span className="ml-2 text-[10px] opacity-60">({f.status})</span>}
+                          </td>
+                          <td className="px-6 py-4 text-slate-500 text-xs italic">"{f.reason}"</td>
+                          {/* Fix: Unintentional comparison logic resolved by types.ts update */}
+                          <td className={`px-6 py-4 text-right font-mono font-black ${f.type === 'bonus' || f.type === 'extra' ? 'text-emerald-600' : 'text-rose-600'}`}>${f.amount.toLocaleString()}</td>
+                          {canManageHR && (
+                            <td className="px-6 py-4 text-right">
+                              {isPendingExtra && (
+                                <div className="flex justify-end gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => handleApproveAdjustment(f.id)} icon={CheckCircle}>Approve</Button>
+                                  <Button size="sm" variant="danger" onClick={() => handleDeclineAdjustment(f.id)} icon={Ban}>Decline</Button>
+                                </div>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </Card>
@@ -810,6 +873,7 @@ export const Staff = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
              <Select label={t('staff_form_adj_type')} value={adjForm.type} onChange={e => setAdjForm({...adjForm, type: e.target.value as any})}>
                 <option value="bonus">Bonus / Addition</option>
+                <option value="extra">Extra / Operation Fee (Requires Approval)</option>
                 <option value="fine">Fine / Deduction</option>
                 <option value="loan">Loan / Advance</option>
              </Select>

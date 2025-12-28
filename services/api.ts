@@ -118,6 +118,8 @@ export const api = {
   updatePayrollStatus: (id, data) => put(`/hr/payroll/${id}/status`, data),
   getFinancials: (type) => get(`/hr/financials?type=${type}`), 
   addAdjustment: (data) => post('/hr/financials', data), 
+  /* Fix: Added updateFinancialStatus missing method */
+  updateFinancialStatus: (id, status) => put(`/hr/financials/${id}/status`, { status }),
 
   getAppointments: () => get('/appointments'),
   createAppointment: (data) => post('/appointments', data),
