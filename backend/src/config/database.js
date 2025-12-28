@@ -1,3 +1,4 @@
+
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
@@ -116,10 +117,19 @@ const initDB = (forceReset = false) => {
       phone TEXT,
       address TEXT,
       base_salary REAL DEFAULT 0,
+      bank_details TEXT,
       join_date DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `).run();
+
+  // Migration: Ensure bank_details exists if table was already created
+  try {
+    db.prepare("ALTER TABLE medical_staff ADD COLUMN bank_details TEXT").run();
+    console.log('[Database] Migration: Added bank_details column to medical_staff.');
+  } catch (e) {
+    // Column likely already exists
+  }
 
   db.prepare(`
     CREATE TABLE IF NOT EXISTS patients (

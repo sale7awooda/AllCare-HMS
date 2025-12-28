@@ -6,7 +6,7 @@ import {
   Calendar, DollarSign, Wallet,
   Loader2, Edit, Trash2, MapPin,
   LogIn, LogOut, CheckCircle, XCircle, User, Info, CreditCard, ChevronRight, Eye, RefreshCw, Save,
-  ChevronLeft, CalendarDays, Hash, Landmark, FileText
+  ChevronLeft, CalendarDays, Hash, Landmark, FileText, Sun, Moon
 } from 'lucide-react';
 import { api } from '../services/api';
 import { MedicalStaff, Attendance, LeaveRequest, PayrollRecord, FinancialAdjustment, PaymentMethod } from '../types';
@@ -190,6 +190,8 @@ export const Staff = () => {
         address: s.address || '', 
         department: s.department || '',
         specialization: s.specialization || '',
+        availableTimeStart: s.availableTimeStart || '09:00',
+        availableTimeEnd: s.availableTimeEnd || '17:00'
       } : { 
         fullName: '', 
         type: 'doctor', 
@@ -205,6 +207,7 @@ export const Staff = () => {
         address: '', 
         department: '',
         specialization: '',
+        bankDetails: {}
       });
       setIsModalOpen(true);
   };
@@ -526,9 +529,30 @@ export const Staff = () => {
 
   useHeader(t('staff_title'), t('staff_subtitle'), HeaderTabs);
 
-  const sortedStaff = useMemo(() => {
-    return staff.filter(s => s.fullName.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => (a.status === 'active' ? -1 : 1));
+  // Search filter logic for all tabs
+  const filteredDirectory = useMemo(() => {
+    return staff.filter(s => 
+      s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.employeeId?.toLowerCase().includes(searchTerm.toLowerCase())
+    ).sort((a, b) => (a.status === 'active' ? -1 : 1));
   }, [staff, searchTerm]);
+
+  const filteredAttendance = useMemo(() => {
+    return attendance.filter(a => a.staffName.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [attendance, searchTerm]);
+
+  const filteredLeaves = useMemo(() => {
+    return leaves.filter(l => l.staffName.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [leaves, searchTerm]);
+
+  const filteredPayroll = useMemo(() => {
+    return payroll.filter(p => p.staffName.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [payroll, searchTerm]);
+
+  const filteredFinancials = useMemo(() => {
+    return financials.filter(f => f.staffName.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [financials, searchTerm]);
 
   return (
     <div className="space-y-6">
@@ -543,19 +567,19 @@ export const Staff = () => {
       )}
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-in fade-in slide-in-from-top-2">
-         <div className="w-full md:w-auto flex-1">
-            {activeTab === 'directory' && (
-                <div className="relative max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <input 
-                        type="text" 
-                        placeholder={t('staff_search_placeholder')} 
-                        className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all" 
-                        value={searchTerm} 
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                </div>
-            )}
+         <div className="w-full md:w-auto flex-1 flex flex-col sm:flex-row gap-4 items-center">
+            {/* Universal Search Bar */}
+            <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input 
+                    type="text" 
+                    placeholder={t('staff_search_placeholder')} 
+                    className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all" 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)}
+                />
+            </div>
+            
             {activeTab === 'attendance' && (
                 <div className="flex items-center gap-2">
                     <button className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-slate-500 border border-slate-200 dark:border-slate-700" onClick={() => shiftDate(-1)}><ChevronLeft size={16}/></button>
@@ -584,12 +608,6 @@ export const Staff = () => {
                         />
                     </div>
                     <button className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-slate-500 border border-slate-200 dark:border-slate-700" onClick={() => shiftMonth('next')}><ChevronRight size={16}/></button>
-                </div>
-            )}
-            {(activeTab === 'leaves' || activeTab === 'financials') && (
-                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                    <Info size={18} />
-                    <span className="text-sm font-medium">{t('nav_management')} {activeTab === 'leaves' ? t('staff_tab_leaves') : t('staff_tab_financials')}</span>
                 </div>
             )}
          </div>
@@ -623,7 +641,7 @@ export const Staff = () => {
         <>
           {activeTab === 'directory' && (
               <div className="animate-in fade-in">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{sortedStaff.map(person => {
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{filteredDirectory.map(person => {
                     const statusColors: any = { active: 'green', inactive: 'gray', onleave: 'yellow', dismissed: 'red' };
                     return (
                       <div key={person.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all group flex flex-col h-full">
@@ -646,24 +664,24 @@ export const Staff = () => {
 
           {activeTab === 'attendance' && (
               <div className="animate-in fade-in space-y-4">
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl border overflow-hidden shadow-soft"><table className="w-full text-sm text-left"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_role')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('status')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_attendance_time')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Check Out</th>{canManageHR && <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest no-print">{t('actions')}</th>}</tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-700">{staff.filter(s => s.status === 'active').map(s => { const record = attendance.find(a => a.staffId === s.id); return (<tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"><td><div className="px-6 py-4"><div className="font-bold text-slate-900 dark:text-white">{formatPrefixedName(s)}</div><div className="text-[10px] text-slate-400 uppercase font-black">{t(`staff_role_${s.type}`)}</div></div></td><td className="px-6 py-4">{record ? <Badge color={record.status === 'present' ? 'green' : 'yellow'}>{record.status}</Badge> : <span className="text-slate-300">-</span>}</td><td className="px-6 py-4 font-mono font-bold text-slate-600 dark:text-slate-400">{record?.checkIn || '-'}</td><td className="px-6 py-4 font-mono font-bold text-slate-600 dark:text-slate-400">{record?.checkOut || '-'}</td>{canManageHR && <td className="px-6 py-4 text-right no-print"><div className="flex justify-end gap-2">{!record?.checkIn && <Button size="sm" onClick={() => handleCheckIn(s)} icon={LogIn}>Check In</Button>}{record?.checkIn && !record?.checkOut && <Button size="sm" variant="secondary" onClick={() => handleCheckOut(record)} icon={LogOut}>Check Out</Button>}<Button size="sm" variant="ghost" onClick={() => openAttendanceModal(s.id, s.fullName, 'present')} icon={Edit}>{t('edit')}</Button></div></td>}</tr>)})}</tbody></table></div>
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl border overflow-hidden shadow-soft"><table className="w-full text-sm text-left"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_role')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('status')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_attendance_time')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Check Out</th>{canManageHR && <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest no-print">{t('actions')}</th>}</tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-700">{filteredAttendance.length === 0 ? <tr><td colSpan={canManageHR ? 5 : 4} className="text-center py-20 text-slate-300 font-bold">{t('no_data')}</td></tr> : staff.filter(s => s.status === 'active').map(s => { const record = attendance.find(a => a.staffId === s.id); if (searchTerm && !s.fullName.toLowerCase().includes(searchTerm.toLowerCase())) return null; return (<tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"><td><div className="px-6 py-4"><div className="font-bold text-slate-900 dark:text-white">{formatPrefixedName(s)}</div><div className="text-[10px] text-slate-400 uppercase font-black">{t(`staff_role_${s.type}`)}</div></div></td><td className="px-6 py-4">{record ? <Badge color={record.status === 'present' ? 'green' : 'yellow'}>{record.status}</Badge> : <span className="text-slate-300">-</span>}</td><td className="px-6 py-4 font-mono font-bold text-slate-600 dark:text-slate-400">{record?.checkIn || '-'}</td><td className="px-6 py-4 font-mono font-bold text-slate-600 dark:text-slate-400">{record?.checkOut || '-'}</td>{canManageHR && <td className="px-6 py-4 text-right no-print"><div className="flex justify-end gap-2">{!record?.checkIn && <Button size="sm" onClick={() => handleCheckIn(s)} icon={LogIn}>Check In</Button>}{record?.checkIn && !record?.checkOut && <Button size="sm" variant="secondary" onClick={() => handleCheckOut(record)} icon={LogOut}>Check Out</Button>}<Button size="sm" variant="ghost" onClick={() => openAttendanceModal(s.id, s.fullName, 'present')} icon={Edit}>{t('edit')}</Button></div></td>}</tr>)})}</tbody></table></div>
               </div>
           )}
 
           {activeTab === 'leaves' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in">
-                  {leaves.length === 0 ? <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl opacity-50"><Calendar size={48} className="mx-auto mb-4 text-slate-300"/><p className="text-slate-400 font-bold">{t('staff_no_leaves')}</p></div> : leaves.map(leave => (<div key={leave.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-all"><div className={`absolute top-0 left-0 w-1.5 h-full ${leave.status === 'approved' ? 'bg-emerald-500' : leave.status === 'rejected' ? 'bg-rose-500' : 'bg-amber-500'}`}></div><div className="flex justify-between items-start mb-3"><div><h4 className="font-bold text-slate-800 dark:text-white leading-tight">{leave.staffName}</h4><p className="text-[10px] font-black text-slate-400 uppercase mt-1">{leave.type}</p></div><Badge color={leave.status === 'approved' ? 'green' : leave.status === 'rejected' ? 'red' : 'yellow'}>{leave.status}</Badge></div><div className="space-y-3"><div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg border border-slate-100 dark:border-slate-800"><Calendar size={14}/> {new Date(leave.startDate).toLocaleDateString()} <ChevronRight size={12} className={language === 'ar' ? 'rotate-180' : ''}/> {new Date(leave.endDate).toLocaleDateString()}</div><p className="text-sm italic text-slate-500 dark:text-slate-400 leading-relaxed">"{leave.reason}"</p></div>{canManageHR && leave.status === 'pending' && <div className="flex gap-2 mt-5 pt-4 border-t border-slate-50 dark:border-slate-700 no-print"><Button size="sm" className="flex-1 bg-emerald-600 border-none text-white shadow-emerald-200" onClick={() => updateLeaveStatus(leave.id, 'approved')} icon={CheckCircle}>{t('staff_action_approve')}</Button><Button size="sm" variant="danger" className="flex-1" onClick={() => updateLeaveStatus(leave.id, 'rejected')} icon={XCircle}>{t('staff_action_reject')}</Button></div>}</div>))}
+                  {filteredLeaves.length === 0 ? <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl opacity-50"><Calendar size={48} className="mx-auto mb-4 text-slate-300"/><p className="text-slate-400 font-bold">{t('staff_no_leaves')}</p></div> : filteredLeaves.map(leave => (<div key={leave.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-all"><div className={`absolute top-0 left-0 w-1.5 h-full ${leave.status === 'approved' ? 'bg-emerald-500' : leave.status === 'rejected' ? 'bg-rose-500' : 'bg-amber-500'}`}></div><div className="flex justify-between items-start mb-3"><div><h4 className="font-bold text-slate-800 dark:text-white leading-tight">{leave.staffName}</h4><p className="text-[10px] font-black text-slate-400 uppercase mt-1">{leave.type}</p></div><Badge color={leave.status === 'approved' ? 'green' : leave.status === 'rejected' ? 'red' : 'yellow'}>{leave.status}</Badge></div><div className="space-y-3"><div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg border border-slate-100 dark:border-slate-800"><Calendar size={14}/> {new Date(leave.startDate).toLocaleDateString()} <ChevronRight size={12} className={language === 'ar' ? 'rotate-180' : ''}/> {new Date(leave.endDate).toLocaleDateString()}</div><p className="text-sm italic text-slate-500 dark:text-slate-400 leading-relaxed">"{leave.reason}"</p></div>{canManageHR && leave.status === 'pending' && <div className="flex gap-2 mt-5 pt-4 border-t border-slate-50 dark:border-slate-700 no-print"><Button size="sm" className="flex-1 bg-emerald-600 border-none text-white shadow-emerald-200" onClick={() => updateLeaveStatus(leave.id, 'approved')} icon={CheckCircle}>{t('staff_action_approve')}</Button><Button size="sm" variant="danger" className="flex-1" onClick={() => updateLeaveStatus(leave.id, 'rejected')} icon={XCircle}>{t('staff_action_reject')}</Button></div>}</div>))}
               </div>
           )}
 
           {activeTab === 'payroll' && (
               <div className="animate-in fade-in space-y-4">
-                  <Card className="!p-0 overflow-hidden shadow-soft"><table className="min-w-full text-sm text-left"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_role')}</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_payroll_base')}</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest font-bold">{t('staff_payroll_net')}</th><th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('status')}</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest no-print">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-700">{payroll.length === 0 ? <tr><td colSpan={5} className="text-center py-20 text-slate-300 font-bold">{t('staff_payroll_empty')}</td></tr> : payroll.map(p => (<tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40"><td><div className="px-6 py-4 font-bold text-slate-800 dark:text-white">{p.staffName}</div></td><td className="px-6 py-4 text-right font-mono text-slate-500">${p.baseSalary.toLocaleString()}</td><td className="px-6 py-4 text-right font-mono font-black text-primary-600 text-base">${p.netSalary.toLocaleString()}</td><td className="px-6 py-4 text-center"><Badge color={p.status === 'paid' ? 'green' : 'yellow'}>{p.status}</Badge></td><td className="px-6 py-4 text-right no-print"><div className="flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => openPayrollDetails(p)} icon={Eye}>{t('view')}</Button>{canManageHR && p.status === 'draft' && <Button size="sm" onClick={() => openPayNowModal(p)} icon={CreditCard}>{t('staff_payroll_paid_via')}</Button>}</div></td></tr>))}</tbody></table></Card>
+                  <Card className="!p-0 overflow-hidden shadow-soft"><table className="min-w-full text-sm text-left"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_role')}</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_payroll_base')}</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest font-bold">{t('staff_payroll_net')}</th><th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('status')}</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest no-print">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-700">{filteredPayroll.length === 0 ? <tr><td colSpan={5} className="text-center py-20 text-slate-300 font-bold">{t('staff_payroll_empty')}</td></tr> : filteredPayroll.map(p => (<tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40"><td><div className="px-6 py-4 font-bold text-slate-800 dark:text-white">{p.staffName}</div></td><td className="px-6 py-4 text-right font-mono text-slate-500">${p.baseSalary.toLocaleString()}</td><td className="px-6 py-4 text-right font-mono font-black text-primary-600 text-base">${p.netSalary.toLocaleString()}</td><td className="px-6 py-4 text-center"><Badge color={p.status === 'paid' ? 'green' : 'yellow'}>{p.status}</Badge></td><td className="px-6 py-4 text-right no-print"><div className="flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => openPayrollDetails(p)} icon={Eye}>{t('view')}</Button>{canManageHR && p.status === 'draft' && <Button size="sm" onClick={() => openPayNowModal(p)} icon={CreditCard}>{t('staff_payroll_paid_via')}</Button>}</div></td></tr>))}</tbody></table></Card>
               </div>
           )}
 
           {activeTab === 'financials' && (
-              <Card className="!p-0 overflow-hidden animate-in fade-in shadow-soft"><table className="min-w-full text-sm text-left"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('date')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_role')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('appointments_form_type')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_adj_reason')}</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('billing_table_header_amount')}</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-700">{financials.map(f => (<tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40"><td className="px-6 py-4 text-slate-500 font-medium">{new Date(f.date).toLocaleDateString()}</td><td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{f.staffName}</td><td className="px-6 py-4"><Badge color={f.type === 'bonus' ? 'green' : f.type === 'loan' ? 'blue' : 'red'}>{f.type}</Badge></td><td className="px-6 py-4 text-slate-500 text-xs italic">"{f.reason}"</td><td className={`px-6 py-4 text-right font-mono font-black ${f.type === 'bonus' ? 'text-emerald-600' : 'text-rose-600'}`}>${f.amount.toLocaleString()}</td></tr>))}</tbody></table></Card>
+              <Card className="!p-0 overflow-hidden animate-in fade-in shadow-soft"><table className="min-w-full text-sm text-left"><thead className="bg-slate-50 dark:bg-slate-900"><tr><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('date')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_role')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('appointments_form_type')}</th><th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('staff_form_adj_reason')}</th><th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('billing_table_header_amount')}</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-700">{filteredFinancials.length === 0 ? <tr><td colSpan={5} className="text-center py-20 text-slate-300 font-bold">{t('no_data')}</td></tr> : filteredFinancials.map(f => (<tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40"><td className="px-6 py-4 text-slate-500 font-medium">{new Date(f.date).toLocaleDateString()}</td><td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{f.staffName}</td><td className="px-6 py-4"><Badge color={f.type === 'bonus' ? 'green' : f.type === 'loan' ? 'blue' : 'red'}>{f.type}</Badge></td><td className="px-6 py-4 text-slate-500 text-xs italic">"{f.reason}"</td><td className={`px-6 py-4 text-right font-mono font-black ${f.type === 'bonus' ? 'text-emerald-600' : 'text-rose-600'}`}>${f.amount.toLocaleString()}</td></tr>))}</tbody></table></Card>
           )}
         </>
       )}
@@ -782,6 +800,7 @@ export const Staff = () => {
                 <option value="dismissed">Dismissed</option>
             </Select>
           </div>
+          
           <div className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2"><DollarSign size={14}/> {t('staff_form_financials')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -795,11 +814,41 @@ export const Staff = () => {
                 </div>
             )}
           </div>
+
           <div className="pt-4 border-t dark:border-slate-700">
             <h4 className="text-sm font-bold text-slate-500 mb-4 flex items-center gap-2"><Clock size={16}/> {t('staff_form_availability')}</h4>
             <div className="flex flex-wrap gap-2 mb-5">{DAYS_OF_WEEK.map((day) => (<button key={day} type="button" onClick={() => toggleDay(day)} className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${ (staffForm.availableDays || []).includes(DAYS_OF_WEEK_EN[DAYS_OF_WEEK.indexOf(day)]) ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>{day}</button>))}</div>
-            <div className="grid grid-cols-2 gap-4"><Input label={t('staff_form_start_time')} type="time" value={staffForm.availableTimeStart} onChange={e => setStaffForm({...staffForm, availableTimeStart: e.target.value})} /><Input label={t('staff_form_end_time')} type="time" value={staffForm.availableTimeEnd} onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})} /></div>
+            
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Sun size={12}/> {t('staff_form_start_time')}</label>
+                        <div className="relative group">
+                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none group-focus-within:text-primary-500 transition-colors" />
+                            <input 
+                                type="time" 
+                                value={staffForm.availableTimeStart} 
+                                onChange={e => setStaffForm({...staffForm, availableTimeStart: e.target.value})}
+                                className="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Moon size={12}/> {t('staff_form_end_time')}</label>
+                        <div className="relative group">
+                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none group-focus-within:text-primary-500 transition-colors" />
+                            <input 
+                                type="time" 
+                                value={staffForm.availableTimeEnd} 
+                                onChange={e => setStaffForm({...staffForm, availableTimeEnd: e.target.value})}
+                                className="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
           </div>
+          
           <div className="flex justify-end pt-4 gap-3 border-t dark:border-slate-700 sticky bottom-[-24px] bg-white dark:bg-slate-800 py-3 z-10">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>{t('cancel')}</Button>
             <Button type="submit" icon={Save}>{t('save')}</Button>

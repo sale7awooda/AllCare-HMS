@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Badge, Modal, Input, Select, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Activity, CheckCircle, Clock, User, Syringe, Plus, Trash2, 
   Calculator, Save, ChevronRight, AlertTriangle, Stethoscope, 
-  Package, Zap, Calendar, DollarSign, ChevronDown, ChevronUp, FileText, Briefcase, Search, History, Filter, Info, X, Loader2, XCircle
+  Package, Zap, Calendar, DollarSign, ChevronDown, ChevronUp, FileText, Briefcase, Search, History, Filter, Info, X, Loader2, XCircle, ChevronLeft
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
@@ -27,6 +26,13 @@ const formatNumber = (val: string | number) => {
 
 const parseNumber = (val: string) => {
   return val.replace(/,/g, '');
+};
+
+// Helper to sanitize doctor names and avoid "Dr. Dr."
+const formatDoctorName = (name: string) => {
+  if (!name) return '';
+  const cleanName = name.replace(/^(Dr\.|Doctor)\s+/i, '');
+  return `Dr. ${cleanName}`;
 };
 
 // Formatted Currency Input Component
@@ -70,6 +76,11 @@ export const Operations = () => {
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [searchTerm, setSearchTerm] = useState('');
   
+  // History State
+  const [historyStatusFilter, setHistoryStatusFilter] = useState('All');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   // Unified Header Tabs
   const HeaderTabs = useMemo(() => (
     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -242,11 +253,30 @@ export const Operations = () => {
     return val === key ? status : val;
   };
 
-  const filteredOps = ops.filter(op => { const search = searchTerm.toLowerCase(); return op.patientName.toLowerCase().includes(search) || op.operation_name.toLowerCase().includes(search); });
+  const requestsAndEstimates = useMemo(() => ops.filter(o => {
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = o.patientName.toLowerCase().includes(search) || o.operation_name.toLowerCase().includes(search);
+    return matchesSearch && (o.status === 'requested' || o.status === 'pending_payment');
+  }), [ops, searchTerm]);
 
-  const requestsAndEstimates = filteredOps.filter(o => o.status === 'requested' || o.status === 'pending_payment');
-  const scheduledOps = filteredOps.filter(o => o.status === 'confirmed');
-  const historyOps = filteredOps.filter(o => o.status === 'completed' || o.status === 'cancelled');
+  const scheduledOps = useMemo(() => ops.filter(o => {
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = o.patientName.toLowerCase().includes(search) || o.operation_name.toLowerCase().includes(search);
+    return matchesSearch && o.status === 'confirmed';
+  }), [ops, searchTerm]);
+
+  const filteredHistory = useMemo(() => {
+    return ops.filter(op => { 
+        const search = searchTerm.toLowerCase(); 
+        const matchesSearch = op.patientName.toLowerCase().includes(search) || op.operation_name.toLowerCase().includes(search);
+        const isHistoryStatus = op.status === 'completed' || op.status === 'cancelled';
+        const matchesStatus = historyStatusFilter === 'All' || op.status === historyStatusFilter.toLowerCase();
+        return matchesSearch && isHistoryStatus && matchesStatus;
+    }).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [ops, searchTerm, historyStatusFilter]);
+
+  const paginatedHistory = filteredHistory.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage);
+  const totalHistoryPages = Math.ceil(filteredHistory.length / itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -260,17 +290,31 @@ export const Operations = () => {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-          <div className="relative w-full sm:w-96">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+          <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input 
               type="text" 
               placeholder={t('operations_search_placeholder')} 
               className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all shadow-sm" 
               value={searchTerm} 
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={e => { setSearchTerm(e.target.value); setHistoryPage(1); }}
             />
           </div>
+          {activeTab === 'history' && (
+              <div className="flex gap-2 items-center w-full md:w-auto">
+                <Filter size={14} className="text-slate-400" />
+                <select 
+                    className="pl-3 pr-8 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
+                    value={historyStatusFilter}
+                    onChange={e => { setHistoryStatusFilter(e.target.value); setHistoryPage(1); }}
+                >
+                    <option value="All">{t('records_filter_all')}</option>
+                    <option value="completed">{t('operations_status_completed')}</option>
+                    <option value="cancelled">{t('operations_status_cancelled')}</option>
+                </select>
+              </div>
+          )}
       </div>
 
       {loading ? (
@@ -300,7 +344,7 @@ export const Operations = () => {
                                         <span className="text-xs text-slate-400">{new Date(op.created_at).toLocaleDateString()}</span>
                                     </div>
                                     <h3 className="font-bold text-lg mb-1">{op.operation_name}</h3>
-                                    <p className="text-sm text-slate-500 mb-4">{op.patientName} • Dr. {op.doctorName}</p>
+                                    <p className="text-sm text-slate-500 mb-4">{op.patientName} • {formatDoctorName(op.doctorName)}</p>
                                     {op.status === 'pending_payment' ? (
                                         <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg flex justify-between items-center">
                                             <span className="text-sm font-medium">{t('operations_card_est_cost')}</span>
@@ -338,7 +382,7 @@ export const Operations = () => {
                                             <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{new Date(op.created_at).toLocaleDateString()}</td>
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-slate-800 dark:text-white">{op.operation_name}</div>
-                                                <div className="text-xs text-slate-400">{op.patientName} • Dr. {op.doctorName}</div>
+                                                <div className="text-xs text-slate-400">{op.patientName} • {formatDoctorName(op.doctorName)}</div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <Button size="sm" variant="outline" onClick={() => handleCompleteOp(op.id)}>{t('completed')}</Button>
@@ -354,39 +398,65 @@ export const Operations = () => {
           )}
 
           {activeTab === 'history' && (
-            <Card className="!p-0 overflow-hidden animate-in fade-in">
-                <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
-                    <thead className="bg-slate-50 dark:bg-slate-900/50">
-                        <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('status')}</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('operations_history_header_date')}</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('operations_schedule_header_procedure')}</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('operations_history_header_cost')}</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider"></th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-                        {historyOps.length === 0 ? (
-                            <tr><td colSpan={5} className="text-center py-10 text-slate-400">{t('operations_history_empty')}</td></tr>
-                        ) : (
-                            historyOps.map(op => (
-                                <tr key={op.id} onClick={() => openDetailModal(op)} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer group">
-                                    <td className="px-6 py-4"><Badge color={op.status === 'completed' ? 'gray' : 'red'}>{getTranslatedStatus(op.status)}</Badge></td>
-                                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{new Date(op.created_at).toLocaleDateString()}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-slate-800 dark:text-white group-hover:text-primary-600 transition-colors">{op.operation_name}</div>
-                                        <div className="text-xs text-slate-400">{op.patientName} • Dr. {op.doctorName}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right font-mono font-bold text-primary-600">${op.projected_cost.toLocaleString()}</td>
-                                    <td className="px-6 py-4 text-right">
-                                        <ChevronRight size={16} className={`text-slate-300 group-hover:text-primary-500 transition-colors inline-block ${language === 'ar' ? 'rotate-180' : ''}`} />
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </Card>
+            <div className="space-y-4 animate-in fade-in">
+                <Card className="!p-0 overflow-hidden">
+                    <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
+                        <thead className="bg-slate-50 dark:bg-slate-900/50">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('status')}</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('operations_history_header_date')}</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('operations_schedule_header_procedure')}</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('operations_history_header_cost')}</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider"></th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+                            {paginatedHistory.length === 0 ? (
+                                <tr><td colSpan={5} className="text-center py-10 text-slate-400">{t('operations_history_empty')}</td></tr>
+                            ) : (
+                                paginatedHistory.map(op => (
+                                    <tr key={op.id} onClick={() => openDetailModal(op)} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer group">
+                                        <td className="px-6 py-4"><Badge color={op.status === 'completed' ? 'gray' : 'red'}>{getTranslatedStatus(op.status)}</Badge></td>
+                                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{new Date(op.created_at).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-slate-800 dark:text-white group-hover:text-primary-600 transition-colors">{op.operation_name}</div>
+                                            <div className="text-xs text-slate-400">{op.patientName} • {formatDoctorName(op.doctorName)}</div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-mono font-bold text-primary-600">${op.projected_cost.toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-right">
+                                            <ChevronRight size={16} className={`text-slate-300 group-hover:text-primary-500 transition-colors inline-block ${language === 'ar' ? 'rotate-180' : ''}`} />
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </Card>
+                {/* History Pagination */}
+                {filteredHistory.length > 0 && (
+                    <div className="flex flex-col sm:flex-row justify-between items-center p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 gap-4 shadow-sm">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
+                            <span>{t('patients_pagination_showing')} {paginatedHistory.length} {t('patients_pagination_of')} {filteredHistory.length}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs whitespace-nowrap">{t('patients_pagination_rows')}</span>
+                                <select 
+                                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none cursor-pointer"
+                                    value={itemsPerPage}
+                                    onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setHistoryPage(1); }}
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button size="sm" variant="secondary" onClick={() => setHistoryPage(p => Math.max(1, p-1))} disabled={historyPage === 1} icon={ChevronLeft}>{t('billing_pagination_prev')}</Button>
+                            <Button size="sm" variant="secondary" onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p+1))} disabled={historyPage === totalHistoryPages} icon={ChevronRight}>{t('billing_pagination_next')}</Button>
+                        </div>
+                    </div>
+                )}
+            </div>
           )}
         </>
       )}
@@ -398,7 +468,7 @@ export const Operations = () => {
                 <div>
                     <h4 className="font-black text-xl tracking-tight">{selectedOp?.operation_name}</h4>
                     <p className="text-xs text-slate-400 font-medium mt-1 flex items-center gap-1">
-                        <Stethoscope size={12} /> Dr. {selectedOp?.doctorName}
+                        <Stethoscope size={12} /> {formatDoctorName(selectedOp?.doctorName)}
                     </p>
                 </div>
                 <div className="text-right">
@@ -577,7 +647,7 @@ export const Operations = () => {
                         <div className="flex items-center gap-2 mt-2 text-xs font-bold text-slate-400">
                             <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(viewingOp.created_at).toLocaleDateString()}</span>
                             <span>•</span>
-                            <span className="flex items-center gap-1"><Stethoscope size={12}/> Dr. {viewingOp.doctorName}</span>
+                            <span className="flex items-center gap-1"><Stethoscope size={12}/> {formatDoctorName(viewingOp.doctorName)}</span>
                         </div>
                     </div>
                     <div className="text-right">
