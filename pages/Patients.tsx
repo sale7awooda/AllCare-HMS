@@ -55,7 +55,6 @@ export const Patients = () => {
   
   const [actionFormData, setActionFormData] = useState({
     staffId: '',
-    // Use local date string to avoid timezone shifts on initialization
     date: new Date().toLocaleDateString('en-CA'),
     time: new Date().toTimeString().slice(0, 5), 
     notes: '',
@@ -245,11 +244,10 @@ export const Patients = () => {
 
   const isDoctorAvailableOnDate = (doctor: MedicalStaff, dateString: string) => {
     if (doctor.availableDays && doctor.availableDays.length === 0) return false;
-    if (!doctor.availableDays) return true; // Fallback if undefined
+    if (!doctor.availableDays) return true; 
 
-    // Robust parsing to avoid timezone shifts: manually construct local date
     const [y, m, d] = dateString.split('-').map(Number);
-    const date = new Date(y, m - 1, d); // Month is 0-indexed
+    const date = new Date(y, m - 1, d); 
     
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const currentDayName = dayNames[date.getDay()];
@@ -382,7 +380,6 @@ export const Patients = () => {
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
 
   const getFilteredDoctors = () => {
-    // FIX: Removed status check to show all doctors as requested
     let docs = staff.filter(s => s.type === 'doctor');
     if (selectedSpecialty) docs = docs.filter(s => s.specialization === selectedSpecialty);
     return docs;
@@ -544,7 +541,6 @@ export const Patients = () => {
         )}
       </Card>
 
-      {/* PATIENT REGISTRATION MODAL */}
       <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={isEditing ? t('patients_modal_edit_title') : t('patients_modal_new_title')}>
         <form onSubmit={handlePatientSubmit} className="space-y-8">
           <div className="space-y-5">
@@ -636,7 +632,6 @@ export const Patients = () => {
         </form>
       </Modal>
 
-      {/* QUICK ACTION MENU */}
       <Modal isOpen={isActionMenuOpen} onClose={() => setIsActionMenuOpen(false)} title={t('patients_modal_action_menu_title', {name: selectedPatient?.fullName})}>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[
@@ -662,7 +657,6 @@ export const Patients = () => {
         </div>
       </Modal>
 
-      {/* DETAILED ACTION MODAL */}
       <Modal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} title={currentAction ? t(`patients_modal_action_specific_title_${currentAction}`) : 'Action'}>
         <div className="flex flex-col h-full max-h-[85vh]">
           <div className="mb-4">
@@ -836,7 +830,7 @@ export const Patients = () => {
                         <div className="md:col-span-2 space-y-6">
                             {Object.entries(getBedGrouped()).map(([type, items]) => (
                                 <div key={type} className="space-y-3">
-                                    <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Layers size={14} /> {type} Wards</h4>
+                                    <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Layers size={14} /> {t('bed_type_' + type.toLowerCase())} {t('admissions_wards_label')}</h4>
                                     <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                                         {items.map(bed => {
                                             const isAvailable = bed.status === 'available';
@@ -863,7 +857,7 @@ export const Patients = () => {
                             ))}
                         </div>
                         <div className="bg-slate-50 dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4 h-fit sticky top-0">
-                            <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 mb-2"><ClipboardCheck size={18} /> {t('patients_modal_action_admission_info')}</h4>
+                            <h4 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 mb-2"><ClipboardCheck size={18} /> {t('admissions_care_admission_info')}</h4>
                             <Select label={t('patients_modal_action_assign_doctor')} value={actionFormData.staffId} onChange={e => setActionFormData({...actionFormData, staffId: e.target.value})}>
                                 <option value="">{t('patients_modal_action_select_doctor')}</option>
                                 {staff.filter(s => s.type === 'doctor').map(doc => <option key={doc.id} value={doc.id}>{doc.fullName}</option>)}
@@ -871,13 +865,13 @@ export const Patients = () => {
                             <Input label={t('patients_modal_action_admission_date')} type="date" value={actionFormData.date} onChange={e => setActionFormData({...actionFormData, date: e.target.value})} />
                             <Input label={t('patients_modal_action_required_deposit')} type="number" value={actionFormData.deposit} onChange={e => setActionFormData({...actionFormData, deposit: parseFloat(e.target.value)})} />
                             <div className="pt-2 border-t border-slate-200 dark:border-slate-700 mt-2">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Selected Accommodation</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">{t('admissions_selected_accommodation')}</p>
                                 {selectedBed ? (
                                     <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-lg shadow-sm border border-primary-100">
-                                        <span className="text-sm font-bold">Room {selectedBed.roomNumber}</span>
+                                        <span className="text-sm font-bold">{t('admissions_history_header_room')} {selectedBed.roomNumber}</span>
                                         <Badge color="blue">${formatMoney(selectedBed.costPerDay)} {t('patients_modal_action_bed_cost_per_day')}</Badge>
                                     </div>
-                                ) : <p className="text-xs text-red-500 italic">No bed selected</p>}
+                                ) : <p className="text-xs text-red-500 italic">{t('admissions_no_bed_selected')}</p>}
                             </div>
                         </div>
                     </div>
