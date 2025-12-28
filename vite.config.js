@@ -10,7 +10,6 @@ const __dirname = path.dirname(__filename);
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
   const env = loadEnv(mode, process.cwd(), '');
-  const BACKEND_PORT = env.API_PORT || 3001;
   
   return {
     plugins: [react()],
@@ -28,7 +27,7 @@ export default defineConfig(({ mode }) => {
       strictPort: false,
       proxy: {
         '/api': {
-          target: `http://127.0.0.1:${BACKEND_PORT}`,
+          target: 'https://allcare.up.railway.app',
           changeOrigin: true,
           secure: false,
         }

@@ -3,10 +3,9 @@ import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  // Always use relative path '/api'. 
-  // In development, vite.config.js proxies this to localhost:3001.
-  // In production, the backend serves the frontend, so relative path works perfectly.
-  return '/api';
+  // Direct connection to the deployed Railway backend.
+  // This ensures connectivity regardless of where the frontend is hosted (AI Studio, Vercel, etc.)
+  return 'https://allcare.up.railway.app/api';
 };
 
 const client = axios.create({
