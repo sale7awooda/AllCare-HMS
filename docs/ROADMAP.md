@@ -1,34 +1,32 @@
 # AllCare HMS - Development Roadmap
 
 ## Phase 1: Foundation (Completed ✅)
-*   ✅ Project scaffolding (React + Vite + Express).
-*   ✅ JWT Authentication system.
-*   ✅ Granular RBAC Permission system.
-*   ✅ Base UI Component Library (Tailwind).
+*   ✅ Hybrid Project scaffolding (Vite + Express).
+*   ✅ Production-grade Authentication (JWT + Bcrypt).
+*   ✅ Multi-role RBAC Architecture.
+*   ✅ Theme Engine (Dark/Light/Accent/Density).
 
-## Phase 2: Core Clinical Modules (Completed ✅)
-*   ✅ **Patient Registry:** Searchable database & 360° patient view.
-*   ✅ **Appointments:** Kanban queue with token system and daily lists.
-*   ✅ **Billing:** Invoice generation, partial payments, and refunds.
-*   ✅ **Admissions:** Ward management, bed dashboard, and discharge logic.
+## Phase 2: Core Clinical Workflow (Completed ✅)
+*   ✅ **Patient Management:** 360° medical profile and registry.
+*   ✅ **Appointment System:** Token-based daily queues and list management.
+*   ✅ **Inpatient Ward:** Bed dashboard, clinical vitals, and admission tracking.
+*   ✅ **Laboratory LIS:** Request building, technical entry, and reference ranges.
 
-## Phase 3: Specialized Services (Completed ✅)
-*   ✅ **Laboratory:** Request-to-Result workflow with catalog.
-*   ✅ **Operations:** Cost estimation builder, team assignment, and invoicing.
-*   ✅ **HR & Payroll:** Attendance, Leave tracking, and automated Salary calculation.
-*   ✅ **Treasury:** Tracking hospital expenses, income, and payment method balances.
+## Phase 3: Administrative & Financial (Completed ✅)
+*   ✅ **Full Billing Engine:** Invoicing, partial payments, and refund processing.
+*   ✅ **Treasury Ledgers:** Operational expense tracking and income reporting.
+*   ✅ **HR Suite:** Attendance (Late detection), Leave requests, and Payroll.
+*   ✅ **Surgical Operations:** Cost estimator and clinical team participation.
 
-## Phase 4: System Intelligence & UX (Completed ✅)
-*   ✅ **Analytics:** Financial, Operational, and Demographic reports with charts.
-*   ✅ **Audit Log:** Unified "Records" module for system-wide event tracking.
-*   ✅ **Customization:** Advanced theming (Dark/Light/Accent colors) and Density control.
-*   ✅ **i18n:** Full English/Arabic support with RTL layout.
-*   ✅ **Configuration:** Comprehensive system settings, catalog management, and data backup/restore.
+## Phase 4: System Intelligence (Completed ✅)
+*   ✅ **Analytics Dashboard:** Revenue trends, volume metrics, and demographics.
+*   ✅ **Unified Records:** System-wide audit log for all entity changes.
+*   ✅ **Maintenance Tools:** Database Backup (.db), Restoration, and Reset.
+*   ✅ **I18n:** Full Arabic (RTL) and English (LTR) synchronization.
 
-## Phase 5: Future Enhancements (Planned)
-*   **Pharmacy Module:** Inventory management, batch tracking, and prescription dispensing.
-*   **Real-time Notifications:** WebSockets for instant queue updates and alerts.
-*   **Telemedicine:** Integrated video consultation for outpatients.
-*   **Mobile App:** Dedicated PWA or React Native mobile interface for staff.
-*   **DICOM Integration:** Support for uploading and viewing medical imaging (X-Rays/Scans).
-*   **Patient Portal:** Self-service portal for patients to view results and book appointments.
+## Phase 5: Advanced Medical Features (Planned)
+*   **Pharmacy Module:** Inventory control, expiry alerts, and digital prescriptions.
+*   **Imaging (PACS/DICOM):** Support for viewing X-Rays and Scans within the patient file.
+*   **Real-time Alerts:** WebSocket integration for instant queue updates and critical lab alerts.
+*   **Patient Portal:** Self-service app for patients to book appointments and view results.
+*   **Telemedicine:** Integrated video consultations for remote outpatient care.

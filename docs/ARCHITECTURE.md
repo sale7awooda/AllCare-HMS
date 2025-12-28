@@ -3,79 +3,45 @@
 ## 1. Technology Stack
 
 ### Frontend
-*   **Framework:** React 18+ (Functional Components, Hooks)
-*   **Build Tool:** Vite (Fast HMR, optimized production build)
-*   **Routing:** React Router v6 (`MemoryRouter` for embedded/demo stability)
-*   **State Management:** React Context API
-    *   `AuthContext`: User session and token management.
-    *   `ThemeContext`: Appearance (Dark mode, Accent colors, Density).
-    *   `TranslationContext`: i18n (English/Arabic).
-    *   `HeaderContext`: Dynamic layout header control.
-*   **Styling:** Tailwind CSS with CSS variables for dynamic theming.
-*   **HTTP Client:** Axios with interceptors for Auth injection, 401 handling, and retry logic.
-*   **Charts:** Recharts for data visualization.
-*   **Icons:** Lucide React.
+*   **React 18:** Modern functional components with Hooks API.
+*   **Vite:** Build tool optimized for speed and production asset bundling.
+*   **React Router v6:** SPA navigation using `BrowserRouter`.
+*   **Tailwind CSS:** Utility-first styling with custom CSS variables for live-theming.
+*   **Recharts:** High-performance SVG charts for data visualization.
+*   **Lucide React:** Consistent iconography across the system.
 
-### Backend
-*   **Runtime:** Node.js
-*   **Framework:** Express.js
-*   **Database:** SQLite via `better-sqlite3` (High-performance, synchronous driver).
-*   **Security:**
-    *   `helmet`: Content Security Policy headers.
-    *   `cors`: Cross-Origin Resource Sharing.
-    *   `bcryptjs`: Password hashing.
-    *   `express-rate-limit`: API request throttling.
-*   **Validation:** `zod` for request body schema validation.
-*   **File Handling:** `multer` for database restoration uploads.
+### Backend (Node.js)
+*   **Express.js:** Lightweight and robust web framework.
+*   **Better-SQLite3:** Synchronous, high-performance SQLite driver.
+*   **JWT & BcryptJS:** Industry-standard security for auth and password hashing.
+*   **Multer:** Controlled file handling for database restoration.
 
-## 2. Project Structure
+## 2. Key Architectural Patterns
 
-```text
-/
-├── backend/
-│   ├── public/              # Static frontend assets (post-build)
-│   ├── src/
-│   │   ├── config/          # Database initialization & connection
-│   │   ├── controllers/     # Business logic (Patient, Staff, Billing, etc.)
-│   │   ├── middleware/      # Auth, RBAC, Validation, Logging
-│   │   ├── routes/          # API route definitions
-│   │   └── utils/           # Shared constants (RBAC mirror)
-│   ├── server.js            # Express entry point
-│   └── allcare.db           # SQLite database file
-│
-├── src/
-│   ├── components/          # Reusable UI (Card, Button, Modal, Inputs)
-│   ├── context/             # Global Context Providers
-│   ├── locales/             # i18n JSON files (en.json, ar.json)
-│   ├── pages/               # Feature-specific page views
-│   ├── services/            # Axios API wrapper definition
-│   ├── utils/               # Helper functions (RBAC frontend logic)
-│   ├── App.tsx              # Main application wrapper
-│   └── types.ts             # TypeScript interfaces
-├── docs/                    # Documentation
-└── vite.config.js           # Vite configuration (Proxy setup)
-```
+### 2.1 Synchronous Database Layer
+Unlike standard async drivers, `better-sqlite3` operations are synchronous. This significantly simplifies the backend business logic by removing "callback hell" and `await` overhead, allowing for extremely fast execution of complex queries within Express routes.
 
-## 3. Key Architectural Patterns
+### 2.2 Atomic Business Transactions
+Complex hospital workflows are wrapped in SQLite `db.transaction()` blocks. For example, discharging a patient involves:
+1.  Verifying zero balance.
+2.  Updating Admission status to 'discharged'.
+3.  Setting Bed status to 'cleaning'.
+4.  Converting Patient type back to 'outpatient'.
+These steps fail or succeed as a single unit to prevent data corruption.
 
-### 3.1 Dynamic Header Management
-Pages use a custom `useHeader` hook to inject titles, subtitles, and action buttons (e.g., "Add Patient") directly into the main `Layout` component's header. This keeps the layout cleaner and allows pages to control the global navigation context without prop drilling.
+### 2.3 Synced RBAC (Role-Based Access Control)
+The system uses a mirrored permission matrix:
+*   **Frontend (`utils/rbac.ts`):** Controls UI visibility, button disabled states, and client-side route guarding.
+*   **Backend (`middleware/auth.js`):** Enforces permissions at the API level, ensuring that even direct HTTP requests from tools like Postman are validated against the user's role.
 
-### 3.2 Dual-Sided RBAC
-Permissions are defined in `src/utils/rbac.ts` (Frontend) and mirrored in `backend/src/utils/rbac_backend_mirror.js` (Backend).
-*   **Frontend:** Hides UI elements (buttons, tabs) and guards routes based on user role.
-*   **Backend:** Middleware `authorizeRoles(...)` enforces permissions at the API endpoint level, ensuring security even if the frontend is bypassed.
+### 2.4 Dynamic Header State
+Implemented via `HeaderContext`, allowing child pages (like Patients or Billing) to update the global layout's title, subtitle, and primary action buttons (e.g., "Add Invoice") without complex prop drilling.
 
-### 3.3 Synchronous Database Operations
-The backend utilizes `better-sqlite3`'s synchronous nature. This simplifies the codebase by removing the need for `await` on every DB call and provides excellent performance for the expected scale of this HMS, avoiding the "colored function" problem of async/await in tight loops.
+### 2.5 i18n & RTL Synchronization
+The `TranslationProvider` manages English/Arabic switching. It dynamically updates the HTML `dir` attribute (LTR/RTL) and `lang` tag, triggering CSS layout shifts for a native localized experience.
 
-### 3.4 Atomic Transactions
-Complex operations involving multiple tables are wrapped in `db.transaction`. Examples include:
-*   **Admission:** Updates Bed status + Creates Admission record + Creates Billing Invoice + Creates Bill Items.
-*   **Payment:** Updates Bill status + Creates Transaction log + Updates Service status (e.g., confirming an appointment).
-*   **Payroll:** Calculates deltas for base salary, bonuses, and fines to create or update draft payroll records idempotently.
-
-### 3.5 Database Portability
-The entire system state resides in `allcare.db`. The `Configuration` module leverages this to provide:
-*   **Backup:** Streams the `.db` file to the client as a download.
-*   **Restore:** Uploads a file to overwrite the current `.db` file, effectively restoring the system state.
+## 3. Deployment Strategy
+The system is designed as a "Monolithic Hybrid":
+*   The backend serves the built React frontend from a `public/` directory.
+*   Environment variables manage API keys and database paths.
+*   A single `allcare.db` file holds the entire system state, facilitating easy cloud backups and migrations.

@@ -1,42 +1,24 @@
 
 import axios from 'axios';
 
-/**
- * The primary backend entry point.
- */
-const RAILWAY_BACKEND_URL = 'https://allcare.up.railway.app';
-
+// Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  const host = window.location.hostname;
-  
-  // 1. If we are browsing the app ON the Railway domain, use relative paths.
-  if (host === 'allcare.up.railway.app') {
-    return '/api';
-  }
-
-  // 2. If we are on localhost and likely using the Vite dev proxy, use relative paths.
-  if (host === 'localhost' || host === '127.0.0.1') {
-    return '/api';
-  }
-  
-  // 3. For ALL other environments (Google AI Studio, WebContainer previews, etc.),
-  // we must use the absolute URL to reach your Railway backend.
-  console.log(`[API] External environment detected. Routing to: ${RAILWAY_BACKEND_URL}`);
-  return `${RAILWAY_BACKEND_URL}/api`;
+  // Always use relative path '/api'. 
+  // In development, vite.config.js proxies this to localhost:3001.
+  // In production, the backend serves the frontend, so relative path works perfectly.
+  return '/api';
 };
 
 const client = axios.create({
   baseURL: getBaseUrl(),
-  headers: { 
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  },
-  timeout: 45000, // Increased to 45s for slow cold starts
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 30000,
 });
 
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
+    // Robust header setting for current Axios versions
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -48,38 +30,50 @@ client.interceptors.response.use(
   async (error) => {
     const { config, response } = error;
     
-    // 1. Handle Rate Limiting (429)
+    // Auto-retry once on 429
     if (response?.status === 429 && !config._retry) {
       config._retry = true;
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.warn('Rate limit hit, retrying in 1s...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
       return client(config);
     }
 
-    // 2. Handle Network Errors / Cold Starts
-    // Railway "Hobby" instances often take 15-25 seconds to spin up.
-    const isNetworkError = error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response;
-    
-    if (isNetworkError) {
-        config._retryCount = (config._retryCount || 0) + 1;
-        const MAX_RETRIES = 8; // More retries to survive a full container boot
-        
-        if (config._retryCount <= MAX_RETRIES) {
-            const delay = 4000; // 4 second intervals
-            console.warn(`[API] Connection attempt ${config._retryCount}/${MAX_RETRIES} failed. Server may be waking up. Retrying in ${delay}ms...`);
+    // Aggressive Auto-retry on Network Error
+    if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork) {
+        config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
+        const MAX_RETRIES = 5; 
+        if (config._retryNetworkCount <= MAX_RETRIES) {
+            const delay = 2000;
+            console.log(`Backend unreachable. Retrying in ${delay}ms... (${config._retryNetworkCount}/${MAX_RETRIES})`);
             await new Promise(resolve => setTimeout(resolve, delay));
             return client(config);
         }
     }
 
-    // 3. Handle Session Expiry (401)
+    // Authentication failure (No token or invalid token)
     if (error.response?.status === 401) {
-      const isAuthRequest = config.url?.includes('/auth/login') || config.url?.includes('/auth/me');
-      if (!isAuthRequest) {
-        localStorage.removeItem('token');
-        window.dispatchEvent(new Event('auth:expired'));
-      }
+      console.error('Session expired or invalid. Redirecting to login.');
+      localStorage.removeItem('token');
+      window.dispatchEvent(new Event('auth:expired'));
     } 
     
+    // Authorization failure (Authenticated but no permission)
+    if (error.response?.status === 403) {
+      console.error('Access forbidden: You do not have permission to access this resource.');
+      // Optional: show a specific toast or error UI
+    }
+
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health') || config.url?.includes('/notifications');
+        if (!isPolling) {
+            console.error('Backend unreachable:', config.url);
+            const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
+            (enhancedError as any).code = 'ERR_NETWORK';
+            (enhancedError as any).isNetworkError = true;
+            return Promise.reject(enhancedError);
+        }
+    }
+
     return Promise.reject(error);
   }
 );
@@ -96,6 +90,7 @@ export const api = {
   changePassword: (data) => put('/auth/password', data),
   checkSystemHealth: () => get('/config/health'),
 
+  // Notifications
   getNotifications: () => get('/notifications'),
   markNotificationRead: (id) => put(`/notifications/${id}/read`),
   markAllNotificationsRead: () => put('/notifications/read-all'),
@@ -118,7 +113,6 @@ export const api = {
   updatePayrollStatus: (id, data) => put(`/hr/payroll/${id}/status`, data),
   getFinancials: (type) => get(`/hr/financials?type=${type}`), 
   addAdjustment: (data) => post('/hr/financials', data), 
-  /* Fix: Added updateFinancialStatus missing method */
   updateFinancialStatus: (id, status) => put(`/hr/financials/${id}/status`, { status }),
 
   getAppointments: () => get('/appointments'),
@@ -151,9 +145,8 @@ export const api = {
   getLabTests: () => get('/config/lab-tests'),
   getPendingLabRequests: () => get('/lab/requests'),
   createLabRequest: (data) => post('/lab/requests', data),
-  completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`),
+  completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`, data),
   confirmLabRequest: (id) => post(`/lab/requests/${id}/confirm`),
-  // Fix: Added missing reopenLabRequest method required by Laboratory.tsx
   reopenLabRequest: (id) => post(`/lab/requests/${id}/reopen`),
 
   getNurseServices: () => get('/config/nurse-services'),
@@ -203,6 +196,10 @@ export const api = {
   addInsuranceProvider: (data) => post('/config/insurance-providers', data),
   updateInsuranceProvider: (id, data) => put(`/config/insurance-providers/${id}`, data),
   deleteInsuranceProvider: (id) => del(`/config/insurance-providers/${id}`),
+  getBanks: () => get('/config/banks'),
+  addBank: (data) => post('/config/banks', data),
+  updateBank: (id, data) => put(`/config/banks/${id}`, data),
+  deleteBank: (id) => del(`/config/banks/${id}`),
   getTaxRates: () => get('/config/tax-rates'),
   addTaxRate: (data) => post('/config/tax-rates', data),
   updateTaxRate: (id, data) => put(`/config/tax-rates/${id}`, data),

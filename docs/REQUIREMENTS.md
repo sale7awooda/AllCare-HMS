@@ -3,94 +3,55 @@
 ## 1. Functional Requirements
 
 ### 1.1 Authentication & Security
-*   **Login:** Secure login screen with username/password authentication.
-*   **Quick Profiles:** Demo-friendly "Quick Profile" selection for rapid testing of different roles (Admin, Doctor, Nurse, etc.).
-*   **Authentication:** JWT-based token authentication with automatic expiration handling.
-*   **Authorization:** Granular Role-Based Access Control (RBAC) mirrored between frontend and backend.
-*   **Password Security:** Backend hashing using `bcryptjs`.
-*   **Session Management:** Secure logout and session expiry detection.
+*   **Secure Login:** Role-based access with JWT token authentication.
+*   **Quick Profiles:** Demo-friendly selection for testing Admin, Doctor, Nurse, Lab, and Finance roles.
+*   **RBAC (Role-Based Access Control):** Granular permission system enforced on both frontend UI and backend API endpoints.
+*   **Session Management:** Automatic detection of token expiry with graceful redirection to login.
 
 ### 1.2 Patient Management
-*   **Patient Registry:** Paginated, searchable list of all patients with filtering by type (Inpatient, Outpatient, Emergency).
-*   **Registration:** Comprehensive form capturing demographics, medical history, allergies, emergency contacts, and insurance details.
-*   **360° View:** detailed modal view showing:
-    *   **Overview:** Personal & contact info, medical profile.
-    *   **Timeline:** Chronological history of appointments and visits.
-    *   **Labs:** History of laboratory requests and results.
-    *   **Financials:** List of invoices and payment status.
-*   **Quick Actions:** Unified menu to trigger Appointments, Lab Requests, Nurse Services, Admissions, or Operations directly from the patient list.
+*   **Digital Registry:** Searchable database with demographic tracking and patient categorization.
+*   **360° Patient File:** A centralized view for clinical history, timeline of visits, lab results, and financial balances.
+*   **Quick Actions:** Initiate any clinical or administrative process (Admit, Book, Test, Operate) directly from the patient record.
 
-### 1.3 Appointment Management
-*   **Queue View:** Kanban-style columns per doctor showing daily queues (Waiting, In Progress, Done).
-*   **List View:** Tabular view for searching and filtering historical appointments.
-*   **Scheduling:** Conflict detection preventing duplicate clinical visits (Consultation/Follow-up) for the same doctor on the same day.
-*   **Status Workflow:** `Pending` -> `Confirmed` -> `In Progress` -> `Completed` / `Cancelled`.
-*   **Billing Integration:** Automatic generation of pending invoices based on staff consultation fees.
+### 1.3 Clinical Operations
+*   **Appointment Queue:** Kanban-style visualization of daily patient flow (Waiting, In-Progress, Completed).
+*   **Daily Token System:** Automated sequential numbering for daily clinic visits.
+*   **Ward Management:** Visual dashboard for bed occupancy with color-coded statuses (Available, Occupied, Reserved, Cleaning).
+*   **Inpatient Care:** Structured clinical notes with vitals tracking (BP, Temp, Pulse, SpO2, GCS, Sugar).
+*   **Automated Discharge Logic:** Verification of financial clearance before final discharge and medical report generation.
 
-### 1.4 Inpatient & Admissions
-*   **Ward Dashboard:** Visual grid of beds with status indicators (Available, Occupied, Reserved, Maintenance, Cleaning).
-*   **Admission Workflow:**
-    *   **Reservation:** Select bed, assign doctor, and generate deposit bill.
-    *   **Confirmation:** Activate admission upon deposit payment.
-    *   **Care:** Track duration, manage clinical notes, and record vitals (BP, Temp, Pulse, Resp).
-*   **Discharge Process:** Logic to block discharge if outstanding bills exist. Finalizes stay and marks bed for cleaning.
-*   **History:** Searchable archive of past admissions.
+### 1.4 Specialized Medical Services
+*   **Laboratory Information System (LIS):** 
+    *   Request builder with catalog-based pricing.
+    *   Technical validation screen for entering results.
+    *   Multi-parameter test support with normal reference range tracking.
+*   **Surgical Operations:**
+    *   Multi-stage workflow: Request -> Estimation -> Payment -> Schedule -> Completion.
+    *   Detailed Cost Estimator: Includes Surgeon/Theater fees, clinical team participation, and consumables.
+*   **Nurse Services:** Managed task queue for procedures like injections, dressings, and IV drips.
 
-### 1.5 Medical Services
-*   **Laboratory:**
-    *   Catalog of tests with pricing categories.
-    *   "Shopping Cart" style request builder.
-    *   Result entry form with findings and technician notes.
-*   **Nurse Services:**
-    *   Service catalog (Injections, Dressings, etc.).
-    *   Assignment of tasks to specific nursing staff.
-*   **Operations (Surgery):**
-    *   Request workflow: Surgeon request -> Cost Estimation -> Financial Approval -> Scheduling -> Completion.
-    *   Detailed cost builder: Surgeon fee, Theater fee, Team (Anesthesiologist, Nurses), Consumables, and Equipment.
+### 1.5 Financial & Treasury Management
+*   **Automated Invoicing:** Bills generated automatically for appointments, labs, and ward stays.
+*   **Payment Processing:** Support for Cash, Bank Transfer, and Insurance claims.
+*   **Treasury Ledger:** Full audit trail of income and expenses with net liquidity tracking.
+*   **Settlement Workflow:** Ability to consolidate multiple pending bills into a single final settlement invoice for discharged patients.
 
-### 1.6 Billing & Finance
-*   **Invoices:** Create, view, and print detailed invoices. Support for tax calculation.
-*   **Payments:** Record payments via multiple methods (Cash, Insurance, Bank Transfer, etc.).
-*   **Refunds:** Process refunds for cancelled services with strict validation logic.
-*   **Treasury:**
-    *   **Dashboard:** Income vs. Expenses, Net Cash Flow.
-    *   **Transactions:** Ledger of all financial movements.
-    *   **Expenses:** Record operational costs (Rent, Salaries, Supplies).
-
-### 1.7 Human Resources (HR)
-*   **Staff Directory:** Manage employee profiles, roles, departments, and financial terms (Salary, Fees).
-*   **Attendance:** Daily check-in/check-out tracking with "Late" status detection.
-*   **Leaves:** Request and approval workflow for sick, vacation, and unpaid leaves.
-*   **Payroll:**
-    *   **Generation:** Automated calculation of Net Salary = Base + Bonuses - Fines (Attendance/Manual).
-    *   **Disbursement:** Record payment of salaries with method and reference tracking.
-    *   **Adjustments:** Manual entry of bonuses, fines, or loans.
-
-### 1.8 Analytics & Reporting
-*   **Financial Reports:** Revenue trends, Income by Method, Top Services.
-*   **Operational Reports:** Appointment volume, Doctor workload, Department utilization.
-*   **Demographics:** Patient age distribution, gender split, growth trends.
-*   **Activity Log:** System-wide audit trail (Records) tracking creation and updates of key entities.
-
-### 1.9 System Configuration
-*   **General:** Hospital profile settings (Name, Address, Phone).
-*   **Access Control:** User account management and dynamic Role-Permission matrix.
-*   **Catalogs:** Management of Departments, Specializations, Lab Tests, Nurse Services, Operation Types, Insurance Providers, Banks.
-*   **Financial Config:** Tax rates and Payment methods.
-*   **Infrastructure:** Ward and Bed management.
-*   **Data Management:** Database Backup (.db download), Restoration, and Factory Reset.
-*   **Diagnostics:** Real-time backend health check (API status, DB latency, Uptime).
+### 1.6 Human Resources & Payroll
+*   **Attendance Tracking:** Check-in/out logging with automatic "Late" detection based on shift timing.
+*   **Leave Management:** Request/Approval system for various leave types (Sick, Vacation, Unpaid).
+*   **Smart Payroll:** Automated salary calculation (Net = Base + Bonuses + Extra Fees - Attendance Fines).
+*   **Participation Fees:** Automatic crediting of surgical team members upon operation completion.
 
 ## 2. Non-Functional Requirements
 
-### 2.1 UI/UX
-*   **Theming:** Robust theme engine with Light/Dark/System modes and 20+ accent colors.
-*   **Density:** Toggle between "Comfortable" and "Compact" layout densities.
-*   **Internationalization:** Full support for English (LTR) and Arabic (RTL) with dynamic switching.
-*   **Responsive:** Mobile-first design adapting to tablets and desktops.
+### 2.1 UI/UX Design
+*   **Modern Interface:** Built with Tailwind CSS and Plus Jakarta Sans typography.
+*   **Dynamic Theming:** Light/Dark/System modes with 20+ customizable accent colors.
+*   **Accessibility:** Full support for RTL (Arabic) and LTR (English) layouts.
+*   **Responsiveness:** Fluid adaptation from mobile handsets to high-resolution desktop monitors.
+*   **UI Density:** Toggle between "Comfortable" and "Compact" views for data-heavy screens.
 
-### 2.2 Architecture & Performance
-*   **Frontend:** React 18, Vite, Tailwind CSS.
-*   **Backend:** Node.js, Express, `better-sqlite3` (Synchronous I/O for speed).
-*   **Database:** Self-contained SQLite file for portability and ease of backup.
-*   **Resilience:** Auto-retry mechanisms for network flakiness and 429 rate limits.
+### 2.2 Performance & Architecture
+*   **Synchronous Speed:** Powered by `better-sqlite3` for high-performance data operations.
+*   **Resilient API:** Built-in retry logic and circuit breakers for handling network instability.
+*   **Atomic Transactions:** Ensures data integrity during complex multi-table operations (e.g., Admission + Billing).
