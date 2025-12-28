@@ -833,12 +833,12 @@ export const Patients = () => {
               )}
 
               {currentAction === 'admission' && (
-                <div className="space-y-6">
+                <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="md:col-span-2 space-y-6">
+                        <div className="md:col-span-2 space-y-3">
                             {Object.entries(getBedGrouped()).map(([type, items]) => (
-                                <div key={type} className="space-y-3">
-                                    <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Layers size={14} /> {t(`bed_type_${type.toLowerCase()}`)} {t('patients_modal_action_ward_suffix')}</h4>
+                                <div key={type} className="space-y-2">
+                                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5"><Layers size={12} /> {t(`bed_type_${type.toLowerCase()}`)}</h4>
                                     <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                                         {items.map(bed => {
                                             const isAvailable = bed.status === 'available';
