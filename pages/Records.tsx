@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
-// Added missing ChevronDown and Loader2 imports
 import { 
   Database, Search, Filter, ChevronLeft, ChevronRight, FileText, Download, Printer, X, Info, Clock, Hash, User, Users, Receipt, Calendar, Briefcase, RefreshCcw, ExternalLink, ArrowRight,
   ChevronDown, Loader2
@@ -25,7 +25,7 @@ export const Records = () => {
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const HeaderActions = useMemo(() => (
-    <div className="relative" ref={exportMenuRef}>
+    <div className="relative no-print" ref={exportMenuRef}>
       <Button variant="outline" icon={Download} onClick={() => setShowExportMenu(!showExportMenu)} className="bg-white dark:bg-slate-800">
         {t('records_export_button')}
       </Button>
@@ -212,7 +212,9 @@ export const Records = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 no-print">
+      
+      {/* Search & Filters - Hidden on Print */}
+      <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 no-print ${selectedRecord ? 'print:hidden' : ''}`}>
           <div className="md:col-span-2 relative group">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors">
                 <Search size={18} />
@@ -249,8 +251,16 @@ export const Records = () => {
           </Button>
       </div>
 
-      <Card className="!p-0 border border-slate-200 dark:border-slate-700 shadow-card overflow-hidden">
-        <div className="overflow-x-auto min-h-[500px]">
+      {/* Main Records Table - Hidden if Modal is open during Print */}
+      <Card className={`!p-0 border border-slate-200 dark:border-slate-700 shadow-card overflow-hidden ${selectedRecord ? 'print:hidden' : ''}`}>
+        
+        {/* Print Header for Table */}
+        <div className="hidden print:block p-4 border-b">
+            <h2 className="text-xl font-bold">System Records Log</h2>
+            <p className="text-sm text-gray-500">Generated: {new Date().toLocaleString()}</p>
+        </div>
+
+        <div className="overflow-x-auto min-h-[500px] print:min-h-0 print:overflow-visible">
           <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
             <thead className="bg-slate-50 dark:bg-slate-900/80">
                 <tr>
@@ -289,7 +299,7 @@ export const Records = () => {
                         <tr key={r.id} onClick={() => setSelectedRecord(r)} className="hover:bg-primary-50/30 dark:hover:bg-primary-900/10 transition-all cursor-pointer group animate-in slide-in-from-bottom-1 duration-200">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-slate-100 dark:bg-slate-900 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-sm">
+                                <div className="w-10 h-10 bg-slate-100 dark:bg-slate-900 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-sm print:shadow-none print:border">
                                   {getTypeIcon(r.type)}
                                 </div>
                                 <div>
@@ -313,7 +323,7 @@ export const Records = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                 {r.value ? (
-                                  <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg">
+                                  <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg print:bg-white print:text-black">
                                     ${r.value.toLocaleString()}
                                   </span>
                                 ) : <span className="text-slate-300">-</span>}
@@ -374,14 +384,14 @@ export const Records = () => {
       <Modal isOpen={!!selectedRecord} onClose={() => setSelectedRecord(null)} title={t('records_modal_analysis_title', { ref: selectedRecord?.refId })}>
         {selectedRecord && (
           <div className="space-y-6">
-            <div className={`flex flex-wrap items-center gap-4 p-5 rounded-3xl border shadow-xl relative overflow-hidden ${
+            <div className={`flex flex-wrap items-center gap-4 p-5 rounded-3xl border shadow-xl relative overflow-hidden print:shadow-none print:border-slate-300 ${
               selectedRecord.type === 'Patient' ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/20' : 
               selectedRecord.type === 'Appointment' ? 'bg-violet-50 border-violet-100 dark:bg-violet-900/20' : 
               selectedRecord.type === 'Invoice' ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20' :
               'bg-orange-50 border-orange-100 dark:bg-orange-900/20'
             }`}>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-              <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-lg text-primary-600 z-10">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl print:hidden" />
+              <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-lg text-primary-600 z-10 print:shadow-none print:border">
                  {getTypeIcon(selectedRecord.type)}
               </div>
               <div className="flex-1 min-w-[200px] z-10">
@@ -428,19 +438,19 @@ export const Records = () => {
                  <Database size={12}/> {t('records_modal_context')}
                </h4>
                <div className="relative group">
-                 <pre className="text-[11px] font-mono bg-slate-900 text-emerald-400 p-5 rounded-2xl overflow-x-auto custom-scrollbar max-h-72 leading-relaxed shadow-inner">
+                 <pre className="text-[11px] font-mono bg-slate-900 text-emerald-400 p-5 rounded-2xl overflow-x-auto custom-scrollbar max-h-72 leading-relaxed shadow-inner print:bg-white print:text-black print:border print:border-slate-300 print:max-h-none print:overflow-visible">
                     {JSON.stringify(selectedRecord.rawData, null, 2)}
                  </pre>
                  <button 
                   onClick={() => navigator.clipboard.writeText(JSON.stringify(selectedRecord.rawData, null, 2))}
-                  className="absolute top-3 right-3 p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg opacity-0 group-hover:opacity-100 transition-all text-[10px] font-black uppercase tracking-widest"
+                  className="absolute top-3 right-3 p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg opacity-0 group-hover:opacity-100 transition-all text-[10px] font-black uppercase tracking-widest no-print"
                  >
                     {isRtl ? 'نسخ' : 'Copy'}
                  </button>
                </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 no-print">
               <Button variant="ghost" icon={Printer} onClick={() => window.print()} className="w-full sm:w-auto text-slate-500 hover:text-slate-800">
                 {t('records_modal_print')}
               </Button>
@@ -453,16 +463,6 @@ export const Records = () => {
           </div>
         )}
       </Modal>
-      
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          #root, #root * { visibility: hidden !important; }
-          .Modal, .Modal * { visibility: visible !important; }
-          .Modal { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: auto !important; overflow: visible !important; background: white !important; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
     </div>
   );
 };

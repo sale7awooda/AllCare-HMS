@@ -8,7 +8,6 @@ import {
 import { 
   TrendingUp, Users, Calendar, DollarSign, Download, 
   Activity, ArrowUpRight, ArrowDownRight, Filter, 
-  // Added missing imports Clock and CheckCircle
   FilePlus, CreditCard, Printer, ChevronDown, 
   Landmark, Layers, 
   BarChart3, Stethoscope, Search, CalendarDays, Clock, CheckCircle
@@ -185,7 +184,7 @@ export const Reports = () => {
   };
 
   const HeaderActions = useMemo(() => (
-    <div className="relative" ref={exportMenuRef}>
+    <div className="relative no-print" ref={exportMenuRef}>
       <Button variant="primary" icon={Download} onClick={() => setShowExportMenu(!showExportMenu)}>
         {t('reports_export_button')} <ChevronDown size={14} className={`ml-2 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
       </Button>
@@ -243,13 +242,13 @@ export const Reports = () => {
   );
 
   const StatCard = ({ title, value, subtitle, icon: Icon, colorClass, trend }: any) => (
-    <Card className="!p-5 bg-white dark:bg-slate-800 shadow-soft border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 group">
+    <Card className="!p-5 bg-white dark:bg-slate-800 shadow-soft border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 group print:shadow-none print:border">
       <div className="flex justify-between items-start">
-        <div className={`p-3 rounded-2xl ${colorClass} text-white shadow-xl transition-transform group-hover:scale-110`}>
+        <div className={`p-3 rounded-2xl ${colorClass} text-white shadow-xl transition-transform group-hover:scale-110 print:shadow-none print:text-black print:bg-gray-100`}>
           <Icon size={24} />
         </div>
         {trend !== undefined && (
-           <div className={`flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full ${trend > 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/30'}`}>
+           <div className={`flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full ${trend > 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/30'} print:hidden`}>
               {trend > 0 ? <ArrowUpRight size={12}/> : <ArrowDownRight size={12}/>}
               {Math.abs(trend)}%
            </div>
@@ -265,6 +264,12 @@ export const Reports = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Print Header */}
+      <div className="hidden print:block mb-8">
+        <h1 className="text-2xl font-bold mb-2">AllCare HMS - {t(activeTab === 'financial' ? 'reports_tab_financial' : activeTab === 'operational' ? 'reports_tab_operational' : 'reports_tab_demographics')} Report</h1>
+        <p className="text-sm text-gray-500">Generated on {new Date().toLocaleDateString()}</p>
+      </div>
+
       {/* Filters Bar */}
       <div className="flex flex-col lg:flex-row justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm gap-3 no-print">
         <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl shrink-0 w-full lg:w-auto overflow-x-auto">
@@ -308,20 +313,20 @@ export const Reports = () => {
         </div>
       </div>
 
-      <div className="print-content animate-in fade-in duration-500">
+      <div className="print:block animate-in fade-in duration-500">
         {/* --- FINANCIAL VIEW --- */}
         {activeTab === 'financial' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 print:grid-cols-2">
               <StatCard title={t('reports_stat_net_profit')} value={`$${financialStats.netProfit.toLocaleString()}`} subtitle={t('reports_stat_net_subtitle')} icon={TrendingUp} colorClass={financialStats.netProfit >= 0 ? "bg-emerald-500" : "bg-rose-500"} trend={15} />
               <StatCard title={t('reports_stat_gross_revenue')} value={`$${financialStats.totalRevenue.toLocaleString()}`} subtitle={t('reports_stat_gross_subtitle')} icon={CreditCard} colorClass="bg-blue-600" trend={8} />
               <StatCard title={t('reports_stat_outstanding')} value={`$${financialStats.outstanding.toLocaleString()}`} subtitle={t('reports_stat_outstanding_subtitle')} icon={Clock} colorClass="bg-orange-500" trend={-2} />
               <StatCard title={t('reports_stat_avg_patient')} value={`$${financialStats.avgInvoice.toLocaleString()}`} subtitle={t('reports_stat_avg_subtitle')} icon={Layers} colorClass="bg-violet-600" trend={5} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-2 !p-0" title={t('reports_chart_revenue_trend')}>
-                <div className="h-72 w-full p-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:block print:space-y-6">
+              <Card className="lg:col-span-2 !p-0 print:border print:shadow-none" title={t('reports_chart_revenue_trend')}>
+                <div className="h-72 w-full p-4 print:h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={financialStats.revenueTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
@@ -340,8 +345,8 @@ export const Reports = () => {
                 </div>
               </Card>
 
-              <Card className="!p-0" title={t('reports_chart_income_method')}>
-                <div className="h-72 w-full p-4">
+              <Card className="!p-0 print:border print:shadow-none" title={t('reports_chart_income_method')}>
+                <div className="h-72 w-full p-4 print:h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={financialStats.incomeByMethod} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value">
@@ -354,8 +359,8 @@ export const Reports = () => {
                 </div>
               </Card>
 
-              <Card className="lg:col-span-3 !p-0" title={t('reports_chart_top_services')}>
-                <div className="h-64 w-full p-6">
+              <Card className="lg:col-span-3 !p-0 print:border print:shadow-none" title={t('reports_chart_top_services')}>
+                <div className="h-64 w-full p-6 print:h-auto">
                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={financialStats.topServices} layout="vertical" margin={{ left: 20, right: 40, top: 10, bottom: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
@@ -376,15 +381,15 @@ export const Reports = () => {
         {/* --- OPERATIONAL VIEW --- */}
         {activeTab === 'operational' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3">
               <StatCard title={t('reports_stat_total_volume')} value={operationalStats.total} subtitle={t('reports_stat_volume_subtitle')} icon={Calendar} colorClass="bg-indigo-600" trend={12} />
               <StatCard title={t('reports_stat_fulfillment_rate')} value={`${operationalStats.completionRate}%`} subtitle={t('reports_stat_fulfillment_subtitle')} icon={CheckCircle} colorClass="bg-emerald-600" trend={3} />
               <StatCard title={t('reports_stat_busiest_service')} value={operationalStats.deptRank[0]?.name || '-'} subtitle={t('reports_stat_busiest_subtitle')} icon={BarChart3} colorClass="bg-amber-600" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card title={t('reports_chart_dept_utilization')}>
-                <div className="h-72 w-full p-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:block print:space-y-6">
+              <Card title={t('reports_chart_dept_utilization')} className="print:border print:shadow-none">
+                <div className="h-72 w-full p-4 print:h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={operationalStats.deptRank} cx="50%" cy="50%" outerRadius={90} dataKey="value" labelLine={false} label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
@@ -397,8 +402,8 @@ export const Reports = () => {
                 </div>
               </Card>
 
-              <Card title={t('reports_chart_staff_performance')}>
-                <div className="h-72 w-full p-4">
+              <Card title={t('reports_chart_staff_performance')} className="print:border print:shadow-none">
+                <div className="h-72 w-full p-4 print:h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={operationalStats.doctorRank} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
@@ -419,15 +424,15 @@ export const Reports = () => {
         {/* --- DEMOGRAPHICS VIEW --- */}
         {activeTab === 'demographics' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3">
               <StatCard title={t('reports_stat_registry_size')} value={patientStats.total} subtitle={t('reports_stat_registry_subtitle')} icon={Users} colorClass="bg-blue-600" trend={5} />
               <StatCard title={t('reports_stat_acquisition')} value={patientStats.newCount} subtitle={t('reports_stat_acquisition_subtitle')} icon={FilePlus} colorClass="bg-emerald-600" trend={18} />
               <StatCard title={t('reports_stat_primary_segment')} value={patientStats.ageDist.sort((a,b)=>b.value-a.value)[0]?.name || '-'} subtitle={t('reports_stat_segment_subtitle')} icon={Layers} colorClass="bg-violet-600" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-2" title={t('reports_chart_growth_trend')}>
-                 <div className="h-72 w-full p-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:block print:space-y-6">
+              <Card className="lg:col-span-2 print:border print:shadow-none" title={t('reports_chart_growth_trend')}>
+                 <div className="h-72 w-full p-4 print:h-64">
                     <ResponsiveContainer width="100%" height="100%">
                        <AreaChart data={patientStats.growthTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <defs>
@@ -446,8 +451,8 @@ export const Reports = () => {
                  </div>
               </Card>
 
-              <Card className="!p-0" title={t('reports_chart_age_groups')}>
-                <div className="h-72 w-full p-4">
+              <Card className="!p-0 print:border print:shadow-none" title={t('reports_chart_age_groups')}>
+                <div className="h-72 w-full p-4 print:h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={patientStats.ageDist} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value">
@@ -463,25 +468,6 @@ export const Reports = () => {
           </div>
         )}
       </div>
-
-      <style>{`
-        @media print {
-          body * { display: none !important; }
-          .print-content, .print-content * { display: block !important; visibility: visible !important; }
-          .print-content { 
-            position: absolute !important; 
-            left: 0 !important; 
-            top: 0 !important; 
-            width: 100% !important; 
-            background: white !important;
-            padding: 20px !important;
-            margin: 0 !important;
-          }
-          .no-print { display: none !important; }
-          .Card { border: 1px solid #eee !important; box-shadow: none !important; margin-bottom: 20px; page-break-inside: avoid; border-radius: 8px !important; }
-          header, aside { display: none !important; }
-        }
-      `}</style>
     </div>
   );
 };

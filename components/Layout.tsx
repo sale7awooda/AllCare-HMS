@@ -64,11 +64,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const sidebarBorderClass = isRtl ? 'border-l' : 'border-r';
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 overflow-hidden print:bg-white print:h-auto print:overflow-visible">
       <aside className={`
         fixed inset-y-0 ${isRtl ? 'right-0' : 'left-0'} z-50 bg-slate-900 dark:bg-slate-950 text-slate-300 ${sidebarBorderClass} border-slate-800 dark:border-slate-900 shadow-xl transition-all duration-300 flex flex-col
         ${isMobileOpen ? 'translate-x-0' : (isRtl ? 'translate-x-full' : '-translate-x-full')} lg:translate-x-0
         ${isCollapsed ? 'w-20' : 'w-56'}
+        no-print
       `}>
         <div className={`h-20 flex items-center justify-between ${isCollapsed ? 'justify-center px-0' : 'px-4'} border-b border-slate-800 dark:border-slate-900 shrink-0`}>
           <div className="flex items-center gap-3 overflow-hidden whitespace-nowrap">
@@ -143,8 +144,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
       </aside>
 
-      <main className={`flex-1 flex flex-col h-full min-w-0 overflow-hidden transition-all duration-300 ${mainMarginClass}`}>
-        <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-6 flex items-center justify-between z-40 sticky top-0 shrink-0">
+      <main className={`flex-1 flex flex-col h-full min-w-0 overflow-hidden transition-all duration-300 ${mainMarginClass} print:ml-0 print:mr-0 print:w-full`}>
+        <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-6 flex items-center justify-between z-40 sticky top-0 shrink-0 no-print">
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><Menu size={24} /></button>
             <div className="flex flex-col min-w-0">
@@ -156,8 +157,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             {actions}
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar scroll-smooth">
-          <div className="max-w-7xl mx-auto space-y-6">{children}</div>
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar scroll-smooth print:overflow-visible print:h-auto print:p-0">
+          <div className="max-w-7xl mx-auto space-y-6 print:max-w-none">{children}</div>
         </div>
       </main>
       
