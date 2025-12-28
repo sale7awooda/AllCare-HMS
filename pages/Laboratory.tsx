@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, Modal, Input, Textarea, Tooltip } from '../components/UI';
-import { FlaskConical, CheckCircle, Search, Clock, FileText, Activity, History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { FlaskConical, CheckCircle, Search, Clock, FileText, Activity, History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp, RefreshCw, Eye, ClipboardCheck } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +44,7 @@ export const Laboratory = () => {
   useHeader(t('nav_laboratory'), '', HeaderTabs);
 
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
+  const [isViewResultsModalOpen, setIsViewResultsModalOpen] = useState(false);
   const [selectedReq, setSelectedReq] = useState<any>(null);
   const [resultValues, setResultValues] = useState<any>({});
   const [resultNotes, setResultNotes] = useState('');
@@ -65,7 +66,6 @@ export const Laboratory = () => {
     if (!value || !range) return 'lab_eval_observed';
     const val = parseFloat(value);
     
-    // Numeric range check
     const numericRangeMatch = range.match(/(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)/);
     if (numericRangeMatch && !isNaN(val)) {
       const low = parseFloat(numericRangeMatch[1]);
@@ -75,7 +75,6 @@ export const Laboratory = () => {
       return 'lab_eval_normal';
     }
 
-    // Qualitative check
     const lowerVal = value.toLowerCase();
     const lowerRange = range.toLowerCase();
     if (lowerRange.includes('neg') || lowerRange.includes('non')) {
@@ -86,14 +85,18 @@ export const Laboratory = () => {
     return 'lab_eval_observed';
   };
 
+  // Helper to extract values consistently from potentially nested result objects
+  const extractResults = (req: any) => {
+    const resultsData = req.results;
+    const isNested = resultsData && typeof resultsData === 'object' && 'results_json' in resultsData;
+    const values = isNested ? resultsData.results_json : (resultsData || {});
+    const notes = isNested ? resultsData.notes : '';
+    return { values, notes };
+  };
+
   const openProcessModal = (req: any) => {
     setSelectedReq(req);
-    
-    const resultsData = req.results;
-    const isNewFormat = resultsData && typeof resultsData === 'object' && 'results_json' in resultsData;
-    const values = isNewFormat ? resultsData.results_json : (resultsData || {});
-    const notes = isNewFormat ? resultsData.notes : '';
-
+    const { values, notes } = extractResults(req);
     setResultNotes(notes);
     
     const initialResults: any = {};
@@ -109,7 +112,9 @@ export const Laboratory = () => {
         }
 
         initialResults[test.id] = components.map(c => {
-            const existingValue = values?.[test.id]?.find((er: any) => er.name === c.name);
+            // Check for both string and number keys in the values map
+            const testEntries = values?.[test.id] || values?.[test.id.toString()] || [];
+            const existingValue = testEntries.find((er: any) => er.name === c.name);
             return {
                 name: c.name,
                 range: c.range,
@@ -121,6 +126,14 @@ export const Laboratory = () => {
     
     setResultValues(initialResults);
     setIsProcessModalOpen(true);
+  };
+
+  const openViewResultsModal = (req: any) => {
+    setSelectedReq(req);
+    const { values, notes } = extractResults(req);
+    setResultNotes(notes);
+    setResultValues(values);
+    setIsViewResultsModalOpen(true);
   };
 
   const updateResultValue = (testId: number, componentIndex: number, value: string, range: string) => {
@@ -255,14 +268,14 @@ export const Laboratory = () => {
                         )}
                         {req.status === 'completed' && (
                           <div className="flex gap-2">
-                            <Button size="sm" variant="primary" icon={FileText} onClick={() => openProcessModal(req)} className="flex-1 justify-center text-xs py-2 shadow-sm">
+                            <Button size="sm" variant="primary" icon={Eye} onClick={() => openViewResultsModal(req)} className="flex-1 justify-center text-xs py-2 shadow-sm">
                                 {t('lab_view_results')}
                             </Button>
                             {canManage && (
                                 <Tooltip content={isRtl ? 'إعادة فتح' : 'Re-open'} side="top">
                                     <button 
                                         onClick={() => handleReopen(req.id)} 
-                                        className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center border border-slate-200 dark:border-slate-600"
+                                        className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 rounded-lg transition-colors flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm"
                                     >
                                         <RefreshCw size={16} />
                                     </button>
@@ -325,7 +338,6 @@ export const Laboratory = () => {
                                             value={comp.value} 
                                             onChange={e => updateResultValue(test.id, idx, e.target.value, comp.range)}
                                             className="!py-2 font-mono font-bold"
-                                            disabled={selectedReq?.status === 'completed'}
                                         />
                                     </div>
                                     <div className="col-span-4 sm:col-span-3 text-right">
@@ -350,12 +362,85 @@ export const Laboratory = () => {
                         rows={3} 
                         value={resultNotes} 
                         onChange={e => setResultNotes(e.target.value)} 
-                        disabled={selectedReq?.status === 'completed'}
                         className="rounded-xl"
                     />
                 </div>
             </div>
         </form>
+      </Modal>
+
+      {/* VIEW RESULTS MODAL (READ ONLY) */}
+      <Modal
+        isOpen={isViewResultsModalOpen}
+        onClose={() => setIsViewResultsModalOpen(false)}
+        title={t('lab_view_results') + ": " + selectedReq?.patientName}
+        footer={<div className="flex justify-end"><Button variant="secondary" onClick={() => setIsViewResultsModalOpen(false)}>{t('close')}</Button></div>}
+      >
+        <div className="space-y-6 -mt-4">
+            <div className="bg-emerald-600 text-white p-5 rounded-2xl shadow-xl flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-xl">
+                        <ClipboardCheck size={24} />
+                    </div>
+                    <div>
+                        <h4 className="font-black text-lg tracking-tight">{t('lab_status_completed')}</h4>
+                        <p className="text-[10px] text-emerald-100 font-bold uppercase tracking-widest mt-1">{t('lab_modal_order_ref', { id: selectedReq?.id })}</p>
+                    </div>
+                </div>
+                <div className="text-right">
+                    <span className="block text-[10px] uppercase text-emerald-100 font-bold tracking-widest">{t('lab_modal_entry_date')}</span>
+                    <span className="text-sm font-bold">{selectedReq && new Date(selectedReq.created_at).toLocaleDateString()}</span>
+                </div>
+            </div>
+
+            <div className="space-y-5">
+                {selectedReq?.testDetails?.map((test: any) => (
+                    <div key={test.id} className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                        <div className="bg-white dark:bg-slate-800 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                            <h5 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                                <FlaskConical size={14} className="text-primary-600" />
+                                {language === 'ar' ? test.name_ar : test.name_en}
+                            </h5>
+                            <Badge color="gray" className="text-[9px] uppercase">{test.category_en}</Badge>
+                        </div>
+                        <div className="p-4 divide-y divide-slate-100 dark:divide-slate-800">
+                            {/* Handle both number and string keys from the parsed JSON */}
+                            {(resultValues[test.id] || resultValues[test.id.toString()] || []).map((comp: any, idx: number) => (
+                                <div key={idx} className="grid grid-cols-12 gap-4 py-3 first:pt-0 last:pb-0 items-center">
+                                    <div className="col-span-5">
+                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{comp.name}</p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">Ref: {comp.range || 'N/A'}</p>
+                                    </div>
+                                    <div className="col-span-4 text-center">
+                                        <span className="font-mono font-black text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-3 py-1 rounded-lg border dark:border-slate-700 shadow-sm">
+                                            {comp.value || '-'}
+                                        </span>
+                                    </div>
+                                    <div className="col-span-3 text-right">
+                                        <Badge color={
+                                            comp.evaluation === 'lab_eval_normal' ? 'green' : 
+                                            comp.evaluation === 'lab_eval_low' ? 'blue' : 
+                                            comp.evaluation === 'lab_eval_high' ? 'red' : 'gray'
+                                        } className="font-black text-[9px] w-full justify-center py-1">
+                                            {t(comp.evaluation) || comp.evaluation}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+
+                {resultNotes && (
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('lab_modal_remarks_label')}</label>
+                        <div className="p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300 italic leading-relaxed shadow-sm">
+                            "{resultNotes}"
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
       </Modal>
     </div>
   );

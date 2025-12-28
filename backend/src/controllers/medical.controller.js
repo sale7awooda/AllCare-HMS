@@ -20,7 +20,7 @@ exports.getLabRequests = (req, res) => {
             const ids = JSON.parse(r.test_ids);
             if (Array.isArray(ids) && ids.length > 0) {
                 const placeholders = ids.map(() => '?').join(',');
-                const tests = db.prepare(`SELECT id, name_en, name_ar, normal_range FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
+                const tests = db.prepare(`SELECT id, name_en, name_ar, normal_range, category_en FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
                 testNames = tests.map(t => t.name_en).join(', ');
                 testDetails = tests;
             }
@@ -77,7 +77,8 @@ exports.confirmLabRequest = (req, res) => {
 exports.completeLabRequest = (req, res) => {
     const { id } = req.params;
     try {
-        // Store the entire body as results_json to capture values and notes
+        // Store the incoming body. The body structure is { results_json: {...}, notes: "..." }
+        // Ensure we handle both cases where results_json is the root or nested.
         db.prepare("UPDATE lab_requests SET status = 'completed', results_json = ? WHERE id = ?").run(
             JSON.stringify(req.body),
             id
