@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { 
   LayoutDashboard, Users, CalendarDays, Receipt, LogOut, X, Activity, Wrench, Briefcase, Database, ChevronLeft, ChevronRight, Menu,
   FlaskConical, Bed, ClipboardList, Palette, Lock
@@ -10,6 +10,8 @@ import { Tooltip } from './UI';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
 import { useHeader } from '../context/HeaderContext';
+
+const { Link, useLocation } = ReactRouterDOM as any;
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout: onLogout } = useAuth();
@@ -104,7 +106,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   const LinkEl = (
                     <Link
                       to={isAllowed ? item.path : '#'}
-                      onClick={(e) => { if (!isAllowed) e.preventDefault(); setMobileOpen(false); }}
+                      onClick={(e: any) => { if (!isAllowed) e.preventDefault(); setMobileOpen(false); }}
                       className={`
                         group flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 rounded-lg transition-all duration-200
                         ${isAllowed && isActive ? 'bg-primary-600 text-white shadow-md shadow-primary-900/20' : ''}
