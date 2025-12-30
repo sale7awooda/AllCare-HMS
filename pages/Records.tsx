@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
+import { Card, Button, Badge, Modal } from '../components/UI';
 import { 
-  Database, Search, Filter, ChevronLeft, ChevronRight, FileText, Download, Printer, X, Info, Clock, Hash, User, Users, Receipt, Calendar, Briefcase, RefreshCcw, ExternalLink, ArrowRight,
-  ChevronDown, Loader2, FlaskConical, Syringe, Activity, Bed, TrendingUp, TrendingDown, AlertCircle
+  Database, Search, Filter, ChevronLeft, ChevronRight, FileText, Download, Printer, X, Info, Clock, Hash, User, Users, Receipt, Calendar, Briefcase, RefreshCcw, ArrowRight,
+  ChevronDown, Loader2, FlaskConical, Syringe, Activity, Bed, TrendingUp, TrendingDown
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
@@ -103,7 +103,8 @@ export const Records = () => {
       date: p.createdAt,
       primaryEntity: p.fullName, 
       value: null, 
-      context: t('records_context_patient_registered', { type: t(`patients_filter_type_${p.type}`) }), 
+      status: p.type,
+      context: `${t(`patients_filter_type_${p.type}`)}`, 
       rawData: p,
     }));
 
@@ -115,7 +116,8 @@ export const Records = () => {
       primaryEntity: a.patientName, 
       secondaryEntity: a.staffName, 
       value: a.totalAmount, 
-      context: `${t(`patients_modal_action_${a.type.toLowerCase().replace('-up', 'Up')}`) || a.type} - ${t(`appointments_status_${a.status}`) || a.status}`,
+      status: a.status,
+      context: `${t(`patients_modal_action_${a.type.toLowerCase().replace('-up', 'Up')}`) || a.type}`,
       rawData: a,
     }));
 
@@ -125,8 +127,9 @@ export const Records = () => {
       refId: b.billNumber, 
       date: b.date,
       primaryEntity: b.patientName, 
-      value: b.totalAmount, 
-      context: `${t(`billing_status_${b.status.toLowerCase()}`) || b.status}`, 
+      value: b.totalAmount,
+      status: b.status,
+      context: t('billing_invoice_total'), 
       rawData: b,
     }));
 
@@ -137,7 +140,8 @@ export const Records = () => {
       date: s.joinDate || s.createdAt || new Date().toISOString(),
       primaryEntity: s.fullName, 
       value: s.baseSalary, 
-      context: `${t(`staff_role_${s.type}`) || s.type} - ${s.department || ''}`, 
+      status: s.status,
+      context: `${t(`staff_role_${s.type}`) || s.type} • ${s.department || ''}`, 
       rawData: s,
     }));
 
@@ -148,7 +152,8 @@ export const Records = () => {
         date: l.created_at,
         primaryEntity: l.patientName,
         value: l.projected_cost,
-        context: `${t('nav_laboratory')}: ${l.testNames?.substring(0, 30)}${l.testNames?.length > 30 ? '...' : ''}`,
+        status: l.status,
+        context: l.testNames ? l.testNames.substring(0, 30) + (l.testNames.length > 30 ? '...' : '') : t('nav_laboratory'),
         rawData: l
     }));
 
@@ -160,6 +165,7 @@ export const Records = () => {
         primaryEntity: n.patientName,
         secondaryEntity: n.nurseName,
         value: n.cost,
+        status: n.status,
         context: n.service_name,
         rawData: n
     }));
@@ -172,6 +178,7 @@ export const Records = () => {
         primaryEntity: o.patientName,
         secondaryEntity: o.doctorName,
         value: o.projected_cost,
+        status: o.status,
         context: o.operation_name,
         rawData: o
     }));
@@ -184,7 +191,8 @@ export const Records = () => {
         primaryEntity: a.patientName,
         secondaryEntity: a.doctorName,
         value: a.projected_cost,
-        context: `${t('admissions_history_header_room')} ${a.roomNumber} - ${t(a.status === 'active' ? 'admissions_status_occupied' : a.status) || a.status}`,
+        status: a.status,
+        context: `${t('admissions_history_header_room')} ${a.roomNumber}`,
         rawData: a
     }));
 
@@ -195,7 +203,8 @@ export const Records = () => {
         date: t.date,
         primaryEntity: t.category || t.description,
         value: t.amount,
-        context: `${t.method} - ${t.description?.substring(0, 40) || ''}`,
+        status: 'Completed',
+        context: t.method,
         rawData: t
     }));
 
@@ -223,13 +232,14 @@ export const Records = () => {
   const paginatedRecords = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleExportCSV = () => {
-    const headers = ["Type", "ID", "Date", "Primary Entity", "Context", "Value"];
+    const headers = ["Type", "ID", "Date", "Primary Entity", "Context", "Status", "Value"];
     const rows = filteredRecords.map(r => [
         r.type,
         r.refId,
         new Date(r.date).toLocaleString(),
         r.primaryEntity,
         r.context,
+        r.status,
         r.value || 0
     ]);
     
@@ -247,7 +257,7 @@ export const Records = () => {
   };
 
   const getTypeIcon = (type: string) => {
-    const iconSize = 18;
+    const iconSize = 16;
     if (type === 'Patient') return <Users size={iconSize} className="text-blue-500" />;
     if (type === 'Appointment') return <Calendar size={iconSize} className="text-violet-500" />;
     if (type === 'Invoice') return <Receipt size={iconSize} className="text-emerald-500" />;
@@ -261,19 +271,130 @@ export const Records = () => {
     return <FileText size={iconSize} className="text-slate-500" />;
   };
 
-  const RecordDetailItem = ({ label, value, icon: Icon }: any) => (
-    <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:bg-white dark:hover:bg-slate-800 shadow-sm">
+  const getAmountLabel = (type: string) => {
+    switch (type) {
+      case 'Staff': return t('staff_payroll_base');
+      case 'Invoice': return t('billing_invoice_total');
+      case 'Expense': return t('billing_treasury_type_expense');
+      case 'Income': return t('billing_treasury_type_income');
+      case 'Appointment': return t('billing_table_header_amount');
+      case 'Operation': return t('operations_card_est_cost');
+      case 'Admission': return t('admissions_modal_reserve_payment_label');
+      default: return t('billing_table_header_amount');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    if (!status) return 'gray';
+    const s = status.toLowerCase();
+    if (s === 'active' || s === 'paid' || s === 'completed' || s === 'confirmed' || s === 'recovered') return 'green';
+    if (s === 'pending' || s === 'reserved' || s === 'in_progress' || s === 'draft') return 'yellow';
+    if (s === 'cancelled' || s === 'rejected' || s === 'deceased' || s === 'overdue') return 'red';
+    return 'blue';
+  };
+
+  const RecordDetailItem = ({ label, value, icon: Icon, fullWidth = false }: any) => (
+    <div className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 transition-all ${fullWidth ? 'col-span-full' : ''}`}>
       {Icon && (
-        <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-slate-400 border border-slate-50 dark:border-slate-700">
-            <Icon size={18} />
+        <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm text-slate-400 border border-slate-50 dark:border-slate-700 shrink-0">
+            <Icon size={16} />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-0.5">{label}</p>
-        <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{value || t('patients_modal_view_na')}</p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{value || t('patients_modal_view_na')}</p>
       </div>
     </div>
   );
+
+  const renderSpecificDetails = (record: any) => {
+    const raw = record.rawData;
+    switch(record.type) {
+      case 'Patient':
+        return (
+          <>
+            <RecordDetailItem label={t('patients_modal_form_phone')} value={raw.phone} icon={Hash} />
+            <RecordDetailItem label={t('patients_modal_form_bloodGroup')} value={raw.bloodGroup} icon={Activity} />
+            <RecordDetailItem label={t('patients_modal_form_address')} value={raw.address} icon={Info} fullWidth />
+            {raw.emergencyContact && (
+              <RecordDetailItem label={t('patients_modal_form_emergency_title')} value={`${raw.emergencyContact.name} (${raw.emergencyContact.phone})`} icon={Users} fullWidth />
+            )}
+          </>
+        );
+      case 'Staff':
+        return (
+          <>
+            <RecordDetailItem label={t('staff_form_department')} value={raw.department} icon={Briefcase} />
+            <RecordDetailItem label={t('staff_form_specialization')} value={raw.specialization} icon={Activity} />
+            <RecordDetailItem label={t('settings_profile_email')} value={raw.email} icon={Info} />
+            <RecordDetailItem label={t('patients_modal_form_phone')} value={raw.phone} icon={Hash} />
+          </>
+        );
+      case 'Appointment':
+        return (
+          <>
+            <RecordDetailItem label={t('nav_hr')} value={record.secondaryEntity} icon={User} />
+            <RecordDetailItem label={t('appointments_form_reason')} value={raw.reason || '-'} icon={Info} fullWidth />
+          </>
+        );
+      case 'Invoice':
+        return (
+          <div className="col-span-full space-y-3">
+             <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                <table className="w-full text-sm text-left">
+                   <thead className="bg-slate-100 dark:bg-slate-800 text-[10px] uppercase text-slate-500 font-bold">
+                      <tr><th className="px-4 py-2">{t('billing_invoice_description')}</th><th className="px-4 py-2 text-right">{t('billing_table_header_amount')}</th></tr>
+                   </thead>
+                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {raw.items && raw.items.map((item: any, idx: number) => (
+                        <tr key={idx}>
+                           <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{item.description}</td>
+                           <td className="px-4 py-2 text-right font-mono">${item.amount.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                   </tbody>
+                   <tfoot className="bg-slate-50 dark:bg-slate-900 font-bold">
+                      <tr>
+                         <td className="px-4 py-2">{t('billing_invoice_total')}</td>
+                         <td className="px-4 py-2 text-right font-mono text-primary-600">${raw.totalAmount.toLocaleString()}</td>
+                      </tr>
+                   </tfoot>
+                </table>
+             </div>
+             <div className="flex justify-between items-center text-xs px-2">
+                <span className="text-slate-500">{t('billing_table_paid_amount')}: <span className="font-bold text-emerald-600">${(raw.paidAmount || 0).toLocaleString()}</span></span>
+                <span className="text-slate-500">{t('billing_invoice_balance')}: <span className="font-bold text-red-500">${((raw.totalAmount || 0) - (raw.paidAmount || 0)).toLocaleString()}</span></span>
+             </div>
+          </div>
+        );
+      case 'Lab Request':
+        return (
+          <>
+             <RecordDetailItem label="Tests Requested" value={record.context} icon={FlaskConical} fullWidth />
+             <RecordDetailItem label="Clinical Notes" value={raw.notes || '-'} icon={Info} fullWidth />
+          </>
+        );
+      case 'Operation':
+        return (
+          <>
+             <RecordDetailItem label="Surgeon" value={record.secondaryEntity} icon={User} />
+             <RecordDetailItem label="Notes" value={raw.notes} icon={Info} fullWidth />
+          </>
+        );
+      case 'Admission':
+        return (
+          <>
+             <RecordDetailItem label="Doctor" value={record.secondaryEntity} icon={User} />
+             <RecordDetailItem label="Room" value={raw.roomNumber} icon={Bed} />
+             <RecordDetailItem label="Discharge Date" value={raw.actual_discharge_date ? new Date(raw.actual_discharge_date).toLocaleDateString() : '-'} icon={Calendar} />
+          </>
+        );
+      default:
+        return (
+          <RecordDetailItem label="Details" value={JSON.stringify(raw)} icon={Info} fullWidth />
+        );
+    }
+  };
 
   const clearFilters = () => {
       setSearchTerm('');
@@ -328,31 +449,37 @@ export const Records = () => {
           </Button>
       </div>
 
-      {/* Main Records Table - Hidden if Modal is open during Print */}
+      {/* Main Records Table */}
       <Card className={`!p-0 border border-slate-200 dark:border-slate-700 shadow-card overflow-hidden ${selectedRecord ? 'print:hidden' : ''}`}>
         
-        {/* Print Header for Table */}
-        <div className="hidden print:block p-4 border-b">
-            <h2 className="text-xl font-bold">System Records Log</h2>
-            <p className="text-sm text-gray-500">Generated: {new Date().toLocaleString()}</p>
+        {/* Print Header for Table - Simplified Modern Table */}
+        <div className="hidden print:block p-6 border-b border-slate-200">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">System Records Log</h2>
+                <div className="text-right">
+                    <p className="text-xs text-slate-500 font-bold uppercase">Report Date</p>
+                    <p className="font-mono font-bold">{new Date().toLocaleDateString()}</p>
+                </div>
+            </div>
         </div>
 
         <div className="overflow-x-auto min-h-[500px] print:min-h-0 print:overflow-visible">
-          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-900/80">
+          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700 print:divide-slate-300">
+            <thead className="bg-slate-50 dark:bg-slate-900/80 print:bg-white">
                 <tr>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('records_table_type')}</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('records_table_date')}</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('records_table_primary')}</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('records_table_context')}</th>
-                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('billing_table_header_amount')}</th>
-                    <th className="px-6 py-4 no-print w-10"></th>
+                    <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('records_table_type')} / {t('records_modal_ref_id')}</th>
+                    <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('records_table_date')}</th>
+                    <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('records_table_primary')}</th>
+                    <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('records_table_context')}</th>
+                    <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('status')}</th>
+                    <th className="px-4 py-3 text-right text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('billing_table_header_amount')}</th>
+                    <th className="px-4 py-3 no-print w-10"></th>
                 </tr>
             </thead>
-            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700 print:divide-slate-200">
                 {loading ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-32">
+                      <td colSpan={7} className="text-center py-32">
                         <div className="flex flex-col items-center gap-3">
                           <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
                           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t('loading')}</p>
@@ -361,7 +488,7 @@ export const Records = () => {
                     </tr>
                 ) : paginatedRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-32">
+                      <td colSpan={7} className="text-center py-32">
                         <div className="flex flex-col items-center gap-4 opacity-40">
                            <Database size={64} className="text-slate-300" />
                            <div>
@@ -373,14 +500,14 @@ export const Records = () => {
                     </tr>
                 ) : (
                     paginatedRecords.map(r => (
-                        <tr key={r.id} onClick={() => setSelectedRecord(r)} className="hover:bg-primary-50/30 dark:hover:bg-primary-900/10 transition-all cursor-pointer group animate-in slide-in-from-bottom-1 duration-200">
-                            <td className="px-6 py-4 whitespace-nowrap">
+                        <tr key={r.id} onClick={() => setSelectedRecord(r)} className="hover:bg-primary-50/30 dark:hover:bg-primary-900/10 transition-all cursor-pointer group print:hover:bg-transparent break-inside-avoid">
+                            <td className="px-4 py-2.5 whitespace-nowrap">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-slate-100 dark:bg-slate-900 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-sm print:shadow-none print:border">
+                                <div className="w-8 h-8 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center text-slate-500 shadow-sm print:hidden">
                                   {getTypeIcon(r.type)}
                                 </div>
                                 <div>
-                                  <p className="font-black text-sm text-slate-800 dark:text-white leading-none">{
+                                  <p className="font-bold text-xs text-slate-800 dark:text-white leading-none mb-0.5">{
                                     r.type === 'Lab Request' ? t('nav_laboratory') :
                                     r.type === 'Nurse Service' ? t('patients_modal_action_nurse') :
                                     r.type === 'Operation' ? t('nav_operations') :
@@ -389,34 +516,44 @@ export const Records = () => {
                                     r.type === 'Expense' ? t('billing_treasury_type_expense') :
                                     t(`records_type_${r.type.toLowerCase()}`) || r.type
                                   }</p>
-                                  <p className="font-mono text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">{r.refId}</p>
+                                  <p className="font-mono text-[9px] text-slate-400 uppercase tracking-wider">{r.refId}</p>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-4 py-2.5 whitespace-nowrap">
                                 <div className="flex flex-col">
-                                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{new Date(r.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}</span>
-                                  <span className="text-[10px] font-medium text-slate-400">{new Date(r.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{new Date(r.date).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}</span>
+                                  <span className="text-[9px] font-medium text-slate-400">{new Date(r.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                                <p className="font-black text-sm text-slate-900 dark:text-white group-hover:text-primary-600 transition-colors">{r.primaryEntity}</p>
-                                {r.secondaryEntity && <p className="text-[10px] text-slate-400 font-bold mt-0.5">{r.secondaryEntity}</p>}
+                            <td className="px-4 py-2.5 whitespace-nowrap">
+                                <p className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-primary-600 transition-colors print:text-black">{r.primaryEntity}</p>
+                                {r.secondaryEntity && <p className="text-[9px] text-slate-400 font-bold mt-0.5">{r.secondaryEntity}</p>}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[200px] truncate font-medium">{r.context}</p>
+                            <td className="px-4 py-2.5 whitespace-nowrap max-w-[150px]">
+                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate font-medium">{r.context}</p>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <td className="px-4 py-2.5 whitespace-nowrap">
+                                <Badge color={getStatusColor(r.status) as any} className="text-[9px] uppercase font-black px-1.5 py-0.5">
+                                  {t(r.status?.toLowerCase()) || r.status || '-'}
+                                </Badge>
+                            </td>
+                            <td className="px-4 py-2.5 whitespace-nowrap text-right">
                                 {r.value ? (
-                                  <span className={`font-mono font-black text-sm px-2 py-1 rounded-lg print:bg-white print:text-black ${r.type === 'Expense' ? 'text-red-600 bg-red-50 dark:bg-red-900/20' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20'}`}>
-                                    ${r.value.toLocaleString()}
-                                  </span>
-                                ) : <span className="text-slate-300">-</span>}
+                                  <div>
+                                    <span className={`font-mono font-black text-xs block ${r.type === 'Expense' ? 'text-red-600' : 'text-emerald-600'} print:text-black`}>
+                                        ${r.value.toLocaleString()}
+                                    </span>
+                                    <span className="text-[8px] text-slate-400 uppercase font-bold tracking-wider block mt-0.5">
+                                        {getAmountLabel(r.type)}
+                                    </span>
+                                  </div>
+                                ) : <span className="text-slate-300 text-xs">-</span>}
                             </td>
-                            <td className="px-6 py-4 no-print w-10">
+                            <td className="px-4 py-2.5 no-print w-8">
                                <div className="opacity-0 group-hover:opacity-100 transition-all text-slate-300">
-                                  <ArrowRight size={18} className={isRtl ? 'rotate-180' : ''} />
-                               </div>
+                                  <ArrowRight size={14} className={isRtl ? 'rotate-180' : ''} />
+                                </div>
                             </td>
                         </tr>
                     ))
@@ -425,15 +562,15 @@ export const Records = () => {
           </table>
         </div>
         
-        <div className="p-4 flex flex-col sm:flex-row justify-between items-center border-t border-slate-200 dark:border-slate-700 gap-4 no-print">
-            <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+        <div className="p-3 flex flex-col sm:flex-row justify-between items-center border-t border-slate-200 dark:border-slate-700 gap-4 no-print bg-slate-50 dark:bg-slate-900/50">
+            <div className="flex flex-col sm:flex-row items-center gap-4 text-xs text-slate-500">
+              <p className="font-bold uppercase tracking-widest">
                 {t('records_pagination_showing', { count: paginatedRecords.length, total: filteredRecords.length })}
               </p>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('patients_pagination_rows')}</span>
+                <span className="font-black uppercase tracking-widest text-slate-400 text-[9px]">{t('patients_pagination_rows')}</span>
                 <select 
-                  className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary-500/20"
+                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary-500/20"
                   value={itemsPerPage}
                   onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
                 >
@@ -448,28 +585,35 @@ export const Records = () => {
                 <button 
                   onClick={() => setCurrentPage(p => Math.max(1, p-1))} 
                   disabled={currentPage === 1}
-                  className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+                  className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={16} />
                 </button>
-                <div className="flex items-center px-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black text-primary-600">
+                <div className="flex items-center px-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-black text-primary-600">
                    {currentPage} / {totalPages || 1}
                 </div>
                 <button 
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} 
                   disabled={currentPage === totalPages || totalPages === 0}
-                  className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+                  className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
                 >
-                  <ChevronRight size={20} />
+                  <ChevronRight size={16} />
                 </button>
             </div>
         </div>
       </Card>
       
-      <Modal isOpen={!!selectedRecord} onClose={() => setSelectedRecord(null)} title={t('records_modal_analysis_title', { ref: selectedRecord?.refId })}>
+      {/* Record Analysis Modal */}
+      <Modal 
+        isOpen={!!selectedRecord} 
+        onClose={() => setSelectedRecord(null)} 
+        title={t('records_modal_analysis_title', { ref: selectedRecord?.refId })}
+      >
         {selectedRecord && (
-          <div className="space-y-6">
-            <div className={`flex flex-wrap items-center gap-4 p-5 rounded-3xl border shadow-xl relative overflow-hidden print:shadow-none print:border-slate-300 ${
+          <div className="space-y-6 print:space-y-4">
+            
+            {/* Header / Top Card */}
+            <div className={`flex flex-wrap items-center gap-4 p-5 rounded-3xl border shadow-xl relative overflow-hidden print:shadow-none print:border print:border-slate-300 print:bg-white print:p-0 print:mb-6 ${
               selectedRecord.type === 'Patient' ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/20' : 
               selectedRecord.type === 'Appointment' ? 'bg-violet-50 border-violet-100 dark:bg-violet-900/20' : 
               selectedRecord.type === 'Invoice' || selectedRecord.type === 'Income' ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20' :
@@ -477,11 +621,13 @@ export const Records = () => {
               'bg-orange-50 border-orange-100 dark:bg-orange-900/20'
             }`}>
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl print:hidden" />
-              <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-lg text-primary-600 z-10 print:shadow-none print:border">
+              
+              <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-lg text-primary-600 z-10 print:hidden">
                  {getTypeIcon(selectedRecord.type)}
               </div>
+              
               <div className="flex-1 min-w-[200px] z-10">
-                 <h3 className="font-black text-slate-900 dark:text-white text-xl leading-tight mb-2">{selectedRecord.primaryEntity}</h3>
+                 <h3 className="font-black text-slate-900 dark:text-white text-xl leading-tight mb-2 print:text-2xl">{selectedRecord.primaryEntity}</h3>
                  <div className="flex items-center gap-2">
                     <Badge color="blue" className="uppercase font-black text-[10px] tracking-widest">{
                       selectedRecord.type === 'Lab Request' ? t('nav_laboratory') :
@@ -499,53 +645,22 @@ export const Records = () => {
                     )}
                  </div>
               </div>
+              
               {selectedRecord.value && (
                 <div className="text-right z-10 ml-auto">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('billing_table_header_amount')}</p>
-                    <p className={`text-3xl font-black font-mono tracking-tighter ${selectedRecord.type === 'Expense' ? 'text-red-600' : 'text-emerald-600'}`}>${selectedRecord.value.toLocaleString()}</p>
+                    <p className={`text-3xl font-black font-mono tracking-tighter ${selectedRecord.type === 'Expense' ? 'text-red-600' : 'text-emerald-600'} print:text-black`}>${selectedRecord.value.toLocaleString()}</p>
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Standard Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-x-8 print:gap-y-4">
               <RecordDetailItem label={t('records_modal_logged_time')} value={new Date(selectedRecord.date).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')} icon={Clock} />
               <RecordDetailItem label={t('records_modal_ref_id')} value={selectedRecord.refId} icon={Hash} />
               
-              {selectedRecord.type === 'Patient' && (
-                <>
-                  <RecordDetailItem label={t('patients_modal_form_age')} value={`${selectedRecord.rawData.age} ${t('patients_table_age_unit')}`} icon={Users} />
-                  <RecordDetailItem label={t('patients_modal_form_gender')} value={t(`patients_modal_form_gender_${selectedRecord.rawData.gender}`)} icon={Users} />
-                </>
-              )}
-              {selectedRecord.type === 'Appointment' && (
-                <>
-                  <RecordDetailItem label={t('nav_hr')} value={selectedRecord.rawData.staffName} icon={User} />
-                  <RecordDetailItem label={t('appointments_form_type')} value={selectedRecord.rawData.type} icon={Info} />
-                </>
-              )}
-              {selectedRecord.type === 'Invoice' && (
-                <RecordDetailItem label={t('billing_table_paid_amount')} value={`$${selectedRecord.rawData.paidAmount?.toLocaleString()}`} icon={Receipt} />
-              )}
-              {selectedRecord.secondaryEntity && (
-                <RecordDetailItem label="Secondary Party" value={selectedRecord.secondaryEntity} icon={User} />
-              )}
-            </div>
-
-            <div className="space-y-3">
-               <h4 className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">
-                 <Database size={12}/> {t('records_modal_context')}
-               </h4>
-               <div className="relative group">
-                 <pre className="text-[11px] font-mono bg-slate-900 text-emerald-400 p-5 rounded-2xl overflow-x-auto custom-scrollbar max-h-72 leading-relaxed shadow-inner print:bg-white print:text-black print:border print:border-slate-300 print:max-h-none print:overflow-visible">
-                    {JSON.stringify(selectedRecord.rawData, null, 2)}
-                 </pre>
-                 <button 
-                  onClick={() => navigator.clipboard.writeText(JSON.stringify(selectedRecord.rawData, null, 2))}
-                  className="absolute top-3 right-3 p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg opacity-0 group-hover:opacity-100 transition-all text-[10px] font-black uppercase tracking-widest no-print"
-                 >
-                    {isRtl ? 'نسخ' : 'Copy'}
-                 </button>
-               </div>
+              {/* Dynamic Content based on Type - No Raw JSON anymore */}
+              {renderSpecificDetails(selectedRecord)}
             </div>
 
             <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 no-print">
