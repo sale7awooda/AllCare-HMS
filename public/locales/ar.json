@@ -1,4 +1,3 @@
-
 {
   "app_loading": "جاري تحميل التطبيق...",
   "nav_dashboard": "لوحة التحكم",
@@ -838,6 +837,7 @@
   "reports_stat_total_volume": "إجمالي الحجم",
   "reports_stat_fulfillment_rate": "معدل الوفاء",
   "reports_stat_busiest_service": "الخدمة الأكثر طلباً",
+  "reports_stat_busiest_subtitle": "المحرك الرئيسي للطلب",
   "reports_stat_volume_subtitle": "المواعيد المجدولة",
   "reports_stat_fulfillment_subtitle": "الاستشارات المكتملة",
   "reports_stat_bandwidth_subtitle": "المحرك الرئيسي للطلب",
@@ -980,5 +980,6 @@
   "permission_VIEW_RECORDS": "عرض السجلات الموحدة",
   "permission_VIEW_SETTINGS": "عرض التخصيصات",
   "permission_MANAGE_SETTINGS": "إدارة الإعدادات",
-  "permission_MANAGE_CONFIGURATION": "تهيئة النظام"
+  "permission_MANAGE_CONFIGURATION": "تهيئة النظام",
+  "reports_stat_busiest_subtitle": "المحرك الرئيسي للطلب"
 }
