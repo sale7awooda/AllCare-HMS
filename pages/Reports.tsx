@@ -156,27 +156,40 @@ export const Reports = () => {
   }, [patients, dateRange, t, language]);
 
   const handleExportCSV = () => {
-    const headers = [t('records_table_type'), t('billing_table_header_amount'), t('records_table_context')];
-    let rows: any[][] = [];
-    const dateStr = `${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`;
-
-    if (activeTab === 'financial') {
-        rows = [
-            [t('reports_stat_gross_revenue'), financialStats.totalRevenue, dateStr],
-            [t('reports_stat_net_profit'), financialStats.netProfit, dateStr],
-            [t('reports_stat_outstanding'), financialStats.outstanding, dateStr]
-        ];
-    } else if (activeTab === 'demographics') {
-        rows = [
-            [t('reports_stat_registry_size'), patientStats.total, t('records_filter_all')],
-            [t('reports_stat_acquisition'), patientStats.newCount, dateStr]
-        ];
-    }
+    const rows = [];
     
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(',')).join('\n');
+    // Header
+    rows.push(['AllCare HMS - Comprehensive Report', new Date().toLocaleString()]);
+    rows.push([]);
+
+    // Financial
+    rows.push(['--- FINANCIAL SUMMARY ---']);
+    rows.push([t('reports_stat_gross_revenue'), financialStats.totalRevenue]);
+    rows.push([t('reports_stat_net_profit'), financialStats.netProfit]);
+    rows.push([t('reports_stat_outstanding'), financialStats.outstanding]);
+    rows.push(['Income by Method']);
+    financialStats.incomeByMethod.forEach(i => rows.push([i.name, i.value]));
+    rows.push([]);
+
+    // Operational
+    rows.push(['--- OPERATIONAL METRICS ---']);
+    rows.push([t('reports_stat_total_volume'), operationalStats.total]);
+    rows.push([t('reports_stat_fulfillment_rate'), operationalStats.completionRate + '%']);
+    rows.push(['Department Utilization']);
+    operationalStats.deptRank.forEach(d => rows.push([d.name, d.value]));
+    rows.push([]);
+
+    // Demographics
+    rows.push(['--- PATIENT DEMOGRAPHICS ---']);
+    rows.push([t('reports_stat_registry_size'), patientStats.total]);
+    rows.push([t('reports_stat_acquisition'), patientStats.newCount]);
+    rows.push(['Age Distribution']);
+    patientStats.ageDist.forEach(a => rows.push([a.name, a.value]));
+
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(',')).join('\n');
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `AllCare_HMS_Report_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `AllCare_HMS_Report_Full_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -264,69 +277,65 @@ export const Reports = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Print Header */}
-      <div className="hidden print:block mb-8">
-        <h1 className="text-2xl font-bold mb-2">AllCare HMS - {t(activeTab === 'financial' ? 'reports_tab_financial' : activeTab === 'operational' ? 'reports_tab_operational' : 'reports_tab_demographics')} Report</h1>
-        <p className="text-sm text-gray-500">Generated on {new Date().toLocaleDateString()}</p>
-      </div>
-
-      {/* Filters Bar */}
-      <div className="flex flex-col lg:flex-row justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm gap-3 no-print">
-        <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl shrink-0 w-full lg:w-auto overflow-x-auto">
-          {[
-              { id: 'financial', label: t('reports_tab_financial'), icon: DollarSign },
-              { id: 'operational', label: t('reports_tab_operational'), icon: Activity },
-              { id: 'demographics', label: t('reports_tab_demographics'), icon: Users }
-          ].map(tab => (
-            <button 
-              key={tab.id} 
-              onClick={() => setActiveTab(tab.id as any)} 
-              className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-lg transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-slate-800 shadow-sm text-primary-600' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
-            >
-              <tab.icon size={14}/> {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2 items-center w-full lg:w-auto px-2">
-          <div className="relative group w-full sm:w-48">
-            <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 w-4 h-4" />
-            <select 
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all cursor-pointer appearance-none" 
-              value={rangeType} 
-              onChange={e => setRangeType(e.target.value)}
-            >
-              <option value="7">{t('reports_time_week')}</option>
-              <option value="30">{t('reports_time_month')}</option>
-              <option value="90">{t('reports_filter_quarterly')}</option>
-              <option value="custom">{t('reports_time_custom')}</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-          </div>
-          {rangeType === 'custom' && (
-            <div className="flex items-center gap-2 animate-in slide-in-from-left-2 w-full sm:w-auto">
-              <Input type="date" value={customRange.start} onChange={e => setCustomRange({...customRange, start: e.target.value})} className="!py-2 !text-xs shadow-none w-full sm:w-36" />
-              <span className="text-slate-400 font-bold">-</span>
-              <Input type="date" value={customRange.end} onChange={e => setCustomRange({...customRange, end: e.target.value})} className="!py-2 !text-xs shadow-none w-full sm:w-36" />
+      
+      {/* Interactive Dashboard - Hidden on Print */}
+      <div className="print:hidden space-y-6">
+        {/* Filters Bar */}
+        <div className="flex flex-col lg:flex-row justify-between items-center bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm gap-3">
+            <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl shrink-0 w-full lg:w-auto overflow-x-auto">
+            {[
+                { id: 'financial', label: t('reports_tab_financial'), icon: DollarSign },
+                { id: 'operational', label: t('reports_tab_operational'), icon: Activity },
+                { id: 'demographics', label: t('reports_tab_demographics'), icon: Users }
+            ].map(tab => (
+                <button 
+                key={tab.id} 
+                onClick={() => setActiveTab(tab.id as any)} 
+                className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-lg transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-slate-800 shadow-sm text-primary-600' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                >
+                <tab.icon size={14}/> {tab.label}
+                </button>
+            ))}
             </div>
-          )}
-        </div>
-      </div>
 
-      <div className="print:block animate-in fade-in duration-500">
+            <div className="flex flex-col sm:flex-row gap-2 items-center w-full lg:w-auto px-2">
+            <div className="relative group w-full sm:w-48">
+                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 w-4 h-4" />
+                <select 
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all cursor-pointer appearance-none" 
+                value={rangeType} 
+                onChange={e => setRangeType(e.target.value)}
+                >
+                <option value="7">{t('reports_time_week')}</option>
+                <option value="30">{t('reports_time_month')}</option>
+                <option value="90">{t('reports_filter_quarterly')}</option>
+                <option value="custom">{t('reports_time_custom')}</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+            </div>
+            {rangeType === 'custom' && (
+                <div className="flex items-center gap-2 animate-in slide-in-from-left-2 w-full sm:w-auto">
+                <Input type="date" value={customRange.start} onChange={e => setCustomRange({...customRange, start: e.target.value})} className="!py-2 !text-xs shadow-none w-full sm:w-36" />
+                <span className="text-slate-400 font-bold">-</span>
+                <Input type="date" value={customRange.end} onChange={e => setCustomRange({...customRange, end: e.target.value})} className="!py-2 !text-xs shadow-none w-full sm:w-36" />
+                </div>
+            )}
+            </div>
+        </div>
+
         {/* --- FINANCIAL VIEW --- */}
         {activeTab === 'financial' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 print:grid-cols-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard title={t('reports_stat_net_profit')} value={`$${financialStats.netProfit.toLocaleString()}`} subtitle={t('reports_stat_net_subtitle')} icon={TrendingUp} colorClass={financialStats.netProfit >= 0 ? "bg-emerald-500" : "bg-rose-500"} trend={15} />
               <StatCard title={t('reports_stat_gross_revenue')} value={`$${financialStats.totalRevenue.toLocaleString()}`} subtitle={t('reports_stat_gross_subtitle')} icon={CreditCard} colorClass="bg-blue-600" trend={8} />
               <StatCard title={t('reports_stat_outstanding')} value={`$${financialStats.outstanding.toLocaleString()}`} subtitle={t('reports_stat_outstanding_subtitle')} icon={Clock} colorClass="bg-orange-500" trend={-2} />
               <StatCard title={t('reports_stat_avg_patient')} value={`$${financialStats.avgInvoice.toLocaleString()}`} subtitle={t('reports_stat_avg_subtitle')} icon={Layers} colorClass="bg-violet-600" trend={5} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:block print:space-y-6">
-              <Card className="lg:col-span-2 !p-0 print:border print:shadow-none" title={t('reports_chart_revenue_trend')}>
-                <div className="h-72 w-full p-4 print:h-64">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="lg:col-span-2 !p-0" title={t('reports_chart_revenue_trend')}>
+                <div className="h-72 w-full p-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={financialStats.revenueTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
@@ -345,8 +354,8 @@ export const Reports = () => {
                 </div>
               </Card>
 
-              <Card className="!p-0 print:border print:shadow-none" title={t('reports_chart_income_method')}>
-                <div className="h-72 w-full p-4 print:h-64">
+              <Card className="!p-0" title={t('reports_chart_income_method')}>
+                <div className="h-72 w-full p-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={financialStats.incomeByMethod} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value">
@@ -359,8 +368,8 @@ export const Reports = () => {
                 </div>
               </Card>
 
-              <Card className="lg:col-span-3 !p-0 print:border print:shadow-none" title={t('reports_chart_top_services')}>
-                <div className="h-64 w-full p-6 print:h-auto">
+              <Card className="lg:col-span-3 !p-0" title={t('reports_chart_top_services')}>
+                <div className="h-64 w-full p-6">
                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={financialStats.topServices} layout="vertical" margin={{ left: 20, right: 40, top: 10, bottom: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
@@ -381,15 +390,15 @@ export const Reports = () => {
         {/* --- OPERATIONAL VIEW --- */}
         {activeTab === 'operational' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard title={t('reports_stat_total_volume')} value={operationalStats.total} subtitle={t('reports_stat_volume_subtitle')} icon={Calendar} colorClass="bg-indigo-600" trend={12} />
               <StatCard title={t('reports_stat_fulfillment_rate')} value={`${operationalStats.completionRate}%`} subtitle={t('reports_stat_fulfillment_subtitle')} icon={CheckCircle} colorClass="bg-emerald-600" trend={3} />
               <StatCard title={t('reports_stat_busiest_service')} value={operationalStats.deptRank[0]?.name || '-'} subtitle={t('reports_stat_busiest_subtitle')} icon={BarChart3} colorClass="bg-amber-600" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:block print:space-y-6">
-              <Card title={t('reports_chart_dept_utilization')} className="print:border print:shadow-none">
-                <div className="h-72 w-full p-4 print:h-64">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card title={t('reports_chart_dept_utilization')}>
+                <div className="h-72 w-full p-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={operationalStats.deptRank} cx="50%" cy="50%" outerRadius={90} dataKey="value" labelLine={false} label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
@@ -402,8 +411,8 @@ export const Reports = () => {
                 </div>
               </Card>
 
-              <Card title={t('reports_chart_staff_performance')} className="print:border print:shadow-none">
-                <div className="h-72 w-full p-4 print:h-64">
+              <Card title={t('reports_chart_staff_performance')}>
+                <div className="h-72 w-full p-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={operationalStats.doctorRank} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
@@ -424,15 +433,15 @@ export const Reports = () => {
         {/* --- DEMOGRAPHICS VIEW --- */}
         {activeTab === 'demographics' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard title={t('reports_stat_registry_size')} value={patientStats.total} subtitle={t('reports_stat_registry_subtitle')} icon={Users} colorClass="bg-blue-600" trend={5} />
               <StatCard title={t('reports_stat_acquisition')} value={patientStats.newCount} subtitle={t('reports_stat_acquisition_subtitle')} icon={FilePlus} colorClass="bg-emerald-600" trend={18} />
               <StatCard title={t('reports_stat_primary_segment')} value={patientStats.ageDist.sort((a,b)=>b.value-a.value)[0]?.name || '-'} subtitle={t('reports_stat_segment_subtitle')} icon={Layers} colorClass="bg-violet-600" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:block print:space-y-6">
-              <Card className="lg:col-span-2 print:border print:shadow-none" title={t('reports_chart_growth_trend')}>
-                 <div className="h-72 w-full p-4 print:h-64">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="lg:col-span-2" title={t('reports_chart_growth_trend')}>
+                 <div className="h-72 w-full p-4">
                     <ResponsiveContainer width="100%" height="100%">
                        <AreaChart data={patientStats.growthTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <defs>
@@ -451,8 +460,8 @@ export const Reports = () => {
                  </div>
               </Card>
 
-              <Card className="!p-0 print:border print:shadow-none" title={t('reports_chart_age_groups')}>
-                <div className="h-72 w-full p-4 print:h-64">
+              <Card className="!p-0" title={t('reports_chart_age_groups')}>
+                <div className="h-72 w-full p-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={patientStats.ageDist} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value">
@@ -467,6 +476,130 @@ export const Reports = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Printable Report - Visible Only on Print */}
+      <div className="hidden print:block font-sans text-slate-900">
+          {/* Header */}
+          <div className="border-b-2 border-slate-900 pb-4 mb-8">
+              <h1 className="text-3xl font-black uppercase tracking-tight mb-1">{t('reports_title')}</h1>
+              <p className="text-sm text-slate-500 font-bold">{t('reports_subtitle')} | Generated: {new Date().toLocaleString()}</p>
+          </div>
+
+          {/* Financial Section */}
+          <div className="mb-8 break-inside-avoid">
+              <h2 className="text-xl font-bold border-l-4 border-slate-900 pl-3 mb-4 uppercase">{t('reports_tab_financial')}</h2>
+              <table className="w-full text-sm border border-slate-300">
+                  <thead className="bg-slate-100 font-bold">
+                      <tr>
+                          <th className="p-3 text-left border-r border-slate-300 w-1/2">{t('reports_stat_gross_revenue')}</th>
+                          <th className="p-3 text-left border-r border-slate-300">{t('reports_stat_net_profit')}</th>
+                          <th className="p-3 text-left">{t('reports_stat_outstanding')}</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      <tr>
+                          <td className="p-3 border-r border-slate-300 border-b border-slate-300 font-mono text-lg">${financialStats.totalRevenue.toLocaleString()}</td>
+                          <td className="p-3 border-r border-slate-300 border-b border-slate-300 font-mono text-lg">${financialStats.netProfit.toLocaleString()}</td>
+                          <td className="p-3 border-b border-slate-300 font-mono text-lg">${financialStats.outstanding.toLocaleString()}</td>
+                      </tr>
+                  </tbody>
+              </table>
+              
+              <div className="mt-4 grid grid-cols-2 gap-8">
+                  <div>
+                      <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Income by Method</h4>
+                      <table className="w-full text-xs border border-slate-200">
+                          {financialStats.incomeByMethod.map((item, i) => (
+                              <tr key={i} className="border-b border-slate-200">
+                                  <td className="p-2 border-r border-slate-200">{item.name}</td>
+                                  <td className="p-2 font-mono text-right">${item.value.toLocaleString()}</td>
+                              </tr>
+                          ))}
+                      </table>
+                  </div>
+                  <div>
+                      <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Top Services</h4>
+                      <table className="w-full text-xs border border-slate-200">
+                          {financialStats.topServices.map((item, i) => (
+                              <tr key={i} className="border-b border-slate-200">
+                                  <td className="p-2 border-r border-slate-200">{item.name}</td>
+                                  <td className="p-2 font-mono text-right">${item.value.toLocaleString()}</td>
+                              </tr>
+                          ))}
+                      </table>
+                  </div>
+              </div>
+          </div>
+
+          {/* Operational Section */}
+          <div className="mb-8 break-inside-avoid">
+              <h2 className="text-xl font-bold border-l-4 border-slate-900 pl-3 mb-4 uppercase">{t('reports_tab_operational')}</h2>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="p-4 border border-slate-300 rounded">
+                      <p className="text-xs font-bold text-slate-500 uppercase">{t('reports_stat_total_volume')}</p>
+                      <p className="text-2xl font-black">{operationalStats.total}</p>
+                  </div>
+                  <div className="p-4 border border-slate-300 rounded">
+                      <p className="text-xs font-bold text-slate-500 uppercase">{t('reports_stat_fulfillment_rate')}</p>
+                      <p className="text-2xl font-black">{operationalStats.completionRate}%</p>
+                  </div>
+                  <div className="p-4 border border-slate-300 rounded">
+                      <p className="text-xs font-bold text-slate-500 uppercase">{t('reports_stat_busiest_service')}</p>
+                      <p className="text-lg font-bold truncate">{operationalStats.deptRank[0]?.name || '-'}</p>
+                  </div>
+              </div>
+              
+              <h4 className="text-xs font-black uppercase text-slate-500 mb-2">{t('reports_chart_dept_utilization')}</h4>
+              <table className="w-full text-xs border border-slate-200 mb-4">
+                  <thead className="bg-slate-50 font-bold">
+                      <tr><th className="p-2 text-left border-r">Department</th><th className="p-2 text-right">Volume</th><th className="p-2 text-right">%</th></tr>
+                  </thead>
+                  <tbody>
+                      {operationalStats.deptRank.map((item, i) => (
+                          <tr key={i} className="border-b border-slate-200">
+                              <td className="p-2 border-r border-slate-200 font-bold">{item.name}</td>
+                              <td className="p-2 border-r border-slate-200 text-right">{item.value}</td>
+                              <td className="p-2 text-right">{(item.value / (operationalStats.total || 1) * 100).toFixed(1)}%</td>
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
+          </div>
+
+          {/* Demographics Section */}
+          <div className="break-inside-avoid">
+              <h2 className="text-xl font-bold border-l-4 border-slate-900 pl-3 mb-4 uppercase">{t('reports_tab_demographics')}</h2>
+              <div className="grid grid-cols-2 gap-8">
+                  <div>
+                      <table className="w-full text-sm border border-slate-300 mb-4">
+                          <tr>
+                              <td className="p-3 border-r border-b border-slate-300 font-bold bg-slate-50">{t('reports_stat_registry_size')}</td>
+                              <td className="p-3 border-b border-slate-300 font-mono text-right">{patientStats.total}</td>
+                          </tr>
+                          <tr>
+                              <td className="p-3 border-r border-slate-300 font-bold bg-slate-50">{t('reports_stat_acquisition')}</td>
+                              <td className="p-3 font-mono text-right">{patientStats.newCount}</td>
+                          </tr>
+                      </table>
+                  </div>
+                  <div>
+                      <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Age Distribution</h4>
+                      <table className="w-full text-xs border border-slate-200">
+                          {patientStats.ageDist.map((item, i) => (
+                              <tr key={i} className="border-b border-slate-200">
+                                  <td className="p-2 border-r border-slate-200">{item.name}</td>
+                                  <td className="p-2 font-mono text-right">{item.value}</td>
+                              </tr>
+                          ))}
+                      </table>
+                  </div>
+              </div>
+          </div>
+          
+          <div className="mt-8 pt-8 border-t border-slate-200 text-center text-xs text-slate-400">
+              <p>End of Report • {new Date().getFullYear()} AllCare HMS</p>
+          </div>
       </div>
     </div>
   );

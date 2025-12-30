@@ -1,3 +1,4 @@
+
 {
   "app_loading": "جاري تحميل التطبيق...",
   "nav_dashboard": "لوحة التحكم",
@@ -940,6 +941,8 @@
   "config_dialog_delete_item_msg": "أرشفة هذا الإدخال؟ السجلات التاريخية لن تتأثر.",
   "config_dialog_delete_room_title": "إزالة سرير الجناح؟",
   "config_dialog_delete_room_msg": "إزالة هذا السرير من سجل الأجنحة نهائياً؟",
+  "reports_title": "تحليلات وتقارير",
+  "reports_subtitle": "مقاييس الأداء على مستوى النظام والاتجاهات.",
   "reports_export_button": "تصدير التقرير",
   "permission_group_general": "عام",
   "permission_group_patients": "المرضى",
@@ -977,8 +980,5 @@
   "permission_VIEW_RECORDS": "عرض السجلات الموحدة",
   "permission_VIEW_SETTINGS": "عرض التخصيصات",
   "permission_MANAGE_SETTINGS": "إدارة الإعدادات",
-  "permission_MANAGE_CONFIGURATION": "تهيئة النظام",
-  "patients_process_success_appointment": "تم جدولة الموعد بنجاح.",
-  "appointments_status_pending": "قيد الانتظار",
-  "appointments_status_confirmed": "مؤكد"
+  "permission_MANAGE_CONFIGURATION": "تهيئة النظام"
 }
