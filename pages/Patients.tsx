@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Search, Filter, Edit, Calendar, Lock, 
@@ -15,8 +15,6 @@ import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
 import { useHeader } from '../context/HeaderContext';
-
-const { useLocation } = ReactRouterDOM as any;
 
 export const Patients = () => {
   const location = useLocation();
