@@ -3,9 +3,11 @@ import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  // Use relative path for production to avoid 502 Bad Gateway and CORS issues.
-  // In development, vite.config.js proxies '/api' to localhost:3001.
-  // In production, the Node.js backend serves the frontend from the same origin.
+  // Ensure absolute URL is used to avoid "Failed to construct 'URL': Invalid URL" errors
+  // which can happen when axios attempts to construct URLs with a relative baseURL.
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api`;
+  }
   return '/api';
 };
 
@@ -30,6 +32,11 @@ client.interceptors.response.use(
   async (error) => {
     const { config, response } = error;
     
+    // Safety check: if config is missing, we cannot retry or check URL.
+    if (!config) {
+        return Promise.reject(error);
+    }
+
     // Auto-retry once on 429
     if (response?.status === 429 && !config._retry) {
       config._retry = true;
