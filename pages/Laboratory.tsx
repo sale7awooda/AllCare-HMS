@@ -530,41 +530,20 @@ export const Laboratory = () => {
 
         <style>{`
             @media print {
-                @page { margin: 10mm; size: auto; }
-                body { 
-                    visibility: hidden; 
-                    background-color: white !important; 
-                    color: black !important; 
-                    margin: 0;
-                    padding: 0;
-                }
-                
-                #printable-lab-report {
-                    visibility: visible;
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    width: 100%;
-                    margin: 0;
-                    padding: 20px;
-                    background-color: white;
-                    color: black;
-                    z-index: 9999;
-                }
-                
-                #printable-lab-report * {
-                    visibility: visible;
-                }
-
+                @page { margin: 10mm 15mm; size: auto; }
+                body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
+                body > *:not(.Modal) { display: none !important; }
+                .Modal { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; margin: 0 !important; padding: 0 !important; background: white !important; z-index: 9999 !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; transform: none !important; }
+                #printable-lab-report { display: block !important; margin-top: 0 !important; }
                 .no-print { display: none !important; }
                 
-                /* Tailwind print overrides */
+                /* Specific Overrides for Print Clarity */
                 .print\\:hidden { display: none !important; }
                 .print\\:flex { display: flex !important; }
                 .print\\:block { display: block !important; }
-                .print\\:text-black { color: black !important; }
-                .print\\:bg-transparent { background-color: transparent !important; }
+                .print\\:bg-transparent { background: transparent !important; }
                 .print\\:border-slate-300 { border-color: #cbd5e1 !important; }
+                .print\\:text-black { color: black !important; }
                 .print\\:rounded-none { border-radius: 0 !important; }
             }
         `}</style>

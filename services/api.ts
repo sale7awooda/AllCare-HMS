@@ -1,11 +1,10 @@
 
 import axios from 'axios';
 
-// Helper to determine the correct base URL
+// Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  // We hardcode the production backend URL here.
-  // This ensures that whether you are running in Google AI Studio, Localhost, or Vercel,
-  // the app always connects to your deployed Railway backend.
+  // Direct connection to the deployed Railway backend.
+  // This ensures connectivity regardless of where the frontend is hosted (AI Studio, Vercel, etc.)
   return 'https://allcare.up.railway.app/api';
 };
 
@@ -30,11 +29,6 @@ client.interceptors.response.use(
   async (error) => {
     const { config, response } = error;
     
-    // Safety check: if config is missing, we cannot retry or check URL.
-    if (!config) {
-        return Promise.reject(error);
-    }
-
     // Auto-retry once on 429
     if (response?.status === 429 && !config._retry) {
       config._retry = true;

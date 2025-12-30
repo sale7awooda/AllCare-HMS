@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -5,13 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#3b82f6" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>AllCare HMS</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
-    
-    <!-- Tailwind CSS CDN for no-build environments (AI Studio Preview) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -48,25 +46,79 @@
         }
       }
     </script>
-
-    <script type="importmap">
-    {
-      "imports": {
-        "react/": "https://esm.sh/react@^19.2.3/",
-        "react": "https://esm.sh/react@^19.2.3",
-        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-        "react-dom": "https://esm.sh/react-dom@^19.2.3",
-        "vite": "https://esm.sh/vite@^7.3.0",
-        "path": "https://esm.sh/path@^0.12.7",
-        "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-        "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
-        "recharts": "https://esm.sh/recharts@^3.6.0",
-        "axios": "https://esm.sh/axios@^1.13.2",
-        "url": "https://esm.sh/url@^0.11.4",
-        "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+    <style>
+      :root {
+        --primary-50: #eff6ff;
+        --primary-100: #dbeafe;
+        --primary-200: #bfdbfe;
+        --primary-300: #93c5fd;
+        --primary-400: #60a5fa;
+        --primary-500: #3b82f6;
+        --primary-600: #2563eb;
+        --primary-700: #1d4ed8;
+        --primary-800: #1e40af;
+        --primary-900: #1e3a8a;
       }
-    }
-    </script>
+      
+      body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; color: #334155; }
+      .dark body { background-color: #020617; color: #f1f5f9; }
+      
+      html[dir="rtl"] body {
+        font-family: 'Tajawal', 'Plus Jakarta Sans', sans-serif;
+      }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+      .dark ::-webkit-scrollbar-thumb { background: #1e293b; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      .sidebar-transition { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+      /* Compact Density Overrides */
+      html[data-density="compact"] .p-6 { padding: 0.875rem !important; }
+      html[data-density="compact"] .p-5 { padding: 0.75rem !important; }
+      html[data-density="compact"] .p-4 { padding: 0.625rem !important; }
+      html[data-density="compact"] .px-6 { padding-left: 0.875rem !important; padding-right: 0.875rem !important; }
+      html[data-density="compact"] .py-5 { padding-top: 0.625rem !important; padding-bottom: 0.625rem !important; }
+      html[data-density="compact"] .gap-6 { gap: 0.875rem !important; }
+      html[data-density="compact"] .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.875rem !important; }
+      
+      html[data-density="compact"] input, 
+      html[data-density="compact"] select, 
+      html[data-density="compact"] textarea { padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; }
+
+      /* HMS Professional Print Styles */
+      @media print {
+        body { background-color: #fff !important; color: #000 !important; }
+        aside, header, nav, footer, .no-print, button, .button-group { display: none !important; }
+        main { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+        .max-w-7xl { max-width: 100% !important; }
+        .shadow-soft, .shadow-card, .shadow-xl { box-shadow: none !important; }
+        .border, .border-slate-200 { border: 1px solid #eee !important; }
+        .bg-slate-50, .bg-slate-100 { background-color: #fff !important; }
+        .Card { border: 1px solid #ddd !important; border-radius: 0 !important; }
+        .fixed, .sticky { position: relative !important; }
+        .overflow-hidden, .overflow-y-auto { overflow: visible !important; }
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.22.2?external=react,react-dom",
+    "lucide-react": "https://esm.sh/lucide-react@0.344.0?external=react,react-dom",
+    "recharts": "https://esm.sh/recharts@2.12.2?external=react,react-dom",
+    "axios": "https://esm.sh/axios@1.6.7",
+    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "path": "https://esm.sh/path@^0.12.7",
+    "url": "https://esm.sh/url@^0.11.4"
+  }
+}
+</script>
 </head>
   <body class="antialiased">
     <div id="root"></div>

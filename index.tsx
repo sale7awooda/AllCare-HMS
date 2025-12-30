@@ -4,7 +4,6 @@ import App from './App';
 import { ThemeProvider } from './context/ThemeContext';
 import { TranslationProvider } from './context/TranslationContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import './index.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
