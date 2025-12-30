@@ -550,13 +550,6 @@ export const Billing = () => {
   }, [patients, patientSearch]);
 
   const InvoiceView = ({ bill }: { bill: Bill }) => {
-    const taxItem = bill.items.find(i => i.description.toLowerCase().includes('tax'));
-    const subtotal = bill.items.filter(i => !i.description.toLowerCase().includes('tax')).reduce((sum, i) => sum + i.amount, 0);
-    const taxAmount = taxItem ? taxItem.amount : 0;
-    const hospitalName = localStorage.getItem('h_name') || 'AllCare Hospital';
-    const hospitalAddress = localStorage.getItem('h_address') || 'Atbara, alsoug alkabeer';
-    const hospitalPhone = localStorage.getItem('h_phone') || '';
-
     return (
         <div className="p-8 bg-white min-h-[600px] text-slate-800 font-sans" id="invoice-print">
             {/* Header */}
@@ -566,42 +559,27 @@ export const Billing = () => {
                         <Wallet size={32}/>
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black uppercase text-slate-900 tracking-tight">{t('billing_invoice_title')}</h1>
-                        <p className="text-slate-500 font-mono text-sm tracking-wider">#{bill.billNumber}</p>
+                        <h1 className="text-2xl font-black uppercase text-slate-900 tracking-tight">AllCare Hospital Invoice</h1>
                     </div>
                 </div>
                 <div className="text-right">
-                    <h2 className="text-lg font-bold text-slate-800">{hospitalName}</h2>
-                    <div className="text-xs text-slate-500 mt-1 space-y-0.5">
-                        <p>{hospitalAddress}</p>
-                        <p>{hospitalPhone}</p>
+                    <div className="text-sm font-bold text-slate-700">
+                        <p>Bill Number: <span className="font-mono">{bill.billNumber}</span></p>
+                        <p>Date: <span className="font-mono">{new Date(bill.date).toLocaleDateString()}</span></p>
                     </div>
                 </div>
             </div>
 
-            {/* Meta & Patient */}
-            <div className="grid grid-cols-2 gap-8 mb-8">
-                <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{t('billing_invoice_billed_to')}</p>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <p className="font-bold text-lg text-slate-900">{bill.patientName}</p>
-                        <p className="text-sm text-slate-500 mt-1">ID: <span className="font-mono text-slate-700">#{bill.patientId}</span></p>
-                        {bill.patientPhone && <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-1"><Phone size={12}/> {bill.patientPhone}</p>}
-                    </div>
-                </div>
-                <div className="text-right">
-                    <div className="space-y-4">
-                        <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{t('billing_invoice_date')}</p>
-                            <p className="font-bold text-slate-900">{new Date(bill.date).toLocaleDateString()}</p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{t('status')}</p>
-                            <span className={`inline-block px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wide border ${bill.status === 'paid' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200'}`}>
-                                {translateStatus(bill.status)}
-                            </span>
-                        </div>
-                    </div>
+            {/* Patient Details - One Row */}
+            <div className="mb-8 border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2 text-lg">
+                    <span className="font-bold text-slate-900">{bill.patientName}</span>
+                    {bill.patientPhone && (
+                        <>
+                            <span className="text-slate-400">•</span>
+                            <span className="text-slate-600 text-base">{bill.patientPhone}</span>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -627,40 +605,22 @@ export const Billing = () => {
                 </table>
             </div>
 
-            {/* Totals */}
+            {/* Totals - Simplified */}
             <div className="flex justify-end">
                 <div className="w-64 space-y-3">
-                    <div className="flex justify-between text-sm text-slate-500">
-                        <span>{t('billing_invoice_subtotal')}</span>
-                        <span className="font-mono">${subtotal.toFixed(2)}</span>
-                    </div>
-                    {taxAmount > 0 && (
-                        <div className="flex justify-between text-sm text-slate-500">
-                            <span>{t('billing_invoice_tax')}</span>
-                            <span className="font-mono">${taxAmount.toFixed(2)}</span>
-                        </div>
-                    )}
-                    <div className="h-px bg-slate-200 my-2"></div>
                     <div className="flex justify-between items-center">
                         <span className="font-black text-slate-900 uppercase tracking-wide text-sm">{t('billing_invoice_total')}</span>
                         <span className="font-black text-2xl text-slate-900 font-mono">${bill.totalAmount.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm text-emerald-600 font-bold bg-emerald-50 p-2 rounded-lg border border-emerald-100">
-                        <span>{t('billing_invoice_paid')}</span>
-                        <span className="font-mono">-${(bill.paidAmount || 0).toFixed(2)}</span>
+                        <span>{t('billing_table_paid_amount')}</span>
+                        <span className="font-mono">${(bill.paidAmount || 0).toFixed(2)}</span>
                     </div>
-                    {bill.totalAmount > bill.paidAmount && (
-                        <div className="flex justify-between text-rose-600 font-bold bg-rose-50 p-2 rounded-lg border border-rose-100">
-                            <span>{t('billing_invoice_balance')}</span>
-                            <span className="font-mono">${(bill.totalAmount - (bill.paidAmount || 0)).toLocaleString()}</span>
-                        </div>
-                    )}
                 </div>
             </div>
 
             {/* Footer */}
             <div className="mt-12 pt-8 border-t border-slate-100 text-center">
-                <p className="text-xs text-slate-400 uppercase font-bold tracking-widest mb-1">Thank you for choosing {hospitalName}</p>
                 <p className="text-[10px] text-slate-400">Computer generated invoice. No signature required.</p>
             </div>
         </div>
@@ -972,19 +932,6 @@ export const Billing = () => {
                 {getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}
             </Select>
             <div className="space-y-4">
-                <div className="relative opacity-80">
-                   <Input 
-                      label={t('billing_table_header_amount')} 
-                      type="number" 
-                      value={paymentForm.amount} 
-                      readOnly
-                      className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-not-allowed border-slate-200 dark:border-slate-700 focus:ring-0 focus:border-slate-300" 
-                   />
-                   <div className="absolute right-3 top-[34px] text-slate-400 pointer-events-none">
-                      <Lock size={16} />
-                   </div>
-                </div>
-                
                 {/* Dynamic fields based on method */}
                 {paymentForm.method.toLowerCase() === 'insurance' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2">
