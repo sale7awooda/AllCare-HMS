@@ -7,7 +7,7 @@ exports.getLabRequests = (req, res) => {
     const requests = db.prepare(`
       SELECT 
         lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json,
-        p.full_name as patientName
+        p.full_name as patientName, p.age as patientAge, p.gender as patientGender, p.phone, p.patient_id as patientCode
       FROM lab_requests lr
       JOIN patients p ON lr.patient_id = p.id
       ORDER BY lr.created_at DESC
@@ -51,8 +51,8 @@ exports.createLabRequest = (req, res) => {
       db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, `Lab Tests (Qty: ${testIds.length})`, totalCost);
 
       db.prepare(`
-        INSERT INTO lab_requests (patient_id, test_ids, projected_cost, status, bill_id)
-        VALUES (?, ?, ?, 'pending', ?)
+        INSERT INTO lab_requests (patient_id, test_ids, projected_cost, status, bill_id, created_at)
+        VALUES (?, ?, ?, 'pending', ?, datetime('now'))
       `).run(patientId, JSON.stringify(testIds), totalCost, bill.lastInsertRowid);
   });
 

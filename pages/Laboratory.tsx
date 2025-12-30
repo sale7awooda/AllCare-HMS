@@ -202,7 +202,7 @@ export const Laboratory = () => {
   };
 
   const filteredRequests = requests.filter(r => {
-    const matchesSearch = r.patientName?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (r.patientName || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTab = activeTab === 'queue' ? (r.status === 'pending' || r.status === 'confirmed') : (r.status === 'completed');
     return matchesSearch && matchesTab;
   });
@@ -429,7 +429,8 @@ export const Laboratory = () => {
                     <div className="flex gap-4 items-baseline">
                         <h3 className="text-lg font-black text-slate-900 uppercase">{selectedReq?.patientName}</h3>
                         <div className="flex gap-3 text-xs font-bold text-slate-500 border-l border-slate-300 pl-3">
-                            <span>#{selectedReq?.patient_id}</span>
+                            {/* Removed #ID as requested */}
+                            <span>{selectedReq?.patientCode || '-'}</span>
                             <span>{selectedReq?.patientGender || '-'}</span>
                             <span>{selectedReq?.patientAge || '-'} Yrs</span>
                             {selectedReq?.phone && <span>{selectedReq?.phone}</span>}
