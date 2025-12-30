@@ -1,14 +1,12 @@
 
 import axios from 'axios';
 
-// Helper to determine the correct base URL based on the current environment
+// Helper to determine the correct base URL
 const getBaseUrl = () => {
-  // Ensure absolute URL is used to avoid "Failed to construct 'URL': Invalid URL" errors
-  // which can happen when axios attempts to construct URLs with a relative baseURL.
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}/api`;
-  }
-  return '/api';
+  // We hardcode the production backend URL here.
+  // This ensures that whether you are running in Google AI Studio, Localhost, or Vercel,
+  // the app always connects to your deployed Railway backend.
+  return 'https://allcare.up.railway.app/api';
 };
 
 const client = axios.create({
