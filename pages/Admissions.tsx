@@ -1,8 +1,7 @@
 
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Card, Button, Badge, Modal, Input, Textarea, Select, ConfirmationDialog, CancellationModal } from '../components/UI';
+import { Card, Button, Badge, Modal, Input, Textarea, Select, ConfirmationDialog } from '../components/UI';
 import { 
   Bed, User, Calendar, Activity, CheckCircle, FileText, AlertCircle, AlertTriangle,
   HeartPulse, Clock, LogOut, Plus, Search, Wrench, ArrowRight, 
@@ -41,7 +40,6 @@ export const Admissions = () => {
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
   const [confirmState, setConfirmState] = useState<any>({ isOpen: false, title: '', message: '', action: () => {}, type: 'danger' });
-  const [cancellationModal, setCancellationModal] = useState<{isOpen: boolean, admissionId: number | null}>({ isOpen: false, admissionId: null });
   
   const [isCareModalOpen, setIsCareModalOpen] = useState(false);
   const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false);
@@ -244,26 +242,27 @@ export const Admissions = () => {
     }
   };
 
-  const handleCancelClick = () => {
-    if (selectedAdmission) {
-        setCancellationModal({ isOpen: true, admissionId: selectedAdmission.id });
-    }
-  };
-
-  const confirmCancel = async (reason: string, note: string) => {
-    if (!cancellationModal.admissionId) return;
-    setCancellationModal({ isOpen: false, admissionId: null });
-    setProcessStatus('processing');
-    setProcessMessage(t('admissions_process_cancelling'));
-    try {
-      await api.cancelAdmission(cancellationModal.admissionId, { reason, note });
-      setProcessStatus('success');
-      await loadData(true);
-      setTimeout(() => { setIsConfirmModalOpen(false); setProcessStatus('idle'); }, 1500);
-    } catch (e) {
-      setProcessStatus('error');
-      setProcessMessage(t('admissions_process_cancel_fail'));
-    }
+  const handleCancelAdmission = () => {
+    if (!selectedAdmission) return;
+    setConfirmState({
+      isOpen: true,
+      title: t('admissions_bed_cancel_reservation'),
+      message: t('admissions_dialog_cancel_reservation_msg') || 'Are you sure you want to cancel this reservation?',
+      type: 'danger',
+      action: async () => {
+        setProcessStatus('processing');
+        setProcessMessage(t('admissions_process_cancelling'));
+        try {
+          await api.cancelAdmission(selectedAdmission.id);
+          setProcessStatus('success');
+          await loadData(true);
+          setTimeout(() => { setIsConfirmModalOpen(false); setProcessStatus('idle'); }, 1500);
+        } catch (e) {
+          setProcessStatus('error');
+          setProcessMessage(t('admissions_process_cancel_fail'));
+        }
+      }
+    });
   };
 
   const handleAddNote = async (e: React.FormEvent) => {
@@ -633,7 +632,7 @@ export const Admissions = () => {
                )}
              </div>
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 border-t dark:border-slate-700">
-                <Button variant="danger" icon={X} onClick={handleCancelClick} className="w-full">{t('admissions_bed_cancel_reservation')}</Button>
+                <Button variant="danger" icon={X} onClick={handleCancelAdmission} className="w-full">{t('admissions_bed_cancel_reservation')}</Button>
                 <Button 
                   icon={CheckCircle} 
                   disabled={selectedAdmission.billStatus !== 'paid'} 
@@ -912,12 +911,6 @@ export const Admissions = () => {
         )}
       </Modal>
 
-      <CancellationModal
-        isOpen={cancellationModal.isOpen}
-        onClose={() => setCancellationModal({ isOpen: false, admissionId: null })}
-        onConfirm={confirmCancel}
-        title={t('admissions_bed_cancel_reservation')}
-      />
       <ConfirmationDialog 
         isOpen={confirmState.isOpen} 
         onClose={() => setConfirmState({ ...confirmState, isOpen: false })} 

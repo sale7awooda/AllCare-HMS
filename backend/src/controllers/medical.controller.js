@@ -1,5 +1,4 @@
 
-
 const { db } = require('../config/database');
 
 // --- LAB ---
@@ -349,20 +348,11 @@ exports.confirmAdmission = (req, res) => {
 
 exports.cancelAdmission = (req, res) => {
     const { id } = req.params;
-    const { reason, note } = req.body;
-
     const tx = db.transaction(() => {
         const adm = db.prepare("SELECT * FROM admissions WHERE id = ?").get(id);
         if (!adm) throw new Error('Admission not found');
         
-        db.prepare(`
-            UPDATE admissions 
-            SET status = 'cancelled',
-                cancellation_reason = ?,
-                cancellation_note = ?
-            WHERE id = ?
-        `).run(reason || 'Other', note || '', id);
-
+        db.prepare("UPDATE admissions SET status = 'cancelled' WHERE id = ?").run(id);
         db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(adm.bed_id);
         if (adm.bill_id) {
             db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ? AND status = 'pending'").run(adm.bill_id);

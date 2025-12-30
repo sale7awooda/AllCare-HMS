@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { MemoryRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
@@ -10,7 +11,8 @@ import { Admissions } from './pages/Admissions';
 import { Laboratory } from './pages/Laboratory';
 import { Operations } from './pages/Operations';
 import { Configuration } from './pages/Configuration';
-import { Customizations } from './pages/Customizations'; 
+import { Settings } from './pages/Settings'; 
+import { Customizations } from './pages/Customizations';
 import { Reports } from './pages/Reports'; 
 import { Records } from './pages/Records';
 import { Login } from './pages/Login';
@@ -21,7 +23,6 @@ import { AuthContext, useAuth } from './context/AuthContext';
 import { HeaderProvider } from './context/HeaderContext';
 
 function AppContent() {
-  // FIX: Replaced React.useContext(AuthContext)! with the custom useAuth() hook for better type safety and cleaner code.
   const { user, isAuthChecking } = useAuth();
   const { t } = useTranslation();
 
@@ -53,7 +54,8 @@ function AppContent() {
             <Route path="/hr" element={<Staff />} /> 
             <Route path="/reports" element={<Reports />} /> 
             <Route path="/records" element={<Records />} /> 
-            <Route path="/customizations" element={<Customizations />} /> 
+            <Route path="/settings" element={<Settings />} /> 
+            <Route path="/customizations" element={<Customizations />} />
             <Route path="/configuration" element={<Configuration />} /> 
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

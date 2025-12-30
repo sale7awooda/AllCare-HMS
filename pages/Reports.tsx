@@ -327,7 +327,7 @@ export const Reports = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:block print:space-y-6">
               <Card className="lg:col-span-2 !p-0 print:border print:shadow-none" title={t('reports_chart_revenue_trend')}>
                 <div className="h-72 w-full p-4 print:h-64 min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <AreaChart data={financialStats.revenueTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -347,7 +347,7 @@ export const Reports = () => {
 
               <Card className="!p-0 print:border print:shadow-none" title={t('reports_chart_income_method')}>
                 <div className="h-72 w-full p-4 print:h-64 min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <PieChart>
                       <Pie data={financialStats.incomeByMethod} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value">
                         {financialStats.incomeByMethod.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} strokeWidth={0} />)}
@@ -361,7 +361,7 @@ export const Reports = () => {
 
               <Card className="lg:col-span-3 !p-0 print:border print:shadow-none" title={t('reports_chart_top_services')}>
                 <div className="h-64 w-full p-6 print:h-auto min-w-0">
-                   <ResponsiveContainer width="100%" height="100%">
+                   <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                       <BarChart data={financialStats.topServices} layout="vertical" margin={{ left: 20, right: 40, top: 10, bottom: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
                         <XAxis type="number" hide />
@@ -390,7 +390,7 @@ export const Reports = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:block print:space-y-6">
               <Card title={t('reports_chart_dept_utilization')} className="print:border print:shadow-none">
                 <div className="h-72 w-full p-4 print:h-64 min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <PieChart>
                       <Pie data={operationalStats.deptRank} cx="50%" cy="50%" outerRadius={90} dataKey="value" labelLine={false} label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
                         {operationalStats.deptRank.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} strokeWidth={0} />)}
@@ -404,7 +404,7 @@ export const Reports = () => {
 
               <Card title={t('reports_chart_staff_performance')} className="print:border print:shadow-none">
                 <div className="h-72 w-full p-4 print:h-64 min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart data={operationalStats.doctorRank} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
                       <XAxis dataKey="name" tick={{fontSize: 10, fontWeight: 'bold', fill: '#94a3b8'}} axisLine={false} tickLine={false} />
@@ -433,7 +433,7 @@ export const Reports = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:block print:space-y-6">
               <Card className="lg:col-span-2 print:border print:shadow-none" title={t('reports_chart_growth_trend')}>
                  <div className="h-72 w-full p-4 print:h-64 min-w-0">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                        <AreaChart data={patientStats.growthTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <defs>
                             <linearGradient id="colorGrowth" x1="0" y1="0" x2="0" y2="1">
@@ -453,7 +453,7 @@ export const Reports = () => {
 
               <Card className="!p-0 print:border print:shadow-none" title={t('reports_chart_age_groups')}>
                 <div className="h-72 w-full p-4 print:h-64 min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <PieChart>
                       <Pie data={patientStats.ageDist} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value">
                         {patientStats.ageDist.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} strokeWidth={0} />)}

@@ -46,14 +46,6 @@ try {
   }
 }
 
-const safeAddColumn = (table, column, definition) => {
-  try {
-    db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
-  } catch (e) {
-    // Column likely exists, ignore
-  }
-};
-
 const initDB = (forceReset = false) => {
   if (forceReset) {
     console.log('[Database] Resetting data...');
@@ -239,16 +231,6 @@ const initDB = (forceReset = false) => {
   db.prepare(`CREATE TABLE IF NOT EXISTS tax_rates (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, rate REAL, is_active BOOLEAN)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`).run();
   db.prepare(`CREATE TABLE IF NOT EXISTS insurance_providers (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`).run();
-
-  // --- Add Cancellation Columns (Safe Migration) ---
-  safeAddColumn('appointments', 'cancellation_reason', 'TEXT');
-  safeAddColumn('appointments', 'cancellation_note', 'TEXT');
-  safeAddColumn('admissions', 'cancellation_reason', 'TEXT');
-  safeAddColumn('admissions', 'cancellation_note', 'TEXT');
-  safeAddColumn('operations', 'cancellation_reason', 'TEXT');
-  safeAddColumn('operations', 'cancellation_note', 'TEXT');
-  safeAddColumn('lab_requests', 'cancellation_reason', 'TEXT');
-  safeAddColumn('lab_requests', 'cancellation_note', 'TEXT');
 
   seedData();
 };
