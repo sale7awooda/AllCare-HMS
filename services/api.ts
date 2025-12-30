@@ -1,12 +1,12 @@
 
 import axios from 'axios';
 
-// Helper to determine the correct base URL based on the current environment
+// Helper to determine the correct base URL
 const getBaseUrl = () => {
-  // Always use relative path '/api'. 
-  // In development, vite.config.js proxies this to localhost:3001.
-  // In production, the backend serves the frontend, so relative path works perfectly.
-  return '/api';
+  // We hardcode the production backend URL here.
+  // This ensures that whether you are running in Google AI Studio, Localhost, or Vercel,
+  // the app always connects to your deployed Railway backend.
+  return 'https://allcare.up.railway.app/api';
 };
 
 const client = axios.create({
@@ -30,6 +30,11 @@ client.interceptors.response.use(
   async (error) => {
     const { config, response } = error;
     
+    // Safety check: if config is missing, we cannot retry or check URL.
+    if (!config) {
+        return Promise.reject(error);
+    }
+
     // Auto-retry once on 429
     if (response?.status === 429 && !config._retry) {
       config._retry = true;
@@ -38,8 +43,14 @@ client.interceptors.response.use(
       return client(config);
     }
 
+    // Identify polling requests to exclude from aggressive retries
+    const isPolling = config.url?.includes('/config/settings/public') || 
+                      config.url?.includes('/config/health') || 
+                      config.url?.includes('/notifications');
+
     // Aggressive Auto-retry on Network Error
-    if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork) {
+    // Exclude polling requests to prevent log spam and overlap
+    if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork && !isPolling) {
         config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
         const MAX_RETRIES = 5; 
         if (config._retryNetworkCount <= MAX_RETRIES) {
@@ -64,7 +75,6 @@ client.interceptors.response.use(
     }
 
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        const isPolling = config.url?.includes('/config/settings/public') || config.url?.includes('/config/health') || config.url?.includes('/notifications');
         if (!isPolling) {
             console.error('Backend unreachable:', config.url);
             const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
@@ -119,13 +129,13 @@ export const api = {
   createAppointment: (data) => post('/appointments', data),
   updateAppointment: (id, data) => put(`/appointments/${id}`, data),
   updateAppointmentStatus: (id, status) => put(`/appointments/${id}/status`, { status }),
-  cancelAppointment: (id, details) => put(`/appointments/${id}/cancel`, details),
+  cancelAppointment: (id) => put(`/appointments/${id}/cancel`),
 
   getBills: () => get('/billing'),
   createBill: (data) => post('/billing', data),
   recordPayment: (id, data) => post(`/billing/${id}/pay`, data), 
   processRefund: (id, data) => post(`/billing/${id}/refund`, data),
-  cancelService: (id, details) => post(`/billing/${id}/cancel-service`, details), 
+  cancelService: (id) => post(`/billing/${id}/cancel-service`), 
   getTransactions: () => get('/treasury/transactions'),
   addExpense: (data) => post('/treasury/expenses', data),
   updateExpense: (id, data) => put(`/treasury/expenses/${id}`, data),
@@ -135,7 +145,7 @@ export const api = {
   getInpatientDetails: (id) => get(`/admissions/${id}`),
   createAdmission: (data) => post('/admissions', data),
   confirmAdmissionDeposit: (id) => post(`/admissions/${id}/confirm`),
-  cancelAdmission: (id, details) => put(`/admissions/${id}/cancel`, details),
+  cancelAdmission: (id) => put(`/admissions/${id}/cancel`),
   addInpatientNote: (id, data) => post(`/admissions/${id}/notes`, data),
   dischargePatient: (id, data) => post(`/admissions/${id}/discharge`, data),
   settleAndDischarge: (id, data) => post(`/admissions/${id}/settle_and_discharge`, data),

@@ -1,7 +1,6 @@
 {
   "name": "allcare-hms-root",
   "version": "1.0.0",
-  "type": "module",
   "scripts": {
     "dev": "(cd backend && npm install && npm rebuild better-sqlite3 && node server.js) & vite",
     "build": "vite build && mkdir -p backend/public && rm -rf backend/public/* && cp -r dist/* backend/public && cd backend && npm install && npm rebuild better-sqlite3",

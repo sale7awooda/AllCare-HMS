@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog, CancellationModal } from '../components/UI';
+import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Play, LayoutGrid, List as ListIcon, Edit, Eye,
   Loader2, XCircle, CheckCircle, X, ChevronLeft, ChevronRight,
@@ -59,7 +59,7 @@ interface DoctorQueueColumnProps {
   doctor: MedicalStaff;
   appointments: Appointment[];
   onStatusUpdate: (id: number, status: string, patientName: string) => void;
-  onCancel: (id: number, name: string) => void;
+  onCancel: (id: number) => void;
   canManage: boolean;
 }
 
@@ -135,7 +135,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
                   {apt.status === 'pending' && !isPaid && (<p className="text-xs font-semibold text-orange-500 mt-1">{t('appointments_queue_payment_needed')}</p>)}
                   {canManage && (
                     <div className="flex gap-2 mt-3">
-                        <Button size="sm" variant="danger" onClick={() => onCancel(apt.id, apt.patientName)} icon={X} className="flex-1">{t('cancel')}</Button>
+                        <Button size="sm" variant="danger" onClick={() => onCancel(apt.id)} icon={X} className="flex-1">{t('cancel')}</Button>
                         {isPaid && (<Button size="sm" variant={isFirstWaiting ? 'primary' : 'outline'} className="flex-1" onClick={() => onStatusUpdate(apt.id, 'in_progress', apt.patientName)} disabled={!isFirstWaiting} icon={Play}>{t('appointments_queue_start_button')}</Button>)}
                     </div>
                   )}
@@ -149,7 +149,7 @@ const DoctorQueueColumn: React.FC<DoctorQueueColumnProps> = ({ doctor, appointme
   );
 };
 
-const ListView = ({ appointments, onEdit, onView, onCancel, canManage }: { appointments: Appointment[], onEdit: (apt: Appointment) => void, onView: (apt: Appointment) => void, onCancel: (id: number, name: string) => void, canManage: boolean }) => {
+const ListView = ({ appointments, onEdit, onView, onCancel, canManage }: { appointments: Appointment[], onEdit: (apt: Appointment) => void, onView: (apt: Appointment) => void, onCancel: (id: number) => void, canManage: boolean }) => {
     const { t } = useTranslation();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
@@ -233,7 +233,7 @@ const ListView = ({ appointments, onEdit, onView, onCancel, canManage }: { appoi
                                 {canManage && (
                                   <>
                                     <Button size="sm" variant="outline" icon={Edit} onClick={() => onEdit(apt)}>{t('edit')}</Button>
-                                    <Button size="sm" variant="danger" icon={X} onClick={() => onCancel(apt.id, apt.patientName)} title={t('cancel')} />
+                                    <Button size="sm" variant="danger" icon={X} onClick={() => onCancel(apt.id)} title={t('cancel')} />
                                   </>
                                 )}
                               </>
@@ -388,8 +388,6 @@ export const Appointments = () => {
   const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', action: () => {} });
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
-  
-  const [cancelModal, setCancelModal] = useState<{ isOpen: boolean, id: number | null, name: string }>({ isOpen: false, id: null, name: '' });
 
   const { t, language } = useTranslation();
   const { user: currentUser } = useAuth();
@@ -505,26 +503,25 @@ export const Appointments = () => {
     }
   };
   
-  const handleCancelClick = (id: number, name: string) => {
-    setCancelModal({ isOpen: true, id, name });
-  };
-
-  const onConfirmCancellation = async (reason: string, note: string) => {
-    if (!cancelModal.id) return;
-    setCancelModal({ isOpen: false, id: null, name: '' });
-    setProcessStatus('processing');
-    setProcessMessage(t('appointments_process_cancelling'));
-    try { 
-      await api.cancelAppointment(cancelModal.id, { reason, note }); 
-      await loadData(true); 
-      setProcessStatus('success'); 
-      setTimeout(() => setProcessStatus('idle'), 1500); 
-    } 
-    catch (e: any) { 
-      setProcessStatus('error'); 
-      setProcessMessage(e.response?.data?.error || e.message || t('appointments_process_cancel_fail')); 
-      setTimeout(() => setProcessStatus('idle'), 2000); 
-    }
+  const handleCancel = (id: number) => {
+    setConfirmState({
+      isOpen: true, title: t('appointments_cancel_dialog_title'), message: t('appointments_cancel_dialog_message'),
+      action: async () => {
+        setProcessStatus('processing');
+        setProcessMessage(t('appointments_process_cancelling'));
+        try { 
+          await api.cancelAppointment(id); 
+          await loadData(true); 
+          setProcessStatus('success'); 
+          setTimeout(() => setProcessStatus('idle'), 1500); 
+        } 
+        catch (e: any) { 
+          setProcessStatus('error'); 
+          setProcessMessage(e.response?.data?.error || e.message || t('appointments_process_cancel_fail')); 
+          setTimeout(() => setProcessStatus('idle'), 2000); 
+        }
+      }
+    });
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -656,12 +653,12 @@ export const Appointments = () => {
             </div>
           ) : (
             appointmentsByDoctor.map(({ doctor, appointments }) => (
-              <DoctorQueueColumn key={doctor.id} doctor={doctor} appointments={appointments} onStatusUpdate={handleStatusUpdate} onCancel={handleCancelClick} canManage={canManage} />
+              <DoctorQueueColumn key={doctor.id} doctor={doctor} appointments={appointments} onStatusUpdate={handleStatusUpdate} onCancel={handleCancel} canManage={canManage} />
             ))
           )}
         </div>
       ) : viewMode === 'list' ? (
-        <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={openEditModal} onView={openViewDetailModal} onCancel={handleCancelClick} canManage={canManage} /></Card>
+        <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={openEditModal} onView={openViewDetailModal} onCancel={handleCancel} canManage={canManage} /></Card>
       ) : (
         <Card className="!p-0"><HistoryView appointments={appointments} onView={openViewDetailModal} /></Card>
       )}
@@ -822,13 +819,6 @@ export const Appointments = () => {
         )}
       </Modal>
       
-      <CancellationModal
-        isOpen={cancelModal.isOpen}
-        onClose={() => setCancelModal({ isOpen: false, id: null, name: '' })}
-        onSubmit={onConfirmCancellation}
-        title={t('appointments_cancel_dialog_title')}
-        itemDescription={`Cancelling appointment for ${cancelModal.name}`}
-      />
       <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({...confirmState, isOpen: false})} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message} />
     </div>
   );

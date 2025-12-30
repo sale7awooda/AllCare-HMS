@@ -99,26 +99,23 @@ exports.recordPayment = (req, res) => {
 
 exports.cancelService = (req, res) => {
   const { id } = req.params;
-  const { reason, note } = req.body;
-  const cancelText = ` [Cancelled: ${reason} - ${note}]`;
-
   const tx = db.transaction(() => {
-    db.prepare("UPDATE appointments SET status = 'cancelled', reason = COALESCE(reason, '') || ? WHERE bill_id = ?").run(cancelText, id);
+    db.prepare("UPDATE appointments SET status = 'cancelled' WHERE bill_id = ?").run(id);
     db.prepare("UPDATE lab_requests SET status = 'cancelled' WHERE bill_id = ?").run(id);
     
     // Ensure the bill status is also updated to cancelled
     db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ?").run(id);
     
-    const op = db.prepare("SELECT id, notes FROM operations WHERE bill_id = ?").get(id);
+    const op = db.prepare("SELECT id FROM operations WHERE bill_id = ?").get(id);
     if (op) {
-        db.prepare("UPDATE operations SET status = 'cancelled', notes = COALESCE(notes, '') || ? WHERE id = ?").run(cancelText, op.id);
+        db.prepare("UPDATE operations SET status = 'cancelled' WHERE id = ?").run(op.id);
         // Decline linked 'extra' adjustments
         db.prepare("UPDATE hr_financials SET status = 'declined' WHERE reference_id = ? AND type = 'extra'").run(op.id);
     }
 
     const adm = db.prepare("SELECT * FROM admissions WHERE bill_id = ?").get(id);
     if (adm) {
-        db.prepare("UPDATE admissions SET status = 'cancelled', notes = COALESCE(notes, '') || ? WHERE id = ?").run(cancelText, adm.id);
+        db.prepare("UPDATE admissions SET status = 'cancelled' WHERE id = ?").run(adm.id);
         db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(adm.bed_id);
     }
   });
