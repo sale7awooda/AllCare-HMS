@@ -7,7 +7,7 @@ import {
   Wallet, FileText, CheckCircle, Trash2,
   ChevronLeft, ChevronRight, Search, Filter,
   Landmark, ArrowUpRight, ArrowDownRight, Coins, X, Edit, TrendingUp,
-  Banknote, ShieldCheck, RotateCcw, Ban, Loader2, Phone, XCircle
+  Banknote, ShieldCheck, RotateCcw, Ban, Loader2, Phone, XCircle, MapPin
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Bill, Patient, PaymentMethod, TaxRate, Transaction, InsuranceProvider } from '../types';
@@ -240,7 +240,7 @@ export const Billing = () => {
         totalRevenue: totalRev, 
         pendingAmount: pendingTotal, 
         paidInvoices: paidInvoicesCount, 
-        totalPendingInvoices: pendingInvoicesCount,
+        totalPendingInvoices: pendingInvoicesCount, 
         revenueByType 
       });
 
@@ -553,70 +553,114 @@ export const Billing = () => {
     const taxItem = bill.items.find(i => i.description.toLowerCase().includes('tax'));
     const subtotal = bill.items.filter(i => !i.description.toLowerCase().includes('tax')).reduce((sum, i) => sum + i.amount, 0);
     const taxAmount = taxItem ? taxItem.amount : 0;
-    const hospitalName = 'AllCare Hospital';
-    const hospitalAddress = 'Atbara ,alsoug alkabeer';
+    const hospitalName = localStorage.getItem('h_name') || 'AllCare Hospital';
+    const hospitalAddress = localStorage.getItem('h_address') || 'Atbara ,alsoug alkabeer';
+    const hospitalPhone = localStorage.getItem('h_phone') || '+249 123 456 789';
 
     return (
-        <div className="p-10 bg-white min-h-[600px] text-slate-800 font-sans" id="invoice-print">
-            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-8 mb-8">
-                <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-primary-600 text-white p-2.5 rounded-xl shadow-lg">
-                            <Wallet size={28}/>
-                        </div>
-                        <div>
-                            <h1 className="text-2xl font-bold text-slate-900">{t('billing_invoice_title')}</h1>
-                            <p className="text-slate-500 font-mono text-sm">#{bill.billNumber}</p>
-                        </div>
+        <div className="p-8 bg-white min-h-[800px] text-slate-800 font-sans relative" id="invoice-print">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
+                <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-slate-900 text-white flex items-center justify-center rounded-lg shadow-sm">
+                        <Wallet size={32} />
                     </div>
-                    <div className="flex gap-2 mt-2">
-                        <Badge color={bill.status === 'paid' ? 'green' : 'red'}>{translateStatus(bill.status)}</Badge>
-                        <Badge color="gray">{translateBillType(getBillType(bill))}</Badge>
+                    <div>
+                        <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{hospitalName}</h1>
+                        <p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-2"><MapPin size={12} /> {hospitalAddress}</p>
+                        <p className="text-sm font-medium text-slate-500 flex items-center gap-2"><Phone size={12} /> {hospitalPhone}</p>
                     </div>
                 </div>
                 <div className="text-right">
-                    <h2 className="text-xl font-bold text-primary-600">{hospitalName}</h2>
-                    <div className="text-sm text-slate-500 mt-2 space-y-1">
-                        <p>{hospitalAddress}</p>
+                    <h2 className="text-3xl font-black text-slate-200 uppercase tracking-widest">{t('billing_invoice_title')}</h2>
+                    <p className="font-mono text-lg font-bold text-slate-900 mt-1">#{bill.billNumber}</p>
+                    <div className="mt-2">
+                       <Badge color={bill.status === 'paid' ? 'green' : bill.status === 'cancelled' ? 'gray' : 'red'} className="text-xs uppercase px-2 py-1">{translateStatus(bill.status)}</Badge>
                     </div>
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-8 mb-10 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+
+            {/* Bill To / Details Grid */}
+            <div className="grid grid-cols-2 gap-12 mb-10">
                 <div>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">{t('billing_invoice_billed_to')}</p>
-                    <p className="font-bold text-lg text-slate-900">{bill.patientName}</p>
-                    <p className="text-slate-500 text-sm mt-1">{t('patients_table_header_patient')} ID: <span className="font-mono">#{bill.patientId}</span></p>
-                    {bill.patientPhone && <p className="text-slate-500 text-sm flex items-center gap-1 mt-1"><Phone size={12}/> {bill.patientPhone}</p>}
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">{t('billing_invoice_billed_to')}</p>
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <p className="font-bold text-lg text-slate-900">{bill.patientName}</p>
+                        <p className="text-sm text-slate-600 mt-1">{t('patients_table_header_patient')} ID: <span className="font-mono font-bold">#{bill.patientId}</span></p>
+                        {bill.patientPhone && <p className="text-sm text-slate-600 mt-1">{bill.patientPhone}</p>}
+                    </div>
                 </div>
-                <div className="text-right">
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">{t('billing_invoice_date')}</p>
-                    <p className="font-bold text-lg text-slate-900">{new Date(bill.date).toLocaleDateString()}</p>
+                <div>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">{t('billing_table_header_info')}</p>
+                    <div className="space-y-2">
+                        <div className="flex justify-between border-b border-slate-100 pb-1">
+                            <span className="text-sm text-slate-500 font-medium">{t('billing_invoice_date')}</span>
+                            <span className="text-sm font-bold text-slate-900">{new Date(bill.date).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-1">
+                            <span className="text-sm text-slate-500 font-medium">{t('appointments_form_type')}</span>
+                            <span className="text-sm font-bold text-slate-900">{translateBillType(getBillType(bill))}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            {/* Line Items */}
             <table className="w-full mb-8">
-                <thead>
-                    <tr className="border-b border-slate-200">
-                        <th className="text-left py-4 px-2 font-bold text-xs text-slate-500 uppercase">{t('billing_invoice_description')}</th>
-                        <th className="text-right py-4 px-2 font-bold text-xs text-slate-500 uppercase">{t('billing_table_header_amount')}</th>
+                <thead className="bg-slate-900 text-white">
+                    <tr>
+                        <th className="py-3 px-4 text-left text-xs font-bold uppercase tracking-wider rounded-l-lg">{t('billing_invoice_description')}</th>
+                        <th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider rounded-r-lg w-32">{t('billing_table_header_amount')}</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                     {bill.items.map((item, i) => (
                         <tr key={i}>
-                            <td className="py-4 px-2 text-sm font-medium">{item.description}</td>
-                            <td className="py-4 px-2 text-right font-bold font-mono">${item.amount.toFixed(2)}</td>
+                            <td className="py-4 px-4 text-sm font-medium text-slate-700">{item.description}</td>
+                            <td className="py-4 px-4 text-right text-sm font-bold font-mono text-slate-900">${item.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
-            <div className="flex justify-end">
-                <div className="w-full max-sm:max-w-none max-w-sm space-y-3 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                    <div className="flex justify-between text-slate-600 text-sm"><span>{t('billing_invoice_subtotal')}</span><span className="font-mono">${subtotal.toFixed(2)}</span></div>
-                    {taxAmount > 0 && <div className="flex justify-between text-slate-600 text-sm"><span>{t('billing_invoice_tax')}</span><span className="font-mono">${taxAmount.toFixed(2)}</span></div>}
-                    <div className="h-px bg-slate-200 my-2"></div>
-                    <div className="flex justify-between text-slate-900 font-bold text-lg"><span>{t('billing_invoice_total')}</span><span className="font-mono">${bill.totalAmount.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-emerald-600 font-bold text-sm"><span>{t('billing_invoice_paid')}</span><span className="font-mono">-${(bill.paidAmount || 0).toFixed(2)}</span></div>
-                    {bill.totalAmount > bill.paidAmount && <div className="flex justify-between text-red-600 font-bold text-xl pt-2 border-t border-slate-200 mt-2"><span>{t('billing_invoice_balance')}</span><span className="font-mono">${(bill.totalAmount - (bill.paidAmount || 0)).toLocaleString()}</span></div>}
+
+            {/* Summary */}
+            <div className="flex justify-end mb-12">
+                <div className="w-64 space-y-3">
+                    <div className="flex justify-between text-sm text-slate-600">
+                        <span>{t('billing_invoice_subtotal')}</span>
+                        <span className="font-mono font-bold">${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    </div>
+                    {taxAmount > 0 && (
+                        <div className="flex justify-between text-sm text-slate-600">
+                            <span>{t('billing_invoice_tax')}</span>
+                            <span className="font-mono font-bold">${taxAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                        </div>
+                    )}
+                    <div className="h-px bg-slate-900 my-2"></div>
+                    <div className="flex justify-between text-lg font-black text-slate-900">
+                        <span>{t('billing_invoice_total')}</span>
+                        <span className="font-mono">${bill.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold text-emerald-600">
+                        <span>{t('billing_invoice_paid')}</span>
+                        <span className="font-mono">-${(bill.paidAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold text-rose-600 pt-2 border-t border-slate-200">
+                        <span>{t('billing_invoice_balance')}</span>
+                        <span className="font-mono">${(bill.totalAmount - (bill.paidAmount || 0)).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer / Signature */}
+            <div className="absolute bottom-8 left-8 right-8 flex justify-between items-end border-t border-slate-200 pt-6">
+                <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Authorized Signature</p>
+                    <div className="h-12 w-48 border-b border-slate-900 mt-2"></div>
+                </div>
+                <div className="text-right text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                    <p>Thank you for choosing {hospitalName}</p>
+                    <p className="mt-1">System Generated Invoice</p>
                 </div>
             </div>
         </div>
@@ -928,9 +972,9 @@ export const Billing = () => {
                 {getFilteredPaymentMethods().map(p => (<option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>))}
             </Select>
             <div className="space-y-4">
-                {paymentForm.method.toLowerCase() === 'cash' && (<><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required /><Textarea label={t('patients_modal_action_notes')} rows={2} value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} /></>)}
-                {paymentForm.method.toLowerCase() === 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><div className="md:col-span-2"><Select label={t('patients_modal_form_insurance_provider')} value={paymentForm.insuranceProvider} onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})} required className="text-slate-900 dark:text-white"><option value="">{t('patients_modal_form_insurance_provider_select')}</option>{insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}</Select></div><Input label={t('patients_modal_form_insurance_policy')} value={paymentForm.policyNumber} onChange={e => setPaymentForm({...paymentForm, policyNumber: e.target.value})} required /><Input label={t('patients_modal_form_insurance_expiry')} type="date" value={paymentForm.expiryDate} onChange={e => setPaymentForm({...paymentForm, expiryDate: e.target.value})} required /></div>)}
-                {paymentForm.method.toLowerCase() !== 'cash' && paymentForm.method.toLowerCase() !== 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2"><Input label={t('billing_table_header_amount')} type="number" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required className="md:col-span-2" /><Input label={t('billing_modal_payment_ref')} value={paymentForm.transactionId} onChange={e => setPaymentForm({...paymentForm, transactionId: e.target.value})} required /><Input label={t('date')} type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required /></div>)}
+                {paymentForm.method.toLowerCase() === 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2"><div className="md:col-span-2"><Select label={t('patients_modal_form_insurance_provider')} value={paymentForm.insuranceProvider} onChange={e => setPaymentForm({...paymentForm, insuranceProvider: e.target.value})} required className="text-slate-900 dark:text-white"><option value="">{t('patients_modal_form_insurance_provider_select')}</option>{insuranceProviders.map(p => <option key={p.id} value={p.name_en}>{language === 'ar' ? p.name_ar : p.name_en}</option>)}</Select></div><Input label={t('patients_modal_form_insurance_policy')} value={paymentForm.policyNumber} onChange={e => setPaymentForm({...paymentForm, policyNumber: e.target.value})} required /><Input label={t('patients_modal_form_insurance_expiry')} type="date" value={paymentForm.expiryDate} onChange={e => setPaymentForm({...paymentForm, expiryDate: e.target.value})} required /></div>)}
+                {paymentForm.method.toLowerCase() !== 'cash' && paymentForm.method.toLowerCase() !== 'insurance' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2"><Input label={t('billing_modal_payment_ref')} value={paymentForm.transactionId} onChange={e => setPaymentForm({...paymentForm, transactionId: e.target.value})} required /><Input label={t('date')} type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required /></div>)}
+                <Textarea label={t('patients_modal_action_notes')} rows={2} value={paymentForm.notes} onChange={e => setPaymentForm({...paymentForm, notes: e.target.value})} />
             </div>
             <div className="flex justify-end pt-4 border-t dark:border-slate-700 gap-3"><Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)}>{t('cancel')}</Button><Button type="submit" icon={processStatus === 'processing' ? undefined : CheckCircle} disabled={processStatus === 'processing'}>{processStatus === 'processing' ? t('processing') : t('billing_modal_payment_confirm_button')}</Button></div>
           </form>
@@ -1002,17 +1046,20 @@ export const Billing = () => {
       {/* ADDED STYLE BLOCK FOR PRINTING */}
       <style>{`
         @media print {
-          body { visibility: hidden; }
+          @page { margin: 0; size: auto; }
+          body { margin: 0; padding: 0; visibility: hidden; }
           #invoice-print { 
             visibility: visible; 
             position: absolute; 
             left: 0; 
             top: 0; 
             width: 100%; 
+            height: 100%;
             margin: 0; 
-            padding: 0; 
+            padding: 20px; 
             background: white; 
             color: black;
+            z-index: 9999;
           }
           #invoice-print * { visibility: visible; }
           .no-print { display: none !important; }
