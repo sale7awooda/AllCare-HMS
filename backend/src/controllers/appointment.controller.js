@@ -126,10 +126,16 @@ exports.updateStatus = (req, res) => {
 
 exports.cancel = (req, res) => {
   const { id } = req.params;
+  const { reason, note } = req.body;
+  const cancellationText = ` [Cancelled: ${reason} - ${note}]`;
+
   const tx = db.transaction(() => {
-    const appt = db.prepare('SELECT bill_id FROM appointments WHERE id = ?').get(id);
+    const appt = db.prepare('SELECT bill_id, reason FROM appointments WHERE id = ?').get(id);
     if (!appt) throw new Error('Appointment not found');
-    db.prepare("UPDATE appointments SET status = 'cancelled' WHERE id = ?").run(id);
+    
+    const newReason = (appt.reason || '') + cancellationText;
+
+    db.prepare("UPDATE appointments SET status = 'cancelled', reason = ? WHERE id = ?").run(newReason, id);
     if (appt.bill_id) {
       // Allow cancellation of the bill regardless of current status (pending or paid)
       // This ensures paid bills for cancelled appointments are marked as cancelled 

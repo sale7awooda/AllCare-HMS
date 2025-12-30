@@ -348,11 +348,16 @@ exports.confirmAdmission = (req, res) => {
 
 exports.cancelAdmission = (req, res) => {
     const { id } = req.params;
+    const { reason, note } = req.body;
+    const cancellationText = ` [Cancelled: ${reason} - ${note}]`;
+
     const tx = db.transaction(() => {
         const adm = db.prepare("SELECT * FROM admissions WHERE id = ?").get(id);
         if (!adm) throw new Error('Admission not found');
         
-        db.prepare("UPDATE admissions SET status = 'cancelled' WHERE id = ?").run(id);
+        const newNotes = (adm.notes || '') + cancellationText;
+
+        db.prepare("UPDATE admissions SET status = 'cancelled', notes = ? WHERE id = ?").run(newNotes, id);
         db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(adm.bed_id);
         if (adm.bill_id) {
             db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ? AND status = 'pending'").run(adm.bill_id);
