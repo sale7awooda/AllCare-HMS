@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Button, Input, Select, Modal, Badge } from '../components/UI';
 import { 
   Database, Search, Filter, ChevronLeft, ChevronRight, FileText, Download, Printer, X, Info, Clock, Hash, User, Users, Receipt, Calendar, Briefcase, RefreshCcw, ExternalLink, ArrowRight,
-  ChevronDown, Loader2
+  ChevronDown, Loader2, FlaskConical, Syringe, Activity, Bed, TrendingUp, TrendingDown, AlertCircle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
@@ -15,7 +15,10 @@ export const Records = () => {
   
   // States
   const [loading, setLoading] = useState(true);
-  const [allData, setAllData] = useState<any>({ patients: [], appointments: [], bills: [], staff: [] });
+  const [allData, setAllData] = useState<any>({ 
+    patients: [], appointments: [], bills: [], staff: [],
+    labs: [], nurse: [], ops: [], admissions: [], transactions: [] 
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -59,14 +62,27 @@ export const Records = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [patients, appointments, bills, staff] = await Promise.all([
-        api.getPatients(), api.getAppointments(), api.getBills(), api.getStaff()
+      const [patients, appointments, bills, staff, labs, nurse, ops, admissions, transactions] = await Promise.all([
+        api.getPatients(), 
+        api.getAppointments(), 
+        api.getBills(), 
+        api.getStaff(),
+        api.getPendingLabRequests(),
+        api.getNurseRequests(),
+        api.getScheduledOperations(),
+        api.getAdmissionsHistory(),
+        api.getTransactions()
       ]);
       setAllData({ 
         patients: patients || [], 
         appointments: appointments || [], 
         bills: bills || [],
-        staff: staff || []
+        staff: staff || [],
+        labs: labs || [],
+        nurse: nurse || [],
+        ops: ops || [],
+        admissions: admissions || [],
+        transactions: transactions || []
       });
     } catch (error) {
       console.error("Failed to load records data:", error);
@@ -99,10 +115,7 @@ export const Records = () => {
       primaryEntity: a.patientName, 
       secondaryEntity: a.staffName, 
       value: a.totalAmount, 
-      context: t('records_context_appointment_summary', { 
-        type: t(`patients_modal_action_${a.type.toLowerCase().replace('-up', 'Up')}`),
-        status: t(`appointments_status_${a.status}`)
-      }), 
+      context: `${t(`patients_modal_action_${a.type.toLowerCase().replace('-up', 'Up')}`) || a.type} - ${t(`appointments_status_${a.status}`) || a.status}`,
       rawData: a,
     }));
 
@@ -113,10 +126,7 @@ export const Records = () => {
       date: b.date,
       primaryEntity: b.patientName, 
       value: b.totalAmount, 
-      context: t('records_context_invoice_summary', { 
-        status: t(`billing_status_${b.status.toLowerCase()}`), 
-        paid: (b.paidAmount || 0).toLocaleString() 
-      }), 
+      context: `${t(`billing_status_${b.status.toLowerCase()}`) || b.status}`, 
       rawData: b,
     }));
 
@@ -124,19 +134,75 @@ export const Records = () => {
       id: `s-${s.id}`, 
       type: 'Staff', 
       refId: s.employeeId, 
-      date: s.joinDate || s.createdAt,
+      date: s.joinDate || s.createdAt || new Date().toISOString(),
       primaryEntity: s.fullName, 
       value: s.baseSalary, 
-      context: t('records_context_staff_joined', { 
-        role: t(`staff_role_${s.type}`), 
-        dept: s.department || t('patients_modal_view_na') 
-      }), 
+      context: `${t(`staff_role_${s.type}`) || s.type} - ${s.department || ''}`, 
       rawData: s,
     }));
 
-    return [...patientRecords, ...appointmentRecords, ...billRecords, ...staffRecords]
-        .filter(r => r.date)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const labRecords = allData.labs.map((l: any) => ({
+        id: `l-${l.id}`,
+        type: 'Lab Request',
+        refId: `LAB-${l.id}`,
+        date: l.created_at,
+        primaryEntity: l.patientName,
+        value: l.projected_cost,
+        context: `${t('nav_laboratory')}: ${l.testNames?.substring(0, 30)}${l.testNames?.length > 30 ? '...' : ''}`,
+        rawData: l
+    }));
+
+    const nurseRecords = allData.nurse.map((n: any) => ({
+        id: `n-${n.id}`,
+        type: 'Nurse Service',
+        refId: `NUR-${n.id}`,
+        date: n.created_at,
+        primaryEntity: n.patientName,
+        secondaryEntity: n.nurseName,
+        value: n.cost,
+        context: n.service_name,
+        rawData: n
+    }));
+
+    const opRecords = allData.ops.map((o: any) => ({
+        id: `o-${o.id}`,
+        type: 'Operation',
+        refId: `OP-${o.id}`,
+        date: o.created_at,
+        primaryEntity: o.patientName,
+        secondaryEntity: o.doctorName,
+        value: o.projected_cost,
+        context: o.operation_name,
+        rawData: o
+    }));
+
+    const admRecords = allData.admissions.map((a: any) => ({
+        id: `adm-${a.id}`,
+        type: 'Admission',
+        refId: `ADM-${a.id}`,
+        date: a.entry_date,
+        primaryEntity: a.patientName,
+        secondaryEntity: a.doctorName,
+        value: a.projected_cost,
+        context: `${t('admissions_history_header_room')} ${a.roomNumber} - ${t(a.status === 'active' ? 'admissions_status_occupied' : a.status) || a.status}`,
+        rawData: a
+    }));
+
+    const txRecords = allData.transactions.map((t: any) => ({
+        id: `tx-${t.id}`,
+        type: t.type === 'income' ? 'Income' : 'Expense',
+        refId: `TX-${t.id}`,
+        date: t.date,
+        primaryEntity: t.category || t.description,
+        value: t.amount,
+        context: `${t.method} - ${t.description?.substring(0, 40) || ''}`,
+        rawData: t
+    }));
+
+    return [
+        ...patientRecords, ...appointmentRecords, ...billRecords, ...staffRecords,
+        ...labRecords, ...nurseRecords, ...opRecords, ...admRecords, ...txRecords
+    ].filter(r => r.date).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [allData, t]);
 
   const filteredRecords = useMemo(() => {
@@ -146,13 +212,12 @@ export const Records = () => {
         r.primaryEntity.toLowerCase().includes(searchLower) ||
         (r.refId && r.refId.toLowerCase().includes(searchLower)) ||
         (r.secondaryEntity && r.secondaryEntity.toLowerCase().includes(searchLower)) ||
-        (r.context && r.context.toLowerCase().includes(searchLower)) ||
-        (t(`records_type_${r.type.toLowerCase()}`).toLowerCase().includes(searchLower));
+        (r.context && r.context.toLowerCase().includes(searchLower));
         
-      const matchesType = filterType === 'all' || r.type.toLowerCase() === filterType;
+      const matchesType = filterType === 'all' || r.type.toLowerCase().replace(' ', '') === filterType.toLowerCase();
       return matchesSearch && matchesType;
     });
-  }, [unifiedRecords, searchTerm, filterType, t]);
+  }, [unifiedRecords, searchTerm, filterType]);
 
   const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
   const paginatedRecords = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -183,10 +248,16 @@ export const Records = () => {
 
   const getTypeIcon = (type: string) => {
     const iconSize = 18;
-    if (type.includes('Patient')) return <Users size={iconSize} className="text-blue-500" />;
-    if (type.includes('Appointment')) return <Calendar size={iconSize} className="text-violet-500" />;
-    if (type.includes('Invoice')) return <Receipt size={iconSize} className="text-emerald-500" />;
-    if (type.includes('Staff')) return <Briefcase size={iconSize} className="text-orange-500" />;
+    if (type === 'Patient') return <Users size={iconSize} className="text-blue-500" />;
+    if (type === 'Appointment') return <Calendar size={iconSize} className="text-violet-500" />;
+    if (type === 'Invoice') return <Receipt size={iconSize} className="text-emerald-500" />;
+    if (type === 'Staff') return <Briefcase size={iconSize} className="text-orange-500" />;
+    if (type === 'Lab Request') return <FlaskConical size={iconSize} className="text-cyan-500" />;
+    if (type === 'Nurse Service') return <Syringe size={iconSize} className="text-pink-500" />;
+    if (type === 'Operation') return <Activity size={iconSize} className="text-rose-500" />;
+    if (type === 'Admission') return <Bed size={iconSize} className="text-indigo-500" />;
+    if (type === 'Income') return <TrendingUp size={iconSize} className="text-green-600" />;
+    if (type === 'Expense') return <TrendingDown size={iconSize} className="text-red-600" />;
     return <FileText size={iconSize} className="text-slate-500" />;
   };
 
@@ -241,6 +312,12 @@ export const Records = () => {
                   <option value="appointment">{t('records_type_appointment')}</option>
                   <option value="invoice">{t('records_type_invoice')}</option>
                   <option value="staff">{t('records_type_staff')}</option>
+                  <option value="labrequest">{t('nav_laboratory')}</option>
+                  <option value="nurseservice">{t('patients_modal_action_nurse')}</option>
+                  <option value="operation">{t('nav_operations')}</option>
+                  <option value="admission">{t('nav_admissions')}</option>
+                  <option value="income">{t('billing_treasury_type_income')}</option>
+                  <option value="expense">{t('billing_treasury_type_expense')}</option>
               </select>
               <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                 <ChevronDown size={16} />
@@ -303,7 +380,15 @@ export const Records = () => {
                                   {getTypeIcon(r.type)}
                                 </div>
                                 <div>
-                                  <p className="font-black text-sm text-slate-800 dark:text-white leading-none">{t(`records_type_${r.type.toLowerCase()}`)}</p>
+                                  <p className="font-black text-sm text-slate-800 dark:text-white leading-none">{
+                                    r.type === 'Lab Request' ? t('nav_laboratory') :
+                                    r.type === 'Nurse Service' ? t('patients_modal_action_nurse') :
+                                    r.type === 'Operation' ? t('nav_operations') :
+                                    r.type === 'Admission' ? t('nav_admissions') :
+                                    r.type === 'Income' ? t('billing_treasury_type_income') :
+                                    r.type === 'Expense' ? t('billing_treasury_type_expense') :
+                                    t(`records_type_${r.type.toLowerCase()}`) || r.type
+                                  }</p>
                                   <p className="font-mono text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">{r.refId}</p>
                                 </div>
                               </div>
@@ -323,7 +408,7 @@ export const Records = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                 {r.value ? (
-                                  <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg print:bg-white print:text-black">
+                                  <span className={`font-mono font-black text-sm px-2 py-1 rounded-lg print:bg-white print:text-black ${r.type === 'Expense' ? 'text-red-600 bg-red-50 dark:bg-red-900/20' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20'}`}>
                                     ${r.value.toLocaleString()}
                                   </span>
                                 ) : <span className="text-slate-300">-</span>}
@@ -387,7 +472,8 @@ export const Records = () => {
             <div className={`flex flex-wrap items-center gap-4 p-5 rounded-3xl border shadow-xl relative overflow-hidden print:shadow-none print:border-slate-300 ${
               selectedRecord.type === 'Patient' ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/20' : 
               selectedRecord.type === 'Appointment' ? 'bg-violet-50 border-violet-100 dark:bg-violet-900/20' : 
-              selectedRecord.type === 'Invoice' ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20' :
+              selectedRecord.type === 'Invoice' || selectedRecord.type === 'Income' ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20' :
+              selectedRecord.type === 'Expense' ? 'bg-red-50 border-red-100 dark:bg-red-900/20' :
               'bg-orange-50 border-orange-100 dark:bg-orange-900/20'
             }`}>
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl print:hidden" />
@@ -397,9 +483,17 @@ export const Records = () => {
               <div className="flex-1 min-w-[200px] z-10">
                  <h3 className="font-black text-slate-900 dark:text-white text-xl leading-tight mb-2">{selectedRecord.primaryEntity}</h3>
                  <div className="flex items-center gap-2">
-                    <Badge color="blue" className="uppercase font-black text-[10px] tracking-widest">{t(`records_type_${selectedRecord.type.toLowerCase()}`)}</Badge>
+                    <Badge color="blue" className="uppercase font-black text-[10px] tracking-widest">{
+                      selectedRecord.type === 'Lab Request' ? t('nav_laboratory') :
+                      selectedRecord.type === 'Nurse Service' ? t('patients_modal_action_nurse') :
+                      selectedRecord.type === 'Operation' ? t('nav_operations') :
+                      selectedRecord.type === 'Admission' ? t('nav_admissions') :
+                      selectedRecord.type === 'Income' ? t('billing_treasury_type_income') :
+                      selectedRecord.type === 'Expense' ? t('billing_treasury_type_expense') :
+                      t(`records_type_${selectedRecord.type.toLowerCase()}`) || selectedRecord.type
+                    }</Badge>
                     {selectedRecord.rawData.status && (
-                      <Badge color={getStatusColor(selectedRecord.rawData.status) as any} className="uppercase font-black text-[10px] tracking-widest">
+                      <Badge color="gray" className="uppercase font-black text-[10px] tracking-widest">
                         {t(`billing_status_${selectedRecord.rawData.status.toLowerCase()}`) || selectedRecord.rawData.status}
                       </Badge>
                     )}
@@ -408,7 +502,7 @@ export const Records = () => {
               {selectedRecord.value && (
                 <div className="text-right z-10 ml-auto">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('billing_table_header_amount')}</p>
-                    <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono tracking-tighter">${selectedRecord.value.toLocaleString()}</p>
+                    <p className={`text-3xl font-black font-mono tracking-tighter ${selectedRecord.type === 'Expense' ? 'text-red-600' : 'text-emerald-600'}`}>${selectedRecord.value.toLocaleString()}</p>
                 </div>
               )}
             </div>
@@ -416,6 +510,7 @@ export const Records = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <RecordDetailItem label={t('records_modal_logged_time')} value={new Date(selectedRecord.date).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')} icon={Clock} />
               <RecordDetailItem label={t('records_modal_ref_id')} value={selectedRecord.refId} icon={Hash} />
+              
               {selectedRecord.type === 'Patient' && (
                 <>
                   <RecordDetailItem label={t('patients_modal_form_age')} value={`${selectedRecord.rawData.age} ${t('patients_table_age_unit')}`} icon={Users} />
@@ -429,7 +524,10 @@ export const Records = () => {
                 </>
               )}
               {selectedRecord.type === 'Invoice' && (
-                <RecordDetailItem label={t('billing_table_paid_amount')} value={`$${selectedRecord.rawData.paidAmount?.toLocaleString()}`} icon={DollarSign} />
+                <RecordDetailItem label={t('billing_table_paid_amount')} value={`$${selectedRecord.rawData.paidAmount?.toLocaleString()}`} icon={Receipt} />
+              )}
+              {selectedRecord.secondaryEntity && (
+                <RecordDetailItem label="Secondary Party" value={selectedRecord.secondaryEntity} icon={User} />
               )}
             </div>
 
@@ -466,13 +564,3 @@ export const Records = () => {
     </div>
   );
 };
-
-const getStatusColor = (status: string) => {
-  const s = (status || '').toLowerCase();
-  if (s.includes('paid') || s.includes('complete') || s.includes('active') || s.includes('regis')) return 'green';
-  if (s.includes('pending') || s.includes('waiting') || s.includes('reserved') || s.includes('confirmed')) return 'yellow';
-  if (s.includes('cancelled') || s.includes('refunded') || s.includes('overdue')) return 'red';
-  return 'blue';
-};
-
-const DollarSign = ({ size, className }: any) => <span className={`font-black ${className}`}>$</span>;
