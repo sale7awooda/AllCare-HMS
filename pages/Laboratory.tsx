@@ -411,64 +411,52 @@ export const Laboratory = () => {
       >
         <div id="printable-lab-report" className="font-sans text-slate-900 bg-white p-8 print:p-0 max-w-4xl mx-auto">
           {/* Header */}
-          <div className="flex justify-between items-end border-b-4 border-slate-900 pb-4 mb-6">
-             {/* Hospital Logo/Name */}
+          <div className="flex justify-between items-center border-b-4 border-slate-900 pb-4 mb-6">
              <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-slate-900 text-white flex items-center justify-center rounded-lg print:border print:border-slate-900">
-                   <FlaskConical size={32} />
+                   <FlaskConical size={32} className="text-white" />
                 </div>
                 <div>
                    <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900 leading-none">AllCare HMS</h1>
-                   <p className="text-sm font-bold text-slate-600 mt-1">Diagnostic Laboratory Services</p>
-                   <p className="text-xs text-slate-500 mt-0.5">Licence No: 123-456-789</p>
+                   <p className="text-sm font-bold text-slate-600 mt-1">Diagnostic Laboratory Report</p>
                 </div>
              </div>
-             {/* Report Meta */}
              <div className="text-right">
-                <h2 className="text-xl font-bold uppercase text-slate-800">Laboratory Report</h2>
-                <p className="text-sm font-mono mt-1">Ref: #{selectedReq?.id}</p>
-                <p className="text-xs text-slate-500">{new Date().toLocaleString()}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Report Date</p>
+                <p className="font-mono font-bold text-slate-800 text-lg">{new Date().toLocaleDateString()}</p>
              </div>
           </div>
 
           {/* Patient Info */}
-          <div className="grid grid-cols-2 gap-x-12 gap-y-4 mb-8 border-b border-slate-200 pb-6 text-sm">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-8 grid grid-cols-2 gap-x-12 gap-y-4 print:bg-transparent print:border-slate-300">
              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Patient Name</label>
-                <p className="font-bold text-lg text-slate-900">{selectedReq?.patientName}</p>
-             </div>
-             <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Collection Date</label>
-                <p className="font-bold text-slate-900">{selectedReq && new Date(selectedReq.created_at).toLocaleDateString()}</p>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Patient Name</label>
+                <p className="font-bold text-xl text-slate-900">{selectedReq?.patientName}</p>
              </div>
              <div className="grid grid-cols-2 gap-4">
                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Patient ID</label>
-                  <p className="font-medium text-slate-700">{selectedReq?.patientCode || '-'}</p>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Patient ID</label>
+                  <p className="font-mono font-bold text-slate-700">{selectedReq?.patientCode || '-'}</p>
                </div>
                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Gender / Age</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Gender / Age</label>
                   <p className="font-medium text-slate-700">{selectedReq?.patientGender || '-'} / {selectedReq?.patientAge || '-'} Yrs</p>
                </div>
-             </div>
-             <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Referred By</label>
-                <p className="font-medium text-slate-700">Dr. {selectedReq?.doctorName || 'Internal'}</p>
              </div>
           </div>
 
           {/* Results Table */}
           <div className="min-h-[400px]">
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="border-b-2 border-slate-100">
-                  <th className="py-2 pr-4 font-black text-xs uppercase text-slate-500 tracking-wider">Investigation</th>
-                  <th className="py-2 px-4 text-center font-black text-xs uppercase text-slate-500 tracking-wider">Result</th>
-                  <th className="py-2 px-4 text-center font-black text-xs uppercase text-slate-500 tracking-wider">Ref. Range</th>
-                  <th className="py-2 pl-4 text-right font-black text-xs uppercase text-slate-500 tracking-wider">Status</th>
+                <tr className="border-b-2 border-slate-900">
+                  <th className="py-3 pr-4 font-black text-xs uppercase text-slate-600 tracking-wider">Test Name</th>
+                  <th className="py-3 px-4 text-center font-black text-xs uppercase text-slate-600 tracking-wider">Result</th>
+                  <th className="py-3 px-4 text-center font-black text-xs uppercase text-slate-600 tracking-wider">Reference Range</th>
+                  <th className="py-3 pl-4 text-right font-black text-xs uppercase text-slate-600 tracking-wider">Flag</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-200">
                 {selectedReq?.testDetails?.map((test: any) => {
                    const idStr = test.id.toString();
                    const components = resultValues?.[idStr] || [];
@@ -479,15 +467,15 @@ export const Laboratory = () => {
                    if (isSingleValue) {
                       const comp = components[0];
                       return (
-                         <tr key={test.id} className="hover:bg-slate-50 transition-colors break-inside-avoid border-b border-slate-50 last:border-0">
-                            <td className="py-3 pr-4 font-bold text-slate-800 text-sm">
+                         <tr key={test.id} className="break-inside-avoid">
+                            <td className="py-3 pr-4 font-bold text-slate-800">
                                 {language === 'ar' ? test.name_ar : test.name_en}
-                                <span className="ml-2 text-[10px] text-slate-400 font-normal uppercase tracking-wider">({test.category_en})</span>
+                                <span className="block text-[10px] text-slate-400 font-normal uppercase tracking-wider mt-0.5">{test.category_en}</span>
                             </td>
                             <td className="py-3 px-4 text-center">
-                                <span className={`font-mono font-bold ${
-                                comp.evaluation === 'lab_eval_high' ? 'text-red-600' :
-                                comp.evaluation === 'lab_eval_low' ? 'text-blue-600' :
+                                <span className={`font-mono font-bold text-base ${
+                                comp.evaluation === 'lab_eval_high' ? 'text-red-700' :
+                                comp.evaluation === 'lab_eval_low' ? 'text-blue-700' :
                                 'text-slate-900'
                                 }`}>
                                 {comp.value || 'N/A'}
@@ -498,13 +486,13 @@ export const Laboratory = () => {
                             </td>
                             <td className="py-3 pl-4 text-right">
                                 {comp.evaluation !== 'lab_eval_normal' && comp.evaluation !== 'lab_eval_observed' ? (
-                                <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full ${
-                                    comp.evaluation === 'lab_eval_high' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                                <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
+                                    comp.evaluation === 'lab_eval_high' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
                                 }`}>
                                     {t(comp.evaluation) || comp.evaluation}
                                 </span>
                                 ) : (
-                                <span className="text-emerald-500 font-bold text-xs flex items-center justify-end gap-1"><CheckCircle size={14}/> {t('lab_eval_normal')}</span>
+                                <span className="text-emerald-600 font-bold text-xs">{t('lab_eval_normal')}</span>
                                 )}
                             </td>
                          </tr>
@@ -514,20 +502,20 @@ export const Laboratory = () => {
                    // Multi-component tests
                    return (
                      <React.Fragment key={test.id}>
-                       <tr className="bg-slate-50/80 break-inside-avoid">
-                         <td colSpan={4} className="py-2 pt-3 pl-2 pr-4 font-black text-slate-700 uppercase text-[11px] tracking-widest border-b border-slate-100">
+                       <tr className="bg-slate-50 print:bg-slate-100 break-inside-avoid">
+                         <td colSpan={4} className="py-2 px-3 font-black text-slate-800 uppercase text-xs tracking-widest border-y border-slate-200">
                            {language === 'ar' ? test.name_ar : test.name_en}
                          </td>
                        </tr>
                        {components.map((comp: any, idx: number) => (
-                         <tr key={`${test.id}-${idx}`} className="hover:bg-slate-50 transition-colors break-inside-avoid border-b border-slate-50 last:border-0">
-                           <td className="py-2 pr-4 pl-6 font-medium text-slate-600 text-sm">
+                         <tr key={`${test.id}-${idx}`} className="break-inside-avoid">
+                           <td className="py-2 pr-4 pl-6 font-medium text-slate-700">
                              {comp.name}
                            </td>
                            <td className="py-2 px-4 text-center">
                              <span className={`font-mono font-bold ${
-                                comp.evaluation === 'lab_eval_high' ? 'text-red-600' :
-                                comp.evaluation === 'lab_eval_low' ? 'text-blue-600' :
+                                comp.evaluation === 'lab_eval_high' ? 'text-red-700' :
+                                comp.evaluation === 'lab_eval_low' ? 'text-blue-700' :
                                 'text-slate-900'
                              }`}>
                                 {comp.value || 'N/A'}
@@ -538,13 +526,13 @@ export const Laboratory = () => {
                            </td>
                            <td className="py-2 pl-4 text-right">
                              {comp.evaluation !== 'lab_eval_normal' && comp.evaluation !== 'lab_eval_observed' ? (
-                               <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full ${
-                                 comp.evaluation === 'lab_eval_high' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                               <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
+                                 comp.evaluation === 'lab_eval_high' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
                                }`}>
                                  {t(comp.evaluation) || comp.evaluation}
                                </span>
                              ) : (
-                                <span className="text-slate-300"><CheckCircle size={14} className="ml-auto"/></span>
+                                <span className="text-slate-300">-</span>
                              )}
                            </td>
                          </tr>
@@ -558,37 +546,41 @@ export const Laboratory = () => {
 
           {/* Comments / Notes */}
           {resultNotes && (
-            <div className="mt-8 p-4 bg-slate-50 border border-slate-100 rounded-xl break-inside-avoid">
-               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Pathologist Remarks</h4>
-               <p className="text-sm text-slate-700 italic leading-relaxed">{resultNotes}</p>
+            <div className="mt-8 p-4 bg-slate-50 border border-slate-200 rounded-xl break-inside-avoid print:bg-transparent print:border-slate-300">
+               <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Pathologist Remarks</h4>
+               <p className="text-sm text-slate-800 italic leading-relaxed">{resultNotes}</p>
             </div>
           )}
 
           {/* Footer */}
-          <div className="mt-12 pt-8 border-t-2 border-slate-100 flex justify-between items-end break-inside-avoid">
-             <div className="text-xs text-slate-400 space-y-1">
-                <p>Generated by AllCare HMS</p>
+          <div className="mt-12 pt-8 border-t-2 border-slate-200 flex justify-between items-end break-inside-avoid">
+             <div className="text-[10px] text-slate-400 space-y-1">
                 <p>This report is electronically verified.</p>
+                <p>Generated by AllCare HMS on {new Date().toLocaleString()}</p>
              </div>
              <div className="text-center">
-                <div className="h-12 w-32 border-b border-slate-300 mb-2"></div>
-                <p className="text-xs font-bold text-slate-900 uppercase">Lab Director Signature</p>
+                <div className="h-12 w-48 border-b border-slate-400 mb-2"></div>
+                <p className="text-xs font-bold text-slate-900 uppercase">Authorized Signature</p>
              </div>
           </div>
         </div>
 
         <style>{`
             @media print {
-                @page { margin: 0; size: auto; }
+                @page { margin: 10mm; size: auto; }
                 body * { visibility: hidden; }
-                #printable-lab-report, #printable-lab-report * { visibility: visible; }
+                #printable-lab-report, #printable-lab-report * { 
+                    visibility: visible; 
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
                 #printable-lab-report { 
                     position: absolute; 
                     left: 0; 
                     top: 0; 
                     width: 100%; 
                     margin: 0; 
-                    padding: 10mm; 
+                    padding: 0; 
                     background: white; 
                     color: black;
                     z-index: 99999;
