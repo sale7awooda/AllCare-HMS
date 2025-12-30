@@ -429,6 +429,7 @@ export const Laboratory = () => {
                     <div className="flex gap-4 items-baseline">
                         <h3 className="text-lg font-black text-slate-900 uppercase">{selectedReq?.patientName}</h3>
                         <div className="flex gap-3 text-xs font-bold text-slate-500 border-l border-slate-300 pl-3">
+                            {/* Removed #ID as requested */}
                             <span>{selectedReq?.patientCode || '-'}</span>
                             <span>{selectedReq?.patientGender || '-'}</span>
                             <span>{selectedReq?.patientAge || '-'} Yrs</span>
@@ -458,49 +459,45 @@ export const Laboratory = () => {
                             const idStr = test.id.toString();
                             const testResults = resultValues?.[idStr] || [];
                             
+                            // Group Header if needed, otherwise just rows
                             return (
                                 <React.Fragment key={test.id}>
-                                    {testResults.length > 0 ? testResults.map((comp: any, idx: number) => {
-                                        // Flattened Logic: Test Name in first column
-                                        const isSingle = testResults.length === 1;
-                                        const testName = language === 'ar' ? test.name_ar : test.name_en;
-                                        // If single component and name is generic (Result), show Test Name
-                                        // If multiple, show Test Name - Comp Name
-                                        let displayName = testName;
-                                        if (!isSingle || (comp.name && comp.name !== 'Result' && comp.name !== 'النتيجة')) {
-                                            displayName = isSingle ? testName : `${testName} - ${comp.name}`;
-                                        }
-
-                                        return (
-                                            <tr key={`${test.id}-${idx}`} className="hover:bg-slate-50 transition-colors print:hover:bg-transparent">
-                                                <td className="px-4 py-2 font-bold text-slate-700">
-                                                    {displayName}
-                                                </td>
-                                                <td className="px-4 py-2 text-center">
-                                                    <span className={`font-mono font-bold ${
-                                                        comp.evaluation === 'lab_eval_normal' ? 'text-slate-900' : 
-                                                        comp.evaluation === 'lab_eval_low' ? 'text-blue-600' : 
-                                                        comp.evaluation === 'lab_eval_high' ? 'text-red-600' : 'text-slate-900'
-                                                    }`}>
-                                                        {comp.value || '-'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-2 text-center text-xs text-slate-500 font-mono">
-                                                    {comp.range || 'N/A'}
-                                                </td>
-                                                <td className="px-4 py-2 text-right">
-                                                    <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded border ${
-                                                        comp.evaluation === 'lab_eval_normal' ? 'bg-green-50 text-green-700 border-green-200' : 
-                                                        comp.evaluation === 'lab_eval_low' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
-                                                        comp.evaluation === 'lab_eval_high' ? 'bg-red-50 text-red-700 border-red-200' : 
-                                                        'bg-gray-50 text-gray-600 border-gray-200'
-                                                    }`}>
-                                                        {t(comp.evaluation) || comp.evaluation}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        );
-                                    }) : (
+                                    {testResults.length > 0 && (
+                                        <tr className="bg-slate-50/50 print:bg-white">
+                                            <td colSpan={4} className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary-600 border-t border-slate-100">
+                                                {language === 'ar' ? test.name_ar : test.name_en}
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {testResults.length > 0 ? testResults.map((comp: any, idx: number) => (
+                                        <tr key={`${test.id}-${idx}`} className="hover:bg-slate-50 transition-colors print:hover:bg-transparent">
+                                            <td className="px-4 py-2 font-medium text-slate-700">
+                                                {comp.name}
+                                            </td>
+                                            <td className="px-4 py-2 text-center">
+                                                <span className={`font-mono font-bold ${
+                                                    comp.evaluation === 'lab_eval_normal' ? 'text-slate-900' : 
+                                                    comp.evaluation === 'lab_eval_low' ? 'text-blue-600' : 
+                                                    comp.evaluation === 'lab_eval_high' ? 'text-red-600' : 'text-slate-900'
+                                                }`}>
+                                                    {comp.value || '-'}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2 text-center text-xs text-slate-500 font-mono">
+                                                {comp.range || 'N/A'}
+                                            </td>
+                                            <td className="px-4 py-2 text-right">
+                                                <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded border ${
+                                                    comp.evaluation === 'lab_eval_normal' ? 'bg-green-50 text-green-700 border-green-200' : 
+                                                    comp.evaluation === 'lab_eval_low' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
+                                                    comp.evaluation === 'lab_eval_high' ? 'bg-red-50 text-red-700 border-red-200' : 
+                                                    'bg-gray-50 text-gray-600 border-gray-200'
+                                                }`}>
+                                                    {t(comp.evaluation) || comp.evaluation}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    )) : (
                                         <tr><td colSpan={4} className="p-4 text-center text-slate-400 italic">No results</td></tr>
                                     )}
                                 </React.Fragment>
@@ -533,28 +530,41 @@ export const Laboratory = () => {
 
         <style>{`
             @media print {
-                @page { margin: 10mm 15mm; size: auto; }
-                body * { visibility: hidden; }
-                #printable-lab-report, #printable-lab-report * { visibility: visible; }
-                #printable-lab-report { 
-                    position: absolute; 
-                    left: 0; 
-                    top: 0; 
-                    width: 100%; 
-                    margin: 0; 
+                @page { margin: 10mm; size: auto; }
+                body { 
+                    visibility: hidden; 
+                    background-color: white !important; 
+                    color: black !important; 
+                    margin: 0;
                     padding: 0;
-                    background: white; 
                 }
-                .no-print, header, aside, .fixed { display: none !important; }
-                .Modal { position: static !important; transform: none !important; z-index: auto !important; }
                 
-                /* Specific Overrides for Print Clarity */
+                #printable-lab-report {
+                    visibility: visible;
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    margin: 0;
+                    padding: 20px;
+                    background-color: white;
+                    color: black;
+                    z-index: 9999;
+                }
+                
+                #printable-lab-report * {
+                    visibility: visible;
+                }
+
+                .no-print { display: none !important; }
+                
+                /* Tailwind print overrides */
                 .print\\:hidden { display: none !important; }
                 .print\\:flex { display: flex !important; }
                 .print\\:block { display: block !important; }
-                .print\\:bg-transparent { background: transparent !important; }
-                .print\\:border-slate-300 { border-color: #cbd5e1 !important; }
                 .print\\:text-black { color: black !important; }
+                .print\\:bg-transparent { background-color: transparent !important; }
+                .print\\:border-slate-300 { border-color: #cbd5e1 !important; }
                 .print\\:rounded-none { border-radius: 0 !important; }
             }
         `}</style>

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
 import { 
   Plus, Play, LayoutGrid, List as ListIcon, Edit, Eye,
@@ -13,6 +13,8 @@ import { hasPermission, Permissions } from '../utils/rbac';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
 import { useHeader } from '../context/HeaderContext';
+
+const { useLocation } = ReactRouterDOM as any;
 
 const formatDate = (date: Date) => date.toISOString().split('T')[0];
 const isSameDay = (d1: Date, d2: Date) => 
