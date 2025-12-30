@@ -1,4 +1,5 @@
 
+
 const { db } = require('../config/database');
 
 exports.getAll = (req, res) => {
@@ -99,23 +100,46 @@ exports.recordPayment = (req, res) => {
 
 exports.cancelService = (req, res) => {
   const { id } = req.params;
+  const { reason, note } = req.body;
+
   const tx = db.transaction(() => {
-    db.prepare("UPDATE appointments SET status = 'cancelled' WHERE bill_id = ?").run(id);
-    db.prepare("UPDATE lab_requests SET status = 'cancelled' WHERE bill_id = ?").run(id);
+    // 1. Cancel Appointments
+    db.prepare(`
+        UPDATE appointments 
+        SET status = 'cancelled', cancellation_reason = ?, cancellation_note = ? 
+        WHERE bill_id = ?
+    `).run(reason || 'Cancelled from Billing', note || '', id);
+
+    // 2. Cancel Lab Requests
+    db.prepare(`
+        UPDATE lab_requests 
+        SET status = 'cancelled', cancellation_reason = ?, cancellation_note = ? 
+        WHERE bill_id = ?
+    `).run(reason || 'Cancelled from Billing', note || '', id);
     
-    // Ensure the bill status is also updated to cancelled
+    // 3. Cancel the Bill
     db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ?").run(id);
     
+    // 4. Cancel Operations
     const op = db.prepare("SELECT id FROM operations WHERE bill_id = ?").get(id);
     if (op) {
-        db.prepare("UPDATE operations SET status = 'cancelled' WHERE id = ?").run(op.id);
+        db.prepare(`
+            UPDATE operations 
+            SET status = 'cancelled', cancellation_reason = ?, cancellation_note = ? 
+            WHERE id = ?
+        `).run(reason || 'Cancelled from Billing', note || '', op.id);
         // Decline linked 'extra' adjustments
         db.prepare("UPDATE hr_financials SET status = 'declined' WHERE reference_id = ? AND type = 'extra'").run(op.id);
     }
 
+    // 5. Cancel Admissions
     const adm = db.prepare("SELECT * FROM admissions WHERE bill_id = ?").get(id);
     if (adm) {
-        db.prepare("UPDATE admissions SET status = 'cancelled' WHERE id = ?").run(adm.id);
+        db.prepare(`
+            UPDATE admissions 
+            SET status = 'cancelled', cancellation_reason = ?, cancellation_note = ? 
+            WHERE id = ?
+        `).run(reason || 'Cancelled from Billing', note || '', adm.id);
         db.prepare("UPDATE beds SET status = 'available' WHERE id = ?").run(adm.bed_id);
     }
   });

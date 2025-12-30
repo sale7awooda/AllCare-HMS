@@ -1,6 +1,7 @@
 
-import React from 'react';
-import { X, Check, AlertCircle } from 'lucide-react';
+
+import React, { useState } from 'react';
+import { X, Check, AlertCircle, AlertTriangle } from 'lucide-react';
 
 // --- Card ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string; title?: string; action?: React.ReactNode }> = ({ children, className = '', title, action }) => (
@@ -121,6 +122,61 @@ export const ConfirmationDialog: React.FC<{
           >
             {confirmLabel}
           </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+// --- Cancellation Modal ---
+export const CancellationModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string, note: string) => void;
+  title: string;
+}> = ({ isOpen, onClose, onConfirm, title }) => {
+  const [reason, setReason] = useState('Patient Request');
+  const [note, setNote] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleConfirm = () => {
+    onConfirm(reason, note);
+    // Reset state after confirm
+    setReason('Patient Request');
+    setNote('');
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+      <div className="space-y-4">
+        <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl flex gap-3 text-red-800 dark:text-red-200">
+           <AlertTriangle className="shrink-0" size={20} />
+           <p className="text-sm font-medium">This action cannot be undone. Please provide details.</p>
+        </div>
+        <div>
+            <Select label="Reason" value={reason} onChange={e => setReason(e.target.value)}>
+                <option value="Patient Request">Patient Request</option>
+                <option value="No Show">No Show</option>
+                <option value="Scheduling Conflict">Scheduling Conflict</option>
+                <option value="Doctor Unavailable">Doctor Unavailable</option>
+                <option value="Medical Contraindication">Medical Contraindication</option>
+                <option value="Financial Issue">Financial Issue</option>
+                <option value="Duplicate Entry">Duplicate Entry</option>
+                <option value="Administrative Error">Administrative Error</option>
+                <option value="Other">Other</option>
+            </Select>
+        </div>
+        <Textarea 
+            label="Description / Notes" 
+            placeholder="Additional context..." 
+            value={note} 
+            onChange={e => setNote(e.target.value)} 
+            rows={3}
+        />
+        <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button variant="danger" onClick={handleConfirm}>Confirm Cancellation</Button>
         </div>
       </div>
     </Modal>

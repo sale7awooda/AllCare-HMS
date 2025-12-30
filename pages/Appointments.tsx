@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
+import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog, CancellationModal } from '../components/UI';
 import { 
   Plus, Play, LayoutGrid, List as ListIcon, Edit, Eye,
   Loader2, XCircle, CheckCircle, X, ChevronLeft, ChevronRight,
@@ -386,6 +387,7 @@ export const Appointments = () => {
   const patientSearchRef = useRef<HTMLDivElement>(null);
 
   const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', action: () => {} });
+  const [cancellationModal, setCancellationModal] = useState<{isOpen: boolean, appointmentId: number | null}>({ isOpen: false, appointmentId: null });
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [processMessage, setProcessMessage] = useState('');
 
@@ -503,25 +505,26 @@ export const Appointments = () => {
     }
   };
   
-  const handleCancel = (id: number) => {
-    setConfirmState({
-      isOpen: true, title: t('appointments_cancel_dialog_title'), message: t('appointments_cancel_dialog_message'),
-      action: async () => {
-        setProcessStatus('processing');
-        setProcessMessage(t('appointments_process_cancelling'));
-        try { 
-          await api.cancelAppointment(id); 
-          await loadData(true); 
-          setProcessStatus('success'); 
-          setTimeout(() => setProcessStatus('idle'), 1500); 
-        } 
-        catch (e: any) { 
-          setProcessStatus('error'); 
-          setProcessMessage(e.response?.data?.error || e.message || t('appointments_process_cancel_fail')); 
-          setTimeout(() => setProcessStatus('idle'), 2000); 
-        }
-      }
-    });
+  const handleCancelClick = (id: number) => {
+    setCancellationModal({ isOpen: true, appointmentId: id });
+  };
+
+  const confirmCancel = async (reason: string, note: string) => {
+    if (!cancellationModal.appointmentId) return;
+    setCancellationModal({ isOpen: false, appointmentId: null });
+    setProcessStatus('processing');
+    setProcessMessage(t('appointments_process_cancelling'));
+    try { 
+      await api.cancelAppointment(cancellationModal.appointmentId, { reason, note }); 
+      await loadData(true); 
+      setProcessStatus('success'); 
+      setTimeout(() => setProcessStatus('idle'), 1500); 
+    } 
+    catch (e: any) { 
+      setProcessStatus('error'); 
+      setProcessMessage(e.response?.data?.error || e.message || t('appointments_process_cancel_fail')); 
+      setTimeout(() => setProcessStatus('idle'), 2000); 
+    }
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -653,12 +656,12 @@ export const Appointments = () => {
             </div>
           ) : (
             appointmentsByDoctor.map(({ doctor, appointments }) => (
-              <DoctorQueueColumn key={doctor.id} doctor={doctor} appointments={appointments} onStatusUpdate={handleStatusUpdate} onCancel={handleCancel} canManage={canManage} />
+              <DoctorQueueColumn key={doctor.id} doctor={doctor} appointments={appointments} onStatusUpdate={handleStatusUpdate} onCancel={handleCancelClick} canManage={canManage} />
             ))
           )}
         </div>
       ) : viewMode === 'list' ? (
-        <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={openEditModal} onView={openViewDetailModal} onCancel={handleCancel} canManage={canManage} /></Card>
+        <Card className="!p-0"><ListView appointments={dailyAppointments} onEdit={openEditModal} onView={openViewDetailModal} onCancel={handleCancelClick} canManage={canManage} /></Card>
       ) : (
         <Card className="!p-0"><HistoryView appointments={appointments} onView={openViewDetailModal} /></Card>
       )}
@@ -819,6 +822,12 @@ export const Appointments = () => {
         )}
       </Modal>
       
+      <CancellationModal
+        isOpen={cancellationModal.isOpen}
+        onClose={() => setCancellationModal({ isOpen: false, appointmentId: null })}
+        onConfirm={confirmCancel}
+        title={t('appointments_cancel_dialog_title')}
+      />
       <ConfirmationDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({...confirmState, isOpen: false})} onConfirm={confirmState.action} title={confirmState.title} message={confirmState.message} />
     </div>
   );
