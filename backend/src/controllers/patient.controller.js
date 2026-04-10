@@ -1,9 +1,10 @@
 
-const { db } = require('../config/database');
+const { getDb } = require('../config/database');
 
-exports.getAll = (req, res) => {
+exports.getAll = async (req, res) => {
   try {
-    const patients = db.prepare('SELECT * FROM patients ORDER BY created_at DESC').all();
+    const db = getDb();
+    const patients = await db.all('SELECT * FROM patients ORDER BY created_at DESC');
     
     // Manual mapping to ensure camelCase and handle potential missing columns gracefully
     const mapped = patients.map(p => ({
@@ -30,14 +31,16 @@ exports.getAll = (req, res) => {
   }
 };
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
   const { 
     fullName, phone, address, age, gender, type,
     symptoms, medicalHistory, allergies, bloodGroup,
     emergencyContact, hasInsurance, insuranceDetails
   } = req.body;
 
-  const createPatientTransaction = db.transaction(() => {
+  try {
+    const db = getDb();
+    await db.exec('BEGIN TRANSACTION');
     // 1. Generate ID Format: P + YY + MM + Incremental
     const now = new Date();
     const yy = String(now.getFullYear()).slice(-2);
@@ -46,13 +49,13 @@ exports.create = (req, res) => {
 
     // Find the latest patient ID that matches the current month's prefix
     // We order by length first (to handle P25129 vs P251210 correctly if simple string sort fails) then by value
-    const latestPatient = db.prepare(`
+    const latestPatient = await db.get(`
       SELECT patient_id 
       FROM patients 
       WHERE patient_id LIKE ? 
       ORDER BY length(patient_id) DESC, patient_id DESC 
       LIMIT 1
-    `).get(`${prefix}%`);
+    `, [`${prefix}%`]);
 
     let sequence = 1;
     if (latestPatient && latestPatient.patient_id) {
@@ -71,32 +74,30 @@ exports.create = (req, res) => {
     const insuranceJson = insuranceDetails ? JSON.stringify(insuranceDetails) : null;
     const hasInsuranceInt = hasInsurance ? 1 : 0;
 
-    const info = db.prepare(`
+    const result = await db.run(`
       INSERT INTO patients (
         patient_id, full_name, phone, address, age, gender, type,
         symptoms, medical_history, allergies, blood_group,
         emergency_contacts, has_insurance, insurance_details
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       patientId, fullName, phone, address, age, gender, type,
       symptoms || null, medicalHistory || null, allergies || null, bloodGroup || null,
       emergencyJson, hasInsuranceInt, insuranceJson
-    );
+    ]);
 
-    return { id: info.lastInsertRowid, patientId, ...req.body };
-  });
-
-  try {
-    const result = createPatientTransaction();
-    res.status(201).json(result);
+    await db.exec('COMMIT');
+    res.status(201).json({ id: result.lastID, patientId, ...req.body });
   } catch (err) {
+    const db = getDb();
+    await db.exec('ROLLBACK');
     console.error(err);
     res.status(400).json({ error: err.message });
   }
 };
 
-exports.update = (req, res) => {
+exports.update = async (req, res) => {
   const { id } = req.params;
   const { 
     fullName, phone, address, age, gender, type,
@@ -109,21 +110,20 @@ exports.update = (req, res) => {
   const hasInsuranceInt = hasInsurance ? 1 : 0;
 
   try {
-    const stmt = db.prepare(`
+    const db = getDb();
+    const result = await db.run(`
       UPDATE patients SET
         full_name = ?, phone = ?, address = ?, age = ?, gender = ?, type = ?,
         symptoms = ?, medical_history = ?, allergies = ?, blood_group = ?,
         emergency_contacts = ?, has_insurance = ?, insurance_details = ?
       WHERE id = ?
-    `);
-    
-    const result = stmt.run(
+    `, [
       fullName, phone, address, age, gender, type,
       symptoms, medicalHistory, allergies, bloodGroup,
       emergencyJson, hasInsuranceInt, insuranceJson,
       id
-    );
-
+    ]);
+    
     if (result.changes === 0) return res.status(404).json({ error: 'Patient not found' });
     res.json({ message: 'Updated successfully' });
   } catch (err) {
@@ -132,9 +132,10 @@ exports.update = (req, res) => {
   }
 };
 
-exports.getOne = (req, res) => {
+exports.getOne = async (req, res) => {
   try {
-    const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id);
+    const db = getDb();
+    const patient = await db.get('SELECT * FROM patients WHERE id = ?', [req.params.id]);
     if (!patient) return res.status(404).json({ error: 'Patient not found' });
     
     let emergencyContact;

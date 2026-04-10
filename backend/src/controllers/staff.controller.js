@@ -1,10 +1,11 @@
 
 
-const { db } = require('../config/database');
+const { getDb } = require('../config/database');
 
-exports.getAll = (req, res) => {
+exports.getAll = async (req, res) => {
   try {
-    const staff = db.prepare('SELECT * FROM medical_staff ORDER BY full_name').all();
+    const db = getDb();
+    const staff = await db.all('SELECT * FROM medical_staff ORDER BY full_name');
     
     const mapped = staff.map(s => {
       return {
@@ -36,7 +37,7 @@ exports.getAll = (req, res) => {
   }
 };
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
   const { 
     fullName, type, department, specialization, 
     consultationFee, consultationFeeFollowup, consultationFeeEmergency, 
@@ -50,7 +51,8 @@ exports.create = (req, res) => {
   const daysJson = availableDays ? JSON.stringify(availableDays) : '[]';
 
   try {
-    const info = db.prepare(`
+    const db = getDb();
+    const result = await db.run(`
       INSERT INTO medical_staff (
         employee_id, full_name, type, department, specialization, 
         consultation_fee, consultation_fee_followup, consultation_fee_emergency, 
@@ -58,19 +60,19 @@ exports.create = (req, res) => {
         available_days, available_time_start, available_time_end, status
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       employeeId, fullName, type, department, specialization, 
       consultationFee || 0, consultationFeeFollowup || 0, consultationFeeEmergency || 0, 
       email, phone, address || null, baseSalary || 0, joinDate || new Date().toISOString().split('T')[0],
       daysJson, availableTimeStart || null, availableTimeEnd || null, status || 'active'
-    );
-    res.status(201).json({ id: info.lastInsertRowid, employeeId, ...req.body });
+    ]);
+    res.status(201).json({ id: result.lastID, employeeId, ...req.body });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 };
 
-exports.update = (req, res) => {
+exports.update = async (req, res) => {
   const { id } = req.params;
   const { 
     fullName, type, department, specialization, 
@@ -82,20 +84,21 @@ exports.update = (req, res) => {
   const daysJson = availableDays ? JSON.stringify(availableDays) : '[]';
 
   try {
-    db.prepare(`
+    const db = getDb();
+    await db.run(`
       UPDATE medical_staff SET
         full_name = ?, type = ?, department = ?, specialization = ?,
         consultation_fee = ?, consultation_fee_followup = ?, consultation_fee_emergency = ?,
         email = ?, phone = ?, address = ?, base_salary = ?, join_date = ?,
         available_days = ?, available_time_start = ?, available_time_end = ?, status = ?
       WHERE id = ?
-    `).run(
+    `, [
       fullName, type, department, specialization,
       consultationFee || 0, consultationFeeFollowup || 0, consultationFeeEmergency || 0,
       email, phone, address || null, baseSalary || 0, joinDate,
       daysJson, availableTimeStart, availableTimeEnd, status,
       id
-    );
+    ]);
     res.json({ message: 'Staff updated successfully' });
   } catch (err) {
     console.error(err);
@@ -104,15 +107,16 @@ exports.update = (req, res) => {
 };
 
 // --- ATTENDANCE ---
-exports.getAttendance = (req, res) => {
+exports.getAttendance = async (req, res) => {
   const { date } = req.query; // YYYY-MM-DD
   try {
-    const records = db.prepare(`
+    const db = getDb();
+    const records = await db.all(`
       SELECT a.*, m.full_name as staffName 
       FROM hr_attendance a
       JOIN medical_staff m ON a.staff_id = m.id
       WHERE a.date = ?
-    `).all(date);
+    `, [date]);
     
     const mapped = records.map(r => ({
       id: r.id,
@@ -129,11 +133,12 @@ exports.getAttendance = (req, res) => {
   }
 };
 
-exports.markAttendance = (req, res) => {
+exports.markAttendance = async (req, res) => {
   const { staffId, date, status, checkIn, checkOut } = req.body;
   
   try {
-    const existing = db.prepare('SELECT id FROM hr_attendance WHERE staff_id = ? AND date = ?').get(staffId, date);
+    const db = getDb();
+    const existing = await db.get('SELECT id FROM hr_attendance WHERE staff_id = ? AND date = ?', [staffId, date]);
     
     if (existing) {
       let query = 'UPDATE hr_attendance SET status = ?';
@@ -142,12 +147,12 @@ exports.markAttendance = (req, res) => {
       if (checkOut) { query += ', check_out = ?'; params.push(checkOut); }
       query += ' WHERE id = ?';
       params.push(existing.id);
-      db.prepare(query).run(...params);
+      await db.run(query, params);
     } else {
-      db.prepare(`
+      await db.run(`
         INSERT INTO hr_attendance (staff_id, date, status, check_in, check_out)
         VALUES (?, ?, ?, ?, ?)
-      `).run(staffId, date, status, checkIn || null, checkOut || null);
+      `, [staffId, date, status, checkIn || null, checkOut || null]);
     }
     res.json({ success: true });
   } catch(e) {
@@ -156,14 +161,15 @@ exports.markAttendance = (req, res) => {
 };
 
 // --- LEAVES ---
-exports.getLeaves = (req, res) => {
+exports.getLeaves = async (req, res) => {
   try {
-    const leaves = db.prepare(`
+    const db = getDb();
+    const leaves = await db.all(`
       SELECT l.*, m.full_name as staffName
       FROM hr_leaves l
       JOIN medical_staff m ON l.staff_id = m.id
       ORDER BY l.start_date DESC
-    `).all();
+    `);
     
     res.json(leaves.map(l => ({
       id: l.id,
@@ -180,24 +186,26 @@ exports.getLeaves = (req, res) => {
   }
 };
 
-exports.requestLeave = (req, res) => {
+exports.requestLeave = async (req, res) => {
   const { staffId, type, startDate, endDate, reason } = req.body;
   try {
-    db.prepare(`
+    const db = getDb();
+    await db.run(`
       INSERT INTO hr_leaves (staff_id, type, start_date, end_date, reason, status)
       VALUES (?, ?, ?, ?, ?, 'pending')
-    `).run(staffId, type, startDate, endDate, reason);
+    `, [staffId, type, startDate, endDate, reason]);
     res.json({ success: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 };
 
-exports.updateLeaveStatus = (req, res) => {
+exports.updateLeaveStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   try {
-    db.prepare('UPDATE hr_leaves SET status = ? WHERE id = ?').run(status, id);
+    const db = getDb();
+    await db.run('UPDATE hr_leaves SET status = ? WHERE id = ?', [status, id]);
     res.json({ success: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -205,14 +213,15 @@ exports.updateLeaveStatus = (req, res) => {
 };
 
 // --- FINANCIALS (Adjustments) ---
-exports.getFinancials = (req, res) => {
+exports.getFinancials = async (req, res) => {
   try {
-    const data = db.prepare(`
+    const db = getDb();
+    const data = await db.all(`
       SELECT f.*, m.full_name as staffName
       FROM hr_financials f
       JOIN medical_staff m ON f.staff_id = m.id
       ORDER BY f.date DESC
-    `).all();
+    `);
     
     res.json(data.map(f => ({
       id: f.id,
@@ -229,24 +238,26 @@ exports.getFinancials = (req, res) => {
   }
 };
 
-exports.addAdjustment = (req, res) => {
+exports.addAdjustment = async (req, res) => {
   const { staffId, type, amount, reason, date, status } = req.body;
   try {
-    db.prepare(`
+    const db = getDb();
+    await db.run(`
       INSERT INTO hr_financials (staff_id, type, amount, reason, date, status)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(staffId, type, amount, reason, date, status || 'pending');
+    `, [staffId, type, amount, reason, date, status || 'pending']);
     res.json({ success: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 };
 
-exports.updateFinancialStatus = (req, res) => {
+exports.updateFinancialStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   try {
-    db.prepare('UPDATE hr_financials SET status = ? WHERE id = ?').run(status, id);
+    const db = getDb();
+    await db.run('UPDATE hr_financials SET status = ? WHERE id = ?', [status, id]);
     res.json({ success: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -254,26 +265,27 @@ exports.updateFinancialStatus = (req, res) => {
 };
 
 // --- PAYROLL ---
-exports.getPayroll = (req, res) => {
+exports.getPayroll = async (req, res) => {
   const { month } = req.query; // YYYY-MM
   try {
-    const records = db.prepare(`
+    const db = getDb();
+    const records = await db.all(`
       SELECT p.*, m.full_name as staffName
       FROM hr_payroll p
       JOIN medical_staff m ON p.staff_id = m.id
       WHERE p.month = ?
       ORDER BY p.generated_at DESC
-    `).all(month);
+    `, [month]);
 
     // Fetch related financial adjustments for breakdown
-    const adjustments = db.prepare(`
+    const adjustments = await db.all(`
       SELECT * FROM hr_financials 
       WHERE strftime('%Y-%m', date) = ?
       AND (
           type IN ('bonus', 'fine', 'loan') 
           OR (type = 'extra' AND status = 'approved')
       )
-    `).all(month);
+    `, [month]);
     
     res.json(records.map(p => {
       const staffAdjustments = adjustments.filter(a => a.staff_id === p.staff_id);
@@ -309,18 +321,20 @@ exports.getPayroll = (req, res) => {
   }
 };
 
-exports.generatePayroll = (req, res) => {
+exports.generatePayroll = async (req, res) => {
   const { month } = req.body; // YYYY-MM
   
-  const tx = db.transaction(() => {
-    const staff = db.prepare("SELECT id, full_name, base_salary FROM medical_staff WHERE status = 'active'").all();
+  try {
+    const db = getDb();
+    await db.exec('BEGIN TRANSACTION');
+    const staff = await db.all("SELECT id, full_name, base_salary FROM medical_staff WHERE status = 'active'");
     
     for (const s of staff) {
       const baseSalary = s.base_salary || 0;
       const dailyRate = baseSalary / 30;
 
       // Filter: Only include 'bonus' or 'approved extra' adjustments
-      const adjustments = db.prepare(`
+      const adjustments = await db.all(`
         SELECT type, amount FROM hr_financials 
         WHERE staff_id = ? 
         AND strftime('%Y-%m', date) = ?
@@ -328,12 +342,12 @@ exports.generatePayroll = (req, res) => {
           type IN ('bonus', 'fine', 'loan') 
           OR (type = 'extra' AND status = 'approved')
         )
-      `).all(s.id, month);
+      `, [s.id, month]);
       
       const currentBonuses = adjustments.filter(a => a.type === 'bonus' || a.type === 'extra').reduce((acc, a) => acc + a.amount, 0);
       const currentFinesAdjust = adjustments.filter(a => a.type === 'fine' || a.type === 'loan').reduce((acc, a) => acc + a.amount, 0);
       
-      const leaves = db.prepare("SELECT start_date, end_date FROM hr_leaves WHERE staff_id = ? AND status = 'approved'").all(s.id);
+      const leaves = await db.all("SELECT start_date, end_date FROM hr_leaves WHERE staff_id = ? AND status = 'approved'", [s.id]);
       const isExcused = (dateStr) => {
           const d = new Date(dateStr);
           d.setHours(12,0,0,0);
@@ -346,10 +360,10 @@ exports.generatePayroll = (req, res) => {
           });
       };
 
-      const attendance = db.prepare(`
+      const attendance = await db.all(`
         SELECT status, date FROM hr_attendance 
         WHERE staff_id = ? AND strftime('%Y-%m', date) = ?
-      `).all(s.id, month);
+      `, [s.id, month]);
 
       const unexcusedAbsences = attendance.filter(a => a.status === 'absent' && !isExcused(a.date)).length;
       const lateCount = attendance.filter(a => a.status === 'late').length;
@@ -357,9 +371,9 @@ exports.generatePayroll = (req, res) => {
 
       const totalDeservedFines = currentFinesAdjust + currentAttendanceFines;
       const totalDeservedBonuses = currentBonuses;
-      const targetNet = baseSalary + totalDeservedBonuses - totalDeservedFines; // removed Math.max(0, ...) to allow negative carry over if needed
+      const targetNet = baseSalary + totalDeservedBonuses - totalDeservedFines; 
 
-      const existingRecords = db.prepare("SELECT SUM(net_salary) as totalNet, SUM(base_salary) as totalBase, SUM(total_bonuses) as totalBonuses, SUM(total_fines) as totalFines FROM hr_payroll WHERE staff_id = ? AND month = ?").get(s.id, month);
+      const existingRecords = await db.get("SELECT SUM(net_salary) as totalNet, SUM(base_salary) as totalBase, SUM(total_bonuses) as totalBonuses, SUM(total_fines) as totalFines FROM hr_payroll WHERE staff_id = ? AND month = ?", [s.id, month]);
       
       const accountedNet = existingRecords.totalNet || 0;
       const accountedBase = existingRecords.totalBase || 0;
@@ -372,10 +386,10 @@ exports.generatePayroll = (req, res) => {
       const deltaFines = totalDeservedFines - accountedFines;
 
       if (Math.abs(deltaNet) > 0.01) {
-          const existingDraft = db.prepare("SELECT id FROM hr_payroll WHERE staff_id = ? AND month = ? AND status = 'draft'").get(s.id, month);
+          const existingDraft = await db.get("SELECT id FROM hr_payroll WHERE staff_id = ? AND month = ? AND status = 'draft'", [s.id, month]);
           
           if (existingDraft) {
-            db.prepare(`
+            await db.run(`
               UPDATE hr_payroll SET 
                 base_salary = base_salary + ?, 
                 total_bonuses = total_bonuses + ?, 
@@ -383,42 +397,44 @@ exports.generatePayroll = (req, res) => {
                 net_salary = net_salary + ?,
                 generated_at = datetime('now')
               WHERE id = ?
-            `).run(deltaBase, deltaBonuses, deltaFines, deltaNet, existingDraft.id);
+            `, [deltaBase, deltaBonuses, deltaFines, deltaNet, existingDraft.id]);
           } else {
-            db.prepare(`
+            await db.run(`
               INSERT INTO hr_payroll (staff_id, month, base_salary, total_bonuses, total_fines, net_salary, status, generated_at)
               VALUES (?, ?, ?, ?, ?, ?, 'draft', datetime('now'))
-            `).run(s.id, month, deltaBase, deltaBonuses, deltaFines, deltaNet);
+            `, [s.id, month, deltaBase, deltaBonuses, deltaFines, deltaNet]);
           }
       }
     }
-  });
-
-  try {
-    tx();
+    await db.exec('COMMIT');
     res.json({ success: true, message: 'Payroll delta calculations completed.' });
   } catch(e) {
+    const db = getDb();
+    await db.exec('ROLLBACK');
     console.error(e);
     res.status(500).json({ error: e.message });
   }
 };
 
-exports.updatePayrollStatus = (req, res) => {
+exports.updatePayrollStatus = async (req, res) => {
     const { id } = req.params;
     const { status, paymentMethod, transactionRef, notes } = req.body;
     
-    const tx = db.transaction(() => {
-        const record = db.prepare(`
+    try {
+        const db = getDb();
+        await db.exec('BEGIN TRANSACTION');
+        
+        const record = await db.get(`
             SELECT p.*, m.full_name as staffName 
             FROM hr_payroll p 
             JOIN medical_staff m ON p.staff_id = m.id 
             WHERE p.id = ?
-        `).get(id);
+        `, [id]);
 
         if (!record) throw new Error('Record not found.');
 
         // Update Payroll Table
-        db.prepare(`
+        await db.run(`
             UPDATE hr_payroll 
             SET status = ?, 
                 payment_method = ?, 
@@ -426,27 +442,26 @@ exports.updatePayrollStatus = (req, res) => {
                 payment_notes = ?, 
                 payment_date = datetime('now') 
             WHERE id = ?
-        `).run(status, paymentMethod || null, transactionRef || null, notes || null, id);
+        `, [status, paymentMethod || null, transactionRef || null, notes || null, id]);
 
         // Sync with Treasury if marked as Paid
         if (status === 'paid') {
-            db.prepare(`
+            await db.run(`
                 INSERT INTO transactions (type, category, amount, method, reference_id, details, date, description)
                 VALUES ('expense', 'Staff Salaries', ?, ?, ?, ?, datetime('now'), ?)
-            `).run(
+            `, [
                 record.net_salary, 
                 paymentMethod || 'Cash', 
                 id,
                 JSON.stringify({ month: record.month, transactionRef: transactionRef || 'N/A' }),
                 `Salary Disbursement for ${record.staffName} (${record.month})`
-            );
+            ]);
         }
-    });
-
-    try {
-        tx();
+        await db.exec('COMMIT');
         res.json({ success: true });
     } catch(e) {
+        const db = getDb();
+        await db.exec('ROLLBACK');
         console.error('Payroll status update error:', e);
         res.status(500).json({ error: e.message });
     }

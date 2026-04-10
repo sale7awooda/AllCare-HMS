@@ -1,5 +1,5 @@
 
-const { db } = require('../config/database');
+const { getDb } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { SECRET } = require('../middleware/auth');
@@ -8,7 +8,8 @@ exports.login = async (req, res) => {
   const { username, password } = req.body;
   
   try {
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    const db = getDb();
+    const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
     
     // Async compare prevents blocking the event loop
     if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
@@ -42,9 +43,10 @@ exports.login = async (req, res) => {
   }
 };
 
-exports.me = (req, res) => {
+exports.me = async (req, res) => {
   try {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    const db = getDb();
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
     if (!user) return res.sendStatus(404);
     
     // Explicit mapping with safe fallbacks
@@ -65,11 +67,12 @@ exports.me = (req, res) => {
   }
 };
 
-exports.updateProfile = (req, res) => {
+exports.updateProfile = async (req, res) => {
   const { id } = req.user;
   const { fullName, email, phone } = req.body;
   try {
-    db.prepare('UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?').run(fullName, email, phone, id);
+    const db = getDb();
+    await db.run('UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?', [fullName, email, phone, id]);
     res.json({ message: 'Profile updated successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -81,7 +84,8 @@ exports.changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   
   try {
-    const user = db.prepare('SELECT password FROM users WHERE id = ?').get(id);
+    const db = getDb();
+    const user = await db.get('SELECT password FROM users WHERE id = ?', [id]);
     // Async compare
     if (!(await bcrypt.compare(currentPassword, user.password))) {
       return res.status(401).json({ error: 'Incorrect current password' });
@@ -89,7 +93,7 @@ exports.changePassword = async (req, res) => {
     
     // Async hash
     const hash = await bcrypt.hash(newPassword, 10);
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, id);
+    await db.run('UPDATE users SET password = ? WHERE id = ?', [hash, id]);
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });

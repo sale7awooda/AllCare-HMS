@@ -1,9 +1,10 @@
 
-const { db } = require('../config/database');
+const { getDb } = require('../config/database');
 
-exports.getAll = (req, res) => {
+exports.getAll = async (req, res) => {
   try {
-    const appointments = db.prepare(`
+    const db = getDb();
+    const appointments = await db.all(`
       SELECT 
         a.id, a.appointment_number as appointmentNumber, a.appointment_datetime as datetime, 
         a.type, a.status, a.billing_status as billingStatus, a.reason, a.daily_token as dailyToken,
@@ -16,7 +17,7 @@ exports.getAll = (req, res) => {
       JOIN medical_staff m ON a.medical_staff_id = m.id
       LEFT JOIN billing b ON a.bill_id = b.id
       ORDER BY a.appointment_datetime DESC
-    `).all();
+    `);
     res.json(appointments);
   } catch (err) {
     console.error("Error fetching appointments:", err);
@@ -24,30 +25,31 @@ exports.getAll = (req, res) => {
   }
 };
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
   const { patientId, staffId, datetime, type, reason, customFee } = req.body;
   const apptNumber = `APT-${Math.floor(Math.random() * 100000)}`;
 
-  const tx = db.transaction(() => {
+  try {
+    const db = getDb();
     // ENFORCE: One-per-day rule for restricted clinical visit types
     const restrictedTypes = ['Consultation', 'Emergency', 'Follow-up'];
     
     if (restrictedTypes.includes(type)) {
-        const existing = db.prepare(`
+        const existing = await db.get(`
           SELECT id, type FROM appointments 
           WHERE patient_id = ? 
           AND medical_staff_id = ? 
           AND date(appointment_datetime) = date(?)
           AND type IN ('Consultation', 'Emergency', 'Follow-up')
           AND status != 'cancelled'
-        `).get(patientId, staffId, datetime);
+        `, [patientId, staffId, datetime]);
 
         if (existing) {
           throw new Error('DUPLICATE_RESTRICTED_APPOINTMENT');
         }
     }
 
-    const staff = db.prepare('SELECT * FROM medical_staff WHERE id = ?').get(staffId);
+    const staff = await db.get('SELECT * FROM medical_staff WHERE id = ?', [staffId]);
     let fee = 0;
 
     if (customFee !== undefined && customFee !== null) {
@@ -59,32 +61,27 @@ exports.create = (req, res) => {
     }
 
     // Determine Daily Token (Sequential for the day)
-    const tokenResult = db.prepare(`
+    const tokenResult = await db.get(`
         SELECT COUNT(*) as count FROM appointments 
         WHERE date(appointment_datetime) = date(?)
-    `).get(datetime);
+    `, [datetime]);
     const dailyToken = (tokenResult?.count || 0) + 1;
 
     const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
-    const bill = db.prepare(`
+    const bill = await db.run(`
       INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date) 
       VALUES (?, ?, ?, 'pending', datetime('now'))
-    `).run(billNumber, patientId, fee);
+    `, [billNumber, patientId, fee]);
     
     const desc = customFee ? `${type}: ${reason || 'Medical Service'}` : `Appointment: ${type} with ${staff?.full_name || 'Doctor'}`;
-    db.prepare('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)').run(bill.lastInsertRowid, desc, fee);
+    await db.run('INSERT INTO billing_items (billing_id, description, amount) VALUES (?, ?, ?)', [bill.lastID, desc, fee]);
 
-    const info = db.prepare(`
+    const info = await db.run(`
       INSERT INTO appointments (appointment_number, patient_id, medical_staff_id, appointment_datetime, type, reason, status, billing_status, bill_id, daily_token)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(apptNumber, patientId, staffId, datetime, type, reason || null, 'pending', 'billed', bill.lastInsertRowid, dailyToken);
+    `, [apptNumber, patientId, staffId, datetime, type, reason || null, 'pending', 'billed', bill.lastID, dailyToken]);
     
-    return { id: info.lastInsertRowid, appointmentNumber: apptNumber, dailyToken, ...req.body };
-  });
-
-  try {
-    const result = tx();
-    res.status(201).json(result);
+    res.status(201).json({ id: info.lastID, appointmentNumber: apptNumber, dailyToken, ...req.body });
   } catch (err) {
     console.error("Appointment creation error:", err);
     let message = err.message;
@@ -95,16 +92,17 @@ exports.create = (req, res) => {
   }
 };
 
-exports.update = (req, res) => {
+exports.update = async (req, res) => {
   const { id } = req.params;
   const { staffId, datetime, type, reason } = req.body;
 
   try {
-    const result = db.prepare(`
+    const db = getDb();
+    const result = await db.run(`
       UPDATE appointments 
       SET medical_staff_id = ?, appointment_datetime = ?, type = ?, reason = ?
       WHERE id = ?
-    `).run(staffId, datetime, type, reason || null, id);
+    `, [staffId, datetime, type, reason || null, id]);
 
     if (result.changes === 0) return res.status(404).json({ error: 'Appointment not found' });
     res.json({ message: 'Appointment updated successfully' });
@@ -113,32 +111,29 @@ exports.update = (req, res) => {
   }
 };
 
-exports.updateStatus = (req, res) => {
+exports.updateStatus = async (req, res) => {
   const { status } = req.body;
   const { id } = req.params;
   try {
-    db.prepare('UPDATE appointments SET status = ? WHERE id = ?').run(status, id);
+    const db = getDb();
+    await db.run('UPDATE appointments SET status = ? WHERE id = ?', [status, id]);
     res.sendStatus(200);
   } catch(err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-exports.cancel = (req, res) => {
+exports.cancel = async (req, res) => {
   const { id } = req.params;
-  const tx = db.transaction(() => {
-    const appt = db.prepare('SELECT bill_id FROM appointments WHERE id = ?').get(id);
-    if (!appt) throw new Error('Appointment not found');
-    db.prepare("UPDATE appointments SET status = 'cancelled' WHERE id = ?").run(id);
-    if (appt.bill_id) {
-      // Allow cancellation of the bill regardless of current status (pending or paid)
-      // This ensures paid bills for cancelled appointments are marked as cancelled 
-      // (making them eligible for refund in the Billing module)
-      db.prepare("UPDATE billing SET status = 'cancelled' WHERE id = ?").run(appt.bill_id);
-    }
-  });
   try {
-    tx();
+    const db = getDb();
+    const appt = await db.get('SELECT bill_id FROM appointments WHERE id = ?', [id]);
+    if (!appt) throw new Error('Appointment not found');
+    
+    await db.run("UPDATE appointments SET status = 'cancelled' WHERE id = ?", [id]);
+    if (appt.bill_id) {
+      await db.run("UPDATE billing SET status = 'cancelled' WHERE id = ?", [appt.bill_id]);
+    }
     res.json({ message: 'Appointment cancelled successfully' });
   } catch (err) {
     res.status(err.message === 'Appointment not found' ? 404 : 500).json({ error: err.message });
