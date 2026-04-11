@@ -23,11 +23,11 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: '0.0.0.0', 
-      port: 5173,
-      strictPort: false,
+      port: 3000,
+      strictPort: true,
       proxy: {
         '/api': {
-          target: 'https://allcare.up.railway.app',
+          target: 'http://localhost:3001',
           changeOrigin: true,
           secure: false,
         }
