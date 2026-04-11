@@ -13,10 +13,13 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../context/TranslationContext';
 import { useHeader } from '../context/HeaderContext';
+import { useAuth } from '../context/AuthContext';
+import { hasPermission, Permissions } from '../utils/rbac';
 
 export const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
   
   // Stats State
   const [stats, setStats] = useState({ 
@@ -55,12 +58,12 @@ export const Dashboard = () => {
       };
 
       const [pts, apts, bills, bedsData, labs, staffData] = await Promise.all([
-        wrapApi(api.getPatients()),
-        wrapApi(api.getAppointments()),
-        wrapApi(api.getBills()),
-        wrapApi(api.getBeds()),
-        wrapApi(api.getPendingLabRequests()),
-        wrapApi(api.getStaff())
+        hasPermission(user, Permissions.VIEW_PATIENTS) ? wrapApi(api.getPatients()) : Promise.resolve([]),
+        hasPermission(user, Permissions.VIEW_APPOINTMENTS) ? wrapApi(api.getAppointments()) : Promise.resolve([]),
+        hasPermission(user, Permissions.VIEW_BILLING) ? wrapApi(api.getBills()) : Promise.resolve([]),
+        hasPermission(user, Permissions.VIEW_ADMISSIONS) ? wrapApi(api.getBeds()) : Promise.resolve([]),
+        hasPermission(user, Permissions.VIEW_LABORATORY) ? wrapApi(api.getPendingLabRequests()) : Promise.resolve([]),
+        hasPermission(user, Permissions.VIEW_HR) ? wrapApi(api.getStaff()) : Promise.resolve([])
       ]);
 
       const totalRev = bills.reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);

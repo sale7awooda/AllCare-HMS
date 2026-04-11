@@ -47,8 +47,23 @@ export const useHeader = (title?: string, subtitle?: string, actions: ReactNode 
     if (title !== undefined) {
       context.setHeader(title, subtitle || '', actions);
     }
+    // We intentionally omit `actions` from the dependency array 
+    // to prevent infinite loops when inline JSX is passed.
+    // We also omit `title` and `subtitle` to only run on mount and explicitly when `context.setHeader` changes,
+    // but React guarantees `context.setHeader` is stable.
+    // If dynamic titles are needed, users should call `context.setHeader` manually.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, subtitle, actions, context.setHeader]);
+  }, []);
+
+  // For cases where title/subtitle/actions actually change after mount:
+  // We use another effect to sync them, but ONLY if they are strings (primitives).
+  // We cannot safely sync `actions` automatically if it's inline JSX.
+  useEffect(() => {
+    if (title !== undefined && (context.title !== title || context.subtitle !== subtitle)) {
+      context.setHeader(title, subtitle || '', actions);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, subtitle]);
 
   return context;
 };

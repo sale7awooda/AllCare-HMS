@@ -1,14 +1,15 @@
+
 const { getDb } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 
 // --- SYSTEM HEALTH ---
-exports.getSystemHealth = async (req, res) => {
+exports.getSystemHealth = (req, res) => {
   try {
     const db = getDb();
     const start = process.hrtime();
-    await db.get('SELECT 1');
+    db.prepare('SELECT 1').get();
     const diff = process.hrtime(start);
     const dbLatency = (diff[0] * 1e9 + diff[1]) / 1e6; // ms
 
@@ -39,10 +40,10 @@ exports.getSystemHealth = async (req, res) => {
 };
 
 // --- SYSTEM SETTINGS ---
-exports.getSettings = async (req, res) => {
+exports.getSettings = (req, res) => {
   try {
     const db = getDb();
-    const rows = await db.all('SELECT * FROM system_settings');
+    const rows = db.prepare('SELECT * FROM system_settings').all();
     const settings = rows.reduce((acc, row) => {
       acc[row.key] = row.value;
       return acc;
@@ -51,10 +52,10 @@ exports.getSettings = async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.getPublicSettings = async (req, res) => {
+exports.getPublicSettings = (req, res) => {
   try {
     const db = getDb();
-    const rows = await db.all("SELECT * FROM system_settings WHERE key IN ('hospitalName', 'hospitalAddress', 'hospitalPhone')");
+    const rows = db.prepare("SELECT * FROM system_settings WHERE key IN ('hospitalName', 'hospitalAddress', 'hospitalPhone')").all();
     const settings = rows.reduce((acc, row) => {
       acc[row.key] = row.value;
       return acc;
@@ -63,29 +64,30 @@ exports.getPublicSettings = async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.updateSettings = async (req, res) => {
+exports.updateSettings = (req, res) => {
   const updates = req.body;
   
   try {
     const db = getDb();
-    await db.exec('BEGIN TRANSACTION');
-    for (const [key, value] of Object.entries(updates)) {
-      await db.run('INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)', [key, String(value)]);
-    }
-    await db.exec('COMMIT');
+    const updateTx = db.transaction(() => {
+      const stmt = db.prepare('INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)');
+      for (const [key, value] of Object.entries(updates)) {
+        stmt.run(key, String(value));
+      }
+    });
+    
+    updateTx();
     res.json({ message: 'Settings updated' });
   } catch (err) {
-    const db = getDb();
-    await db.exec('ROLLBACK');
     res.status(500).json({ error: err.message });
   }
 };
 
 // --- USER MANAGEMENT ---
-exports.getUsers = async (req, res) => {
+exports.getUsers = (req, res) => {
   try {
     const db = getDb();
-    const users = await db.all('SELECT id, username, full_name, role, email, is_active FROM users ORDER BY username');
+    const users = db.prepare('SELECT id, username, full_name, role, email, is_active FROM users ORDER BY username').all();
     const mappedUsers = users.map(u => ({
       id: u.id,
       username: u.username,
@@ -98,50 +100,50 @@ exports.getUsers = async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.addUser = async (req, res) => {
+exports.addUser = (req, res) => {
   const { username, password, fullName, role, email, isActive } = req.body;
   if (!username || !password || !fullName || !role) return res.status(400).json({ error: 'Missing required fields' });
 
   try {
     const db = getDb();
-    const hash = await bcrypt.hash(password, 10);
-    const result = await db.run('INSERT INTO users (username, password, full_name, role, email, is_active) VALUES (?, ?, ?, ?, ?, ?)', [username, hash, fullName, role, email || null, isActive ? 1 : 0]);
-    res.status(201).json({ id: result.lastID, username, fullName, role, email });
+    const hash = bcrypt.hashSync(password, 10);
+    const result = db.prepare('INSERT INTO users (username, password, full_name, role, email, is_active) VALUES (?, ?, ?, ?, ?, ?)').run(username, hash, fullName, role, email || null, isActive ? 1 : 0);
+    res.status(201).json({ id: result.lastInsertRowid, username, fullName, role, email });
   } catch (err) {
     if (err.message.includes('UNIQUE constraint')) return res.status(409).json({ error: 'Username already exists' });
     res.status(400).json({ error: err.message });
   }
 };
 
-exports.updateUser = async (req, res) => {
+exports.updateUser = (req, res) => {
   const { id } = req.params;
   const { fullName, role, email, password, isActive } = req.body;
   try {
     const db = getDb();
     if (password) {
-      const hash = await bcrypt.hash(password, 10);
-      await db.run('UPDATE users SET full_name = ?, role = ?, email = ?, is_active = ?, password = ? WHERE id = ?', [fullName, role, email || null, isActive ? 1 : 0, hash, id]);
+      const hash = bcrypt.hashSync(password, 10);
+      db.prepare('UPDATE users SET full_name = ?, role = ?, email = ?, is_active = ?, password = ? WHERE id = ?').run(fullName, role, email || null, isActive ? 1 : 0, hash, id);
     } else {
-      await db.run('UPDATE users SET full_name = ?, role = ?, email = ?, is_active = ? WHERE id = ?', [fullName, role, email || null, isActive ? 1 : 0, id]);
+      db.prepare('UPDATE users SET full_name = ?, role = ?, email = ?, is_active = ? WHERE id = ?').run(fullName, role, email || null, isActive ? 1 : 0, id);
     }
     res.json({ message: 'User updated successfully' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
 
-exports.deleteUser = async (req, res) => {
+exports.deleteUser = (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM users WHERE id = ?', [req.params.id]);
+    db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
     res.sendStatus(200);
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 // --- ROLE PERMISSIONS ---
-exports.getRolePermissions = async (req, res) => {
+exports.getRolePermissions = (req, res) => {
   try {
     const db = getDb();
-    const roles = await db.all('SELECT * FROM role_permissions');
+    const roles = db.prepare('SELECT * FROM role_permissions').all();
     const permissionsMap = roles.reduce((acc, r) => {
       try { acc[r.role] = JSON.parse(r.permissions); } catch (e) { acc[r.role] = []; }
       return acc;
@@ -150,283 +152,283 @@ exports.getRolePermissions = async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.updateRolePermissions = async (req, res) => {
+exports.updateRolePermissions = (req, res) => {
   const { role } = req.params;
   const { permissions } = req.body;
   try {
     const db = getDb();
-    await db.run('INSERT OR REPLACE INTO role_permissions (role, permissions) VALUES (?, ?)', [role, JSON.stringify(permissions)]);
+    db.prepare('INSERT OR REPLACE INTO role_permissions (role, permissions) VALUES (?, ?)').run(role, JSON.stringify(permissions));
     res.json({ message: 'Permissions updated' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 // --- DEPARTMENTS ---
-exports.getDepartments = async (req, res) => {
+exports.getDepartments = (req, res) => {
   try {
     const db = getDb();
-    res.json(await db.all('SELECT * FROM departments ORDER BY name_en'));
+    res.json(db.prepare('SELECT * FROM departments ORDER BY name_en').all());
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.addDepartment = async (req, res) => {
+exports.addDepartment = (req, res) => {
   const { name_en, name_ar, description_en, description_ar } = req.body;
   try {
     const db = getDb();
-    const result = await db.run('INSERT INTO departments (name_en, name_ar, description_en, description_ar) VALUES (?, ?, ?, ?)', [name_en, name_ar, description_en || '', description_ar || '']);
-    res.status(201).json({ id: result.lastID, ...req.body });
+    const result = db.prepare('INSERT INTO departments (name_en, name_ar, description_en, description_ar) VALUES (?, ?, ?, ?)').run(name_en, name_ar, description_en || '', description_ar || '');
+    res.status(201).json({ id: result.lastInsertRowid, ...req.body });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.updateDepartment = async (req, res) => {
+exports.updateDepartment = (req, res) => {
   const { name_en, name_ar, description_en, description_ar } = req.body;
   try {
     const db = getDb();
-    await db.run('UPDATE departments SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ? WHERE id = ?', [name_en, name_ar, description_en, description_ar, req.params.id]);
+    db.prepare('UPDATE departments SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ? WHERE id = ?').run(name_en, name_ar, description_en, description_ar, req.params.id);
     res.json({ message: 'Department updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.deleteDepartment = async (req, res) => {
+exports.deleteDepartment = (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM departments WHERE id = ?', [req.params.id]);
+    db.prepare('DELETE FROM departments WHERE id = ?').run(req.params.id);
     res.sendStatus(200);
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 // --- SPECIALIZATIONS ---
-exports.getSpecializations = async (req, res) => {
+exports.getSpecializations = (req, res) => {
   try {
     const db = getDb();
-    res.json(await db.all('SELECT * FROM specializations ORDER BY name_en'));
+    res.json(db.prepare('SELECT * FROM specializations ORDER BY name_en').all());
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.addSpecialization = async (req, res) => {
+exports.addSpecialization = (req, res) => {
   const { name_en, name_ar, description_en, description_ar, related_role } = req.body;
   try {
     const db = getDb();
-    const result = await db.run('INSERT INTO specializations (name_en, name_ar, description_en, description_ar, related_role) VALUES (?, ?, ?, ?, ?)', [name_en, name_ar, description_en || '', description_ar || '', related_role || null]);
-    res.status(201).json({ id: result.lastID, ...req.body });
+    const result = db.prepare('INSERT INTO specializations (name_en, name_ar, description_en, description_ar, related_role) VALUES (?, ?, ?, ?, ?)').run(name_en, name_ar, description_en || '', description_ar || '', related_role || null);
+    res.status(201).json({ id: result.lastInsertRowid, ...req.body });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.updateSpecialization = async (req, res) => {
+exports.updateSpecialization = (req, res) => {
   const { name_en, name_ar, description_en, description_ar, related_role } = req.body;
   try {
     const db = getDb();
-    await db.run('UPDATE specializations SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ?, related_role = ? WHERE id = ?', [name_en, name_ar, description_en, description_ar, related_role || null, req.params.id]);
+    db.prepare('UPDATE specializations SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ?, related_role = ? WHERE id = ?').run(name_en, name_ar, description_en, description_ar, related_role || null, req.params.id);
     res.json({ message: 'Specialization updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.deleteSpecialization = async (req, res) => {
+exports.deleteSpecialization = (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM specializations WHERE id = ?', [req.params.id]);
+    db.prepare('DELETE FROM specializations WHERE id = ?').run(req.params.id);
     res.sendStatus(200);
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 // --- BEDS ---
-exports.getBeds = async (req, res) => {
+exports.getBeds = (req, res) => {
   try {
     const db = getDb();
-    res.json(await db.all('SELECT id, room_number as roomNumber, type, status, cost_per_day as costPerDay FROM beds ORDER BY room_number'));
+    res.json(db.prepare('SELECT id, room_number as roomNumber, type, status, cost_per_day as costPerDay FROM beds ORDER BY room_number').all());
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.addBed = async (req, res) => {
+exports.addBed = (req, res) => {
   const { roomNumber, type, costPerDay } = req.body;
   try {
     const db = getDb();
-    const result = await db.run('INSERT INTO beds (room_number, type, cost_per_day, status) VALUES (?, ?, ?, ?)', [roomNumber, type, costPerDay, 'available']);
-    res.status(201).json({ id: result.lastID });
+    const result = db.prepare('INSERT INTO beds (room_number, type, cost_per_day, status) VALUES (?, ?, ?, ?)').run(roomNumber, type, costPerDay, 'available');
+    res.status(201).json({ id: result.lastInsertRowid });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.updateBed = async (req, res) => {
+exports.updateBed = (req, res) => {
   const { roomNumber, type, costPerDay, status } = req.body;
   try {
     const db = getDb();
-    await db.run('UPDATE beds SET room_number = ?, type = ?, cost_per_day = ?, status = ? WHERE id = ?', [roomNumber, type, costPerDay, status, req.params.id]);
+    db.prepare('UPDATE beds SET room_number = ?, type = ?, cost_per_day = ?, status = ? WHERE id = ?').run(roomNumber, type, costPerDay, status, req.params.id);
     res.json({ message: 'Bed updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.deleteBed = async (req, res) => {
+exports.deleteBed = (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM beds WHERE id = ?', [req.params.id]);
+    db.prepare('DELETE FROM beds WHERE id = ?').run(req.params.id);
     res.sendStatus(200);
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 // --- CATALOGS ---
-exports.getLabTests = async (req, res) => {
+exports.getLabTests = (req, res) => {
   try {
     const db = getDb();
-    res.json(await db.all('SELECT * FROM lab_tests ORDER BY name_en'));
+    res.json(db.prepare('SELECT * FROM lab_tests ORDER BY name_en').all());
   }
   catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.addLabTest = async (req, res) => {
+exports.addLabTest = (req, res) => {
   const { name_en, name_ar, category_en, category_ar, cost, normal_range } = req.body;
   try {
     const db = getDb();
-    const result = await db.run('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost, normal_range) VALUES (?, ?, ?, ?, ?, ?)', [name_en, name_ar, category_en, category_ar, cost, normal_range || null]);
-    res.status(201).json({ id: result.lastID });
+    const result = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, category_ar, cost, normal_range) VALUES (?, ?, ?, ?, ?, ?)').run(name_en, name_ar, category_en, category_ar, cost, normal_range || null);
+    res.status(201).json({ id: result.lastInsertRowid });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.updateLabTest = async (req, res) => {
+exports.updateLabTest = (req, res) => {
   const { name_en, name_ar, category_en, category_ar, cost, normal_range } = req.body;
   try {
     const db = getDb();
-    await db.run('UPDATE lab_tests SET name_en = ?, name_ar = ?, category_en = ?, category_ar = ?, cost = ?, normal_range = ? WHERE id = ?', [name_en, name_ar, category_en, category_ar, cost, normal_range || null, req.params.id]);
+    db.prepare('UPDATE lab_tests SET name_en = ?, name_ar = ?, category_en = ?, category_ar = ?, cost = ?, normal_range = ? WHERE id = ?').run(name_en, name_ar, category_en, category_ar, cost, normal_range || null, req.params.id);
     res.json({ message: 'Lab test updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.deleteLabTest = async (req, res) => {
+exports.deleteLabTest = (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM lab_tests WHERE id = ?', [req.params.id]);
+    db.prepare('DELETE FROM lab_tests WHERE id = ?').run(req.params.id);
     res.sendStatus(200);
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.getNurseServices = async (req, res) => {
+exports.getNurseServices = (req, res) => {
   try {
     const db = getDb();
-    res.json(await db.all('SELECT * FROM nurse_services ORDER BY name_en'));
+    res.json(db.prepare('SELECT * FROM nurse_services ORDER BY name_en').all());
   }
   catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.addNurseService = async (req, res) => {
+exports.addNurseService = (req, res) => {
   const { name_en, name_ar, description_en, description_ar, cost } = req.body;
   try {
     const db = getDb();
-    const result = await db.run('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?, ?)', [name_en, name_ar, description_en, description_ar, cost]);
-    res.status(201).json({ id: result.lastID });
+    const result = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?, ?)').run(name_en, name_ar, description_en, description_ar, cost);
+    res.status(201).json({ id: result.lastInsertRowid });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.updateNurseService = async (req, res) => {
+exports.updateNurseService = (req, res) => {
   const { name_en, name_ar, description_en, description_ar, cost } = req.body;
   try {
     const db = getDb();
-    await db.run('UPDATE nurse_services SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ?, cost = ? WHERE id = ?', [name_en, name_ar, description_en, description_ar, cost, req.params.id]);
+    db.prepare('UPDATE nurse_services SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ?, cost = ? WHERE id = ?').run(name_en, name_ar, description_en, description_ar, cost, req.params.id);
     res.json({ message: 'Nurse service updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.deleteNurseService = async (req, res) => {
+exports.deleteNurseService = (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM nurse_services WHERE id = ?', [req.params.id]);
+    db.prepare('DELETE FROM nurse_services WHERE id = ?').run(req.params.id);
     res.sendStatus(200);
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.getOperations = async (req, res) => {
+exports.getOperations = (req, res) => {
   try {
     const db = getDb();
-    res.json(await db.all('SELECT * FROM operations_catalog ORDER BY name_en'));
+    res.json(db.prepare('SELECT * FROM operations_catalog ORDER BY name_en').all());
   }
   catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.addOperation = async (req, res) => {
+exports.addOperation = (req, res) => {
   const { name_en, name_ar, base_cost } = req.body;
   try {
     const db = getDb();
-    const result = await db.run('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)', [name_en, name_ar, base_cost]);
-    res.status(201).json({ id: result.lastID });
+    const result = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)').run(name_en, name_ar, base_cost);
+    res.status(201).json({ id: result.lastInsertRowid });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.updateOperation = async (req, res) => {
+exports.updateOperation = (req, res) => {
   const { name_en, name_ar, base_cost } = req.body;
   try {
     const db = getDb();
-    await db.run('UPDATE operations_catalog SET name_en = ?, name_ar = ?, base_cost = ? WHERE id = ?', [name_en, name_ar, base_cost, req.params.id]);
+    db.prepare('UPDATE operations_catalog SET name_en = ?, name_ar = ?, base_cost = ? WHERE id = ?').run(name_en, name_ar, base_cost, req.params.id);
     res.json({ message: 'Operation updated' });
   } catch (err) { res.status(400).json({ error: err.message }); }
 };
-exports.deleteOperation = async (req, res) => {
+exports.deleteOperation = (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM operations_catalog WHERE id = ?', [req.params.id]);
+    db.prepare('DELETE FROM operations_catalog WHERE id = ?').run(req.params.id);
     res.sendStatus(200);
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.getInsuranceProviders = async (req, res) => {
+exports.getInsuranceProviders = (req, res) => {
   try {
     const db = getDb();
-    const providers = await db.all('SELECT id, name_en, name_ar, is_active as isActive FROM insurance_providers');
+    const providers = db.prepare('SELECT id, name_en, name_ar, is_active as isActive FROM insurance_providers').all();
     res.json(providers.map(p => ({...p, isActive: !!p.isActive})));
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.addInsuranceProvider = async (req, res) => {
+exports.addInsuranceProvider = (req, res) => {
   const { name_en, name_ar, is_active } = req.body;
   try {
     const db = getDb();
-    const result = await db.run('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, ?)', [name_en, name_ar, is_active ? 1 : 0]);
-    res.json({ id: result.lastID });
+    const result = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, ?)').run(name_en, name_ar, is_active ? 1 : 0);
+    res.json({ id: result.lastInsertRowid });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.updateInsuranceProvider = async (req, res) => {
+exports.updateInsuranceProvider = (req, res) => {
   const { name_en, name_ar, is_active } = req.body;
   try {
     const db = getDb();
-    await db.run('UPDATE insurance_providers SET name_en = ?, name_ar = ?, is_active = ? WHERE id = ?', [name_en, name_ar, is_active ? 1 : 0, req.params.id]);
+    db.prepare('UPDATE insurance_providers SET name_en = ?, name_ar = ?, is_active = ? WHERE id = ?').run(name_en, name_ar, is_active ? 1 : 0, req.params.id);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.deleteInsuranceProvider = async (req, res) => {
+exports.deleteInsuranceProvider = (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM insurance_providers WHERE id = ?', [req.params.id]);
+    db.prepare('DELETE FROM insurance_providers WHERE id = ?').run(req.params.id);
     res.sendStatus(200);
   }
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 // --- FINANCIAL CONFIG (TAXES & PAYMENT METHODS) ---
-exports.getTaxRates = async (req, res) => {
+exports.getTaxRates = (req, res) => {
   try {
     const db = getDb();
-    const rates = await db.all('SELECT id, name_en, name_ar, rate, is_active as isActive FROM tax_rates');
+    const rates = db.prepare('SELECT id, name_en, name_ar, rate, is_active as isActive FROM tax_rates').all();
     res.json(rates.map(t => ({...t, isActive: !!t.isActive})));
   } 
   catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.addTaxRate = async (req, res) => {
+exports.addTaxRate = (req, res) => {
   const { name_en, name_ar, rate, is_active } = req.body;
   try {
     const db = getDb();
-    const result = await db.run('INSERT INTO tax_rates (name_en, name_ar, rate, is_active) VALUES (?, ?, ?, ?)', [name_en, name_ar, rate, is_active ? 1 : 0]);
-    res.json({ id: result.lastID });
+    const result = db.prepare('INSERT INTO tax_rates (name_en, name_ar, rate, is_active) VALUES (?, ?, ?, ?)').run(name_en, name_ar, rate, is_active ? 1 : 0);
+    res.json({ id: result.lastInsertRowid });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.updateTaxRate = async (req, res) => {
+exports.updateTaxRate = (req, res) => {
   const { name_en, name_ar, rate, is_active } = req.body;
   try {
     const db = getDb();
-    await db.run('UPDATE tax_rates SET name_en = ?, name_ar = ?, rate = ?, is_active = ? WHERE id = ?', [name_en, name_ar, rate, is_active ? 1 : 0, req.params.id]);
+    db.prepare('UPDATE tax_rates SET name_en = ?, name_ar = ?, rate = ?, is_active = ? WHERE id = ?').run(name_en, name_ar, rate, is_active ? 1 : 0, req.params.id);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.deleteTaxRate = async (req, res) => {
+exports.deleteTaxRate = (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM tax_rates WHERE id = ?', [req.params.id]);
+    db.prepare('DELETE FROM tax_rates WHERE id = ?').run(req.params.id);
     res.sendStatus(200);
   }
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.getPaymentMethods = async (req, res) => {
+exports.getPaymentMethods = (req, res) => {
   try { 
     const db = getDb();
-    const rows = await db.all('SELECT id, name_en, name_ar, is_active FROM payment_methods');
+    const rows = db.prepare('SELECT id, name_en, name_ar, is_active FROM payment_methods').all();
     res.json(rows.map(p => ({
       id: p.id,
       name_en: p.name_en,
@@ -437,26 +439,26 @@ exports.getPaymentMethods = async (req, res) => {
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.addPaymentMethod = async (req, res) => {
+exports.addPaymentMethod = (req, res) => {
   const { name_en, name_ar, is_active } = req.body;
   try {
     const db = getDb();
-    const result = await db.run('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, ?)', [name_en, name_ar, is_active ? 1 : 0]);
-    res.json({ id: result.lastID });
+    const result = db.prepare('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, ?)').run(name_en, name_ar, is_active ? 1 : 0);
+    res.json({ id: result.lastInsertRowid });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.updatePaymentMethod = async (req, res) => {
+exports.updatePaymentMethod = (req, res) => {
   const { name_en, name_ar, is_active } = req.body;
   try {
     const db = getDb();
-    await db.run('UPDATE payment_methods SET name_en = ?, name_ar = ?, is_active = ? WHERE id = ?', [name_en, name_ar, is_active ? 1 : 0, req.params.id]);
+    db.prepare('UPDATE payment_methods SET name_en = ?, name_ar = ?, is_active = ? WHERE id = ?').run(name_en, name_ar, is_active ? 1 : 0, req.params.id);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
-exports.deletePaymentMethod = async (req, res) => {
+exports.deletePaymentMethod = (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM payment_methods WHERE id = ?', [req.params.id]);
+    db.prepare('DELETE FROM payment_methods WHERE id = ?').run(req.params.id);
     res.sendStatus(200);
   }
   catch (err) { res.status(500).json({ error: err.message }); }
@@ -475,7 +477,7 @@ exports.downloadBackup = (req, res) => {
   }
 };
 
-exports.restoreBackup = async (req, res) => {
+exports.restoreBackup = (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   
   const validExtensions = ['.db', '.sqlite', '.sqlite3'];
@@ -492,7 +494,7 @@ exports.restoreBackup = async (req, res) => {
     // 1. Close current connection handle to release locks
     try { 
       const db = getDb();
-      await db.close(); 
+      db.close(); 
     } catch(e) {}
     
     // 2. Perform file overwrite
@@ -509,14 +511,14 @@ exports.restoreBackup = async (req, res) => {
   }
 };
 
-exports.resetDatabase = async (req, res) => {
+exports.resetDatabase = (req, res) => {
   const dbPath = process.env.DB_PATH || path.join(__dirname, '../../allcare.db');
   
   try {
     // 1. Close current connection handle to release locks
     try { 
       const db = getDb();
-      await db.close(); 
+      db.close(); 
     } catch(e) {}
     
     // 2. Delete the active database file

@@ -30,7 +30,7 @@ router.use(authenticateToken);
 // Auth & Profile
 router.get('/auth/me', authController.me);
 router.put('/auth/profile', authController.updateProfile);
-router.put('/auth/password', authController.changePassword);
+router.put('/auth/password', validate(schemas.changePassword), authController.changePassword);
 
 // System Health Check
 router.get('/config/health', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getSystemHealth);
@@ -160,7 +160,7 @@ router.delete('/config/insurance-providers/:id', authorizeRoles(Permissions.MANA
 
 // Configuration: Users & Roles
 router.get('/config/users', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getUsers);
-router.post('/config/users', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addUser);
+router.post('/config/users', authorizeRoles(Permissions.MANAGE_CONFIGURATION), validate(schemas.createUser), configurationController.addUser);
 router.put('/config/users/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateUser);
 router.delete('/config/users/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteUser);
 

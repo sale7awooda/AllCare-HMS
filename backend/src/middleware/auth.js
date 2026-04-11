@@ -1,10 +1,20 @@
 
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-// IMPORTANT: Set JWT_SECRET in production ENV
-const SECRET = process.env.JWT_SECRET || 'dev_secret_key_123'; 
+
+// Security: Require JWT_SECRET in production. Generate a random one-time secret for dev only.
+const SECRET = (() => {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[FATAL] JWT_SECRET environment variable is required in production. Exiting.');
+    process.exit(1);
+  }
+  const devSecret = crypto.randomBytes(32).toString('hex');
+  console.warn('[Security] JWT_SECRET not set. Using random dev secret (sessions will not persist across restarts).');
+  return devSecret;
+})();
 
 // Importing roles and permissions for backend enforcement logic
-// Corrected to point to src/utils
 const { ROLE_PERMISSIONS, Permissions } = require('../utils/rbac_backend_mirror'); 
 
 const authenticateToken = (req, res, next) => {
@@ -15,21 +25,18 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, SECRET, (err, user) => {
     if (err) {
-      // Use 401 for token verification failure to trigger frontend session logout/redirect
       return res.status(401).json({ error: 'Token invalid or expired' });
     }
-    req.user = user; // Attach user payload to request
+    req.user = user;
     next();
   });
 };
 
 // RBAC Permissions - Backend Enforcement
-// This middleware now requires explicit Permission types.
-// It relies on a mirrored ROLE_PERMISSIONS map on the backend.
 const authorizeRoles = (...requiredPermissions) => {
   return (req, res, next) => {
     if (!req.user || !req.user.role) {
-      return res.status(403).json({ error: 'Access denied: User role not found.' });
+      return res.status(403).json({ error: 'Access denied.' });
     }
 
     const userRole = req.user.role;
@@ -45,9 +52,9 @@ const authorizeRoles = (...requiredPermissions) => {
       const hasDeletePerm = requiredPermissions.some(p => p.startsWith('DELETE_'));
 
       if (!hasConfigManagementPerm && !hasDeletePerm) {
-        return next(); // Manager can do everything except config management and delete actions
+        return next();
       } else {
-        return res.status(403).json({ error: `Access denied: Manager role cannot perform required permission(s): ${requiredPermissions.join(', ')}` });
+        return res.status(403).json({ error: 'Access denied: Insufficient permissions.' });
       }
     }
 
@@ -56,11 +63,7 @@ const authorizeRoles = (...requiredPermissions) => {
     const hasAnyRequiredPermission = requiredPermissions.some(perm => userPermissions.includes(perm));
 
     if (!hasAnyRequiredPermission) {
-      return res.status(403).json({ 
-        error: `Access denied. Requires permission(s): ${requiredPermissions.join(', ')}.`,
-        userRole: userRole, // For debugging
-        userPermissions: userPermissions // For debugging
-      });
+      return res.status(403).json({ error: 'Access denied: Insufficient permissions.' });
     }
 
     next();

@@ -12,29 +12,56 @@ const apiRoutes = require('./src/routes/api');
 
 const app = express();
 
-// Sync default port with Vite proxy (3001).
-const PORT = 3001; 
+// Use PORT from environment (for cloud deployments), fallback to 3001 for local dev
+const PORT = process.env.PORT || 3001; 
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', 1);
 
-// Initialize DB
-initDB().then(() => {
+// Initialize DB (synchronous with better-sqlite3)
+try {
+  initDB();
   console.log('[Init] Database loaded and verified.');
-}).catch(error => {
+} catch (error) {
   console.error('[Error] Critical Database Initialization Failure:', error);
+  process.exit(1);
+}
+
+// --- Rate Limiting ---
+// General API rate limit: 200 requests per minute per IP
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again shortly.' }
 });
 
-// Global Middleware
+// Strict login rate limit: 10 attempts per 15 minutes per IP
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again after 15 minutes.' }
+});
+
+// Apply login limiter specifically to the login route
+app.use('/api/auth/login', loginLimiter);
+// Apply general limiter to all API routes
+app.use('/api', apiLimiter);
+
+// --- Security Headers (Helmet) ---
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://esm.sh"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://esm.sh"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-      connectSrc: ["'self'", "https://esm.sh", "*"],
+      connectSrc: ["'self'", "https://esm.sh"],
       imgSrc: ["'self'", "data:", "https:", "http:"],
-      frameAncestors: ["'self'", "*"], 
+      frameAncestors: ["'self'"], 
       objectSrc: ["'none'"],
     },
   },
@@ -42,16 +69,21 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Robust CORS for cross-domain frontend access (AI Studio -> Local Windows Backend)
+// --- CORS ---
+// Configurable via ALLOWED_ORIGINS env var (comma-separated). Defaults to same-origin only.
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : null; // null = same-origin only (no cross-origin)
+
 app.use(cors({
-    origin: true, // Echoes the requesting origin back, allowing any cross-site request with credentials
+    origin: allowedOrigins || false, // false = only same-origin; array = whitelist
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true
 }));
 
-app.use(morgan('dev')); 
-app.use(express.json());
+app.use(morgan(IS_PROD ? 'combined' : 'dev')); 
+app.use(express.json({ limit: '10mb' }));
 
 // API Routes
 app.use('/api', apiRoutes);
@@ -84,15 +116,18 @@ app.get('*', (req, res) => {
   }
 });
 
-// Global Error Handler
+// Global Error Handler — hide internal details in production
 app.use((err, req, res, next) => {
   console.error('[Fatal] Internal Server Error:', err);
   if (res.headersSent) return next(err);
-  res.status(500).json({ error: 'Internal Server Error', details: err.message });
+  res.status(500).json({ 
+    error: 'Internal Server Error',
+    ...(IS_PROD ? {} : { details: err.message })
+  });
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Server] AllCare HMS Backend running on port ${PORT}`);
+  console.log(`[Server] AllCare HMS Backend running on port ${PORT}${IS_PROD ? ' (production)' : ' (development)'}`);
 });
 
 // Graceful Shutdown

@@ -17,7 +17,9 @@ import {
   EyeOff,
   Stethoscope,
   Database,
-  RefreshCw
+  RefreshCw,
+  Users,
+  HeartPulse
 } from 'lucide-react';
 import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
@@ -67,6 +69,9 @@ export const Login: React.FC = () => {
     } else if (role === 'hr') {
       setUsername('hr');
       setPassword('hr123');
+    } else if (role === 'nurse') {
+      setUsername('nurse_hiba');
+      setPassword('nurse123');
     } else {
       setUsername(role);
       setPassword(`${role}123`);
@@ -208,13 +213,15 @@ export const Login: React.FC = () => {
 
           <div className="bg-slate-50/80 dark:bg-slate-900/40 px-6 pt-3 pb-5 border-t border-slate-100 dark:border-slate-800">
             <p className="text-center text-[8px] text-slate-400 dark:text-slate-500 mb-3 font-black uppercase tracking-widest">{t('login_quick_select_title')}</p>
-            <div className="grid grid-cols-3 gap-y-3 gap-x-2 px-1">
+            <div className="grid grid-cols-4 gap-y-3 gap-x-2 px-1">
               <QuickProfile role="admin" label={t('login_profile_admin')} icon={ShieldCheck} color="from-rose-500 to-red-600" />
               <QuickProfile role="doctor" label={t('staff_role_doctor')} icon={Stethoscope} color="from-blue-600 to-indigo-600" />
               <QuickProfile role="manager" label={t('login_profile_manager')} icon={LayoutDashboard} color="from-orange-500 to-amber-500" />
               <QuickProfile role="receptionist" label={t('login_profile_desk')} icon={UserIcon} color="from-blue-500 to-cyan-500" />
               <QuickProfile role="technician" label={t('login_profile_lab')} icon={Microscope} color="from-emerald-500 to-teal-500" />
               <QuickProfile role="accountant" label={t('login_profile_finance')} icon={CreditCard} color="from-violet-500 to-purple-500" />
+              <QuickProfile role="hr" label={t('staff_role_hr')} icon={Users} color="from-amber-600 to-orange-700" />
+              <QuickProfile role="nurse" label={t('staff_role_nurse')} icon={HeartPulse} color="from-pink-500 to-rose-500" />
             </div>
           </div>
         </div>

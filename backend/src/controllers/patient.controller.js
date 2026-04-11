@@ -1,11 +1,11 @@
 
 const { getDb } = require('../config/database');
 
-exports.getAll = async (req, res) => {
+exports.getAll = (req, res) => {
   try {
     const db = getDb();
     console.log('[PatientController] Fetching all patients...');
-    const patients = await db.all('SELECT * FROM patients ORDER BY created_at DESC');
+    const patients = db.prepare('SELECT * FROM patients ORDER BY created_at DESC').all();
     console.log(`[PatientController] Found ${patients.length} patients.`);
     
     // Manual mapping to ensure camelCase and handle potential missing columns gracefully
@@ -33,7 +33,7 @@ exports.getAll = async (req, res) => {
   }
 };
 
-exports.create = async (req, res) => {
+exports.create = (req, res) => {
   const { 
     fullName, phone, address, age, gender, type,
     symptoms, medicalHistory, allergies, bloodGroup,
@@ -42,66 +42,70 @@ exports.create = async (req, res) => {
 
   try {
     const db = getDb();
-    await db.exec('BEGIN TRANSACTION');
+
     // 1. Generate ID Format: P + YY + MM + Incremental
     const now = new Date();
     const yy = String(now.getFullYear()).slice(-2);
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const prefix = `P${yy}${mm}`;
 
-    // Find the latest patient ID that matches the current month's prefix
-    // We order by length first (to handle P25129 vs P251210 correctly if simple string sort fails) then by value
-    const latestPatient = await db.get(`
-      SELECT patient_id 
-      FROM patients 
-      WHERE patient_id LIKE ? 
-      ORDER BY length(patient_id) DESC, patient_id DESC 
-      LIMIT 1
-    `, [`${prefix}%`]);
-
-    let sequence = 1;
-    if (latestPatient && latestPatient.patient_id) {
-      // Extract the numeric part after the prefix (P + YY + MM = 5 chars)
-      const currentNumPart = latestPatient.patient_id.substring(5);
-      const currentSeq = parseInt(currentNumPart, 10);
-      if (!isNaN(currentSeq)) {
-        sequence = currentSeq + 1;
-      }
-    }
-
-    // Pad sequence to at least 2 digits (e.g., 01, 05, 10, 100)
-    const patientId = `${prefix}${String(sequence).padStart(2, '0')}`;
-    
     const emergencyJson = emergencyContact ? JSON.stringify(emergencyContact) : null;
     const insuranceJson = insuranceDetails ? JSON.stringify(insuranceDetails) : null;
     const hasInsuranceInt = hasInsurance ? 1 : 0;
 
-    const result = await db.run(`
-      INSERT INTO patients (
-        patient_id, full_name, phone, address, age, gender, type,
-        symptoms, medical_history, allergies, blood_group,
-        emergency_contacts, has_insurance, insurance_details
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      patientId, fullName, phone, address, age, gender, type,
-      symptoms || null, medicalHistory || null, allergies || null, bloodGroup || null,
-      emergencyJson, hasInsuranceInt, insuranceJson
-    ]);
+    let patientId = '';
+    let insertedId = 0;
 
-    console.log(`[PatientController] Patient created with ID: ${result.lastID}, PatientID: ${patientId}`);
+    const createPatient = db.transaction(() => {
+      // Find the latest patient ID that matches the current month's prefix
+      const latestPatient = db.prepare(`
+        SELECT patient_id 
+        FROM patients 
+        WHERE patient_id LIKE ? 
+        ORDER BY length(patient_id) DESC, patient_id DESC 
+        LIMIT 1
+      `).get(`${prefix}%`);
 
-    await db.exec('COMMIT');
-    res.status(201).json({ id: result.lastID, patientId, ...req.body });
+      let sequence = 1;
+      if (latestPatient && latestPatient.patient_id) {
+        // Extract the numeric part after the prefix (P + YY + MM = 5 chars)
+        const currentNumPart = latestPatient.patient_id.substring(5);
+        const currentSeq = parseInt(currentNumPart, 10);
+        if (!isNaN(currentSeq)) {
+          sequence = currentSeq + 1;
+        }
+      }
+
+      // Pad sequence to at least 2 digits (e.g., 01, 05, 10, 100)
+      patientId = `${prefix}${String(sequence).padStart(2, '0')}`;
+      
+      const result = db.prepare(`
+        INSERT INTO patients (
+          patient_id, full_name, phone, address, age, gender, type,
+          symptoms, medical_history, allergies, blood_group,
+          emergency_contacts, has_insurance, insurance_details
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        patientId, fullName, phone, address, age, gender, type,
+        symptoms || null, medicalHistory || null, allergies || null, bloodGroup || null,
+        emergencyJson, hasInsuranceInt, insuranceJson
+      );
+
+      insertedId = result.lastInsertRowid;
+    });
+
+    createPatient();
+
+    console.log(`[PatientController] Patient created with ID: ${insertedId}, PatientID: ${patientId}`);
+    res.status(201).json({ id: insertedId, patientId, ...req.body });
   } catch (err) {
-    const db = getDb();
-    await db.exec('ROLLBACK');
     console.error(err);
     res.status(400).json({ error: err.message });
   }
 };
 
-exports.update = async (req, res) => {
+exports.update = (req, res) => {
   const { id } = req.params;
   const { 
     fullName, phone, address, age, gender, type,
@@ -115,18 +119,18 @@ exports.update = async (req, res) => {
 
   try {
     const db = getDb();
-    const result = await db.run(`
+    const result = db.prepare(`
       UPDATE patients SET
         full_name = ?, phone = ?, address = ?, age = ?, gender = ?, type = ?,
         symptoms = ?, medical_history = ?, allergies = ?, blood_group = ?,
         emergency_contacts = ?, has_insurance = ?, insurance_details = ?
       WHERE id = ?
-    `, [
+    `).run(
       fullName, phone, address, age, gender, type,
       symptoms, medicalHistory, allergies, bloodGroup,
       emergencyJson, hasInsuranceInt, insuranceJson,
       id
-    ]);
+    );
     
     if (result.changes === 0) return res.status(404).json({ error: 'Patient not found' });
     res.json({ message: 'Updated successfully' });
@@ -136,10 +140,10 @@ exports.update = async (req, res) => {
   }
 };
 
-exports.getOne = async (req, res) => {
+exports.getOne = (req, res) => {
   try {
     const db = getDb();
-    const patient = await db.get('SELECT * FROM patients WHERE id = ?', [req.params.id]);
+    const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(req.params.id);
     if (!patient) return res.status(404).json({ error: 'Patient not found' });
     
     let emergencyContact;

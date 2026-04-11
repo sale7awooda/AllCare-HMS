@@ -1,6 +1,5 @@
 
-const sqlite = require('sqlite');
-const sqlite3 = require('sqlite3');
+const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 const { ROLE_PERMISSIONS } = require('../utils/rbac_backend_mirror');
@@ -27,15 +26,12 @@ console.log(`[Database] Target path: ${dbPath}`);
 
 let db;
 
-async function openDb() {
+function openDb() {
   try {
-    db = await sqlite.open({
-      filename: dbPath,
-      driver: sqlite3.Database
-    });
-    await db.exec('PRAGMA journal_mode = WAL;');
-    await db.exec('PRAGMA synchronous = NORMAL;');
-    await db.exec('PRAGMA foreign_keys = ON;');
+    db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.pragma('synchronous = NORMAL');
+    db.pragma('foreign_keys = ON');
     return db;
   } catch (e) {
     console.error("CRITICAL: Failed to open SQLite database:", e);
@@ -43,15 +39,15 @@ async function openDb() {
   }
 }
 
-const initDB = async (forceReset = false) => {
-  if (!db) await openDb();
+const initDB = (forceReset = false) => {
+  if (!db) openDb();
   
   if (forceReset) {
     console.log('[Database] Resetting data...');
     try {
-      await db.close();
+      db.close();
       if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
-      await openDb();
+      openDb();
     } catch (e) {
       console.error("[Database] Reset failed:", e);
     }
@@ -60,7 +56,7 @@ const initDB = async (forceReset = false) => {
   console.log('[Database] Verifying schema...');
 
   // --- Core Tables ---
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
@@ -74,18 +70,15 @@ const initDB = async (forceReset = false) => {
     )
   `);
 
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS role_permissions (
       role TEXT PRIMARY KEY,
       permissions TEXT NOT NULL,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  
-  // ... (rest of the schema creation needs to be converted to await db.exec)
-  // Due to token limits, I will continue this in the next step.
 
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS notifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER,
@@ -98,7 +91,7 @@ const initDB = async (forceReset = false) => {
     )
   `);
 
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS medical_staff (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id TEXT UNIQUE NOT NULL,
@@ -123,7 +116,7 @@ const initDB = async (forceReset = false) => {
     )
   `);
 
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS patients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       patient_id TEXT UNIQUE NOT NULL,
@@ -144,7 +137,7 @@ const initDB = async (forceReset = false) => {
     )
   `);
 
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS appointments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       appointment_number TEXT UNIQUE NOT NULL,
@@ -163,9 +156,9 @@ const initDB = async (forceReset = false) => {
     )
   `);
 
-  await db.exec(`CREATE TABLE IF NOT EXISTS hr_attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, date DATE NOT NULL, status TEXT, check_in TIME, check_out TIME, FOREIGN KEY(staff_id) REFERENCES medical_staff(id))`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS hr_leaves (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, type TEXT, start_date DATE, end_date DATE, reason TEXT, status TEXT, FOREIGN KEY(staff_id) REFERENCES medical_staff(id))`);
-  await db.exec(`
+  db.exec(`CREATE TABLE IF NOT EXISTS hr_attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, date DATE NOT NULL, status TEXT, check_in TIME, check_out TIME, FOREIGN KEY(staff_id) REFERENCES medical_staff(id))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS hr_leaves (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, type TEXT, start_date DATE, end_date DATE, reason TEXT, status TEXT, FOREIGN KEY(staff_id) REFERENCES medical_staff(id))`);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS hr_payroll (
       id INTEGER PRIMARY KEY AUTOINCREMENT, 
       staff_id INTEGER NOT NULL, 
@@ -184,7 +177,7 @@ const initDB = async (forceReset = false) => {
     )
   `);
   
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS hr_financials (
       id INTEGER PRIMARY KEY AUTOINCREMENT, 
       staff_id INTEGER NOT NULL, 
@@ -198,7 +191,7 @@ const initDB = async (forceReset = false) => {
     )
   `);
 
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS billing (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       bill_number TEXT UNIQUE,
@@ -213,44 +206,104 @@ const initDB = async (forceReset = false) => {
     )
   `);
   
-  await db.exec(`CREATE TABLE IF NOT EXISTS billing_items (id INTEGER PRIMARY KEY AUTOINCREMENT, billing_id INTEGER, description TEXT, amount REAL, FOREIGN KEY(billing_id) REFERENCES billing(id))`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, category TEXT, amount REAL, method TEXT, reference_id INTEGER, details TEXT, date DATETIME DEFAULT CURRENT_TIMESTAMP, description TEXT)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS billing_items (id INTEGER PRIMARY KEY AUTOINCREMENT, billing_id INTEGER, description TEXT, amount REAL, FOREIGN KEY(billing_id) REFERENCES billing(id))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, category TEXT, amount REAL, method TEXT, reference_id INTEGER, details TEXT, date DATETIME DEFAULT CURRENT_TIMESTAMP, description TEXT)`);
 
-  await db.exec(`CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, category_en TEXT, category_ar TEXT, cost REAL, normal_range TEXT)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS lab_requests (id INTEGER PRIMARY KEY, patient_id INTEGER, test_ids TEXT, status TEXT, projected_cost REAL, bill_id INTEGER, results_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS nurse_services (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT, cost REAL)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS nurse_requests (id INTEGER PRIMARY KEY, patient_id INTEGER, staff_id INTEGER, service_name TEXT, cost REAL, notes TEXT, status TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS operations_catalog (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, base_cost REAL)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS operations (id INTEGER PRIMARY KEY, patient_id INTEGER, operation_name TEXT, doctor_id INTEGER, notes TEXT, status TEXT, projected_cost REAL, bill_id INTEGER, cost_details TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS beds (id INTEGER PRIMARY KEY, room_number TEXT, type TEXT, status TEXT, cost_per_day REAL)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS admissions (id INTEGER PRIMARY KEY, patient_id INTEGER, bed_id INTEGER, doctor_id INTEGER, entry_date DATETIME, discharge_date DATETIME, actual_discharge_date DATETIME, status TEXT, notes TEXT, discharge_notes TEXT, discharge_status TEXT, projected_cost REAL, bill_id INTEGER)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS inpatient_notes (id INTEGER PRIMARY KEY, admission_id INTEGER, doctor_id INTEGER, note TEXT, vitals TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(admission_id) REFERENCES admissions(id))`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS departments (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS specializations (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT, related_role TEXT)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value TEXT)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS tax_rates (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, rate REAL, is_active BOOLEAN)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`);
-  await db.exec(`CREATE TABLE IF NOT EXISTS insurance_providers (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS lab_tests (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, category_en TEXT, category_ar TEXT, cost REAL, normal_range TEXT)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS lab_requests (id INTEGER PRIMARY KEY, patient_id INTEGER, test_ids TEXT, status TEXT, projected_cost REAL, bill_id INTEGER, results_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS nurse_services (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT, cost REAL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS nurse_requests (id INTEGER PRIMARY KEY, patient_id INTEGER, staff_id INTEGER, service_name TEXT, cost REAL, notes TEXT, status TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS operations_catalog (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, base_cost REAL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS operations (id INTEGER PRIMARY KEY, patient_id INTEGER, operation_name TEXT, doctor_id INTEGER, notes TEXT, status TEXT, projected_cost REAL, bill_id INTEGER, cost_details TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS beds (id INTEGER PRIMARY KEY, room_number TEXT, type TEXT, status TEXT, cost_per_day REAL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS admissions (id INTEGER PRIMARY KEY, patient_id INTEGER, bed_id INTEGER, doctor_id INTEGER, entry_date DATETIME, discharge_date DATETIME, actual_discharge_date DATETIME, status TEXT, notes TEXT, discharge_notes TEXT, discharge_status TEXT, projected_cost REAL, bill_id INTEGER)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS inpatient_notes (id INTEGER PRIMARY KEY, admission_id INTEGER, doctor_id INTEGER, note TEXT, vitals TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(admission_id) REFERENCES admissions(id))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS departments (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS specializations (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, description_en TEXT, description_ar TEXT, related_role TEXT)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value TEXT)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS tax_rates (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, rate REAL, is_active BOOLEAN)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS insurance_providers (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`);
 
-  await seedData();
+  // --- Performance: Database Indexes ---
+  console.log('[Database] Creating indexes...');
+  
+  // Patients
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_patients_patient_id ON patients(patient_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_patients_full_name ON patients(full_name)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_patients_type ON patients(type)`);
+  
+  // Appointments
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_appointments_patient_id ON appointments(patient_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_appointments_staff_id ON appointments(medical_staff_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_appointments_datetime ON appointments(appointment_datetime)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_appointments_billing_status ON appointments(billing_status)`);
+  
+  // Billing
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_billing_patient_id ON billing(patient_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_billing_status ON billing(status)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_billing_date ON billing(bill_date)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_billing_items_billing_id ON billing_items(billing_id)`);
+  
+  // Transactions
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category)`);
+  
+  // Medical Staff
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_medical_staff_type ON medical_staff(type)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_medical_staff_status ON medical_staff(status)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_medical_staff_department ON medical_staff(department)`);
+  
+  // HR
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_hr_attendance_staff_id ON hr_attendance(staff_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_hr_attendance_date ON hr_attendance(date)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_hr_leaves_staff_id ON hr_leaves(staff_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_hr_payroll_staff_id ON hr_payroll(staff_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_hr_payroll_month ON hr_payroll(month)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_hr_financials_staff_id ON hr_financials(staff_id)`);
+  
+  // Lab & Medical
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_lab_requests_patient_id ON lab_requests(patient_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_lab_requests_status ON lab_requests(status)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_nurse_requests_patient_id ON nurse_requests(patient_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_operations_patient_id ON operations(patient_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_operations_status ON operations(status)`);
+  
+  // Admissions
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_admissions_patient_id ON admissions(patient_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_admissions_status ON admissions(status)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_admissions_bed_id ON admissions(bed_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_inpatient_notes_admission_id ON inpatient_notes(admission_id)`);
+  
+  // Notifications
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)`);
+
+  seedData();
 };
 
-const seedData = async () => {
+const seedData = () => {
   const bcrypt = require('bcryptjs');
 
   console.log('[Seed] Checking for initial data...');
 
   // 1. RBAC Permissions
-  const permCount = (await db.get('SELECT count(*) as count FROM role_permissions')).count || 0;
+  const permCount = db.prepare('SELECT count(*) as count FROM role_permissions').get().count || 0;
   if (permCount === 0) {
-    for (const [role, perms] of Object.entries(ROLE_PERMISSIONS)) {
-      await db.run('INSERT INTO role_permissions (role, permissions) VALUES (?, ?)', [role, JSON.stringify(perms)]);
-    }
+    const insertPerm = db.prepare('INSERT INTO role_permissions (role, permissions) VALUES (?, ?)');
+    const seedPerms = db.transaction(() => {
+      for (const [role, perms] of Object.entries(ROLE_PERMISSIONS)) {
+        insertPerm.run(role, JSON.stringify(perms));
+      }
+    });
+    seedPerms();
     console.log('- [Seed] RBAC permissions created.');
   }
 
   // 2. Default Users
-  const userCount = (await db.get('SELECT count(*) as count FROM users')).count || 0;
+  const userCount = db.prepare('SELECT count(*) as count FROM users').get().count || 0;
   if (userCount === 0) {
     const defaultUsers = [
         { u: 'admin', p: 'admin123', n: 'System Administrator', r: 'admin' },
@@ -262,14 +315,18 @@ const seedData = async () => {
         { u: 'hr', p: 'hr123', n: 'HR Coordinator', r: 'hr' },
         { u: 'nurse_hiba', p: 'nurse123', n: 'Nurse Hiba Osman', r: 'nurse' }
     ];
-    for (const d of defaultUsers) {
-        await db.run("INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)", [d.u, bcrypt.hashSync(d.p, 10), d.n, d.r]);
-    }
+    const insertUser = db.prepare("INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)");
+    const seedUsers = db.transaction(() => {
+      for (const d of defaultUsers) {
+        insertUser.run(d.u, bcrypt.hashSync(d.p, 10), d.n, d.r);
+      }
+    });
+    seedUsers();
     console.log('- [Seed] System users expanded.');
   }
 
   // 3. Departments
-  const deptCount = (await db.get('SELECT count(*) as count FROM departments')).count || 0;
+  const deptCount = db.prepare('SELECT count(*) as count FROM departments').get().count || 0;
   if (deptCount === 0) {
       const depts = [
         ['Internal Medicine', 'الباطنية'], ['Surgery', 'الجراحة'], ['Pediatrics', 'الأطفال'],
@@ -278,14 +335,16 @@ const seedData = async () => {
         ['Nursing', 'التمريض'], ['Administration', 'الإدارة'], ['Finance', 'المالية'], ['HR', 'الموارد البشرية'],
         ['Orthopedics', 'العظام'], ['Ophthalmology', 'العيون'], ['ENT', 'الأنف والأذن والحنجرة'], ['Urology', 'المسالك البولية']
       ];
-      for (const d of depts) {
-          await db.run('INSERT INTO departments (name_en, name_ar) VALUES (?, ?)', [d[0], d[1]]);
-      }
+      const insertDept = db.prepare('INSERT INTO departments (name_en, name_ar) VALUES (?, ?)');
+      const seedDepts = db.transaction(() => {
+        for (const d of depts) insertDept.run(d[0], d[1]);
+      });
+      seedDepts();
       console.log('- [Seed] Departments expanded.');
   }
 
   // 4. Specializations
-  const specCount = (await db.get('SELECT count(*) as count FROM specializations')).count || 0;
+  const specCount = db.prepare('SELECT count(*) as count FROM specializations').get().count || 0;
   if (specCount === 0) {
       const specs = [
         ['Physician', 'طبيب باطني', 'doctor'], 
@@ -309,14 +368,16 @@ const seedData = async () => {
         ['Accountant', 'محاسب', 'accountant'], 
         ['HR Specialist', 'اختصاصي موارد بشرية', 'hr']
       ];
-      for (const s of specs) {
-          await db.run('INSERT INTO specializations (name_en, name_ar, related_role) VALUES (?, ?, ?)', [s[0], s[1], s[2]]);
-      }
+      const insertSpec = db.prepare('INSERT INTO specializations (name_en, name_ar, related_role) VALUES (?, ?, ?)');
+      const seedSpecs = db.transaction(() => {
+        for (const s of specs) insertSpec.run(s[0], s[1], s[2]);
+      });
+      seedSpecs();
       console.log('- [Seed] Specializations expanded.');
   }
 
   // 5. Lab Tests
-  const labTestCount = (await db.get('SELECT count(*) as count FROM lab_tests')).count || 0;
+  const labTestCount = db.prepare('SELECT count(*) as count FROM lab_tests').get().count || 0;
   if (labTestCount === 0) {
       const tests = [
         ['CBC', 'عد دم كامل', 'Hematology', 'WBC: 4.0-11.0; RBC: 4.5-5.5; HGB: 12.0-16.0; PLT: 150-450', 45],
@@ -392,14 +453,16 @@ const seedData = async () => {
         ['Fibrinogen', 'الفيبرينوجين', 'Coagulation', '200-400 mg/dL', 70],
         ['APTT', 'زمن الثرومبوبلاستين الجزئي', 'Coagulation', '25-35 seconds', 40]
       ];
-      for (const t of tests) {
-          await db.run('INSERT INTO lab_tests (name_en, name_ar, category_en, normal_range, cost) VALUES (?, ?, ?, ?, ?)', [t[0], t[1], t[2], t[3], t[4]]);
-      }
+      const insertTest = db.prepare('INSERT INTO lab_tests (name_en, name_ar, category_en, normal_range, cost) VALUES (?, ?, ?, ?, ?)');
+      const seedTests = db.transaction(() => {
+        for (const t of tests) insertTest.run(t[0], t[1], t[2], t[3], t[4]);
+      });
+      seedTests();
       console.log('- [Seed] Lab tests catalog expanded.');
   }
 
   // 6. Nurse Services
-  const nurseServiceCount = (await db.get('SELECT count(*) as count FROM nurse_services')).count || 0;
+  const nurseServiceCount = db.prepare('SELECT count(*) as count FROM nurse_services').get().count || 0;
   if (nurseServiceCount === 0) {
       const services = [
         ['Injection', 'حقنة', 'Administering medication via injection.', 'إعطاء الدواء عن طريق الحقن.', 10],
@@ -407,14 +470,16 @@ const seedData = async () => {
         ['IV Drip', 'محلول وريدي', 'Setting up and monitoring an IV drip.', 'تركيب ومراقبة المحلول الوريدي.', 50],
         ['Blood Pressure Check', 'فحص ضغط الدم', 'Measuring blood pressure.', 'قياس ضغط الدم.', 5]
       ];
-      for (const s of services) {
-          await db.run('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?, ?)', [s[0], s[1], s[2], s[3], s[4]]);
-      }
+      const insertService = db.prepare('INSERT INTO nurse_services (name_en, name_ar, description_en, description_ar, cost) VALUES (?, ?, ?, ?, ?)');
+      const seedServices = db.transaction(() => {
+        for (const s of services) insertService.run(s[0], s[1], s[2], s[3], s[4]);
+      });
+      seedServices();
       console.log('- [Seed] Nurse services catalog created.');
   }
 
   // 7. Operations Catalog
-  const opCount = (await db.get('SELECT count(*) as count FROM operations_catalog')).count || 0;
+  const opCount = db.prepare('SELECT count(*) as count FROM operations_catalog').get().count || 0;
   if (opCount === 0) {
       const ops = [
         ['Appendectomy', 'استئصال الزائدة الدودية', 1500],
@@ -442,14 +507,16 @@ const seedData = async () => {
         ['Fistulectomy', 'استئصال الناصور', 1000],
         ['Breast Augmentation', 'عملية تكبير الثدي', 3000]
       ];
-      for (const o of ops) {
-          await db.run('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)', [o[0], o[1], o[2]]);
-      }
+      const insertOp = db.prepare('INSERT INTO operations_catalog (name_en, name_ar, base_cost) VALUES (?, ?, ?)');
+      const seedOps = db.transaction(() => {
+        for (const o of ops) insertOp.run(o[0], o[1], o[2]);
+      });
+      seedOps();
       console.log('- [Seed] Operations catalog expanded.');
   }
 
   // 8. Medical Staff
-  const staffCount = (await db.get('SELECT count(*) as count FROM medical_staff')).count || 0;
+  const staffCount = db.prepare('SELECT count(*) as count FROM medical_staff').get().count || 0;
   if (staffCount === 0) {
     const initialStaff = [
         { eid: 'DOC-001', n: 'Dr. Omer Khalid', t: 'doctor', d: 'Internal Medicine', s: 'Physician', f: 150, ff: 100, fe: 250, sal: 15000 },
@@ -459,56 +526,63 @@ const seedData = async () => {
         { eid: 'NUR-001', n: 'Nurse Hiba Osman', t: 'nurse', d: 'Nursing', s: 'Head Nurse', f: 0, ff: 0, fe: 0, sal: 6000 },
         { eid: 'TEC-001', n: 'Tech Ahmed Adam', t: 'technician', d: 'Laboratory', s: 'Lab Technician', f: 0, ff: 0, fe: 0, sal: 5500 }
     ];
-    for (const s of initialStaff) {
-        await db.run(`
-          INSERT INTO medical_staff (
-            employee_id, full_name, type, department, specialization, 
-            consultation_fee, consultation_fee_followup, consultation_fee_emergency, base_salary, status, available_days
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', '["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]')
-        `, [s.eid, s.n, s.t, s.d, s.s, s.f, s.ff, s.fe, s.sal]);
-    }
+    const insertStaff = db.prepare(`
+      INSERT INTO medical_staff (
+        employee_id, full_name, type, department, specialization, 
+        consultation_fee, consultation_fee_followup, consultation_fee_emergency, base_salary, status, available_days
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', '["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]')
+    `);
+    const seedStaff = db.transaction(() => {
+      for (const s of initialStaff) {
+        insertStaff.run(s.eid, s.n, s.t, s.d, s.s, s.f, s.ff, s.fe, s.sal);
+      }
+    });
+    seedStaff();
     console.log('- [Seed] Initial staff created.');
   }
 
   // 9. Demo Patients
-  const patientCount = (await db.get('SELECT count(*) as count FROM patients')).count || 0;
+  const patientCount = db.prepare('SELECT count(*) as count FROM patients').get().count || 0;
   if (patientCount === 0) {
     console.log('- [Seed] Demo patients seeding skipped.');
   }
 
   // 10. Beds
-  const bedCount = (await db.get('SELECT count(*) as count FROM beds')).count || 0;
+  const bedCount = db.prepare('SELECT count(*) as count FROM beds').get().count || 0;
   if (bedCount === 0) {
     const beds = [
         { no: '101', t: 'General', c: 50 }, { no: '102', t: 'General', c: 50 },
         { no: '201', t: 'Private', c: 250 }, { no: '301', t: 'ICU', c: 1200 },
         { no: '401', t: 'Emergency', c: 100 }
     ];
-    for (const b of beds) {
-        await db.run("INSERT INTO beds (room_number, type, cost_per_day, status) VALUES (?, ?, ?, 'available')", [b.no, b.t, b.c]);
-    }
+    const insertBed = db.prepare("INSERT INTO beds (room_number, type, cost_per_day, status) VALUES (?, ?, ?, 'available')");
+    const seedBeds = db.transaction(() => {
+      for (const b of beds) insertBed.run(b.no, b.t, b.c);
+    });
+    seedBeds();
     console.log('- [Seed] Ward beds initialized.');
   }
 
   // 11. Financial Settings
-  const pmCount = (await db.get('SELECT count(*) as count FROM payment_methods')).count || 0;
+  const pmCount = db.prepare('SELECT count(*) as count FROM payment_methods').get().count || 0;
   if (pmCount === 0) {
-    const pms = [['Cash', 'نقدي'], ['Bank Transfer', 'تحويل بنكي'], ['Insurance', 'تأمين']];
-    for (const p of pms) {
-        await db.run('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, 1)', [p[0], p[1]]);
-    }
-    
-    await db.run('INSERT INTO tax_rates (name_en, name_ar, rate, is_active) VALUES (?, ?, ?, ?)', ['Standard VAT', 'ضريبة القيمة المضافة', 15, 1]);
-    
-    await db.run('INSERT INTO system_settings (key, value) VALUES (?, ?)', ['hospitalName', 'AllCare General Hospital']);
-    await db.run('INSERT INTO system_settings (key, value) VALUES (?, ?)', ['hospitalAddress', 'Atbara, River Nile State, Sudan']);
-    await db.run('INSERT INTO system_settings (key, value) VALUES (?, ?)', ['hospitalPhone', '+249 123 456 789']);
-    
-    const ins = [['Blue Nile Insurance', 'تأمين النيل الأزرق'], ['Shiekan Insurance', 'تأمين شيكان']];
-    for (const i of ins) {
-        await db.run('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)', [i[0], i[1]]);
-    }
-
+    const seedFinancials = db.transaction(() => {
+      const insertPm = db.prepare('INSERT INTO payment_methods (name_en, name_ar, is_active) VALUES (?, ?, 1)');
+      const pms = [['Cash', 'نقدي'], ['Bank Transfer', 'تحويل بنكي'], ['Insurance', 'تأمين']];
+      for (const p of pms) insertPm.run(p[0], p[1]);
+      
+      db.prepare('INSERT INTO tax_rates (name_en, name_ar, rate, is_active) VALUES (?, ?, ?, ?)').run('Standard VAT', 'ضريبة القيمة المضافة', 15, 1);
+      
+      const insertSetting = db.prepare('INSERT INTO system_settings (key, value) VALUES (?, ?)');
+      insertSetting.run('hospitalName', 'AllCare General Hospital');
+      insertSetting.run('hospitalAddress', 'Atbara, River Nile State, Sudan');
+      insertSetting.run('hospitalPhone', '+249 123 456 789');
+      
+      const insertIns = db.prepare('INSERT INTO insurance_providers (name_en, name_ar, is_active) VALUES (?, ?, 1)');
+      const ins = [['Blue Nile Insurance', 'تأمين النيل الأزرق'], ['Shiekan Insurance', 'تأمين شيكان']];
+      for (const i of ins) insertIns.run(i[0], i[1]);
+    });
+    seedFinancials();
     console.log('- [Seed] Financial configurations initialized.');
   }
 
