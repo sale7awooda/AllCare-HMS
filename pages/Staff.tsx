@@ -404,6 +404,7 @@ export const Staff = () => {
         notes: `${t('staff_payroll_notes')}: ${record.month}` 
       });
       setIsPayNowModalOpen(true);
+      setIsPayrollDetailModalOpen(false);
   };
 
   const handlePayNowSubmit = async (e: React.FormEvent) => {
@@ -479,7 +480,8 @@ export const Staff = () => {
   };
 
   const shiftDate = (days: number) => {
-    const d = new Date(selectedDate);
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
     d.setDate(d.getDate() + days);
     setSelectedDate(d.toISOString().split('T')[0]);
   };
