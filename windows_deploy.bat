@@ -94,17 +94,35 @@ if ($setupStatic -match "^[Yy]$") {
 }
 
 # 4. Install Dependencies & Build
-Write-Host "`n[4/6] Installing Dependencies & Building..." -ForegroundColor Yellow
-Write-Host "Installing root dependencies..." -ForegroundColor Cyan
-cmd.exe /c "npm install"
+Write-Host "`n[4/6] Checking Dependencies & Building..." -ForegroundColor Yellow
 
-Write-Host "Installing backend dependencies..." -ForegroundColor Cyan
-Set-Location -Path "backend"
-cmd.exe /c "npm install"
-Set-Location -Path ".."
+if (-not (Test-Path "node_modules")) {
+    Write-Host "Installing root dependencies..." -ForegroundColor Cyan
+    cmd.exe /c "npm install"
+} else {
+    Write-Host "Root dependencies already installed. Skipping download." -ForegroundColor Green
+}
 
-Write-Host "Building application for production..." -ForegroundColor Cyan
-cmd.exe /c "npm run build"
+if (-not (Test-Path "backend/node_modules")) {
+    Write-Host "Installing backend dependencies..." -ForegroundColor Cyan
+    Set-Location -Path "backend"
+    cmd.exe /c "npm install"
+    Set-Location -Path ".."
+} else {
+    Write-Host "Backend dependencies already installed. Skipping download." -ForegroundColor Green
+}
+
+if (-not (Test-Path "backend/public/index.html")) {
+    Write-Host "Building application for production..." -ForegroundColor Cyan
+    cmd.exe /c "npm run build"
+} else {
+    Write-Host "Production build already exists." -ForegroundColor Green
+    $rebuild = Read-Host "Do you want to REBUILD the frontend? (Y/N) [Default: N]"
+    if ($rebuild -match "^[Yy]$") {
+        Write-Host "Rebuilding application..." -ForegroundColor Cyan
+        cmd.exe /c "npm run build"
+    }
+}
 
 # 5. Setup Windows Startup
 Write-Host "`n[5/6] Configuring Windows Startup..." -ForegroundColor Yellow
