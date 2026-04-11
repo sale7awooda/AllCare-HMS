@@ -12,8 +12,8 @@ const apiRoutes = require('./src/routes/api');
 
 const app = express();
 
-// Sync default port with Vite proxy (3001). Railway/Cloud providers will still provide process.env.PORT.
-const PORT = process.env.PORT || 3001; 
+// Sync default port with Vite proxy (3001).
+const PORT = 3001; 
 
 app.set('trust proxy', 1);
 
@@ -42,7 +42,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Robust CORS for cross-domain frontend access (AI Studio -> Railway)
+// Robust CORS for cross-domain frontend access (AI Studio -> Local Windows Backend)
 app.use(cors({
     origin: true, // Echoes the requesting origin back, allowing any cross-site request with credentials
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

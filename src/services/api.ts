@@ -3,9 +3,11 @@ import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  // Always use relative path '/api'. 
-  // In development, vite.config.js proxies this to localhost:3001.
-  // In production, the backend serves the frontend, so relative path works perfectly.
+  // If running in Google AI Studio environment, point to the locally hosted Windows backend
+  if (window.location.hostname.includes('run.app') || window.location.hostname.includes('google')) {
+    return 'http://localhost:3001/api';
+  }
+  // Otherwise (local network access via static IP), use relative path
   return '/api';
 };
 

@@ -5,13 +5,9 @@ const path = require('path');
 const fs = require('fs');
 const { ROLE_PERMISSIONS } = require('../utils/rbac_backend_mirror');
 
-// Strategy: Use DB_PATH env, otherwise /data volume (Railway), otherwise project root
+// Strategy: Use DB_PATH env, otherwise project root
 const getDbPath = () => {
   if (process.env.DB_PATH) return process.env.DB_PATH;
-  
-  // Check if we are in a container with a /data volume
-  if (fs.existsSync('/data')) return '/data/allcare.db';
-  
   return path.resolve(__dirname, '../../allcare.db');
 };
 
