@@ -63,6 +63,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   // Sidebar border side based on direction
   const sidebarBorderClass = isRtl ? 'border-l' : 'border-r';
 
+  const bottomNavItems = [
+    { labelKey: 'nav_dashboard', path: '/', icon: LayoutDashboard },
+    { labelKey: 'nav_patients', path: '/patients', icon: Users },
+    { labelKey: 'nav_appointments', path: '/appointments', icon: CalendarDays },
+  ];
+
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 overflow-hidden print:bg-white print:h-auto print:overflow-visible">
       <aside className={`
@@ -147,22 +153,56 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       <main className={`flex-1 flex flex-col h-full min-w-0 overflow-hidden transition-all duration-300 ${mainMarginClass} print:ml-0 print:mr-0 print:w-full`}>
         <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-6 flex items-center justify-between z-40 sticky top-0 shrink-0 no-print">
           <div className="flex items-center gap-4 flex-1 min-w-0">
-            <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><Menu size={24} /></button>
             <div className="flex flex-col min-w-0">
                <h1 className="text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">{title}</h1>
                <p className="text-xs text-slate-500 dark:text-slate-400 truncate font-medium">{subtitle}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 shrink-0 ml-4 rtl:mr-4 rtl:ml-0">
+          <div className="flex items-center gap-3 shrink-0 ml-4 rtl:mr-4 rtl:ml-0 overflow-x-auto no-scrollbar pb-1 max-w-[50vw] sm:max-w-none">
             {actions}
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar scroll-smooth print:overflow-visible print:h-auto print:p-0">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 lg:pb-6 custom-scrollbar scroll-smooth print:overflow-visible print:h-auto print:p-0">
           <div className="max-w-7xl mx-auto space-y-6 print:max-w-none">{children}</div>
         </div>
       </main>
       
-      {isMobileOpen && <div className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden animate-in fade-in" onClick={() => setMobileOpen(false)}></div>}
+      {/* Mobile Bottom Navigation */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center h-16 z-40 px-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] no-print">
+        {bottomNavItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          const isAllowed = canAccessRoute(user, item.path);
+          return (
+            <Link
+              key={item.path}
+              to={isAllowed ? item.path : '#'}
+              onClick={(e) => { if (!isAllowed) e.preventDefault(); setMobileOpen(false); }}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors
+                ${isActive && isAllowed ? 'text-primary-600 dark:text-primary-400' : ''}
+                ${!isActive && isAllowed ? 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white' : ''}
+                ${!isAllowed ? 'opacity-40 cursor-not-allowed text-slate-500' : ''}
+              `}
+            >
+              <div className="relative">
+                <item.icon size={20} />
+                {!isAllowed && <div className="absolute -top-1 -right-1 bg-slate-100 dark:bg-slate-800 rounded-full p-[1px]"><Lock size={8} className="text-slate-400" /></div>}
+              </div>
+              <span className="text-[10px] font-semibold">{t(item.labelKey)}</span>
+            </Link>
+          );
+        })}
+        
+        {/* Menu Toggle */}
+        <button
+          onClick={() => setMobileOpen(!isMobileOpen)}
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${isMobileOpen ? 'text-primary-600 dark:text-primary-400' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+        >
+          <Menu size={20} />
+          <span className="text-[10px] font-semibold">{t('nav_configuration')} / {t('nav_system')} </span>
+        </button>
+      </nav>
+
+      {isMobileOpen && <div className="fixed inset-0 z-[45] bg-slate-900/50 backdrop-blur-sm lg:hidden animate-in fade-in" onClick={() => setMobileOpen(false)}></div>}
     </div>
   );
 };

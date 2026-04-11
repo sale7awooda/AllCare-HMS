@@ -137,6 +137,11 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permissions.VIEW_REPORTS, 
     Permissions.VIEW_RECORDS,
     Permissions.VIEW_SETTINGS,
+  ],
+  staff: [
+    Permissions.VIEW_DASHBOARD,
+    Permissions.VIEW_RECORDS,
+    Permissions.VIEW_SETTINGS,
   ]
 };
 

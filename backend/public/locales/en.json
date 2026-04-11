@@ -980,6 +980,16 @@
   "permission_MANAGE_REPORTS": "Manage Reports",
   "permission_VIEW_RECORDS": "View Records",
   "permission_VIEW_SETTINGS": "View Settings",
-  "permission_MANAGE_SETTINGS": "Manage Settings",
+  "permission_MANAGE_SETTINGS": "Manage Settings (Admin)",
+  "staff_role_admin": "Administrator",
+  "staff_role_manager": "Manager",
+  "staff_role_receptionist": "Receptionist",
+  "staff_role_technician": "Technician",
+  "staff_role_accountant": "Accountant",
+  "staff_role_doctor": "Doctor",
+  "staff_role_nurse": "Nurse",
+  "staff_role_pharmacist": "Pharmacist",
+  "staff_role_hr": "Human Resources",
+  "staff_role_staff": "General Staff",
   "permission_MANAGE_CONFIGURATION": "System Configuration"
 }
