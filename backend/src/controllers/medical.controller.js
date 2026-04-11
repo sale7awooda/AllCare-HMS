@@ -1,5 +1,5 @@
 
-const { db } = require('../config/database');
+const { getDb } = require('../config/database');
 
 // --- LAB ---
 exports.getLabRequests = async (req, res) => {
