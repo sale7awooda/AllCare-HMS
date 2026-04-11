@@ -3,9 +3,12 @@ import axios from 'axios';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
-  // Direct connection to the deployed Railway backend.
-  // This ensures connectivity regardless of where the frontend is hosted (AI Studio, Vercel, etc.)
-  return 'https://allcare.up.railway.app/api';
+  // If running in Google AI Studio environment, point to the locally hosted Windows backend
+  if (window.location.hostname.includes('run.app') || window.location.hostname.includes('google')) {
+    return 'http://localhost:3001/api';
+  }
+  // Otherwise (local network access via static IP), use relative path
+  return '/api';
 };
 
 const client = axios.create({
