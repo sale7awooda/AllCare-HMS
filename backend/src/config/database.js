@@ -236,7 +236,7 @@ const initDB = async (forceReset = false) => {
   await db.exec(`CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN DEFAULT 1)`);
   await db.exec(`CREATE TABLE IF NOT EXISTS insurance_providers (id INTEGER PRIMARY KEY, name_en TEXT, name_ar TEXT, is_active BOOLEAN)`);
 
-  seedData();
+  await seedData();
 };
 
 const seedData = async () => {

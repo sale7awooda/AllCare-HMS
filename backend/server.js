@@ -7,7 +7,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const { initDB, db } = require('./src/config/database');
+const { initDB, getDb } = require('./src/config/database');
 const apiRoutes = require('./src/routes/api');
 
 const app = express();
@@ -18,12 +18,11 @@ const PORT = process.env.PORT || 3001;
 app.set('trust proxy', 1);
 
 // Initialize DB
-try {
-  initDB();
+initDB().then(() => {
   console.log('[Init] Database loaded and verified.');
-} catch (error) {
+}).catch(error => {
   console.error('[Error] Critical Database Initialization Failure:', error);
-}
+});
 
 // Global Middleware
 app.use(helmet({
@@ -59,10 +58,11 @@ app.use('/api', apiRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {
+  const db = getDb();
   res.json({ 
     status: 'online', 
     timestamp: new Date().toISOString(),
-    database: db && db.open ? 'connected' : 'disconnected' 
+    database: db ? 'connected' : 'disconnected' 
   });
 });
 
@@ -100,7 +100,8 @@ const shutdown = () => {
   console.log('[Shutdown] Terminating server process...');
   server.close(() => {
     try {
-        if (db && db.open) {
+        const db = getDb();
+        if (db) {
             db.close();
         }
     } catch (e) {}
