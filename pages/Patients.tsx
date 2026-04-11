@@ -110,6 +110,7 @@ export const Patients = () => {
 
   const loadData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
+    console.log('[Patients] Starting loadData...');
     try {
       const [pts, apts, b, stf, labs] = await Promise.all([
         api.getPatients(), 
@@ -118,15 +119,16 @@ export const Patients = () => {
         api.getStaff(),
         api.getPendingLabRequests()
       ]);
-      console.log('[Patients] Data loaded:', pts);
+      console.log('[Patients] Data loaded successfully:', { pts, apts, b, stf, labs });
       setPatients(Array.isArray(pts) ? pts : []);
       setAppointments(Array.isArray(apts) ? apts : []);
       setBills(Array.isArray(b) ? b : []);
       setStaff(Array.isArray(stf) ? stf : []);
       setAllLabRequests(Array.isArray(labs) ? labs : []);
     } catch (error) {
-      console.error("Failed to load core data:", error);
+      console.error("[Patients] Failed to load core data:", error);
     } finally {
+      console.log('[Patients] loadData finished.');
       if (!isBackground) setLoading(false);
     }
   };
