@@ -4,7 +4,9 @@ const { getDb } = require('../config/database');
 exports.getAll = async (req, res) => {
   try {
     const db = getDb();
+    console.log('[PatientController] Fetching all patients...');
     const patients = await db.all('SELECT * FROM patients ORDER BY created_at DESC');
+    console.log(`[PatientController] Found ${patients.length} patients.`);
     
     // Manual mapping to ensure camelCase and handle potential missing columns gracefully
     const mapped = patients.map(p => ({
@@ -86,6 +88,8 @@ exports.create = async (req, res) => {
       symptoms || null, medicalHistory || null, allergies || null, bloodGroup || null,
       emergencyJson, hasInsuranceInt, insuranceJson
     ]);
+
+    console.log(`[PatientController] Patient created with ID: ${result.lastID}, PatientID: ${patientId}`);
 
     await db.exec('COMMIT');
     res.status(201).json({ id: result.lastID, patientId, ...req.body });

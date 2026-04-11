@@ -16,6 +16,8 @@ import { useTranslation } from '../context/TranslationContext';
 import { useAuth } from '../context/AuthContext';
 import { useHeader } from '../context/HeaderContext';
 
+import { PatientTest } from '../components/PatientTest';
+
 export const Patients = () => {
   const location = useLocation();
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -116,6 +118,7 @@ export const Patients = () => {
         api.getStaff(),
         api.getPendingLabRequests()
       ]);
+      console.log('[Patients] Data loaded:', pts);
       setPatients(Array.isArray(pts) ? pts : []);
       setAppointments(Array.isArray(apts) ? apts : []);
       setBills(Array.isArray(b) ? b : []);
@@ -427,6 +430,7 @@ export const Patients = () => {
 
   return (
     <div className="space-y-6">
+      <PatientTest />
       
       {processStatus !== 'idle' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
