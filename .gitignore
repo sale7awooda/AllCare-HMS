@@ -33,6 +33,7 @@ Thumbs.db
 .vscode/
 .idea/
 
-# File uploads (Multer)
+# Fly.io
+.fly/
 backend/uploads/
 uploads/
