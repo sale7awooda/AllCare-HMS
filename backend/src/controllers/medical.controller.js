@@ -1,10 +1,15 @@
 
 const { getDb } = require('../config/database');
+const crypto = require('crypto');
 
 // --- LAB ---
 exports.getLabRequests = (req, res) => {
   try {
     const db = getDb();
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(200, parseInt(req.query.limit) || 50);
+    const offset = (page - 1) * limit;
+    const total = db.prepare('SELECT COUNT(*) as count FROM lab_requests').get().count;
     const requests = db.prepare(`
       SELECT 
         lr.id, lr.patient_id, lr.status, lr.projected_cost, lr.created_at, lr.test_ids, lr.results_json,
@@ -12,18 +17,28 @@ exports.getLabRequests = (req, res) => {
       FROM lab_requests lr
       JOIN patients p ON lr.patient_id = p.id
       ORDER BY lr.created_at DESC
-    `).all();
+      LIMIT ? OFFSET ?
+    `).all(limit, offset);
+
+    // Batch-fetch all test IDs mentioned across all requests — avoids N+1
+    const allTestIds = [...new Set(
+      requests.flatMap(r => { try { return JSON.parse(r.test_ids); } catch { return []; } })
+    )];
+    const testsMap = {};
+    if (allTestIds.length > 0) {
+      const placeholders = allTestIds.map(() => '?').join(',');
+      const tests = db.prepare(`SELECT id, name_en, name_ar, normal_range, category_en FROM lab_tests WHERE id IN (${placeholders})`).all(...allTestIds);
+      for (const t of tests) testsMap[t.id] = t;
+    }
 
     const enriched = requests.map((r) => {
         let testNames = '';
         let testDetails = [];
         try {
             const ids = JSON.parse(r.test_ids);
-            if (Array.isArray(ids) && ids.length > 0) {
-                const placeholders = ids.map(() => '?').join(',');
-                const tests = db.prepare(`SELECT id, name_en, name_ar, normal_range, category_en FROM lab_tests WHERE id IN (${placeholders})`).all(...ids);
-                testNames = tests.map(t => t.name_en).join(', ');
-                testDetails = tests;
+            if (Array.isArray(ids)) {
+                testDetails = ids.map(id => testsMap[id]).filter(Boolean);
+                testNames = testDetails.map(t => t.name_en).join(', ');
             }
         } catch(e) {}
         
@@ -33,7 +48,7 @@ exports.getLabRequests = (req, res) => {
         return { ...r, testNames, testDetails, results };
     });
 
-    res.json(enriched);
+    res.json({ data: enriched, meta: { total, page, limit, pages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -46,7 +61,7 @@ exports.createLabRequest = (req, res) => {
     const db = getDb();
     
     const createTx = db.transaction(() => {
-      const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
+      const billNumber = crypto.randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
       const bill = db.prepare(`
         INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date) 
         VALUES (?, ?, ?, 'pending', datetime('now'))
@@ -108,14 +123,19 @@ exports.reopenLabRequest = (req, res) => {
 exports.getNurseRequests = (req, res) => {
     try {
         const db = getDb();
+        const page  = Math.max(1, parseInt(req.query.page)  || 1);
+        const limit = Math.min(200, parseInt(req.query.limit) || 50);
+        const offset = (page - 1) * limit;
+        const total = db.prepare('SELECT COUNT(*) AS count FROM nurse_requests').get().count;
         const reqs = db.prepare(`
             SELECT nr.*, p.full_name as patientName, m.full_name as nurseName
             FROM nurse_requests nr
             JOIN patients p ON nr.patient_id = p.id
             LEFT JOIN medical_staff m ON nr.staff_id = m.id
             ORDER BY nr.created_at DESC
-        `).all();
-        res.json(reqs);
+            LIMIT ? OFFSET ?
+        `).all(limit, offset);
+        res.json({ data: reqs, meta: { total, page, limit, pages: Math.ceil(total / limit) } });
     } catch(e) { res.status(500).json({ error: e.message }); }
 };
 
@@ -135,6 +155,10 @@ exports.createNurseRequest = (req, res) => {
 exports.getScheduledOperations = (req, res) => {
   try {
     const db = getDb();
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(200, parseInt(req.query.limit) || 50);
+    const offset = (page - 1) * limit;
+    const total = db.prepare('SELECT COUNT(*) AS count FROM operations').get().count;
     const ops = db.prepare(`
       SELECT 
         o.id, o.operation_name, o.status, o.created_at, o.projected_cost, o.notes,
@@ -145,14 +169,15 @@ exports.getScheduledOperations = (req, res) => {
       JOIN patients p ON o.patient_id = p.id
       LEFT JOIN medical_staff m ON o.doctor_id = m.id
       ORDER BY o.created_at DESC
-    `).all();
+      LIMIT ? OFFSET ?
+    `).all(limit, offset);
     
     const mapped = ops.map(op => ({
       ...op,
       costDetails: op.cost_details ? JSON.parse(op.cost_details) : null
     }));
     
-    res.json(mapped);
+    res.json({ data: mapped, meta: { total, page, limit, pages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -187,7 +212,7 @@ exports.processOperationRequest = (req, res) => {
       `).run(JSON.stringify(details), totalCost, id);
 
       const op = db.prepare('SELECT * FROM operations WHERE id = ?').get(id);
-      const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
+      const billNumber = crypto.randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
       
       const billInfo = db.prepare(`
         INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date)
@@ -255,6 +280,10 @@ exports.completeOperation = (req, res) => {
 exports.getActiveAdmissions = (req, res) => {
   try {
     const db = getDb();
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(200, parseInt(req.query.limit) || 50);
+    const offset = (page - 1) * limit;
+    const total = db.prepare("SELECT COUNT(*) AS count FROM admissions WHERE status IN ('active', 'reserved')").get().count;
     const admissions = db.prepare(`
       SELECT 
         a.id, a.patient_id, a.bed_id, a.doctor_id, a.entry_date, a.status, a.projected_cost,
@@ -266,15 +295,16 @@ exports.getActiveAdmissions = (req, res) => {
       JOIN patients p ON a.patient_id = p.id
       JOIN beds b ON a.bed_id = b.id
       JOIN medical_staff m ON a.doctor_id = m.id
-      LEFT JOIN billing bill ON a.bill_id = b.id
+      LEFT JOIN billing bill ON a.bill_id = bill.id
       WHERE a.status IN ('active', 'reserved')
-    `).all();
+      LIMIT ? OFFSET ?
+    `).all(limit, offset);
     
-    res.json(admissions.map(a => ({
+    res.json({ data: admissions.map(a => ({
         ...a,
         bedId: a.bed_id,
         stayDuration: Math.ceil((Date.now() - new Date(a.entry_date).getTime()) / (1000 * 60 * 60 * 24))
-    })));
+    })), meta: { total, page, limit, pages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -283,6 +313,10 @@ exports.getActiveAdmissions = (req, res) => {
 exports.getAdmissionsHistory = (req, res) => {
   try {
     const db = getDb();
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(200, parseInt(req.query.limit) || 50);
+    const offset = (page - 1) * limit;
+    const total = db.prepare('SELECT COUNT(*) AS count FROM admissions').get().count;
     const admissions = db.prepare(`
       SELECT 
         a.id, a.patient_id, a.bed_id, a.doctor_id, a.entry_date, a.discharge_date, a.actual_discharge_date, a.status, a.projected_cost, a.discharge_status,
@@ -294,14 +328,15 @@ exports.getAdmissionsHistory = (req, res) => {
       LEFT JOIN beds b ON a.bed_id = b.id
       LEFT JOIN medical_staff m ON a.doctor_id = m.id
       ORDER BY a.entry_date DESC
-    `).all();
+      LIMIT ? OFFSET ?
+    `).all(limit, offset);
     
-    res.json(admissions.map(a => ({
+    res.json({ data: admissions.map(a => ({
         ...a,
         stayDuration: a.actual_discharge_date 
             ? Math.ceil((new Date(a.actual_discharge_date).getTime() - new Date(a.entry_date).getTime()) / (1000 * 60 * 60 * 24)) 
             : Math.ceil((Date.now() - new Date(a.entry_date).getTime()) / (1000 * 60 * 60 * 24))
-    })));
+    })), meta: { total, page, limit, pages: Math.ceil(total / limit) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -319,7 +354,7 @@ exports.createAdmission = (req, res) => {
           const patient = db.prepare("SELECT full_name FROM patients WHERE id = ?").get(patientId);
           if (!patient) throw new Error('Patient not found');
 
-          const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
+          const billNumber = crypto.randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
           const billInfo = db.prepare(`
             INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date) 
             VALUES (?, ?, ?, 'pending', datetime('now'))
@@ -467,7 +502,7 @@ exports.generateSettlementBill = (req, res) => {
 
           db.prepare(`UPDATE billing SET status = 'cancelled' WHERE patient_id = ? AND status IN ('pending', 'partial')`).run(patientId);
 
-          const billNumber = `SETTLE-${Math.floor(Math.random()*90000)+10000}`;
+          const billNumber = `SETTLE-${crypto.randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase()}`;
           const billInfo = db.prepare(`
               INSERT INTO billing (bill_number, patient_id, total_amount, status, bill_date, is_settlement_bill, settlement_for_patient_id)
               VALUES (?, ?, ?, 'pending', datetime('now'), 1, ?)

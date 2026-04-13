@@ -86,6 +86,59 @@ const schemas = {
     availableDays: z.array(z.string()).optional().nullable(),
     availableTimeStart: z.string().optional().nullable(),
     availableTimeEnd: z.string().optional().nullable()
+  }),
+
+  // Medical — Lab
+  createLabRequest: z.object({
+    patientId: z.number().int().positive(),
+    testIds: z.array(z.number().int().positive()).min(1),
+    totalCost: z.number().nonnegative()
+  }),
+
+  completeLabRequest: z.object({
+    results: z.record(z.string(), z.object({
+      value: z.string().max(500),
+      status: z.enum(['normal', 'abnormal', 'critical']).optional()
+    })).optional(),
+    notes: z.string().max(2000).optional()
+  }).passthrough(), // allow extra result fields
+
+  // Medical — Nurse
+  createNurseRequest: z.object({
+    patientId: z.number().int().positive(),
+    staffId: z.number().int().positive().optional().nullable(),
+    serviceName: z.string().min(1).max(200),
+    cost: z.number().nonnegative(),
+    notes: z.string().max(2000).optional().nullable()
+  }),
+
+  // Medical — Operations
+  createOperation: z.object({
+    patientId: z.number().int().positive(),
+    operationName: z.string().min(1).max(200),
+    doctorId: z.number().int().positive(),
+    notes: z.string().max(2000).optional().nullable()
+  }),
+
+  // Medical — Admissions
+  createAdmission: z.object({
+    patientId: z.number().int().positive(),
+    bedId: z.number().int().positive(),
+    doctorId: z.number().int().positive(),
+    entryDate: z.string().min(1),
+    deposit: z.number().nonnegative(),
+    notes: z.string().max(2000).optional().nullable()
+  }),
+
+  addInpatientNote: z.object({
+    doctorId: z.number().int().positive(),
+    note: z.string().min(1).max(2000),
+    vitals: z.object({
+      bp: z.string().max(20).optional(),
+      temp: z.string().max(20).optional(),
+      pulse: z.string().max(20).optional(),
+      spo2: z.string().max(20).optional()
+    }).optional()
   })
 };
 

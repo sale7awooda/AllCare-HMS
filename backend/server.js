@@ -9,6 +9,9 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { initDB, getDb } = require('./src/config/database');
+const { validateEnv } = require('./src/config/env');
+const { validateRbac } = require('./src/utils/validateRbac');
+const { errorHandler } = require('./src/middleware/errorHandler');
 const apiRoutes = require('./src/routes/api');
 
 const app = express();
@@ -21,6 +24,9 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', 1);
 
+// --- Startup Validations ---
+validateEnv();
+
 // Initialize DB (synchronous with better-sqlite3)
 try {
   initDB();
@@ -29,6 +35,24 @@ try {
   console.error('[Error] Critical Database Initialization Failure:', error);
   process.exit(1);
 }
+
+validateRbac();
+
+// --- Refresh Token Purge Job ---
+// Cleans expired tokens immediately on start, then every 24 hours.
+const purgeExpiredTokens = () => {
+  try {
+    const db = getDb();
+    const result = db.prepare('DELETE FROM refresh_tokens WHERE expires_at < CURRENT_TIMESTAMP').run();
+    if (result.changes > 0) {
+      console.log(`[Purge] Removed ${result.changes} expired refresh token(s).`);
+    }
+  } catch (e) {
+    console.error('[Purge] Failed to purge expired tokens:', e.message);
+  }
+};
+purgeExpiredTokens();
+const purgeInterval = setInterval(purgeExpiredTokens, 24 * 60 * 60 * 1000);
 
 // --- Rate Limiting ---
 // General API rate limit: 200 requests per minute per IP
@@ -119,15 +143,8 @@ app.get('*', (req, res) => {
   }
 });
 
-// Global Error Handler — hide internal details in production
-app.use((err, req, res, next) => {
-  console.error('[Fatal] Internal Server Error:', err);
-  if (res.headersSent) return next(err);
-  res.status(500).json({ 
-    error: 'Internal Server Error',
-    ...(IS_PROD ? {} : { details: err.message })
-  });
-});
+// Centralized error handler (replaces raw inline handler above)
+app.use(errorHandler);
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Server] AllCare HMS Backend running on port ${PORT}${IS_PROD ? ' (production)' : ' (development)'}`);
@@ -136,6 +153,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 // Graceful Shutdown
 const shutdown = () => {
   console.log('[Shutdown] Terminating server process...');
+  clearInterval(purgeInterval);
   server.close(() => {
     try {
         const db = getDb();
