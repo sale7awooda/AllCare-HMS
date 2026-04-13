@@ -80,21 +80,12 @@ app.use('/api/auth/login', loginLimiter);
 app.use('/api', apiLimiter);
 
 // --- Security Headers (Helmet) ---
+// Note: CSP is disabled for local network deployment to prevent 'white blank screen' on mobile devices
+// caused by browser security restrictions on non-HTTPS local IP connections.
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://esm.sh"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-      connectSrc: ["'self'", "https://esm.sh"],
-      imgSrc: ["'self'", "data:", "https:", "http:"],
-      frameAncestors: ["'self'"], 
-      objectSrc: ["'none'"],
-    },
-  },
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  crossOriginEmbedderPolicy: false
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // --- CORS ---
