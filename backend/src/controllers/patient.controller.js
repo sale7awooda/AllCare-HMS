@@ -9,22 +9,30 @@ exports.getAll = (req, res) => {
     console.log(`[PatientController] Found ${patients.length} patients.`);
     
     // Manual mapping to ensure camelCase and handle potential missing columns gracefully
-    const mapped = patients.map(p => ({
-      id: p.id,
-      patientId: p.patient_id,
-      fullName: p.full_name,
-      phone: p.phone,
-      address: p.address,
-      age: p.age,
-      gender: p.gender,
-      type: p.type,
-      hasInsurance: !!p.has_insurance,
-      createdAt: p.created_at,
-      symptoms: p.symptoms,
-      medicalHistory: p.medical_history,
-      allergies: p.allergies,
-      bloodGroup: p.blood_group,
-    }));
+    const mapped = patients.map(p => {
+      let emergencyContact, insuranceDetails;
+      try { emergencyContact = p.emergency_contacts ? JSON.parse(p.emergency_contacts) : undefined; } catch(e) {}
+      try { insuranceDetails = p.insurance_details ? JSON.parse(p.insurance_details) : undefined; } catch(e) {}
+      
+      return {
+        id: p.id,
+        patientId: p.patient_id,
+        fullName: p.full_name,
+        phone: p.phone,
+        address: p.address,
+        age: p.age,
+        gender: p.gender,
+        type: p.type,
+        hasInsurance: !!p.has_insurance,
+        createdAt: p.created_at,
+        symptoms: p.symptoms,
+        medicalHistory: p.medical_history,
+        allergies: p.allergies,
+        bloodGroup: p.blood_group,
+        emergencyContact,
+        insuranceDetails
+      };
+    });
 
     res.json(mapped);
   } catch (err) {

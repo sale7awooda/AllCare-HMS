@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { SECRET } = require('../middleware/auth');
 
+const crypto = require('crypto');
+
 exports.login = async (req, res) => {
   const { username, password } = req.body;
   
@@ -20,11 +22,26 @@ exports.login = async (req, res) => {
       return res.status(403).json({ error: 'Account is inactive. Contact admin.' });
     }
 
+    // 15 minute access token
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '15m' }
     );
+
+    // 7 day refresh token
+    const refreshToken = crypto.randomBytes(40).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    
+    db.prepare('INSERT INTO refresh_tokens (token, user_id, expires_at) VALUES (?, ?, ?)')
+      .run(refreshToken, user.id, expiresAt);
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
 
     res.json({
       token,
@@ -41,6 +58,55 @@ exports.login = async (req, res) => {
     console.error('Error during login process:', err);
     res.status(500).json({ error: 'Internal server error during login', message: err.message });
   }
+};
+
+exports.refresh = (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) {
+    return res.status(401).json({ error: 'No refresh token provided' });
+  }
+
+  try {
+    const db = getDb();
+    // Validate refresh token exists and is not expired
+    const record = db.prepare('SELECT * FROM refresh_tokens WHERE token = ? AND expires_at > CURRENT_TIMESTAMP').get(refreshToken);
+    
+    if (!record) {
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(record.user_id);
+    if (!user || !user.is_active) {
+      return res.status(403).json({ error: 'Account is inactive or disabled' });
+    }
+
+    // Issue new short-lived access token
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      SECRET,
+      { expiresIn: '15m' }
+    );
+
+    res.json({ token });
+  } catch (err) {
+    console.error('Error during token refresh:', err);
+    res.status(500).json({ error: 'Internal server error during token refresh' });
+  }
+};
+
+exports.logout = (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (refreshToken) {
+    try {
+      const db = getDb();
+      db.prepare('DELETE FROM refresh_tokens WHERE token = ?').run(refreshToken);
+    } catch (err) {
+      console.error('Error during logout:', err);
+    }
+  }
+  
+  res.clearCookie('refreshToken');
+  res.json({ message: 'Logged out successfully' });
 };
 
 exports.me = (req, res) => {

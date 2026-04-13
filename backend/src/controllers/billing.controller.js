@@ -1,5 +1,5 @@
-
 const { getDb } = require('../config/database');
+const crypto = require('crypto');
 
 exports.getAll = (req, res) => {
   try {
@@ -9,7 +9,12 @@ exports.getAll = (req, res) => {
         b.id, b.bill_number as billNumber, b.total_amount as totalAmount, 
         b.paid_amount as paidAmount, b.status, b.bill_date as date,
         p.full_name as patientName, p.id as patientId, p.phone as patientPhone,
-        COALESCE(a.status, l.status, o.status, adm.status) as serviceStatus
+        COALESCE(a.status, l.status, o.status, adm.status) as serviceStatus,
+        (
+          SELECT json_group_array(json_object('description', bi.description, 'amount', bi.amount))
+          FROM billing_items bi
+          WHERE bi.billing_id = b.id
+        ) as itemsJson
       FROM billing b
       JOIN patients p ON b.patient_id = p.id
       LEFT JOIN appointments a ON a.bill_id = b.id
@@ -20,7 +25,11 @@ exports.getAll = (req, res) => {
     `).all();
 
     const billsWithItems = bills.map((bill) => {
-      const items = db.prepare('SELECT description, amount FROM billing_items WHERE billing_id = ?').all(bill.id);
+      let items = [];
+      try {
+        if (bill.itemsJson) items = JSON.parse(bill.itemsJson);
+      } catch(e) {}
+      delete bill.itemsJson;
       return { ...bill, items };
     });
 
@@ -32,7 +41,7 @@ exports.getAll = (req, res) => {
 
 exports.create = (req, res) => {
   const { patientId, totalAmount, items } = req.body;
-  const billNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
+  const billNumber = crypto.randomUUID().split('-')[0].toUpperCase() + '-' + Date.now().toString().slice(-4);
 
   try {
     const db = getDb();
@@ -168,9 +177,11 @@ exports.processRefund = (req, res) => {
 };
 
 exports.getTransactions = (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
+  const offset = parseInt(req.query.offset) || 0;
   try {
     const db = getDb();
-    const transactions = db.prepare('SELECT * FROM transactions ORDER BY date DESC').all();
+    const transactions = db.prepare('SELECT * FROM transactions ORDER BY date DESC LIMIT ? OFFSET ?').all(limit, offset);
     res.json(transactions.map(t => {
       let details = {};
       try { details = JSON.parse(t.details); } catch(e) {}

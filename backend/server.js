@@ -4,6 +4,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
@@ -11,6 +12,8 @@ const { initDB, getDb } = require('./src/config/database');
 const apiRoutes = require('./src/routes/api');
 
 const app = express();
+
+app.use(cookieParser());
 
 // Use PORT from environment (for cloud deployments), fallback to 3001 for local dev
 const PORT = process.env.PORT || 3001; 
@@ -73,10 +76,10 @@ app.use(helmet({
 // Configurable via ALLOWED_ORIGINS env var (comma-separated). Defaults to same-origin only.
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : null; // null = same-origin only (no cross-origin)
+  : true; // reflect origin if no whitelist
 
 app.use(cors({
-    origin: allowedOrigins || false, // false = only same-origin; array = whitelist
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true

@@ -123,54 +123,34 @@ The frontend is designed with a focus on usability, clarity, and efficiency for 
 
 ---
 
-## Deep Analysis of Asynchronous Database Refactoring
+## Deep Analysis of Recent Modernizations
 
-Recently, the backend was refactored to use the `sqlite` package instead of `better-sqlite3`. This transition moves the application from synchronous database operations to asynchronous ones.
+Recently, the backend was refactored to address monolithic technical debt and improve maintainability without compromising performance.
 
-### Why the Change?
-- **Non-blocking I/O:** Node.js is single-threaded. Synchronous database calls block the event loop, meaning the server cannot process other requests while waiting for a database query to finish. Asynchronous calls (`async/await`) free up the event loop, significantly improving the application's concurrency and scalability.
-- **Compatibility:** Native compilation issues with `better-sqlite3` in certain environments (like Docker containers or specific cloud providers) are avoided by using the standard `sqlite3` driver wrapped with `sqlite` for Promise support.
+### 1. Synchronous Database Architecture (`better-sqlite3`)
+Contrary to previous iterations or misdocumentation, this system heavily relies on `better-sqlite3` which is entirely **synchronous**.
+- **Performance:** In the context of Node.js and SQLite, synchronous drivers like `better-sqlite3` actually outperform asynchronous drivers (like `sqlite3`) because they skip the thread-pool overhead. SQLite itself is an incredibly fast, local embedded C library.
+- **Transactions:** Handled safely via `db.transaction(fn)` which simplifies rollback logic without needing async/await flows.
+- **Caveat:** Long-running analytics queries could potentially block the event loop, but for traditional HMS CRUD operations, the overhead is insignificant and the performance benefits of zero-serialization boundary crossing are immense.
 
-### How it Works Now
-1. **Database Initialization (`/backend/src/config/database.js`):**
-   The `getDb()` function returns a Promise that resolves to the database instance.
-   ```javascript
-   const { open } = require('sqlite');
-   const sqlite3 = require('sqlite3');
-   
-   let dbInstance = null;
-   async function initDB() {
-       dbInstance = await open({ filename: './database.sqlite', driver: sqlite3.Database });
-       // ... migrations ...
-   }
-   function getDb() { return dbInstance; }
-   ```
+### 2. Domain-Driven Routing Architecture
+The previous monolithic `api.js` (which housed over 60+ routes in a single file) has been split into 8 domain-specific routers:
+- `/auth/` -> `auth.routes.js`
+- `/patients/` -> `patient.routes.js`
+- `/appointments/` -> `appointment.routes.js`
+- `/hr/` -> `staff.routes.js`
+- `/billing/` -> `billing.routes.js`
+- `/treasury/` -> `treasury.routes.js`
+- Multiple (Laboratory, Operations, Admissions, Nurse) -> `medical.routes.js`
+- `/notifications/` -> `notification.routes.js`
+- `/config/` -> `configuration.routes.js`
 
-2. **Controllers:**
-   All controller functions are now `async`. They await the database instance and then await the query execution.
-   ```javascript
-   exports.getAll = async (req, res) => {
-     try {
-       const db = getDb();
-       const patients = await db.all('SELECT * FROM patients');
-       res.json(patients);
-     } catch (err) {
-       res.status(500).json({ error: err.message });
-     }
-   };
-   ```
+This strictly enforces Single Responsibility Principle (SRP) and ensures that developers can pinpoint domain logic immediately.
 
-3. **Transactions:**
-   Transactions are handled using explicit SQL commands rather than a callback wrapper.
-   ```javascript
-   const db = getDb();
-   try {
-       await db.exec('BEGIN TRANSACTION');
-       // ... multiple await db.run() calls ...
-       await db.exec('COMMIT');
-   } catch (err) {
-       await db.exec('ROLLBACK');
-       throw err;
-   }
-   ```
-This architecture ensures robust data integrity while maintaining high performance under load.
+### 3. Unified RBAC Matrix
+Previously, roles and permissions required manual syncing between the React frontend (`utils/rbac.ts`) and the Express backend (`backend/utils/rbac_backend_mirror.js`).
+- **New Architecture:** Both environments now read from a singular source of truth: `shared/permissions.json`.
+- This ensures zero sync drift. Both environments instantly adopt new permissions without code duplication.
+
+### 4. Progressive Web App (PWA) Support
+The application uses `vite-plugin-pwa` to cache frontend assets and offer installable desktop/mobile experiences via a manifest configuration, improving offline resilience and UX cache performance.

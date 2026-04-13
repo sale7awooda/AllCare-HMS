@@ -40,11 +40,11 @@ const schemas = {
     age: z.number().or(z.string().transform(v => parseInt(v))),
     gender: z.enum(['male', 'female', 'other']),
     type: z.enum(['inpatient', 'outpatient', 'emergency']),
-    address: z.string().optional(),
-    symptoms: z.string().optional().nullable(),
-    medicalHistory: z.string().optional().nullable(),
-    allergies: z.string().optional().nullable(),
-    bloodGroup: z.string().optional().nullable(),
+    address: z.string().max(2000).optional(),
+    symptoms: z.string().max(2000).optional().nullable(),
+    medicalHistory: z.string().max(2000).optional().nullable(),
+    allergies: z.string().max(2000).optional().nullable(),
+    bloodGroup: z.string().max(10).optional().nullable(),
     hasInsurance: z.boolean().optional(),
     emergencyContact: z.any().optional(), // Relaxed for JSON objects
     insuranceDetails: z.any().optional()
@@ -59,7 +59,7 @@ const schemas = {
     baseSalary: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
     email: z.string().email().optional().or(z.literal('')).nullable(),
     phone: z.string().optional().nullable(),
-    address: z.string().optional().nullable(),
+    address: z.string().max(2000).optional().nullable(),
     joinDate: z.string().optional().nullable(),
     consultationFee: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
     consultationFeeFollowup: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
@@ -72,9 +72,21 @@ const schemas = {
   updateStaff: z.object({
     fullName: z.string().min(2).optional(),
     type: z.string().optional(),
+    department: z.string().optional().nullable(),
+    specialization: z.string().optional().nullable(),
+    status: z.enum(['active', 'inactive', 'dismissed']).optional(),
     baseSalary: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
-    // Add other fields as optional for updates
-  }).passthrough() // Allow other fields to pass through for updates
+    email: z.string().email().optional().or(z.literal('')).nullable(),
+    phone: z.string().optional().nullable(),
+    address: z.string().max(2000).optional().nullable(),
+    joinDate: z.string().optional().nullable(),
+    consultationFee: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
+    consultationFeeFollowup: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
+    consultationFeeEmergency: z.number().or(z.string().transform(v => parseFloat(v) || 0)).optional(),
+    availableDays: z.array(z.string()).optional().nullable(),
+    availableTimeStart: z.string().optional().nullable(),
+    availableTimeEnd: z.string().optional().nullable()
+  })
 };
 
 module.exports = { validate, schemas };

@@ -15,6 +15,7 @@ const client = axios.create({
   baseURL: getBaseUrl(),
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
+  withCredentials: true,
 });
 
 client.interceptors.request.use((config) => {
@@ -26,6 +27,20 @@ client.interceptors.request.use((config) => {
   }
   return config;
 });
+
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
 
 client.interceptors.response.use(
   (response) => response.data,
@@ -60,9 +75,47 @@ client.interceptors.response.use(
 
     // Authentication failure (No token or invalid token)
     if (error.response?.status === 401) {
-      console.error('Session expired or invalid. Redirecting to login.');
-      localStorage.removeItem('token');
-      window.dispatchEvent(new Event('auth:expired'));
+      // If the refresh token itself failed, or if we are logging in, abort
+      if (config.url === '/auth/refresh' || config.url === '/auth/login') {
+        localStorage.removeItem('token');
+        window.dispatchEvent(new Event('auth:expired'));
+        return Promise.reject(error);
+      }
+
+      const originalRequest = config;
+      if (!originalRequest._retry) {
+        originalRequest._retry = true;
+        
+        if (isRefreshing) {
+          return new Promise(function(resolve, reject) {
+            failedQueue.push({ resolve, reject });
+          }).then(token => {
+            originalRequest.headers.Authorization = 'Bearer ' + token;
+            return client(originalRequest);
+          }).catch(err => {
+            return Promise.reject(err);
+          });
+        }
+
+        isRefreshing = true;
+
+        try {
+          const res = await axios.post(`${getBaseUrl()}/auth/refresh`, {}, { withCredentials: true });
+          const newToken = res.data.token;
+          localStorage.setItem('token', newToken);
+          client.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          processQueue(null, newToken);
+          return client(originalRequest);
+        } catch (refreshError) {
+          processQueue(refreshError, null);
+          localStorage.removeItem('token');
+          window.dispatchEvent(new Event('auth:expired'));
+          return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
+        }
+      }
     } 
     
     // Authorization failure (Authenticated but no permission)

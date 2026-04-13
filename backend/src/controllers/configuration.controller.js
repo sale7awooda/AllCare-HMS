@@ -464,6 +464,42 @@ exports.deletePaymentMethod = (req, res) => {
   catch (err) { res.status(500).json({ error: err.message }); }
 };
 
+// --- BANKS ---
+exports.getBanks = (req, res) => {
+  try { 
+    const db = getDb();
+    const rows = db.prepare('SELECT id, name_en, name_ar, account_number, initial_balance, current_balance, is_active FROM banks').all();
+    res.json(rows.map(b => ({...b, isActive: !!b.is_active}))); 
+  } 
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.addBank = (req, res) => {
+  const { name_en, name_ar, account_number, initial_balance, is_active } = req.body;
+  try {
+    const db = getDb();
+    const result = db.prepare('INSERT INTO banks (name_en, name_ar, account_number, initial_balance, current_balance, is_active) VALUES (?, ?, ?, ?, ?, ?)').run(name_en, name_ar, account_number, initial_balance || 0, initial_balance || 0, is_active ? 1 : 0);
+    res.json({ id: result.lastInsertRowid });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.updateBank = (req, res) => {
+  const { name_en, name_ar, account_number, is_active } = req.body;
+  try {
+    const db = getDb();
+    db.prepare('UPDATE banks SET name_en = ?, name_ar = ?, account_number = ?, is_active = ? WHERE id = ?').run(name_en, name_ar, account_number, is_active ? 1 : 0, req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.deleteBank = (req, res) => {
+  try {
+    const db = getDb();
+    db.prepare('DELETE FROM banks WHERE id = ?').run(req.params.id);
+    res.sendStatus(200);
+  }
+  catch (err) { res.status(500).json({ error: err.message }); }
+};
 
 // --- DATA MANAGEMENT ---
 exports.downloadBackup = (req, res) => {

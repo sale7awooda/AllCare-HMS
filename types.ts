@@ -34,6 +34,15 @@ export interface InsuranceDetails {
   expiryDate: string;
   notes?: string;
 }
+export interface Bank {
+  id: number;
+  name: string;
+  accountName: string;
+  accountNumber: string;
+  branch: string;
+  isActive: boolean;
+  createdAt: string;
+}
 
 export interface Patient {
   id: number;
