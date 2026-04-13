@@ -22,7 +22,7 @@ Write-Host "       AllCare HMS - Auto Deployment & Setup Script    " -Foreground
 Write-Host "=======================================================" -ForegroundColor Cyan
 
 # 1. Check Node.js Environment
-Write-Host "`n[1/6] Checking Environment..." -ForegroundColor Yellow
+Write-Host "`n[1/7] Checking Environment..." -ForegroundColor Yellow
 if (Get-Command "node" -ErrorAction SilentlyContinue) {
     $nodeVer = node -v
     Write-Host "Node.js is installed ($nodeVer)." -ForegroundColor Green
@@ -34,8 +34,35 @@ if (Get-Command "node" -ErrorAction SilentlyContinue) {
     exit
 }
 
-# 2. Configure Windows Firewall
-Write-Host "`n[2/6] Configuring Windows Firewall..." -ForegroundColor Yellow
+# 1.5. Environment File (.env) Setup
+Write-Host "`n[2/7] Checking Environment Configuration (.env)..." -ForegroundColor Yellow
+if (-not (Test-Path ".env")) {
+    Write-Host ".env file not found. Creating from .env.example..." -ForegroundColor Cyan
+    if (Test-Path ".env.example") {
+        Copy-Item ".env.example" ".env"
+        # Auto-generate a secure JWT_SECRET
+        $jwtSecret = node -e "process.stdout.write(require('crypto').randomBytes(64).toString('hex'))"
+        (Get-Content ".env") -replace '^JWT_SECRET=$', "JWT_SECRET=$jwtSecret" | Set-Content ".env"
+        Write-Host ".env created and JWT_SECRET auto-generated." -ForegroundColor Green
+        Write-Host "Review .env if you need to customize PORT or ALLOWED_ORIGINS." -ForegroundColor Cyan
+    } else {
+        Write-Host "WARNING: .env.example not found. Skipping .env setup." -ForegroundColor Red
+    }
+} else {
+    Write-Host ".env file already exists." -ForegroundColor Green
+    # Warn if JWT_SECRET is blank
+    $envContent = Get-Content ".env"
+    $jwtLine = $envContent | Where-Object { $_ -match '^JWT_SECRET=' }
+    if ($jwtLine -eq 'JWT_SECRET=' -or [string]::IsNullOrWhiteSpace(($jwtLine -split '=',2)[1])) {
+        Write-Host "WARNING: JWT_SECRET is empty in .env. Generating one now..." -ForegroundColor Red
+        $jwtSecret = node -e "process.stdout.write(require('crypto').randomBytes(64).toString('hex'))"
+        (Get-Content ".env") -replace '^JWT_SECRET=$', "JWT_SECRET=$jwtSecret" | Set-Content ".env"
+        Write-Host "JWT_SECRET has been set." -ForegroundColor Green
+    }
+}
+
+# 3. Configure Windows Firewall
+Write-Host "`n[3/7] Configuring Windows Firewall..." -ForegroundColor Yellow
 $rule = Get-NetFirewallRule -DisplayName "AllCare HMS" -ErrorAction SilentlyContinue
 if ($null -eq $rule) {
     New-NetFirewallRule -DisplayName "AllCare HMS" -Direction Inbound -LocalPort 3001 -Protocol TCP -Action Allow | Out-Null
@@ -44,9 +71,24 @@ if ($null -eq $rule) {
     Write-Host "Firewall rule already exists." -ForegroundColor Green
 }
 
-# 3. Static IP Configuration
-Write-Host "`n[3/6] Network Configuration" -ForegroundColor Yellow
-$currentIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch "Loopback|vEthernet|WSL" }).IPAddress | Select-Object -First 1
+# 4. Static IP Configuration
+Write-Host "`n[4/7] Network Configuration" -ForegroundColor Yellow
+
+# Improved IP detection logic
+$currentIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { 
+    $_.InterfaceAlias -notmatch "Loopback|vEthernet|WSL|Pseudo" -and 
+    $_.IPAddress -notlike "169.254.*" -and 
+    $_.IPAddress -ne "127.0.0.1"
+}).IPAddress | Select-Object -First 1
+
+if ([string]::IsNullOrWhiteSpace($currentIP)) {
+    # Fallback to computer name resolution
+    try {
+        $currentIP = [System.Net.Dns]::GetHostAddresses($env:COMPUTERNAME) | Where-Object { $_.AddressFamily -eq 'InterNetwork' } | Select-Object -ExpandProperty IPAddressToString -First 1
+    } catch {
+        $currentIP = "YOUR_LOCAL_IP"
+    }
+}
 
 Write-Host "Your current IP address is: $currentIP" -ForegroundColor Cyan
 Write-Host "WARNING: Setting a static IP incorrectly can disconnect you from the internet." -ForegroundColor Red
@@ -93,8 +135,8 @@ if ($setupStatic -match "^[Yy]$") {
     Write-Host "Skipping Static IP configuration. Keeping dynamic IP: $currentIP" -ForegroundColor Green
 }
 
-# 4. Install Dependencies & Build
-Write-Host "`n[4/6] Checking Dependencies & Building..." -ForegroundColor Yellow
+# 5. Install Dependencies & Build
+Write-Host "`n[5/7] Checking Dependencies & Building..." -ForegroundColor Yellow
 
 if (-not (Test-Path "node_modules")) {
     Write-Host "Installing root dependencies..." -ForegroundColor Cyan
@@ -124,13 +166,22 @@ if (-not (Test-Path "backend/public/index.html")) {
     }
 }
 
-# 5. Setup Windows Startup
-Write-Host "`n[5/6] Configuring Windows Startup..." -ForegroundColor Yellow
+# 6. Setup Windows Startup
+Write-Host "`n[6/7] Configuring Windows Startup..." -ForegroundColor Yellow
 $startupFolder = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
 $runScriptPath = "$PWD\run_server.bat"
 
 # Create a dedicated run script that opens the browser and starts the server
-$runScriptContent = "@echo off`ncd /d `"%~dp0`"`nstart http://localhost:3001`nnpm run start"
+$runScriptContent = @"
+@echo off
+cd /d "%~dp0"
+echo Starting AllCare HMS Server...
+if not exist ".env" (
+    echo WARNING: .env file not found. Using built-in defaults.
+    echo Run windows_deploy.bat first to set up your environment correctly.
+)
+npm run start
+"@
 Set-Content -Path $runScriptPath -Value $runScriptContent
 
 $setupStartup = Read-Host "Do you want the server to start automatically when Windows boots? (Y/N)"
@@ -151,8 +202,8 @@ if ($setupStartup -match "^[Yy]$") {
     Write-Host "Skipped Windows Startup configuration." -ForegroundColor Green
 }
 
-# 6. Run the Server
-Write-Host "`n[6/6] Starting Server..." -ForegroundColor Yellow
+# 7. Run the Server
+Write-Host "`n[7/7] Starting Server..." -ForegroundColor Yellow
 Write-Host "=======================================================" -ForegroundColor Cyan
 Write-Host " SERVER IS READY AND RUNNING!" -ForegroundColor Green
 Write-Host " Local Access (On this PC):  http://localhost:3001"

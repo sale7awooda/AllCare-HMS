@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog } from '../components/UI';
+import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog, ResponsiveTable, TableColumn } from '../components/UI';
 import { 
   Plus, Search, Filter, Edit, Calendar, Lock, 
   FlaskConical, Bed, Activity, Trash2, CheckCircle,
@@ -424,10 +424,68 @@ export const Patients = () => {
   }, [actionFormData.staffId, staff]);
 
   const translateType = (type: string, t: any) => {
-    const key = `patients_modal_action_${type.toLowerCase().replace('-up', 'Up')}`;
+    const key = `patients_filter_type_${type.toLowerCase().replace('-up', 'Up')}`;
     const translation = t(key);
     return translation === key ? type : translation;
   };
+
+  const tableColumns: TableColumn<Patient>[] = [
+    {
+      header: t('patients_table_header_patient'),
+      key: 'fullName',
+      render: (_, patient) => (
+        <div className="flex items-center group/name cursor-pointer" onClick={() => openViewModal(patient)}>
+          <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500 group-hover/name:bg-primary-100 group-hover/name:text-primary-600 transition-colors">
+            {patient.fullName.charAt(0)}
+          </div>
+          <div className="ml-4">
+            <div className="text-sm font-bold text-slate-900 dark:text-white group-hover/name:text-primary-600 transition-colors">{patient.fullName}</div>
+            <div className="text-xs text-slate-500 font-mono">{patient.patientId}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      header: t('patients_table_header_contact'),
+      key: 'phone',
+      render: (phone, patient) => (
+        <div className="text-sm">
+          <div className="text-slate-700 dark:text-slate-300">{phone}</div>
+          <div className="text-xs text-slate-400">{patient.address}</div>
+        </div>
+      )
+    },
+    {
+      header: t('patients_table_header_status'),
+      key: 'type',
+      render: (type) => (
+        <Badge color={type === 'inpatient' ? 'red' : type === 'emergency' ? 'orange' : 'green'}>
+          {t(`patients_filter_type_${type}`)}
+        </Badge>
+      )
+    },
+    {
+      header: t('patients_table_header_demographics'),
+      key: 'age',
+      render: (age, patient) => (
+        <div className="text-sm text-slate-500">
+          {age} {t('patients_table_age_unit')} / {t(`patients_modal_form_gender_${patient.gender}`)}
+        </div>
+      )
+    },
+    {
+      header: t('patients_table_header_actions'),
+      key: 'actions',
+      className: 'text-right',
+      hideOnMobile: true, // We'll handle actions via row click or a specific button in row
+      render: (_, patient) => (
+        <div className="flex justify-end gap-2">
+          <Button size="sm" onClick={(e) => { e.stopPropagation(); openActionMenu(patient); }}>{t('patients_manage_button')}</Button>
+          <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); openEditModal(patient); }} icon={Edit}>{t('patients_edit_button')}</Button>
+        </div>
+      )
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -473,64 +531,14 @@ export const Patients = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto min-h-[400px]">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('patients_table_header_patient')}</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('patients_table_header_contact')}</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('patients_table_header_status')}</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{t('patients_table_header_demographics')}</th>
-                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{t('patients_table_header_actions')}</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="p-0">
-                    <div className="flex flex-col items-center justify-center h-96 gap-4 animate-in fade-in duration-500">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-                      <p className="text-slate-500 font-medium">{t('patients_process_loading')}</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : paginatedPatients.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-20 text-slate-500">{t('patients_table_empty')}</td></tr>
-              ) : (
-                paginatedPatients.map((patient) => (
-                  <tr key={patient.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center group/name cursor-pointer" onClick={() => openViewModal(patient)}>
-                        <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500 group-hover/name:bg-primary-100 group-hover/name:text-primary-600 transition-colors">
-                          {patient.fullName.charAt(0)}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-bold text-slate-900 dark:text-white group-hover/name:text-primary-600 transition-colors">{patient.fullName}</div>
-                          <div className="text-xs text-slate-500 font-mono">{patient.patientId}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
-                      <div>{patient.phone}</div>
-                      <div className="text-xs text-slate-400">{patient.address}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge color={patient.type === 'inpatient' ? 'red' : patient.type === 'emergency' ? 'orange' : 'green'}>{t(`patients_filter_type_${patient.type}`)}</Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      {patient.age} {t('patients_table_age_unit')} / {t(`patients_modal_form_gender_${patient.gender}`)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" onClick={() => openActionMenu(patient)}>{t('patients_manage_button')}</Button>
-                        <Button size="sm" variant="secondary" onClick={() => openEditModal(patient)} icon={Edit}>{t('patients_edit_button')}</Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="min-h-[400px]">
+          <ResponsiveTable
+            columns={tableColumns}
+            data={paginatedPatients}
+            loading={loading}
+            onRowClick={openActionMenu}
+            emptyMessage={t('patients_table_empty')}
+          />
         </div>
         
         {!loading && (

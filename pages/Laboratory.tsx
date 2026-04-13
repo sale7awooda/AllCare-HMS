@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Button, Badge, Modal, Input, Textarea, Tooltip } from '../components/UI';
+import { Card, Button, Badge, Modal, Input, Textarea, Tooltip, ResponsiveTable, TableColumn } from '../components/UI';
 import { FlaskConical, CheckCircle, Search, Clock, FileText, Activity, History as HistoryIcon, Save, Calendar, Loader2, XCircle, ChevronDown, ChevronUp, RefreshCw, Eye, ClipboardCheck, Printer } from 'lucide-react';
 import { api } from '../services/api';
 import { useTranslation } from '../context/TranslationContext';
@@ -220,6 +220,80 @@ export const Laboratory = () => {
     window.print();
   };
 
+  const labColumns: TableColumn<any>[] = [
+    {
+      header: t('patients_table_header_patient'),
+      key: 'patientName',
+      render: (name, req) => (
+        <div className="text-sm">
+          <div className="font-bold text-slate-900 dark:text-white leading-tight">{name}</div>
+          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1">
+            <Calendar size={10} />
+            <span>{new Date(req.created_at).toLocaleDateString()}</span>
+          </div>
+        </div>
+      )
+    },
+    {
+      header: t('billing_modal_create_items_label'),
+      key: 'testNames',
+      render: (names) => (
+        <div className="flex flex-wrap gap-1 max-w-xs">
+          {(names || t('billing_modal_create_items_label')).split(',').map((test: string, idx: number) => (
+            <span key={idx} className="px-2 py-0.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-bold text-slate-600 dark:text-slate-300 shadow-sm leading-tight truncate">
+              {test.trim()}
+            </span>
+          ))}
+        </div>
+      )
+    },
+    {
+      header: t('billing_table_header_status'),
+      key: 'status',
+      render: (status) => (
+        <Badge color={status === 'completed' ? 'green' : status === 'confirmed' ? 'blue' : 'yellow'} className="text-[10px] px-2 py-0.5 uppercase font-black">
+          {t(getStatusKey(status))}
+        </Badge>
+      )
+    },
+    {
+      header: t('billing_table_header_actions'),
+      key: 'actions',
+      className: 'text-right',
+      hideOnMobile: true,
+      render: (_, req) => (
+        <div className="flex justify-end gap-2">
+            {req.status === 'confirmed' && (
+                <Button size="sm" onClick={() => openProcessModal(req)} icon={Activity} className="text-[10px] border border-slate-200 dark:border-slate-600">
+                    {t('lab_card_enter_results')}
+                </Button>
+            )}
+            {req.status === 'pending' && (
+                <Badge color="orange" className="text-[9px] py-1 border border-amber-200">
+                    {t('lab_card_awaiting_payment')}
+                </Badge>
+            )}
+            {req.status === 'completed' && (
+              <div className="flex gap-1">
+                <Tooltip content={t('lab_view_results')} side="top">
+                    <button onClick={() => openViewResultsModal(req)} className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors">
+                        <Eye size={20} />
+                    </button>
+                </Tooltip>
+                {canManage && (
+                    <Tooltip content={isRtl ? 'إعادة فتح النتائج' : 'Re-open Findings'} side="top">
+                        <button onClick={() => handleReopen(req.id)} className="p-2 text-slate-500 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                            <RefreshCw size={20} />
+                        </button>
+                    </Tooltip>
+                )}
+              </div>
+            )}
+        </div>
+      )
+    }
+  ];
+
   return (
     <div className="space-y-6">
       {processStatus !== 'idle' && (
@@ -243,76 +317,18 @@ export const Laboratory = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-            <div className="col-span-full py-20 text-center text-slate-400 flex flex-col items-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mb-3"></div>
-                {t('lab_loading')}
-            </div>
-        ) : filteredRequests.length === 0 ? (
-            <div className="col-span-full text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl bg-slate-50/50 dark:bg-slate-900/50">
-                <FlaskConical size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-600 opacity-50" />
-                <p className="text-slate-500 dark:text-slate-400 font-medium">{t('lab_empty', {tab: activeTab === 'queue' ? t('lab_tab_queue') : t('lab_tab_history')})}</p>
-            </div>
-        ) : (
-            filteredRequests.map(req => (
-                <div key={req.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col group h-full">
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="min-w-0 flex-1">
-                            <h3 className="text-sm font-black text-slate-800 dark:text-white truncate leading-tight">{req.patientName}</h3>
-                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1">
-                                <Calendar size={10} />
-                                <span>{new Date(req.created_at).toLocaleDateString()}</span>
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 ml-2">
-                            <Badge color={req.status === 'completed' ? 'green' : req.status === 'confirmed' ? 'blue' : 'yellow'} className="text-[8px] px-1.5 py-0 uppercase font-black">
-                                {t(getStatusKey(req.status))}
-                            </Badge>
-                        </div>
-                    </div>
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 mb-3 flex-1">
-                        <div className="flex flex-wrap gap-1">
-                            {(req.testNames || t('billing_modal_create_items_label')).split(',').map((test: string, idx: number) => (
-                                <span key={idx} className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-bold text-slate-600 dark:text-slate-300 shadow-sm leading-tight truncate">
-                                    {test.trim()}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="pt-2">
-                        {req.status === 'confirmed' && (
-                            <Button size="sm" onClick={() => openProcessModal(req)} icon={Activity} className="w-full justify-center text-xs py-2 shadow-sm">
-                                {t('lab_card_enter_results')}
-                            </Button>
-                        )}
-                        {req.status === 'pending' && (
-                            <button onClick={() => navigate('/billing')} className="w-full px-2 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-black uppercase rounded-lg border border-amber-200 transition-colors flex items-center justify-center gap-2">
-                                <Clock size={12}/> {t('lab_card_awaiting_payment')}
-                            </button>
-                        )}
-                        {req.status === 'completed' && (
-                          <div className="flex flex-col gap-2">
-                            <Button size="sm" variant="primary" icon={Eye} onClick={() => openViewResultsModal(req)} className="w-full justify-center text-xs py-2 shadow-sm">
-                                {t('lab_view_results')}
-                            </Button>
-                            {canManage && (
-                                <Button 
-                                    size="sm"
-                                    variant="secondary"
-                                    icon={RefreshCw}
-                                    onClick={() => handleReopen(req.id)} 
-                                    className="w-full justify-center text-xs py-2 border border-slate-200 dark:border-slate-600"
-                                >
-                                    {isRtl ? 'إعادة فتح النتائج' : 'Re-open Findings'}
-                                </Button>
-                            )}
-                          </div>
-                        )}
-                    </div>
-                </div>
-            ))
-        )}
+      <div className="min-h-[400px]">
+        <ResponsiveTable
+            columns={labColumns}
+            data={filteredRequests}
+            loading={loading}
+            onRowClick={(req) => {
+                if (req.status === 'confirmed') openProcessModal(req);
+                else if (req.status === 'completed') openViewResultsModal(req);
+                else if (req.status === 'pending') navigate('/billing');
+            }}
+            emptyMessage={t('lab_empty', {tab: activeTab === 'queue' ? t('lab_tab_queue') : t('lab_tab_history')})}
+        />
       </div>
 
       <Modal 

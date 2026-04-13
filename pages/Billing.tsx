@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog, Tooltip } from '../components/UI';
+import { Card, Button, Input, Select, Modal, Badge, Textarea, ConfirmationDialog, Tooltip, ResponsiveTable, TableColumn } from '../components/UI';
 import { 
   Plus, Printer, CreditCard, 
   Wallet, FileText, CheckCircle, Trash2,
@@ -627,6 +627,182 @@ export const Billing = () => {
     );
   };
 
+  const invoiceColumns: TableColumn<Bill>[] = [
+    {
+      header: t('billing_table_header_info'),
+      key: 'billNumber',
+      render: (num, bill) => (
+        <div onClick={() => setSelectedBill(bill)} className="cursor-pointer group/num">
+          <div className="font-bold text-sm group-hover/num:text-primary-600 transition-colors">{num}</div>
+          <div className="text-xs text-slate-500">{new Date(bill.date).toLocaleDateString()}</div>
+        </div>
+      )
+    },
+    {
+      header: t('patients_table_header_patient'),
+      key: 'patientName',
+      render: (name, bill) => (
+        <div className="text-sm">
+          <div className="font-medium text-slate-900 dark:text-white">{name}</div>
+          <div className="text-xs text-slate-500 flex items-center gap-1">
+            {bill.patientPhone ? <><Phone size={10}/> {bill.patientPhone}</> : `ID: ${bill.patientId}`}
+          </div>
+        </div>
+      )
+    },
+    {
+      header: t('billing_table_header_status'),
+      key: 'status',
+      render: (status, bill) => {
+        const isCancelled = bill.status === 'cancelled' || bill.serviceStatus === 'cancelled';
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge color={status === 'paid' ? 'green' : status === 'partial' ? 'yellow' : isCancelled ? 'red' : 'orange'}>
+              {translateStatus(status)}
+            </Badge>
+            <Badge color="gray">{translateBillType(getBillType(bill))}</Badge>
+          </div>
+        );
+      }
+    },
+    {
+      header: t('billing_table_header_paid_progress'),
+      key: 'paidAmount',
+      className: 'min-w-[120px]',
+      render: (paid, bill) => {
+        const paidPercent = bill.totalAmount > 0 ? (paid / bill.totalAmount) * 100 : 0;
+        const isCancelled = bill.status === 'cancelled' || bill.serviceStatus === 'cancelled';
+        return (
+          <div className="w-full">
+            <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 sm:h-2">
+              <div className={`h-full rounded-full transition-all duration-500 ${isCancelled ? 'bg-red-400' : 'bg-primary-500'}`} style={{ width: `${paidPercent}%` }}></div>
+            </div>
+            <p className="text-right text-[10px] mt-1 text-slate-500 font-bold font-mono">
+              ${(paid || 0).toLocaleString()} / ${(bill.totalAmount || 0).toLocaleString()}
+            </p>
+          </div>
+        );
+      }
+    },
+    {
+      header: t('billing_table_header_amount'),
+      key: 'totalAmount',
+      className: 'text-right font-mono font-bold text-sm',
+      render: (total) => `$${total.toLocaleString()}`
+    },
+    {
+      header: t('billing_table_header_actions'),
+      key: 'actions',
+      className: 'text-right',
+      hideOnMobile: true,
+      render: (_, bill) => {
+        const isCancelled = bill.status === 'cancelled' || bill.serviceStatus === 'cancelled';
+        const isPaid = (bill.paidAmount || 0) > 0;
+        const isCompleted = bill.serviceStatus === 'completed';
+        const canRefund = isPaid && isCancelled && !isCompleted;
+        const canCancelService = !isCancelled && !isCompleted;
+
+        return (
+          <div className="flex justify-end gap-1">
+            <Tooltip content={t('billing_action_view_invoice')} side="top">
+              <button onClick={() => setSelectedBill(bill)} className="p-2 text-slate-500 hover:text-primary-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                <FileText size={20} />
+              </button>
+            </Tooltip>
+            {canManageBilling && (
+              <>
+                {!isCancelled && (bill.status === 'pending' || bill.status === 'partial') && (
+                  <Tooltip content={t('billing_action_pay')} side="top">
+                    <button onClick={() => openPaymentModal(bill)} className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors">
+                      <CreditCard size={20} />
+                    </button>
+                  </Tooltip>
+                )}
+                {canCancelService && (
+                  <Tooltip content={t('cancel')} side="top">
+                    <button onClick={() => handleCancelService(bill)} className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors">
+                      <Ban size={20} />
+                    </button>
+                  </Tooltip>
+                )}
+                {canRefund && (
+                  <Tooltip content={t('billing_action_refund')} side="top">
+                    <button onClick={() => openRefundModal(bill)} className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors">
+                      <RotateCcw size={20} />
+                    </button>
+                  </Tooltip>
+                )}
+              </>
+            )}
+          </div>
+        );
+      }
+    }
+  ];
+
+  const treasuryColumns: TableColumn<Transaction>[] = [
+    {
+      header: t('date'),
+      key: 'date',
+      render: (date) => (
+        <div className="text-sm">
+          <div className="font-bold text-slate-900 dark:text-white">{new Date(date).toLocaleDateString()}</div>
+          <div className="text-[10px] text-slate-500 font-mono">{new Date(date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+        </div>
+      )
+    },
+    {
+        header: t('appointments_form_type'),
+        key: 'type',
+        render: (type) => (
+            <Badge color={type === 'income' ? 'green' : 'red'}>
+                {type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}
+            </Badge>
+        )
+    },
+    {
+      header: t('billing_treasury_table_category'),
+      key: 'category',
+      render: (cat) => <div className="text-sm font-medium">{cat || '-'}</div>
+    },
+    {
+      header: t('billing_treasury_table_description'),
+      key: 'description',
+      className: 'max-w-xs',
+      render: (desc) => <div className="text-xs text-slate-500 whitespace-normal line-clamp-2">{desc}</div>
+    },
+    {
+      header: t('billing_treasury_table_method'),
+      key: 'method',
+      render: (method) => <div className="text-sm font-bold">{method}</div>
+    },
+    {
+      header: t('billing_table_header_amount'),
+      key: 'amount',
+      className: 'text-right font-mono font-bold',
+      render: (amt, tx) => (
+          <span className={tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}>
+              {tx.type === 'income' ? '+' : '-'}${amt.toLocaleString()}
+          </span>
+      )
+    },
+    {
+        header: t('actions'),
+        key: 'actions',
+        className: 'text-right',
+        hideOnMobile: true,
+        render: (_, tx) => tx.type === 'expense' && canManageBilling && (
+            <div className="flex justify-end">
+                <Tooltip content={t('edit')} side="top">
+                    <button onClick={() => openExpenseModal(tx)} className="p-2 text-slate-500 hover:text-primary-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                        <Edit size={20} />
+                    </button>
+                </Tooltip>
+            </div>
+        )
+    }
+  ];
+
   return (
     <div className="space-y-6">
       
@@ -673,82 +849,26 @@ export const Billing = () => {
                         <div className="relative w-full sm:w-auto"><Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" /><select className="pl-9 pr-8 py-2 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm appearance-none cursor-pointer text-slate-900 dark:text-white" value={filterType} onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}><option value="all">{t('patients_filter_type_all')}</option><option value="Appointment">{t('nav_appointments')}</option><option value="Lab Test">{t('nav_laboratory')}</option><option value="Admission">{t('nav_admissions')}</option><option value="Operation">{t('nav_operations')}</option><option value="Procedure">{t('billing_type_procedure')}</option><option value="General">{t('billing_type_general')}</option></select></div>
                       </div>
                     </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                        <thead className="bg-slate-50 dark:bg-slate-900">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_info')}</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('patients_table_header_patient')}</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_status')}</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_paid_progress')}</th>
-                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th>
-                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_actions')}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                          {paginatedBills.length === 0 ? <tr><td colSpan={6} className="text-center py-10 text-slate-400">{t('billing_table_empty')}</td></tr> : 
-                           paginatedBills.map(bill => {
-                            const paidPercent = bill.totalAmount > 0 ? (bill.paidAmount / bill.totalAmount) * 100 : 0;
-                            const isCancelled = bill.status === 'cancelled' || bill.serviceStatus === 'cancelled';
-                            const isPaid = (bill.paidAmount || 0) > 0;
-                            const isCompleted = bill.serviceStatus === 'completed';
-                            
-                            const canRefund = isPaid && isCancelled && !isCompleted;
-                            const canCancelService = !isCancelled && !isCompleted;
-
-                            return (
-                              <tr key={bill.id} className={isCancelled ? 'bg-slate-50/50 dark:bg-slate-900/20' : ''}>
-                                <td className="px-4 py-4 whitespace-nowrap"><div className="font-bold text-sm">{bill.billNumber}</div><div className="text-xs text-slate-500">{new Date(bill.date).toLocaleDateString()}</div></td>
-                                <td className="px-4 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium">{bill.patientName}</div>
-                                    <div className="text-xs text-slate-500 flex items-center gap-1">
-                                      {bill.patientPhone ? <><Phone size={10}/> {bill.patientPhone}</> : `ID: ${bill.patientId}`}
-                                    </div>
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap"><div className="flex flex-col gap-1"><Badge color={bill.status === 'paid' ? 'green' : bill.status === 'partial' ? 'yellow' : isCancelled ? 'red' : 'orange'}>{translateStatus(bill.status)}</Badge><Badge color="gray">{translateBillType(getBillType(bill))}</Badge></div></td>
-                                <td className="px-4 py-4 whitespace-nowrap min-w-[120px]"><div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2"><div className={`h-2 rounded-full transition-all duration-500 ${isCancelled ? 'bg-red-400' : 'bg-primary-500'}`} style={{ width: `${paidPercent}%` }}></div></div><p className="text-right text-[10px] mt-1 text-slate-500 font-bold font-mono">${(bill.paidAmount || 0).toLocaleString()} / ${(bill.totalAmount || 0).toLocaleString()}</p></td>
-                                <td className="px-4 py-4 whitespace-nowrap text-right font-mono font-bold text-sm">${bill.totalAmount.toLocaleString()}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <div className="flex justify-end gap-1">
-                                        <Tooltip content={t('billing_action_view_invoice')} side="top">
-                                            <button onClick={() => setSelectedBill(bill)} className="p-2 text-slate-500 hover:text-primary-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                                                <FileText size={20} />
-                                            </button>
-                                        </Tooltip>
-                                        {canManageBilling && (
-                                          <>
-                                            {!isCancelled && (bill.status === 'pending' || bill.status === 'partial') && (
-                                              <Tooltip content={t('billing_action_pay')} side="top">
-                                                  <button onClick={() => openPaymentModal(bill)} className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors">
-                                                      <CreditCard size={20} />
-                                                  </button>
-                                              </Tooltip>
-                                            )}
-                                            {canCancelService && (
-                                              <Tooltip content={t('cancel')} side="top">
-                                                  <button onClick={() => handleCancelService(bill)} className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors">
-                                                      <Ban size={20} />
-                                                  </button>
-                                              </Tooltip>
-                                            )}
-                                            {canRefund && (
-                                              <Tooltip content={t('billing_action_refund')} side="top">
-                                                  <button onClick={() => openRefundModal(bill)} className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors">
-                                                      <RotateCcw size={20} />
-                                                  </button>
-                                              </Tooltip>
-                                            )}
-                                          </>
-                                        )}
-                                    </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    <div className="min-h-[400px]">
+                      <ResponsiveTable
+                        columns={invoiceColumns}
+                        data={paginatedBills}
+                        loading={loading}
+                        onRowClick={(bill) => {
+                          if (canManageBilling) {
+                            if (bill.status === 'pending' || bill.status === 'partial') {
+                              openPaymentModal(bill);
+                            } else {
+                              setSelectedBill(bill);
+                            }
+                          } else {
+                            setSelectedBill(bill);
+                          }
+                        }}
+                        emptyMessage={t('billing_table_empty')}
+                      />
                     </div>
+
                     <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4">
                         <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
                           <span>{t('patients_pagination_showing')} {paginatedBills.length} {t('patients_pagination_of')} {filteredBills.length}</span>
@@ -818,8 +938,15 @@ export const Billing = () => {
                       <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center">
                           <div className="flex items-center gap-2 flex-1"><Landmark size={18} className="text-slate-500"/> <h3 className="font-bold text-slate-800 dark:text-white">{t('billing_treasury_transactions')}</h3></div>
                           <div className="flex gap-2 items-center"><select className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white" value={treasuryFilter} onChange={(e) => setTreasuryFilter(e.target.value)}><option value="all">{t('billing_treasury_filter_all')}</option><option value="income">{t('billing_treasury_type_income')}</option><option value="expense">{t('billing_treasury_type_expense')}</option></select></div>
-                      </div>
-                      <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700"><thead className="bg-white dark:bg-slate-900"><tr><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('date')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('appointments_form_type')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_category')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_description')}</th><th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">{t('billing_treasury_table_method')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('billing_table_header_amount')}</th><th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100 bg-white dark:bg-slate-800">{paginatedTransactions.map((tx) => (<tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"><td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300 font-mono">{new Date(tx.date).toLocaleDateString()}</td><td className="px-6 py-3"><Badge color={tx.type === 'income' ? 'green' : 'red'}>{tx.type === 'income' ? t('billing_treasury_type_income') : t('billing_treasury_type_expense')}</Badge></td><td className="px-6 py-3 text-sm font-bold dark:text-slate-200">{tx.category || '-'}</td><td className="px-6 py-3 text-sm text-slate-500 dark:text-slate-400">{tx.description}</td><td className="px-6 py-3 text-sm dark:text-slate-300 font-bold">{tx.method}</td><td className={`px-6 py-3 text-sm font-black text-right font-mono ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>{tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}</td><td className="px-6 py-3 text-right">{tx.type === 'expense' && canManageBilling && (<Tooltip content={t('edit')} side="top"><button onClick={() => openExpenseModal(tx)} className="p-2 text-slate-500 hover:text-primary-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><Edit size={20} /></button></Tooltip>)}</td></tr>))}</tbody></table></div>
+                      </div>                       <div className="min-h-[400px]">
+                          <ResponsiveTable
+                            columns={treasuryColumns}
+                            data={paginatedTransactions}
+                            loading={loading}
+                            emptyMessage={t('billing_treasury_empty')}
+                          />
+                       </div>
+
                       <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-slate-200 dark:border-slate-700 gap-4">
                         <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-500">
                           <span>{t('patients_pagination_showing')} {paginatedTransactions.length} {t('patients_pagination_of')} {filteredTransactions.length}</span>

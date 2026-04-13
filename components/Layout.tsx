@@ -66,6 +66,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const bottomNavItems = [
     { labelKey: 'nav_dashboard', path: '/', icon: LayoutDashboard },
     { labelKey: 'nav_patients', path: '/patients', icon: Users },
+    { labelKey: 'nav_laboratory', path: '/laboratory', icon: FlaskConical },
+    { labelKey: 'nav_billing', path: '/billing', icon: Receipt },
     { labelKey: 'nav_appointments', path: '/appointments', icon: CalendarDays },
   ];
 

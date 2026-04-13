@@ -6,12 +6,12 @@ import { X, Check, AlertCircle } from 'lucide-react';
 export const Card: React.FC<{ children: React.ReactNode; className?: string; title?: string; action?: React.ReactNode }> = ({ children, className = '', title, action }) => (
   <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-card border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200 ${className}`}>
     {(title || action) && (
-      <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-900">
-        {title && <h3 className="text-base font-bold text-slate-800 dark:text-white tracking-tight">{title}</h3>}
+      <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-900">
+        {title && <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-white tracking-tight">{title}</h3>}
         {action && <div>{action}</div>}
       </div>
     )}
-    <div className="p-6 dark:text-slate-200">{children}</div>
+    <div className="p-4 sm:p-6 dark:text-slate-200">{children}</div>
   </div>
 );
 
@@ -69,22 +69,135 @@ export const Badge: React.FC<{ children: React.ReactNode; color?: 'green' | 'red
 export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode }> = ({ isOpen, onClose, title, children, footer }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/5 dark:ring-white/10 overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-50 dark:border-slate-700 shrink-0 bg-white dark:bg-slate-800">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white">{title}</h3>
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+      <div className="relative w-full h-[95vh] sm:h-auto sm:max-w-2xl sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/5 dark:ring-white/10 overflow-hidden animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300">
+        <div className="flex items-center justify-between px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-50 dark:border-slate-700 shrink-0 bg-white dark:bg-slate-800">
+          <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">{title}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg p-2 transition-colors">
             <X size={20} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 dark:text-slate-200">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 dark:text-slate-200">
           {children}
         </div>
         {footer && (
-          <div className="px-6 py-4 border-t border-slate-50 dark:border-slate-700 shrink-0 bg-white dark:bg-slate-800 z-10">
+          <div className="px-5 py-4 sm:px-6 sm:py-4 border-t border-slate-50 dark:border-slate-700 shrink-0 bg-white dark:bg-slate-800 z-10">
             {footer}
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// --- Responsive Table ---
+export interface TableColumn<T> {
+  header: string;
+  key: string;
+  render?: (val: any, row: T) => React.ReactNode;
+  className?: string;
+  mobileLabel?: string;
+  hideOnMobile?: boolean;
+}
+
+export const ResponsiveTable = <T extends { id: string | number }>({ 
+  columns, 
+  data, 
+  loading, 
+  onRowClick, 
+  emptyMessage = "No data available."
+}: { 
+  columns: TableColumn<T>[]; 
+  data: T[]; 
+  loading?: boolean; 
+  onRowClick?: (row: T) => void;
+  emptyMessage?: string;
+}) => {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 animate-in fade-in">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <p className="text-sm font-medium text-slate-500">Loading data...</p>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return <div className="text-center py-16 text-slate-500 text-sm font-medium italic">{emptyMessage}</div>;
+  }
+
+  return (
+    <div className="w-full">
+      {/* Desktop View */}
+      <div className="hidden lg:block overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+          <thead className="bg-slate-50/50 dark:bg-slate-900/50">
+            <tr>
+              {columns.map((col, i) => (
+                <th 
+                  key={i} 
+                  className={`px-6 py-3.5 text-left text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ${col.className || ''}`}
+                >
+                  {col.header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+            {data.map((row) => (
+              <tr 
+                key={row.id} 
+                onClick={() => onRowClick?.(row)}
+                className={`transition-colors ${onRowClick ? 'hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer group' : ''}`}
+              >
+                {columns.map((col, i) => (
+                  <td key={i} className={`px-6 py-4 whitespace-nowrap text-sm ${col.className || ''}`}>
+                    {col.render ? col.render(row[col.key as keyof T], row) : (row[col.key as keyof T] as any)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile/Tablet View (Stacked Cards) */}
+      <div className="lg:hidden divide-y divide-slate-100 dark:divide-slate-700">
+        {data.map((row) => (
+          <div 
+            key={row.id} 
+            onClick={() => onRowClick?.(row)}
+            className={`p-4 transition-colors ${onRowClick ? 'active:bg-slate-50 dark:active:bg-slate-800/50' : ''}`}
+          >
+            <div className="space-y-3">
+              {columns.filter(c => !c.hideOnMobile).map((col, i) => {
+                const isMain = i === 0;
+                const value = col.render ? col.render(row[col.key as keyof T], row) : (row[col.key as keyof T] as any);
+                
+                if (isMain) {
+                  return (
+                    <div key={i} className="flex justify-between items-start mb-2">
+                      <div className="text-sm font-bold text-slate-900 dark:text-white">
+                        {value}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={i} className="flex justify-between items-center text-xs">
+                    <span className="font-black uppercase tracking-widest text-[9px] text-slate-400 dark:text-slate-500">
+                      {col.mobileLabel || col.header}
+                    </span>
+                    <div className="font-medium text-slate-700 dark:text-slate-300">
+                      {value}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
