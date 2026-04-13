@@ -126,8 +126,15 @@ export const Operations = () => {
     setLoading(true);
     try {
       const [opsData, staffData] = await Promise.all([api.getScheduledOperations(), api.getStaff()]);
-      setOps(opsData); setStaff(staffData);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+      setOps(Array.isArray(opsData) ? opsData : []);
+      setStaff(Array.isArray(staffData) ? staffData : []);
+    } catch (e) { 
+      console.error("[Operations] Failed to load data:", e);
+      setOps([]);
+      setStaff([]);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   useEffect(() => { loadData(); }, []);

@@ -425,11 +425,18 @@ export const Appointments = () => {
   const loadData = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
-      const [apts, stf, pts] = await Promise.all([api.getAppointments(), api.getStaff(), api.getPatients()]);
-      setAppointments(Array.isArray(apts) ? apts : []);
-      setStaff(Array.isArray(stf) ? stf : []);
-      setPatients(Array.isArray(pts) ? pts : []);
-    } catch (e) { console.error(e); } finally { if (!isSilent) setLoading(false); }
+      const [aptsData, stfData, ptsData] = await Promise.all([api.getAppointments(), api.getStaff(), api.getPatients()]);
+      setAppointments(Array.isArray(aptsData) ? aptsData : []);
+      setStaff(Array.isArray(stfData) ? stfData : []);
+      setPatients(Array.isArray(ptsData) ? ptsData : []);
+    } catch (e) { 
+      console.error("[Appointments] Failed to load data:", e);
+      setAppointments([]);
+      setStaff([]);
+      setPatients([]);
+    } finally { 
+      if (!isSilent) setLoading(false); 
+    }
   };
 
   useEffect(() => { 

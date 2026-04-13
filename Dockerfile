@@ -20,6 +20,10 @@ RUN npm install --production
 # Copy backend source code
 COPY backend/server.js ./
 COPY backend/src/ ./src/
+COPY backend/utils/ ./utils/
+
+# Copy shared configuration (used by both frontend and backend)
+COPY shared/ /shared/
 
 # Copy pre-built frontend assets (already compiled, lives in backend/public/)
 COPY backend/public/ ./public/

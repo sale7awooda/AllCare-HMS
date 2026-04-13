@@ -74,18 +74,22 @@ export const Records = () => {
         api.getTransactions()
       ]);
       setAllData({ 
-        patients: patients || [], 
-        appointments: appointments || [], 
-        bills: bills || [],
-        staff: staff || [],
-        labs: labs || [],
-        nurse: nurse || [],
-        ops: ops || [],
-        admissions: admissions || [],
-        transactions: transactions || []
+        patients: Array.isArray(patients) ? patients : [], 
+        appointments: Array.isArray(appointments) ? appointments : [], 
+        bills: Array.isArray(bills) ? bills : [],
+        staff: Array.isArray(staff) ? staff : [],
+        labs: Array.isArray(labs) ? labs : [],
+        nurse: Array.isArray(nurse) ? nurse : [],
+        ops: Array.isArray(ops) ? ops : [],
+        admissions: Array.isArray(admissions) ? admissions : [],
+        transactions: Array.isArray(transactions) ? transactions : []
       });
     } catch (error) {
-      console.error("Failed to load records data:", error);
+      console.error("[Records] Failed to load data:", error);
+      setAllData({ 
+        patients: [], appointments: [], bills: [], staff: [],
+        labs: [], nurse: [], ops: [], admissions: [], transactions: [] 
+      });
     } finally {
       setLoading(false);
     }

@@ -57,7 +57,7 @@ export const Dashboard = () => {
         }
       };
 
-      const [pts, apts, bills, bedsData, labs, staffData] = await Promise.all([
+      const [ptsData, aptsData, billsData, rawBedsData, labsData, rawStaffData] = await Promise.all([
         hasPermission(user, Permissions.VIEW_PATIENTS) ? wrapApi(api.getPatients()) : Promise.resolve([]),
         hasPermission(user, Permissions.VIEW_APPOINTMENTS) ? wrapApi(api.getAppointments()) : Promise.resolve([]),
         hasPermission(user, Permissions.VIEW_BILLING) ? wrapApi(api.getBills()) : Promise.resolve([]),
@@ -65,6 +65,14 @@ export const Dashboard = () => {
         hasPermission(user, Permissions.VIEW_LABORATORY) ? wrapApi(api.getPendingLabRequests()) : Promise.resolve([]),
         hasPermission(user, Permissions.VIEW_HR) ? wrapApi(api.getStaff()) : Promise.resolve([])
       ]);
+
+      // Safety Wrappers
+      const pts = Array.isArray(ptsData) ? ptsData : [];
+      const apts = Array.isArray(aptsData) ? aptsData : [];
+      const bills = Array.isArray(billsData) ? billsData : [];
+      const bedsData = Array.isArray(rawBedsData) ? rawBedsData : [];
+      const labs = Array.isArray(labsData) ? labsData : [];
+      const staffData = Array.isArray(rawStaffData) ? rawStaffData : [];
 
       const totalRev = bills.reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
       const outstanding = bills.reduce((sum: number, b: any) => sum + ((b.totalAmount || 0) - (b.paidAmount || 0)), 0);
@@ -100,7 +108,7 @@ export const Dashboard = () => {
 
       const bedStats = { general: { total: 0, free: 0 }, private: { total: 0, free: 0 }, icu: { total: 0, free: 0 } };
       bedsData.forEach((b: any) => {
-          const type = b.type.toLowerCase() as keyof typeof bedStats;
+          const type = (b.type || '').toLowerCase() as keyof typeof bedStats;
           if (bedStats[type]) {
               bedStats[type].total++;
               if (b.status === 'available') bedStats[type].free++;

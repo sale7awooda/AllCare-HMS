@@ -102,6 +102,19 @@ app.use(cors({
 }));
 
 app.use(morgan(IS_PROD ? 'combined' : 'dev')); 
+
+// Enhanced API Logger for Production Debugging
+app.use('/api', (req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (data) {
+    if (data && typeof data === 'object' && data.error) {
+      console.warn(`[API Response Error] ${req.method} ${req.path} ->`, data.error);
+    }
+    return originalJson.call(this, data);
+  };
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 
 // API Routes
