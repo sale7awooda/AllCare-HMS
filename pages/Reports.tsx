@@ -510,23 +510,27 @@ export const Reports = () => {
                   <div>
                       <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Income by Method</h4>
                       <table className="w-full text-xs border border-slate-200">
-                          {financialStats.incomeByMethod.map((item, i) => (
-                              <tr key={i} className="border-b border-slate-200">
-                                  <td className="p-2 border-r border-slate-200">{item.name}</td>
-                                  <td className="p-2 font-mono text-right">${item.value.toLocaleString()}</td>
-                              </tr>
-                          ))}
+                          <tbody>
+                            {financialStats.incomeByMethod.map((item, i) => (
+                                <tr key={i} className="border-b border-slate-200">
+                                    <td className="p-2 border-r border-slate-200">{item.name}</td>
+                                    <td className="p-2 font-mono text-right">${item.value.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                          </tbody>
                       </table>
                   </div>
                   <div>
                       <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Top Services</h4>
                       <table className="w-full text-xs border border-slate-200">
-                          {financialStats.topServices.map((item, i) => (
-                              <tr key={i} className="border-b border-slate-200">
-                                  <td className="p-2 border-r border-slate-200">{item.name}</td>
-                                  <td className="p-2 font-mono text-right">${item.value.toLocaleString()}</td>
-                              </tr>
-                          ))}
+                          <tbody>
+                            {financialStats.topServices.map((item, i) => (
+                                <tr key={i} className="border-b border-slate-200">
+                                    <td className="p-2 border-r border-slate-200">{item.name}</td>
+                                    <td className="p-2 font-mono text-right">${item.value.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                          </tbody>
                       </table>
                   </div>
               </div>
@@ -573,25 +577,29 @@ export const Reports = () => {
               <div className="grid grid-cols-2 gap-8">
                   <div>
                       <table className="w-full text-sm border border-slate-300 mb-4">
-                          <tr>
-                              <td className="p-3 border-r border-b border-slate-300 font-bold bg-slate-50">{t('reports_stat_registry_size')}</td>
-                              <td className="p-3 border-b border-slate-300 font-mono text-right">{patientStats.total}</td>
-                          </tr>
-                          <tr>
-                              <td className="p-3 border-r border-slate-300 font-bold bg-slate-50">{t('reports_stat_acquisition')}</td>
-                              <td className="p-3 font-mono text-right">{patientStats.newCount}</td>
-                          </tr>
+                          <tbody>
+                            <tr>
+                                <td className="p-3 border-r border-b border-slate-300 font-bold bg-slate-50">{t('reports_stat_registry_size')}</td>
+                                <td className="p-3 border-b border-slate-300 font-mono text-right">{patientStats.total}</td>
+                            </tr>
+                            <tr>
+                                <td className="p-3 border-r border-slate-300 font-bold bg-slate-50">{t('reports_stat_acquisition')}</td>
+                                <td className="p-3 font-mono text-right">{patientStats.newCount}</td>
+                            </tr>
+                          </tbody>
                       </table>
                   </div>
                   <div>
                       <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Age Distribution</h4>
                       <table className="w-full text-xs border border-slate-200">
-                          {patientStats.ageDist.map((item, i) => (
-                              <tr key={i} className="border-b border-slate-200">
-                                  <td className="p-2 border-r border-slate-200">{item.name}</td>
-                                  <td className="p-2 font-mono text-right">{item.value}</td>
-                              </tr>
-                          ))}
+                          <tbody>
+                            {patientStats.ageDist.map((item, i) => (
+                                <tr key={i} className="border-b border-slate-200">
+                                    <td className="p-2 border-r border-slate-200">{item.name}</td>
+                                    <td className="p-2 font-mono text-right">{item.value}</td>
+                                </tr>
+                            ))}
+                          </tbody>
                       </table>
                   </div>
               </div>

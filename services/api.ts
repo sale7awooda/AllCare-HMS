@@ -43,7 +43,14 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 client.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    const data = response.data;
+    // Automatically unwrap paginated responses to maintain compatibility with existing components
+    if (data && typeof data === 'object' && Array.isArray(data.data) && data.meta) {
+      return data.data;
+    }
+    return data;
+  },
   async (error) => {
     const { config, response } = error;
     

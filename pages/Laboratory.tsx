@@ -55,7 +55,7 @@ export const Laboratory = () => {
     setLoading(true);
     try {
       const data = await api.getPendingLabRequests(); 
-      setRequests(Array.isArray(data) ? data : []);
+      setRequests(Array.isArray(data) ? data : (data?.data || []));
     } catch (e) { console.error(e); } 
     finally { setLoading(false); }
   };

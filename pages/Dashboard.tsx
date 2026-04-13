@@ -66,13 +66,13 @@ export const Dashboard = () => {
         hasPermission(user, Permissions.VIEW_HR) ? wrapApi(api.getStaff()) : Promise.resolve([])
       ]);
 
-      // Safety Wrappers
-      const pts = Array.isArray(ptsData) ? ptsData : [];
-      const apts = Array.isArray(aptsData) ? aptsData : [];
-      const bills = Array.isArray(billsData) ? billsData : [];
-      const bedsData = Array.isArray(rawBedsData) ? rawBedsData : [];
-      const labs = Array.isArray(labsData) ? labsData : [];
-      const staffData = Array.isArray(rawStaffData) ? rawStaffData : [];
+      // Safety Wrappers - handle cases where data might be nested in .data or is already an array
+      const pts = Array.isArray(ptsData) ? ptsData : (ptsData?.data || []);
+      const apts = Array.isArray(aptsData) ? aptsData : (aptsData?.data || []);
+      const bills = Array.isArray(billsData) ? billsData : (billsData?.data || []);
+      const bedsData = Array.isArray(rawBedsData) ? rawBedsData : (rawBedsData?.data || []);
+      const labs = Array.isArray(labsData) ? labsData : (labsData?.data || []);
+      const staffData = Array.isArray(rawStaffData) ? rawStaffData : (rawStaffData?.data || []);
 
       const totalRev = bills.reduce((sum: number, b: any) => sum + (b.paidAmount || 0), 0);
       const outstanding = bills.reduce((sum: number, b: any) => sum + ((b.totalAmount || 0) - (b.paidAmount || 0)), 0);
