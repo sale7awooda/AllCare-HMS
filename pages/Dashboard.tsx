@@ -38,6 +38,9 @@ export const Dashboard = () => {
   const [revenueTrend, setRevenueTrend] = useState<any[]>([]);
   const [pendingTasks, setPendingTasks] = useState<any[]>([]);
 
+  const billingRestricted = !hasPermission(user, Permissions.VIEW_BILLING);
+  const hrRestricted = !hasPermission(user, Permissions.VIEW_HR);
+
   // Sync Header
   useHeader(
     t('dashboard_title'), 
@@ -131,12 +134,14 @@ export const Dashboard = () => {
       setRevenueTrend(trendData);
 
       const recentPendingLabs = labs.filter((l: any) => l.status === 'pending').slice(0, 3).map((l: any) => ({
-          type: 'lab', title: t('dashboard_feed_lab_title'), subtitle: `${l.patientName} - $${l.projected_cost}`, id: l.id, time: l.created_at
+          type: 'lab', title: l.testName || t('dashboard_feed_lab_title'), subtitle: `${l.patientName} - $${l.projected_cost}`, id: l.id, time: l.created_at
       }));
-
-      const unpaidBills = bills.filter((b: any) => b.status === 'pending').slice(0, 3).map((b: any) => ({
-          type: 'bill', title: t('dashboard_feed_bill_title'), subtitle: `${b.patientName} - $${b.totalAmount}`, id: b.id, time: b.date
-      }));
+      
+      const unpaidBills = !billingRestricted 
+        ? bills.filter((b: any) => b.status === 'pending').slice(0, 3).map((b: any) => ({
+            type: 'bill', title: t('dashboard_feed_bill_title'), subtitle: `${b.patientName} - $${b.totalAmount}`, id: b.id, time: b.date
+          }))
+        : [];
 
       setPendingTasks([...recentPendingLabs, ...unpaidBills].sort((a,b) => new Date(b.time).getTime() - new Date(a.time).getTime()));
 
@@ -187,7 +192,11 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title={t('dashboard_stat_total_patients')} value={stats.patients.toLocaleString()} icon={Users} trend="+5.2%" colorClass="from-blue-500 to-blue-600" />
         <StatCard title={t('dashboard_stat_today_appts')} value={stats.todayAppointments} subtext={t('dashboard_stat_appts_subtext')} icon={Calendar} colorClass="from-violet-500 to-violet-600" />
-        <StatCard title={t('dashboard_stat_revenue')} value={`$${stats.totalRevenue.toLocaleString()}`} subtext={t('dashboard_stat_revenue_subtext', { amount: `$${stats.outstandingRevenue.toLocaleString()}` })} icon={Wallet} colorClass="from-emerald-500 to-emerald-600" />
+        {hasPermission(user, Permissions.VIEW_BILLING) ? (
+          <StatCard title={t('dashboard_stat_revenue')} value={`$${stats.totalRevenue.toLocaleString()}`} subtext={t('dashboard_stat_revenue_subtext', { amount: `$${stats.outstandingRevenue.toLocaleString()}` })} icon={Wallet} colorClass="from-emerald-500 to-emerald-600" />
+        ) : (
+          <StatCard title={t('dashboard_stat_revenue')} value={t('status_restricted')} subtext={t('dashboard_access_required')} icon={Lock} colorClass="from-slate-400 to-slate-500" />
+        )}
         <StatCard title={t('dashboard_stat_occupancy')} value={`${stats.occupancyRate}%`} subtext={t('dashboard_stat_occupancy_subtext', { count: stats.activeAdmissions })} icon={Bed} trend={stats.occupancyRate > 80 ? t('dashboard_stat_occupancy_high') : undefined} colorClass="from-rose-500 to-rose-600" />
       </div>
 
@@ -195,6 +204,13 @@ export const Dashboard = () => {
         <div className="lg:col-span-2">
           <Card title={t('dashboard_chart_workload')} action={<Button size="sm" variant="ghost" onClick={() => navigate('/appointments')}>{t('dashboard_chart_workload_action')}</Button>}>
             <div className="h-80 w-full mt-2 relative">
+              {!hasPermission(user, Permissions.VIEW_HR) && (
+                <div className="absolute inset-0 z-10 bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-[1px] flex flex-col items-center justify-center text-slate-400 text-center p-4">
+                  <Lock size={32} className="mb-2 opacity-50" />
+                  <p className="font-bold text-sm">{t('dashboard_data_restricted')}</p>
+                  <p className="text-[10px] max-w-[200px]">{t('dashboard_staff_access_required')}</p>
+                </div>
+              )}
               <div className="absolute inset-0">
                 <ResponsiveContainer width="99%" height="100%">
                   <BarChart data={departmentData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -267,6 +283,12 @@ export const Dashboard = () => {
           <div className="lg:col-span-2">
             <Card title={t('dashboard_chart_revenue')}>
                 <div className="h-48 w-full relative">
+                    {!hasPermission(user, Permissions.VIEW_BILLING) && (
+                      <div className="absolute inset-0 z-10 bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-[1px] flex flex-col items-center justify-center text-slate-400 text-center p-4">
+                        <Lock size={32} className="mb-2 opacity-30" />
+                        <p className="font-bold text-xs">{t('dashboard_financials_restricted')}</p>
+                      </div>
+                    )}
                     <div className="absolute inset-0">
                         <ResponsiveContainer width="99%" height="100%">
                             <AreaChart data={revenueTrend} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>

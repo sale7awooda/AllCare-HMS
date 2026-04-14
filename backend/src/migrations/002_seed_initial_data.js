@@ -1,4 +1,4 @@
-const { ROLE_PERMISSIONS } = require('../../utils/rbac_backend_mirror');
+const { ROLE_PERMISSIONS } = require('../utils/rbac_backend_mirror');
 
 exports.up = (db) => {
 const bcrypt = require('bcryptjs');

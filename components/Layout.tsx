@@ -138,7 +138,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             {!isCollapsed && (
               <div className="flex-1 overflow-hidden animate-in fade-in">
                 <p className="text-xs font-bold text-slate-200 truncate">{user?.fullName}</p>
-                <p className="text-[10px] text-slate-500 truncate capitalize">{user?.role}</p>
+                <p className="text-[10px] text-slate-500 truncate uppercase tracking-tighter font-black opacity-80">
+                  {user?.role ? t('staff_role_' + user.role) : ''}
+                </p>
               </div>
             )}
             <button onClick={onLogout} className="text-slate-500 hover:text-red-400 transition-colors p-1" title={t('tooltip_logout')}>
