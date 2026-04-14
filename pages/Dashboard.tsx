@@ -4,7 +4,7 @@ import { Card, Button, Badge } from '../components/UI';
 import { api } from '../services/api';
 import { 
   Users, Calendar, Activity, Bed, Clock, TrendingUp, 
-  Wallet, Plus, FlaskConical, AlertCircle, ArrowRight, CheckCircle
+  Wallet, Plus, FlaskConical, AlertCircle, ArrowRight, CheckCircle, Lock
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
