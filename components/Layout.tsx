@@ -105,24 +105,20 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 ) : <div className="h-px bg-slate-800 mx-4 my-2" />
               )}
               <div className="space-y-0.5">
-                {group.items.map((item) => {
+                {group.items.filter(item => canAccessRoute(user, item.path)).map((item) => {
                   const isActive = location.pathname === item.path;
-                  const isAllowed = canAccessRoute(user, item.path);
                   const label = t(item.labelKey);
                   const LinkEl = (
                     <Link
-                      to={isAllowed ? item.path : '#'}
-                      onClick={(e) => { if (!isAllowed) e.preventDefault(); setMobileOpen(false); }}
+                      to={item.path}
+                      onClick={() => setMobileOpen(false)}
                       className={`
                         group flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 rounded-lg transition-all duration-200
-                        ${isAllowed && isActive ? 'bg-primary-600 text-white shadow-md shadow-primary-900/20' : ''}
-                        ${isAllowed && !isActive ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : ''}
-                        ${!isAllowed ? 'opacity-40 cursor-not-allowed bg-transparent text-slate-600' : ''}
+                        ${isActive ? 'bg-primary-600 text-white shadow-md shadow-primary-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
                       `}
                     >
                       <div className="relative flex-shrink-0">
-                        <item.icon size={18} className={isActive && isAllowed ? 'text-white' : !isAllowed ? 'text-slate-600' : ''} />
-                        {!isAllowed && <div className="absolute -top-1 -right-1 bg-slate-800 rounded-full p-0.5 border border-slate-700"><Lock size={8} className="text-slate-400" /></div>}
+                        <item.icon size={18} className={isActive ? 'text-white' : ''} />
                       </div>
                       {!isCollapsed && <span className="font-semibold text-sm whitespace-nowrap animate-in fade-in">{label}</span>}
                     </Link>
@@ -171,24 +167,18 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       
       {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center h-16 z-40 px-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] no-print">
-        {bottomNavItems.map((item) => {
+        {bottomNavItems.filter(item => canAccessRoute(user, item.path)).map((item) => {
           const isActive = location.pathname === item.path;
-          const isAllowed = canAccessRoute(user, item.path);
           return (
             <Link
               key={item.path}
-              to={isAllowed ? item.path : '#'}
-              onClick={(e) => { if (!isAllowed) e.preventDefault(); setMobileOpen(false); }}
+              to={item.path}
+              onClick={() => setMobileOpen(false)}
               className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors
-                ${isActive && isAllowed ? 'text-primary-600 dark:text-primary-400' : ''}
-                ${!isActive && isAllowed ? 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white' : ''}
-                ${!isAllowed ? 'opacity-40 cursor-not-allowed text-slate-500' : ''}
+                ${isActive ? 'text-primary-600 dark:text-primary-400' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}
               `}
             >
-              <div className="relative">
-                <item.icon size={20} />
-                {!isAllowed && <div className="absolute -top-1 -right-1 bg-slate-100 dark:bg-slate-800 rounded-full p-[1px]"><Lock size={8} className="text-slate-400" /></div>}
-              </div>
+              <item.icon size={20} />
               <span className="text-[10px] font-semibold">{t(item.labelKey)}</span>
             </Link>
           );

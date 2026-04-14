@@ -65,7 +65,7 @@ export const Billing = () => {
   ), [activeTab, t, canManageBilling]);
 
   // Sync Header
-  useHeader(t('billing_title'), t('billing_subtitle'), HeaderTabs);
+  useHeader(t('billing_title'), t('billing_subtitle'), HeaderTabs, [activeTab, canManageBilling]);
 
   // Pagination & Filtering State
   const [currentPage, setCurrentPage] = useState(1);

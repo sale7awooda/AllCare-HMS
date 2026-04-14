@@ -28,23 +28,22 @@ export const hasPermission = (user: User | null, permission: Permission): boolea
 export const canAccessRoute = (user: User | null, path: string): boolean => {
   if (!user || !user.role) return false;
   
+  // Admin maintains full system access as a failsafe
   if (user.role === 'admin') return true;
 
-  if (user.role === 'manager' && path !== '/configuration') return true;
-
   switch (path) {
-    case '/': return true; 
-    case '/patients': return hasPermission(user, Permissions.VIEW_PATIENTS);
-    case '/appointments': return hasPermission(user, Permissions.VIEW_APPOINTMENTS);
-    case '/billing': return hasPermission(user, Permissions.VIEW_BILLING);
-    case '/hr': return hasPermission(user, Permissions.VIEW_HR); 
-    case '/admissions': return hasPermission(user, Permissions.VIEW_ADMISSIONS);
-    case '/laboratory': return hasPermission(user, Permissions.VIEW_LABORATORY);
-    case '/operations': return hasPermission(user, Permissions.VIEW_OPERATIONS);
-    case '/reports': return hasPermission(user, Permissions.VIEW_REPORTS);
-    case '/records': return hasPermission(user, Permissions.VIEW_RECORDS);
-    case '/customizations': return hasPermission(user, Permissions.VIEW_SETTINGS);
-    case '/configuration': return hasPermission(user, Permissions.MANAGE_CONFIGURATION);
+    case '/': return hasPermission(user, Permissions.VIEW_SCREEN_DASHBOARD); 
+    case '/patients': return hasPermission(user, Permissions.VIEW_SCREEN_PATIENTS);
+    case '/appointments': return hasPermission(user, Permissions.VIEW_SCREEN_APPOINTMENTS);
+    case '/billing': return hasPermission(user, Permissions.VIEW_SCREEN_BILLING);
+    case '/hr': return hasPermission(user, Permissions.VIEW_SCREEN_HR); 
+    case '/admissions': return hasPermission(user, Permissions.VIEW_SCREEN_ADMISSIONS);
+    case '/laboratory': return hasPermission(user, Permissions.VIEW_SCREEN_LABORATORY);
+    case '/operations': return hasPermission(user, Permissions.VIEW_SCREEN_OPERATIONS);
+    case '/reports': return hasPermission(user, Permissions.VIEW_SCREEN_REPORTS);
+    case '/records': return hasPermission(user, Permissions.VIEW_SCREEN_RECORDS);
+    case '/customizations': return hasPermission(user, Permissions.VIEW_SCREEN_SETTINGS);
+    case '/configuration': return hasPermission(user, Permissions.VIEW_SCREEN_CONFIGURATION);
     default: return false; 
   }
 };

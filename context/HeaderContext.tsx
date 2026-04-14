@@ -39,7 +39,7 @@ export const HeaderProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   );
 };
 
-export const useHeader = (title?: string, subtitle?: string, actions: ReactNode = null) => {
+export const useHeader = (title?: string, subtitle?: string, actions: ReactNode = null, actionDeps: any[] = []) => {
   const context = useContext(HeaderContext);
   if (!context) throw new Error('useHeader must be used within HeaderProvider');
 
@@ -47,23 +47,24 @@ export const useHeader = (title?: string, subtitle?: string, actions: ReactNode 
     if (title !== undefined) {
       context.setHeader(title, subtitle || '', actions);
     }
-    // We intentionally omit `actions` from the dependency array 
-    // to prevent infinite loops when inline JSX is passed.
-    // We also omit `title` and `subtitle` to only run on mount and explicitly when `context.setHeader` changes,
-    // but React guarantees `context.setHeader` is stable.
-    // If dynamic titles are needed, users should call `context.setHeader` manually.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // For cases where title/subtitle/actions actually change after mount:
-  // We use another effect to sync them, but ONLY if they are strings (primitives).
-  // We cannot safely sync `actions` automatically if it's inline JSX.
+  // For cases where title/subtitle change after mount
   useEffect(() => {
     if (title !== undefined && (context.title !== title || context.subtitle !== subtitle)) {
       context.setHeader(title, subtitle || '', actions);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, subtitle]);
+
+  // For cases where actions need to be updated explicitly when dependencies change (e.g., active tabs)
+  useEffect(() => {
+    if (title !== undefined && actionDeps.length > 0) {
+      context.setHeader(title, subtitle || '', actions);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...actionDeps]);
 
   return context;
 };

@@ -102,7 +102,7 @@ export const Operations = () => {
     </div>
   ), [activeTab, ops, t]);
 
-  useHeader(t('nav_operations'), '', HeaderTabs);
+  useHeader(t('nav_operations'), '', HeaderTabs, [activeTab]);
 
   const [isEstimateModalOpen, setIsEstimateModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);

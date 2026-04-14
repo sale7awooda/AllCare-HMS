@@ -16,6 +16,42 @@ const SECRET = (() => {
 
 // Importing roles and permissions for backend enforcement logic
 const { ROLE_PERMISSIONS, Permissions } = require('../utils/rbac_backend_mirror'); 
+const { getDb } = require('../config/database');
+
+// Cache for role permissions to avoid excessive DB load
+let permissionsCache = null;
+let lastPermissionsFetch = 0;
+const CACHE_TTL = 10000; // 10 seconds
+
+const getRolePermissionsFromDB = (role) => {
+  const now = Date.now();
+  if (permissionsCache && (now - lastPermissionsFetch < CACHE_TTL)) {
+    return permissionsCache[role] || null;
+  }
+
+  try {
+    const db = getDb();
+    if (!db) return null;
+
+    // Load all permissions from the database
+    const rows = db.prepare('SELECT role, permissions FROM role_permissions').all();
+    const newCache = {};
+    rows.forEach(row => {
+      try {
+        newCache[row.role] = JSON.parse(row.permissions);
+      } catch (e) {
+        newCache[row.role] = [];
+      }
+    });
+
+    permissionsCache = newCache;
+    lastPermissionsFetch = now;
+    return permissionsCache[role] || null;
+  } catch (e) {
+    // Silently fallback to static permissions on DB error
+    return null;
+  }
+};
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -41,25 +77,9 @@ const authorizeRoles = (...requiredPermissions) => {
 
     const userRole = req.user.role;
 
-    // Admin always has all permissions
-    if (userRole === 'admin') {
-      return next();
-    }
-
-    // Manager has all permissions except 'MANAGE_CONFIGURATION' and DELETE actions
-    if (userRole === 'manager') {
-      const hasConfigManagementPerm = requiredPermissions.includes(Permissions.MANAGE_CONFIGURATION);
-      const hasDeletePerm = requiredPermissions.some(p => p.startsWith('DELETE_'));
-
-      if (!hasConfigManagementPerm && !hasDeletePerm) {
-        return next();
-      } else {
-        return res.status(403).json({ error: 'Access denied: Insufficient permissions.' });
-      }
-    }
-
-    // For other roles, check if the user has *any* of the required permissions for the route
-    const userPermissions = ROLE_PERMISSIONS[userRole] || [];
+    // For other roles, attempt to get permissions from DB first, then fallback to mirror
+    const dbPermissions = getRolePermissionsFromDB(userRole);
+    const userPermissions = dbPermissions || ROLE_PERMISSIONS[userRole] || [];
     const hasAnyRequiredPermission = requiredPermissions.some(perm => userPermissions.includes(perm));
 
     if (!hasAnyRequiredPermission) {

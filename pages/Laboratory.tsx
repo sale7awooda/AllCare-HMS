@@ -41,7 +41,7 @@ export const Laboratory = () => {
     </div>
   ), [activeTab, requests, t]);
 
-  useHeader(t('nav_laboratory'), '', HeaderTabs);
+  useHeader(t('nav_laboratory'), '', HeaderTabs, [activeTab]);
 
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
   const [isViewResultsModalOpen, setIsViewResultsModalOpen] = useState(false);

@@ -420,7 +420,7 @@ export const Appointments = () => {
     </div>
   ), [viewMode, t]);
 
-  useHeader(t('appointments_title'), t('appointments_subtitle'), HeaderTabs);
+  useHeader(t('appointments_title'), t('appointments_subtitle'), HeaderTabs, [viewMode]);
 
   const loadData = async (isSilent = false) => {
     if (!isSilent) setLoading(true);

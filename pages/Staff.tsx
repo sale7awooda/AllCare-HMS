@@ -267,9 +267,11 @@ export const Staff = () => {
     switch(type) {
         case 'doctor': return 'Dr. ';
         case 'nurse': return 'Nurse ';
-        case 'technician': return 'Tech. ';
-        case 'radiologist': return 'Rad. ';
-        case 'pharmacist': return 'Pharma. ';
+        case 'technician': return language === 'ar' ? 'فني ' : 'Tech. ';
+        case 'lab_technician': return language === 'ar' ? 'فني ' : 'Lab. ';
+        case 'radiologist': return language === 'ar' ? 'طبيب ' : 'Rad. ';
+        case 'pharmacist': return language === 'ar' ? 'صيدلي ' : 'Pharma. ';
+        case 'anesthesiologist': return language === 'ar' ? 'طبيب ' : 'Anest. ';
         default: return '';
     }
   };
@@ -599,7 +601,7 @@ export const Staff = () => {
     </div>
   ), [activeTab, t]);
 
-  useHeader(t('staff_title'), t('staff_subtitle'), HeaderTabs);
+  useHeader(t('staff_title'), t('staff_subtitle'), HeaderTabs, [activeTab]);
 
   return (
     <div className="space-y-6">
@@ -913,17 +915,17 @@ export const Staff = () => {
                 <option value="doctor">{t('staff_role_doctor')}</option>
                 <option value="nurse">{t('staff_role_nurse')}</option>
                 <option value="technician">{t('staff_role_technician')}</option>
-                <option value="lab_technician">Lab Technician</option>
-                <option value="radiologist">Radiologist</option>
-                <option value="pharmacist">Pharmacist</option>
-                <option value="anesthesiologist">Anesthesiologist</option>
-                <option value="receptionist">Receptionist</option>
-                <option value="accountant">Accountant</option>
-                <option value="hr_manager">HR Manager</option>
-                <option value="manager">Manager</option>
-                <option value="security">Security</option>
-                <option value="maintenance">Maintenance</option>
-                <option value="staff">Other Staff</option>
+                <option value="lab_technician">{t('staff_role_lab_technician')}</option>
+                <option value="radiologist">{t('staff_role_radiologist')}</option>
+                <option value="pharmacist">{t('staff_role_pharmacist')}</option>
+                <option value="anesthesiologist">{t('staff_role_anesthesiologist')}</option>
+                <option value="receptionist">{t('staff_role_receptionist')}</option>
+                <option value="accountant">{t('staff_role_accountant')}</option>
+                <option value="hr">{t('staff_role_hr')}</option>
+                <option value="manager">{t('staff_role_manager')}</option>
+                <option value="security">{t('staff_role_security')}</option>
+                <option value="maintenance">{t('staff_role_maintenance')}</option>
+                <option value="staff">{t('staff_role_staff')}</option>
             </Select>
           </div>
           

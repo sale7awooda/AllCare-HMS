@@ -79,7 +79,7 @@ export const Admissions = () => {
     </div>
   ), [activeMainTab, activeAdmissions.length, t]);
 
-  useHeader(t('admissions_title'), t('admissions_subtitle'), HeaderTabs);
+  useHeader(t('admissions_title'), t('admissions_subtitle'), HeaderTabs, [activeMainTab]);
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);

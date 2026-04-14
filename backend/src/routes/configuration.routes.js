@@ -31,19 +31,19 @@ router.get('/settings', authorizeRoles(Permissions.VIEW_SETTINGS), configuration
 router.put('/settings', authorizeRoles(Permissions.MANAGE_SETTINGS), configurationController.updateSettings);
 
 // Configuration: Departments
-router.get('/departments', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getDepartments);
+router.get('/departments', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.VIEW_DASHBOARD, Permissions.MANAGE_CONFIGURATION), configurationController.getDepartments);
 router.post('/departments', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addDepartment);
 router.put('/departments/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateDepartment);
 router.delete('/departments/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteDepartment);
 
 // Configuration: Specializations
-router.get('/specializations', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.getSpecializations);
+router.get('/specializations', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.VIEW_DASHBOARD, Permissions.MANAGE_CONFIGURATION), configurationController.getSpecializations);
 router.post('/specializations', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addSpecialization);
 router.put('/specializations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateSpecialization);
 router.delete('/specializations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteSpecialization);
 
 // Configuration: Beds
-router.get('/beds', authorizeRoles(Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_CONFIGURATION), configurationController.getBeds);
+router.get('/beds', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.VIEW_DASHBOARD, Permissions.VIEW_ADMISSIONS, Permissions.MANAGE_CONFIGURATION), configurationController.getBeds);
 router.post('/beds', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addBed);
 router.put('/beds/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateBed);
 router.delete('/beds/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteBed);
@@ -67,7 +67,7 @@ router.delete('/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION
 
 // Configuration: Catalogs (Insurance)
 // Allow Billing roles to view Insurance Providers for payments
-router.get('/insurance-providers', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.MANAGE_PATIENTS, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getInsuranceProviders);
+router.get('/insurance-providers', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.VIEW_DASHBOARD, Permissions.MANAGE_CONFIGURATION, Permissions.MANAGE_PATIENTS, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getInsuranceProviders);
 router.post('/insurance-providers', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addInsuranceProvider);
 router.put('/insurance-providers/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateInsuranceProvider);
 router.delete('/insurance-providers/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteInsuranceProvider);
@@ -84,18 +84,18 @@ router.put('/permissions/:role', authorizeRoles(Permissions.MANAGE_CONFIGURATION
 
 // Configuration: Financial
 // Allow Billing roles to view Taxes and Payment Methods
-router.get('/tax-rates', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getTaxRates);
+router.get('/tax-rates', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getTaxRates);
 router.post('/tax-rates', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addTaxRate);
 router.put('/tax-rates/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateTaxRate);
 router.delete('/tax-rates/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteTaxRate);
 
-router.get('/payment-methods', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getPaymentMethods);
+router.get('/payment-methods', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getPaymentMethods);
 router.post('/payment-methods', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addPaymentMethod);
 router.put('/payment-methods/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updatePaymentMethod);
 router.delete('/payment-methods/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deletePaymentMethod);
 
 // Configuration: Banks
-router.get('/banks', authorizeRoles(Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getBanks);
+router.get('/banks', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getBanks);
 router.post('/banks', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addBank);
 router.put('/banks/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateBank);
 router.delete('/banks/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteBank);

@@ -20,8 +20,22 @@ import { useTranslation } from './context/TranslationContext';
 import { AuthContext, useAuth } from './context/AuthContext';
 import { HeaderProvider } from './context/HeaderContext';
 
+import { canAccessRoute } from './utils/rbac';
+
+const ProtectedRoute: React.FC<{ children: React.ReactNode; path: string }> = ({ children, path }) => {
+  const { user } = useAuth();
+  const { t } = useTranslation();
+
+  if (!canAccessRoute(user, path)) {
+    // If the user lands here, it means they manually entered a URL they don't have access to
+    console.warn(`Access denied for ${user?.role} to ${path}`);
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 function AppContent() {
-  // FIX: Replaced React.useContext(AuthContext)! with the custom useAuth() hook for better type safety and cleaner code.
   const { user, isAuthChecking } = useAuth();
   const { t } = useTranslation();
 
@@ -43,18 +57,18 @@ function AppContent() {
       <HeaderProvider>
         <Layout>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/patients" element={<Patients />} />
-            <Route path="/appointments" element={<Appointments />} />
-            <Route path="/admissions" element={<Admissions />} /> 
-            <Route path="/laboratory" element={<Laboratory />} /> 
-            <Route path="/operations" element={<Operations />} /> 
-            <Route path="/billing" element={<Billing />} />
-            <Route path="/hr" element={<Staff />} /> 
-            <Route path="/reports" element={<Reports />} /> 
-            <Route path="/records" element={<Records />} /> 
-            <Route path="/customizations" element={<Customizations />} /> 
-            <Route path="/configuration" element={<Configuration />} /> 
+            <Route path="/" element={<ProtectedRoute path="/"><Dashboard /></ProtectedRoute>} />
+            <Route path="/patients" element={<ProtectedRoute path="/patients"><Patients /></ProtectedRoute>} />
+            <Route path="/appointments" element={<ProtectedRoute path="/appointments"><Appointments /></ProtectedRoute>} />
+            <Route path="/admissions" element={<ProtectedRoute path="/admissions"><Admissions /></ProtectedRoute>} /> 
+            <Route path="/laboratory" element={<ProtectedRoute path="/laboratory"><Laboratory /></ProtectedRoute>} /> 
+            <Route path="/operations" element={<ProtectedRoute path="/operations"><Operations /></ProtectedRoute>} /> 
+            <Route path="/billing" element={<ProtectedRoute path="/billing"><Billing /></ProtectedRoute>} />
+            <Route path="/hr" element={<ProtectedRoute path="/hr"><Staff /></ProtectedRoute>} /> 
+            <Route path="/reports" element={<ProtectedRoute path="/reports"><Reports /></ProtectedRoute>} /> 
+            <Route path="/records" element={<ProtectedRoute path="/records"><Records /></ProtectedRoute>} /> 
+            <Route path="/customizations" element={<ProtectedRoute path="/customizations"><Customizations /></ProtectedRoute>} /> 
+            <Route path="/configuration" element={<ProtectedRoute path="/configuration"><Configuration /></ProtectedRoute>} /> 
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Layout>
