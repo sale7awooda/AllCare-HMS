@@ -82,12 +82,12 @@ define(['./workbox-5a5d9309'], (function (workbox) { 'use strict';
     "revision": "1872c500de691dce40960bb85481de07"
   }, {
     "url": "index.html",
-    "revision": "bed18459fac52af1c20d1bcc5aae9458"
+    "revision": "cc90d0d771330075b99d14eca847e7d8"
   }, {
-    "url": "assets/index-DIO_c3on.js",
+    "url": "assets/index-GJxnRv5_.css",
     "revision": null
   }, {
-    "url": "assets/index-B4F8FZhd.css",
+    "url": "assets/index-CQEtUTdY.js",
     "revision": null
   }, {
     "url": "pwa-192x192.png",
