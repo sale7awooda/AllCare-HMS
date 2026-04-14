@@ -18,6 +18,14 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    const ALLOWED_LOGIN_ROLES = ['admin', 'manager', 'receptionist', 'technician', 'accountant', 'coordinator'];
+    if (!ALLOWED_LOGIN_ROLES.includes(user.role)) {
+      return res.status(403).json({ 
+        error: 'Access Denied', 
+        message: `Your role (${user.role}) is not authorized to access the system via this interface.` 
+      });
+    }
+
     if (!user.is_active) {
       return res.status(403).json({ error: 'Account is inactive. Contact admin.' });
     }

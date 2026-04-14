@@ -1,10 +1,5 @@
-/**
- * RBAC Startup Validator
- * Runs once on server start to catch any corruption or drift in permissions.json
- * before that bug affects a real user request.
- */
-
 const { ROLE_PERMISSIONS, Permissions } = require('./rbac_backend_mirror');
+const { getDb } = require('../config/database');
 
 const validateRbac = () => {
   const permissionValues = new Set(Object.values(Permissions));
@@ -15,7 +10,6 @@ const validateRbac = () => {
   }
 
   let valid = true;
-
   for (const [role, perms] of Object.entries(ROLE_PERMISSIONS)) {
     if (!Array.isArray(perms)) {
       console.error(`[RBAC] Role "${role}" has a non-array permission list.`);
@@ -31,10 +25,26 @@ const validateRbac = () => {
   }
 
   if (!valid) {
-    console.error('[RBAC] FATAL: permissions.json is inconsistent. Fix before running in production.');
+    console.error('[RBAC] FATAL: permission matrix is inconsistent.');
     if (process.env.NODE_ENV === 'production') process.exit(1);
-  } else {
-    console.log('[RBAC] Permissions validated OK.');
+    return;
+  }
+
+  // Synchronize with Database
+  try {
+    const db = getDb();
+    if (db) {
+      const insertOrUpdate = db.prepare('INSERT OR REPLACE INTO role_permissions (role, permissions) VALUES (?, ?)');
+      const syncTx = db.transaction(() => {
+        for (const [role, perms] of Object.entries(ROLE_PERMISSIONS)) {
+          insertOrUpdate.run(role, JSON.stringify(perms));
+        }
+      });
+      syncTx();
+      console.log('[RBAC] Database permissions synchronized with shared matrix.');
+    }
+  } catch (err) {
+    console.error('[RBAC] Warning: Failed to sync permissions to DB:', err.message);
   }
 };
 
