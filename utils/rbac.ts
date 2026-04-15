@@ -44,6 +44,26 @@ export const canAccessRoute = (user: User | null, path: string): boolean => {
     case '/records': return hasPermission(user, Permissions.VIEW_SCREEN_RECORDS);
     case '/customizations': return hasPermission(user, Permissions.VIEW_SCREEN_SETTINGS);
     case '/configuration': return hasPermission(user, Permissions.VIEW_SCREEN_CONFIGURATION);
-    default: return false; 
+  }
+};
+
+export const getDefaultRoute = (role: string | undefined): string => {
+  if (!role) return '/';
+  
+  switch (role) {
+    case 'admin':
+    case 'manager':
+      return '/';
+    case 'receptionist':
+      return '/patients';
+    case 'technician':
+    case 'lab_technician':
+      return '/laboratory';
+    case 'accountant':
+      return '/billing';
+    case 'coordinator':
+      return '/appointments';
+    default:
+      return '/';
   }
 };

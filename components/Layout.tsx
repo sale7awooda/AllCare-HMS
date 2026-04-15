@@ -97,37 +97,42 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
 
         <nav className={`flex-1 py-4 ${isCollapsed ? 'px-2' : 'px-3'} space-y-4 overflow-y-auto custom-scrollbar`}>
-          {navGroups.map((group, i) => (
-            <div key={i}>
-              {group.titleKey && (
-                !isCollapsed ? (
-                  <h3 className="px-3 mb-2 text-[10px] font-black text-slate-600 uppercase tracking-widest animate-in fade-in">{t(group.titleKey)}</h3>
-                ) : <div className="h-px bg-slate-800 mx-4 my-2" />
-              )}
-              <div className="space-y-0.5">
-                {group.items.filter(item => canAccessRoute(user, item.path)).map((item) => {
-                  const isActive = location.pathname === item.path;
-                  const label = t(item.labelKey);
-                  const LinkEl = (
-                    <Link
-                      to={item.path}
-                      onClick={() => setMobileOpen(false)}
-                      className={`
-                        group flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 rounded-lg transition-all duration-200
-                        ${isActive ? 'bg-primary-600 text-white shadow-md shadow-primary-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
-                      `}
-                    >
-                      <div className="relative flex-shrink-0">
-                        <item.icon size={18} className={isActive ? 'text-white' : ''} />
-                      </div>
-                      {!isCollapsed && <span className="font-semibold text-sm whitespace-nowrap animate-in fade-in">{label}</span>}
-                    </Link>
-                  );
-                  return isCollapsed ? <Tooltip key={item.path} content={label} side={isRtl ? "left" : "right"}>{LinkEl}</Tooltip> : <React.Fragment key={item.path}>{LinkEl}</React.Fragment>;
-                })}
+          {navGroups.map((group, i) => {
+            const visibleItems = group.items.filter(item => canAccessRoute(user, item.path));
+            if (visibleItems.length === 0) return null;
+
+            return (
+              <div key={i}>
+                {group.titleKey && (
+                  !isCollapsed ? (
+                    <h3 className="px-3 mb-2 text-[10px] font-black text-slate-600 uppercase tracking-widest animate-in fade-in">{t(group.titleKey)}</h3>
+                  ) : <div className="h-px bg-slate-800 mx-4 my-2" />
+                )}
+                <div className="space-y-0.5">
+                  {visibleItems.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    const label = t(item.labelKey);
+                    const LinkEl = (
+                      <Link
+                        to={item.path}
+                        onClick={() => setMobileOpen(false)}
+                        className={`
+                          group flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 rounded-lg transition-all duration-200
+                          ${isActive ? 'bg-primary-600 text-white shadow-md shadow-primary-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
+                        `}
+                      >
+                        <div className="relative flex-shrink-0">
+                          <item.icon size={18} className={isActive ? 'text-white' : ''} />
+                        </div>
+                        {!isCollapsed && <span className="font-semibold text-sm whitespace-nowrap animate-in fade-in">{label}</span>}
+                      </Link>
+                    );
+                    return isCollapsed ? <Tooltip key={item.path} content={label} side={isRtl ? "left" : "right"}>{LinkEl}</Tooltip> : <React.Fragment key={item.path}>{LinkEl}</React.Fragment>;
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         <div className={`p-2 border-t border-slate-800 dark:border-slate-900 shrink-0 ${isCollapsed ? 'flex flex-col items-center gap-2' : ''}`}>

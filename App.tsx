@@ -20,19 +20,24 @@ import { useTranslation } from './context/TranslationContext';
 import { AuthContext, useAuth } from './context/AuthContext';
 import { HeaderProvider } from './context/HeaderContext';
 
-import { canAccessRoute } from './utils/rbac';
-
-const ProtectedRoute: React.FC<{ children: React.ReactNode; path: string }> = ({ children, path }) => {
-  const { user } = useAuth();
-  const { t } = useTranslation();
-
-  if (!canAccessRoute(user, path)) {
-    // If the user lands here, it means they manually entered a URL they don't have access to
-    console.warn(`Access denied for ${user?.role} to ${path}`);
-    return <Navigate to="/" replace />;
-  }
+import { canAccessRoute, getDefaultRoute } from './utils/rbac';
 
   return <>{children}</>;
+};
+
+const HomeSelector: React.FC = () => {
+  const { user } = useAuth();
+  const defaultPath = getDefaultRoute(user?.role);
+  
+  if (defaultPath !== '/') {
+    return <Navigate to={defaultPath} replace />;
+  }
+  
+  return (
+    <ProtectedRoute path="/">
+      <Dashboard />
+    </ProtectedRoute>
+  );
 };
 
 function AppContent() {
@@ -57,7 +62,7 @@ function AppContent() {
       <HeaderProvider>
         <Layout>
           <Routes>
-            <Route path="/" element={<ProtectedRoute path="/"><Dashboard /></ProtectedRoute>} />
+            <Route path="/" element={<HomeSelector />} />
             <Route path="/patients" element={<ProtectedRoute path="/patients"><Patients /></ProtectedRoute>} />
             <Route path="/appointments" element={<ProtectedRoute path="/appointments"><Appointments /></ProtectedRoute>} />
             <Route path="/admissions" element={<ProtectedRoute path="/admissions"><Admissions /></ProtectedRoute>} /> 

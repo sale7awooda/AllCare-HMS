@@ -18,7 +18,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const ALLOWED_LOGIN_ROLES = ['admin', 'manager', 'receptionist', 'technician', 'accountant', 'coordinator'];
+    const ALLOWED_LOGIN_ROLES = ['admin', 'manager', 'receptionist', 'lab_technician', 'accountant', 'coordinator'];
     if (!ALLOWED_LOGIN_ROLES.includes(user.role)) {
       return res.status(403).json({ 
         error: 'Access Denied', 
