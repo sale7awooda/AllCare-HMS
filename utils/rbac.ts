@@ -7,22 +7,25 @@ export const Permissions = rbacConfig.Permissions as const;
 export type Permission = typeof Permissions[keyof typeof Permissions];
 
 // The Matrix: What each role can do
-const ROLE_PERMISSIONS: Record<Role, Permission[]> = rbacConfig.ROLE_PERMISSIONS as Record<Role, Permission[]>;
+const ROLE_PERMISSIONS = rbacConfig.ROLE_PERMISSIONS as Record<string, string[]>;
 
-export const hasPermission = (user: User | null, permission: Permission): boolean => {
+export const hasPermission = (user: { role: Role } | null, permission: Permission): boolean => {
   if (!user || !user.role) return false;
   
   if (user.role === 'admin') return true; 
 
   if (user.role === 'manager') {
-    if (permission === Permissions.MANAGE_CONFIGURATION || permission.startsWith('DELETE_')) { 
+    // Managers can't access configuration or perform deletes
+    const permStr = String(permission);
+    if (permStr === Permissions.MANAGE_CONFIGURATION || permStr.startsWith('DELETE_')) { 
       return false;
     }
     return true; 
   }
 
-  const userPermissions = ROLE_PERMISSIONS[user.role] || [];
-  return userPermissions.includes(permission);
+  const roleKey = user.role as string;
+  const userPermissions = ROLE_PERMISSIONS[roleKey] || [];
+  return userPermissions.includes(String(permission));
 };
 
 export const canAccessRoute = (user: User | null, path: string): boolean => {
@@ -44,6 +47,7 @@ export const canAccessRoute = (user: User | null, path: string): boolean => {
     case '/records': return hasPermission(user, Permissions.VIEW_SCREEN_RECORDS);
     case '/customizations': return hasPermission(user, Permissions.VIEW_SCREEN_SETTINGS);
     case '/configuration': return hasPermission(user, Permissions.VIEW_SCREEN_CONFIGURATION);
+    default: return false;
   }
 };
 
@@ -56,7 +60,6 @@ export const getDefaultRoute = (role: string | undefined): string => {
       return '/';
     case 'receptionist':
       return '/patients';
-    case 'technician':
     case 'lab_technician':
       return '/laboratory';
     case 'accountant':
@@ -67,3 +70,4 @@ export const getDefaultRoute = (role: string | undefined): string => {
       return '/';
   }
 };
+

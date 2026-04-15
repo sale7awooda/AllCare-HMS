@@ -61,7 +61,7 @@ export const Login: React.FC = () => {
 
   const handleProfileSelect = (role: Role) => {
     setActiveProfile(role);
-    if (role === 'technician') {
+    if (role === 'lab_technician') {
       setUsername('labtech');
       setPassword('labtech123');
     } else {
@@ -210,7 +210,7 @@ export const Login: React.FC = () => {
               <QuickProfile role="manager" label={t('login_profile_manager')} icon={LayoutDashboard} color="from-orange-500 to-amber-500" />
               <QuickProfile role="coordinator" label={t('staff_role_coordinator')} icon={ClipboardCheck} color="from-indigo-500 to-blue-600" />
               <QuickProfile role="receptionist" label={t('login_profile_desk')} icon={UserIcon} color="from-blue-500 to-cyan-500" />
-              <QuickProfile role="technician" label={t('login_profile_lab')} icon={Microscope} color="from-emerald-500 to-teal-500" />
+              <QuickProfile role="lab_technician" label={t('login_profile_lab')} icon={Microscope} color="from-emerald-500 to-teal-500" />
               <QuickProfile role="accountant" label={t('login_profile_finance')} icon={CreditCard} color="from-violet-500 to-purple-500" />
             </div>
           </div>
