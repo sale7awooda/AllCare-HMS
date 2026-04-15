@@ -1,5 +1,11 @@
 
 import axios from 'axios';
+import { 
+  User, Notification, Patient, MedicalStaff, Attendance, LeaveRequest, 
+  FinancialAdjustment, PayrollRecord, Appointment, Bill, Transaction,
+  LabTestCatalog, NurseServiceCatalog, Bed, OperationCatalog, InsuranceProvider,
+  TaxRate, PaymentMethod, Bank
+} from '../types';
 
 // Helper to determine the correct base URL based on the current environment
 const getBaseUrl = () => {
@@ -51,34 +57,36 @@ client.interceptors.response.use(
     }
     return data;
   },
-  async (error) => {
-    const { config, response } = error;
+  async (error: any) => {
+    const config = error.config;
+    const response = error.response;
     
     // Auto-retry once on 429
-    if (response?.status === 429 && !config._retry) {
-      config._retry = true;
+    if (response?.status === 429 && !(config as any)._retry) {
+      (config as any)._retry = true;
       console.warn('Rate limit hit, retrying in 1s...');
       await new Promise(resolve => setTimeout(resolve, 1000));
       return client(config);
     }
 
     // Identify polling requests to exclude from aggressive retries
-    const isPolling = config.url?.includes('/config/settings/public') || 
-                      config.url?.includes('/config/health') || 
-                      config.url?.includes('/notifications');
+    const isPolling = config?.url?.includes('/config/settings/public') || 
+                      config?.url?.includes('/config/health') || 
+                      config?.url?.includes('/notifications');
 
     // Aggressive Auto-retry on Network Error
     // Exclude polling requests to prevent log spam and overlap
-    if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !config._retryNetwork && !isPolling) {
-        config._retryNetworkCount = (config._retryNetworkCount || 0) + 1;
+    if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !(config as any)._retryNetwork && !isPolling) {
+        (config as any)._retryNetworkCount = ((config as any)._retryNetworkCount || 0) + 1;
         const MAX_RETRIES = 5; 
-        if (config._retryNetworkCount <= MAX_RETRIES) {
+        if ((config as any)._retryNetworkCount <= MAX_RETRIES) {
             const delay = 2000;
-            console.log(`Backend unreachable. Retrying in ${delay}ms... (${config._retryNetworkCount}/${MAX_RETRIES})`);
+            console.log(`Backend unreachable. Retrying in ${delay}ms... (${(config as any)._retryNetworkCount}/${MAX_RETRIES})`);
             await new Promise(resolve => setTimeout(resolve, delay));
             return client(config);
         }
     }
+
 
     // Authentication failure (No token or invalid token)
     if (error.response?.status === 401) {
@@ -90,8 +98,9 @@ client.interceptors.response.use(
       }
 
       const originalRequest = config;
-      if (!originalRequest._retry) {
-        originalRequest._retry = true;
+      if (!(originalRequest as any)._retry) {
+        (originalRequest as any)._retry = true;
+
         
         if (isRefreshing) {
           return new Promise(function(resolve, reject) {
@@ -151,135 +160,145 @@ const put = (url: string, data?: any) => client.put(url, data) as Promise<any>;
 const del = (url: string) => client.delete(url) as Promise<any>;
 
 export const api = {
-  login: (username, password) => post('/auth/login', { username, password }),
-  me: () => get('/auth/me'),
-  updateProfile: (data) => put('/auth/profile', data),
-  changePassword: (data) => put('/auth/password', data),
-  checkSystemHealth: () => get('/config/health'),
+  login: (username: string, password: string): Promise<{ token: string; user: User }> => post('/auth/login', { username, password }),
+  me: (): Promise<User> => get('/auth/me'),
+  updateProfile: (data: Partial<User>): Promise<User> => put('/auth/profile', data),
+  changePassword: (data: any): Promise<{ success: boolean }> => put('/auth/password', data),
+  checkSystemHealth: (): Promise<any> => get('/config/health'),
 
   // Notifications
-  getNotifications: () => get('/notifications'),
-  markNotificationRead: (id) => put(`/notifications/${id}/read`),
-  markAllNotificationsRead: () => put('/notifications/read-all'),
+  getNotifications: (): Promise<Notification[]> => get('/notifications'),
+  markNotificationRead: (id: number): Promise<void> => put(`/notifications/${id}/read`),
+  markAllNotificationsRead: (): Promise<void> => put('/notifications/read-all'),
 
-  getPatients: () => get('/patients'),
-  getPatient: (id) => get(`/patients/${id}`),
-  addPatient: (data) => post('/patients', data),
-  updatePatient: (id, data) => put(`/patients/${id}`, data),
+  // Patients
+  getPatients: (): Promise<Patient[]> => get('/patients'),
+  getPatient: (id: number): Promise<Patient> => get(`/patients/${id}`),
+  addPatient: (data: Partial<Patient>): Promise<Patient> => post('/patients', data),
+  updatePatient: (id: number, data: Partial<Patient>): Promise<Patient> => put(`/patients/${id}`, data),
 
-  getStaff: () => get('/hr'),
-  addStaff: (data) => post('/hr', data),
-  updateStaff: (id, data) => put(`/hr/${id}`, data),
-  getAttendance: (date) => get(`/hr/attendance?date=${date}`),
-  markAttendance: (data) => post('/hr/attendance', data),
-  getLeaves: () => get('/hr/leaves'),
-  requestLeave: (data) => post('/hr/leaves', data),
-  updateLeaveStatus: (id, status) => put(`/hr/leaves/${id}`, { status }),
-  getPayroll: (month) => get(`/hr/payroll?month=${month}`),
-  generatePayroll: (data) => post('/hr/payroll/generate', data),
-  updatePayrollStatus: (id, data) => put(`/hr/payroll/${id}/status`, data),
-  getFinancials: (type) => get(`/hr/financials?type=${type}`), 
-  addAdjustment: (data) => post('/hr/financials', data), 
-  updateFinancialStatus: (id, status) => put(`/hr/financials/${id}/status`, { status }),
+  // HR & Staff
+  getStaff: (): Promise<MedicalStaff[]> => get('/hr'),
+  addStaff: (data: Partial<MedicalStaff>): Promise<MedicalStaff> => post('/hr', data),
+  updateStaff: (id: number, data: Partial<MedicalStaff>): Promise<MedicalStaff> => put(`/hr/${id}`, data),
+  getAttendance: (date: string): Promise<Attendance[]> => get(`/hr/attendance?date=${date}`),
+  markAttendance: (data: any): Promise<void> => post('/hr/attendance', data),
+  getLeaves: (): Promise<LeaveRequest[]> => get('/hr/leaves'),
+  requestLeave: (data: any): Promise<LeaveRequest> => post('/hr/leaves', data),
+  updateLeaveStatus: (id: number, status: string): Promise<void> => put(`/hr/leaves/${id}`, { status }),
+  getPayroll: (month: string): Promise<PayrollRecord[]> => get(`/hr/payroll?month=${month}`),
+  generatePayroll: (data: any): Promise<void> => post('/hr/payroll/generate', data),
+  updatePayrollStatus: (id: number, data: any): Promise<void> => put(`/hr/payroll/${id}/status`, data),
+  getFinancials: (type: string): Promise<FinancialAdjustment[]> => get(`/hr/financials?type=${type}`), 
+  addAdjustment: (data: any): Promise<FinancialAdjustment> => post('/hr/financials', data), 
+  updateFinancialStatus: (id: number, status: string): Promise<void> => put(`/hr/financials/${id}/status`, { status }),
 
-  getAppointments: () => get('/appointments'),
-  createAppointment: (data) => post('/appointments', data),
-  updateAppointment: (id, data) => put(`/appointments/${id}`, data),
-  updateAppointmentStatus: (id, status) => put(`/appointments/${id}/status`, { status }),
-  cancelAppointment: (id) => put(`/appointments/${id}/cancel`),
+  // Appointments
+  getAppointments: (): Promise<Appointment[]> => get('/appointments'),
+  createAppointment: (data: any): Promise<Appointment> => post('/appointments', data),
+  updateAppointment: (id: number, data: any): Promise<Appointment> => put(`/appointments/${id}`, data),
+  updateAppointmentStatus: (id: number, status: string): Promise<void> => put(`/appointments/${id}/status`, { status }),
+  cancelAppointment: (id: number): Promise<void> => put(`/appointments/${id}/cancel`),
 
-  getBills: () => get('/billing'),
-  createBill: (data) => post('/billing', data),
-  recordPayment: (id, data) => post(`/billing/${id}/pay`, data), 
-  processRefund: (id, data) => post(`/billing/${id}/refund`, data),
-  cancelService: (id) => post(`/billing/${id}/cancel-service`), 
-  getTransactions: () => get('/treasury/transactions'),
-  addExpense: (data) => post('/treasury/expenses', data),
-  updateExpense: (id, data) => put(`/treasury/expenses/${id}`, data),
+  // Billing
+  getBills: (): Promise<Bill[]> => get('/billing'),
+  createBill: (data: any): Promise<Bill> => post('/billing', data),
+  recordPayment: (id: number, data: any): Promise<void> => post(`/billing/${id}/pay`, data), 
+  processRefund: (id: number, data: any): Promise<void> => post(`/billing/${id}/refund`, data),
+  cancelService: (id: number): Promise<void> => post(`/billing/${id}/cancel-service`), 
+  getTransactions: (): Promise<Transaction[]> => get('/treasury/transactions'),
+  addExpense: (data: any): Promise<Transaction> => post('/treasury/expenses', data),
+  updateExpense: (id: number, data: any): Promise<Transaction> => put(`/treasury/expenses/${id}`, data),
 
-  getActiveAdmissions: () => get('/admissions'),
-  getAdmissionsHistory: () => get('/admissions/history'),
-  getInpatientDetails: (id) => get(`/admissions/${id}`),
-  createAdmission: (data) => post('/admissions', data),
-  confirmAdmissionDeposit: (id) => post(`/admissions/${id}/confirm`),
-  cancelAdmission: (id) => put(`/admissions/${id}/cancel`),
-  addInpatientNote: (id, data) => post(`/admissions/${id}/notes`, data),
-  dischargePatient: (id, data) => post(`/admissions/${id}/discharge`, data),
-  settleAndDischarge: (id, data) => post(`/admissions/${id}/settle_and_discharge`, data),
-  generateSettlementBill: (id) => post(`/admissions/${id}/generate-settlement`),
-  markBedClean: (id) => put(`/admissions/beds/${id}/clean`),
+  // Admissions
+  getActiveAdmissions: (): Promise<any[]> => get('/admissions'),
+  getAdmissionsHistory: (): Promise<any[]> => get('/admissions/history'),
+  getInpatientDetails: (id: number): Promise<any> => get(`/admissions/${id}`),
+  createAdmission: (data: any): Promise<any> => post('/admissions', data),
+  confirmAdmissionDeposit: (id: number): Promise<void> => post(`/admissions/${id}/confirm`),
+  cancelAdmission: (id: number): Promise<void> => put(`/admissions/${id}/cancel`),
+  addInpatientNote: (id: number, data: any): Promise<void> => post(`/admissions/${id}/notes`, data),
+  dischargePatient: (id: number, data: any): Promise<void> => post(`/admissions/${id}/discharge`, data),
+  settleAndDischarge: (id: number, data: any): Promise<void> => post(`/admissions/${id}/settle_and_discharge`, data),
+  generateSettlementBill: (id: number): Promise<Bill> => post(`/admissions/${id}/generate-settlement`),
+  markBedClean: (id: number): Promise<void> => put(`/admissions/beds/${id}/clean`),
 
-  getLabTests: () => get('/config/lab-tests'),
-  getPendingLabRequests: () => get('/lab/requests'),
-  createLabRequest: (data) => post('/lab/requests', data),
-  completeLabRequest: (id, data) => post(`/lab/requests/${id}/complete`, data),
-  confirmLabRequest: (id) => post(`/lab/requests/${id}/confirm`),
-  reopenLabRequest: (id) => post(`/lab/requests/${id}/reopen`),
+  // Lab
+  getLabTests: (): Promise<LabTestCatalog[]> => get('/config/lab-tests'),
+  getPendingLabRequests: (): Promise<any[]> => get('/lab/requests'),
+  createLabRequest: (data: any): Promise<any> => post('/lab/requests', data),
+  completeLabRequest: (id: number, data: any): Promise<void> => post(`/lab/requests/${id}/complete`, data),
+  confirmLabRequest: (id: number): Promise<void> => post(`/lab/requests/${id}/confirm`),
+  reopenLabRequest: (id: number): Promise<void> => post(`/lab/requests/${id}/reopen`),
 
-  getNurseServices: () => get('/config/nurse-services'),
-  createNurseRequest: (data) => post('/nurse/requests', data),
-  getNurseRequests: () => get('/nurse/requests'),
+  // Nurse
+  getNurseServices: (): Promise<NurseServiceCatalog[]> => get('/config/nurse-services'),
+  createNurseRequest: (data: any): Promise<any> => post('/nurse/requests', data),
+  getNurseRequests: (): Promise<any[]> => get('/nurse/requests'),
 
-  getScheduledOperations: () => get('/operations'),
-  getOperations: () => get('/config/operations'),
-  createOperation: (data) => post('/operations', data),
-  processOperationRequest: (id, data) => post(`/operations/${id}/process`, data),
-  completeOperation: (id) => post(`/operations/${id}/complete`),
-  confirmOperation: (id) => post(`/operations/${id}/confirm`),
+  // Operations
+  getScheduledOperations: (): Promise<any[]> => get('/operations'),
+  getOperations: (): Promise<OperationCatalog[]> => get('/config/operations'),
+  createOperation: (data: any): Promise<any> => post('/operations', data),
+  processOperationRequest: (id: number, data: any): Promise<void> => post(`/operations/${id}/process`, data),
+  completeOperation: (id: number): Promise<void> => post(`/operations/${id}/complete`),
+  confirmOperation: (id: number): Promise<void> => post(`/operations/${id}/confirm`),
 
-  getSystemSettings: () => get('/config/settings'),
-  getPublicSettings: () => get('/config/settings/public'),
-  updateSystemSettings: (data) => put('/config/settings', data),
-  getSystemUsers: () => get('/config/users'),
-  addSystemUser: (data) => post('/config/users', data),
-  updateSystemUser: (id, data) => put(`/config/users/${id}`, data),
-  deleteSystemUser: (id) => del(`/config/users/${id}`),
-  getRolePermissions: () => get('/config/permissions'),
-  updateRolePermissions: (role, permissions) => put(`/config/permissions/${role}`, { permissions }),
+  // Config & Administration
+  getSystemSettings: (): Promise<any> => get('/config/settings'),
+  getPublicSettings: (): Promise<any> => get('/config/settings/public'),
+  updateSystemSettings: (data: any): Promise<void> => put('/config/settings', data),
+  getSystemUsers: (): Promise<User[]> => get('/config/users'),
+  addSystemUser: (data: Partial<User>): Promise<User> => post('/config/users', data),
+  updateSystemUser: (id: number, data: Partial<User>): Promise<User> => put(`/config/users/${id}`, data),
+  deleteSystemUser: (id: number): Promise<void> => del(`/config/users/${id}`),
+  getRolePermissions: (): Promise<any> => get('/config/permissions'),
+  updateRolePermissions: (role: string, permissions: string[]): Promise<void> => put(`/config/permissions/${role}`, { permissions }),
 
-  getDepartments: () => get('/config/departments'),
-  addDepartment: (data) => post('/config/departments', data),
-  updateDepartment: (id, data) => put(`/config/departments/${id}`, data),
-  deleteDepartment: (id) => del(`/config/departments/${id}`),
-  getSpecializations: () => get('/config/specializations'),
-  addSpecialization: (data) => post('/config/specializations', data),
-  updateSpecialization: (id, data) => put(`/config/specializations/${id}`, data),
-  deleteSpecialization: (id) => del(`/config/specializations/${id}`),
-  getBeds: () => get('/config/beds'), 
-  addBed: (data) => post('/config/beds', data),
-  updateBed: (id, data) => put(`/config/beds/${id}`, data),
-  deleteBed: (id) => del(`/config/beds/${id}`),
-  addLabTest: (data) => post('/config/lab-tests', data),
-  updateLabTest: (id, data) => put(`/config/lab-tests/${id}`, data),
-  deleteLabTest: (id) => del(`/config/lab-tests/${id}`),
-  addNurseService: (data) => post('/config/nurse-services', data),
-  updateNurseService: (id, data) => put(`/config/nurse-services/${id}`, data),
-  deleteNurseService: (id) => del(`/config/nurse-services/${id}`),
-  addOperationCatalog: (data) => post('/config/operations', data),
-  updateOperationCatalog: (id, data) => put(`/config/operations/${id}`, data),
-  deleteOperationCatalog: (id) => del(`/config/operations/${id}`),
+  getDepartments: (): Promise<any[]> => get('/config/departments'),
+  addDepartment: (data: any): Promise<any> => post('/config/departments', data),
+  updateDepartment: (id: number, data: any): Promise<any> => put(`/config/departments/${id}`, data),
+  deleteDepartment: (id: number): Promise<void> => del(`/config/departments/${id}`),
+  getSpecializations: (): Promise<any[]> => get('/config/specializations'),
+  addSpecialization: (data: any): Promise<any> => post('/config/specializations', data),
+  updateSpecialization: (id: number, data: any): Promise<any> => put(`/config/specializations/${id}`, data),
+  deleteSpecialization: (id: number): Promise<void> => del(`/config/specializations/${id}`),
+  getBeds: (): Promise<Bed[]> => get('/config/beds'), 
+  addBed: (data: Partial<Bed>): Promise<Bed> => post('/config/beds', data),
+  updateBed: (id: number, data: Partial<Bed>): Promise<Bed> => put(`/config/beds/${id}`, data),
+  deleteBed: (id: number): Promise<void> => del(`/config/beds/${id}`),
+  addLabTest: (data: Partial<LabTestCatalog>): Promise<LabTestCatalog> => post('/config/lab-tests', data),
+  updateLabTest: (id: number, data: Partial<LabTestCatalog>): Promise<LabTestCatalog> => put(`/config/lab-tests/${id}`, data),
+  deleteLabTest: (id: number): Promise<void> => del(`/config/lab-tests/${id}`),
+  addNurseService: (data: Partial<NurseServiceCatalog>): Promise<NurseServiceCatalog> => post('/config/nurse-services', data),
+  updateNurseService: (id: number, data: Partial<NurseServiceCatalog>): Promise<NurseServiceCatalog> => put(`/config/nurse-services/${id}`, data),
+  deleteNurseService: (id: number): Promise<void> => del(`/config/nurse-services/${id}`),
+  addOperationCatalog: (data: Partial<OperationCatalog>): Promise<OperationCatalog> => post('/config/operations', data),
+  updateOperationCatalog: (id: number, data: Partial<OperationCatalog>): Promise<OperationCatalog> => put(`/config/operations/${id}`, data),
+  deleteOperationCatalog: (id: number): Promise<void> => del(`/config/operations/${id}`),
   
-  getInsuranceProviders: () => get('/config/insurance-providers'),
-  addInsuranceProvider: (data) => post('/config/insurance-providers', data),
-  updateInsuranceProvider: (id, data) => put(`/config/insurance-providers/${id}`, data),
-  deleteInsuranceProvider: (id) => del(`/config/insurance-providers/${id}`),
-  getBanks: () => get('/config/banks'),
-  addBank: (data) => post('/config/banks', data),
-  updateBank: (id, data) => put(`/config/banks/${id}`, data),
-  deleteBank: (id) => del(`/config/banks/${id}`),
-  getTaxRates: () => get('/config/tax-rates'),
-  addTaxRate: (data) => post('/config/tax-rates', data),
-  updateTaxRate: (id, data) => put(`/config/tax-rates/${id}`, data),
-  deleteTaxRate: (id) => del(`/config/tax-rates/${id}`),
-  getPaymentMethods: () => get('/config/payment-methods'),
-  addPaymentMethod: (data) => post('/config/payment-methods', data),
-  updatePaymentMethod: (id, data) => put(`/config/payment-methods/${id}`, data),
-  deletePaymentMethod: (id) => del(`/config/payment-methods/${id}`),
+  getInsuranceProviders: (): Promise<InsuranceProvider[]> => get('/config/insurance-providers'),
+  addInsuranceProvider: (data: Partial<InsuranceProvider>): Promise<InsuranceProvider> => post('/config/insurance-providers', data),
+  updateInsuranceProvider: (id: number, data: Partial<InsuranceProvider>): Promise<InsuranceProvider> => put(`/config/insurance-providers/${id}`, data),
+  deleteInsuranceProvider: (id: number): Promise<void> => del(`/config/insurance-providers/${id}`),
+  getBanks: (): Promise<Bank[]> => get('/config/banks'),
+  addBank: (data: Partial<Bank>): Promise<Bank> => post('/config/banks', data),
+  updateBank: (id: number, data: Partial<Bank>): Promise<Bank> => put(`/config/banks/${id}`, data),
+  deleteBank: (id: number): Promise<void> => del(`/config/banks/${id}`),
+  getTaxRates: (): Promise<TaxRate[]> => get('/config/tax-rates'),
+  addTaxRate: (data: Partial<TaxRate>): Promise<TaxRate> => post('/config/tax-rates', data),
+  updateTaxRate: (id: number, data: Partial<TaxRate>): Promise<TaxRate> => put(`/config/tax-rates/${id}`, data),
+  deleteTaxRate: (id: number): Promise<void> => del(`/config/tax-rates/${id}`),
+  getPaymentMethods: (): Promise<PaymentMethod[]> => get('/config/payment-methods'),
+  addPaymentMethod: (data: Partial<PaymentMethod>): Promise<PaymentMethod> => post('/config/payment-methods', data),
+  updatePaymentMethod: (id: number, data: Partial<PaymentMethod>): Promise<PaymentMethod> => put(`/config/payment-methods/${id}`, data),
+  deletePaymentMethod: (id: number): Promise<void> => del(`/config/payment-methods/${id}`),
 
-  downloadBackup: async () => {
+  downloadBackup: async (): Promise<void> => {
     try {
         const response = await client.get('/config/backup', { responseType: 'blob' });
-        const blob = new Blob([response], { type: 'application/x-sqlite3' });
+        // Response is unwrapped by interceptor to be data (the blob)
+        const blob = new Blob([response as any], { type: 'application/x-sqlite3' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -293,10 +312,10 @@ export const api = {
         throw e;
     }
   },
-  restoreDatabase: (file) => {
+  restoreDatabase: (file: File): Promise<any> => {
     const formData = new FormData();
     formData.append('backup', file);
     return post('/config/restore', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
-  resetDatabase: () => post('/config/reset'),
+  resetDatabase: (): Promise<any> => post('/config/reset'),
 };

@@ -16,8 +16,8 @@ router.post('/lab/requests/:id/confirm', authorizeRoles(Permissions.MANAGE_LABOR
 router.post('/lab/requests/:id/reopen', authorizeRoles(Permissions.MANAGE_LABORATORY), auditLog('UPDATE', 'lab_request'), medicalController.reopenLabRequest);
 
 // Medical: Nurse
-router.get('/nurse/requests', authorizeRoles(Permissions.VIEW_DASHBOARD), medicalController.getNurseRequests);
-router.post('/nurse/requests', authorizeRoles(Permissions.VIEW_DASHBOARD), validate(schemas.createNurseRequest), auditLog('CREATE', 'nurse_request'), medicalController.createNurseRequest);
+router.get('/nurse/requests', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.VIEW_DASHBOARD), medicalController.getNurseRequests);
+router.post('/nurse/requests', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.VIEW_DASHBOARD), validate(schemas.createNurseRequest), auditLog('CREATE', 'nurse_request'), medicalController.createNurseRequest);
 
 // Medical: Operations
 router.get('/operations', authorizeRoles(Permissions.VIEW_OPERATIONS), medicalController.getScheduledOperations);

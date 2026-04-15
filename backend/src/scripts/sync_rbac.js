@@ -3,10 +3,10 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-// Path to the database
-const dbPath = path.resolve(__dirname, '../../allcare.db');
+// Path to the database - prefer DB_PATH environment variable for production/Fly.io
+const dbPath = process.env.DB_PATH || path.resolve(__dirname, '../../allcare.db');
 // Path to permissions.json
-const permissionsPath = path.resolve(__dirname, '../../../shared/permissions.json');
+const permissionsPath = process.env.PERMISSIONS_PATH || path.resolve(__dirname, '../../../shared/permissions.json');
 
 console.log('--- RBAC Sync Script ---');
 console.log('Database:', dbPath);

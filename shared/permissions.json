@@ -118,6 +118,7 @@
       "VIEW_SCREEN_SETTINGS"
     ],
     "receptionist": [
+      "VIEW_DASHBOARD",
       "VIEW_PATIENTS",
       "VIEW_APPOINTMENTS",
       "VIEW_ADMISSIONS",
@@ -129,6 +130,7 @@
       "MANAGE_ADMISSIONS",
       "MANAGE_LABORATORY",
       "MANAGE_OPERATIONS",
+      "VIEW_SCREEN_DASHBOARD",
       "VIEW_SCREEN_PATIENTS",
       "VIEW_SCREEN_APPOINTMENTS",
       "VIEW_SCREEN_ADMISSIONS",
@@ -137,64 +139,40 @@
       "VIEW_SCREEN_SETTINGS"
     ],
     "lab_technician": [
+      "VIEW_DASHBOARD",
       "VIEW_PATIENTS",
       "VIEW_APPOINTMENTS",
       "VIEW_ADMISSIONS",
       "VIEW_LABORATORY",
+      "VIEW_SETTINGS",
       "MANAGE_LABORATORY",
+      "VIEW_SCREEN_DASHBOARD",
       "VIEW_SCREEN_LABORATORY",
       "VIEW_SCREEN_SETTINGS"
     ],
     "accountant": [
+      "VIEW_DASHBOARD",
       "VIEW_PATIENTS",
+      "VIEW_ADMISSIONS",
       "VIEW_BILLING",
+      "VIEW_SETTINGS",
       "MANAGE_BILLING",
+      "VIEW_SCREEN_DASHBOARD",
       "VIEW_SCREEN_BILLING",
       "VIEW_SCREEN_SETTINGS"
     ],
     "coordinator": [
+      "VIEW_DASHBOARD",
       "VIEW_PATIENTS",
       "VIEW_APPOINTMENTS",
-      "MANAGE_APPOINTMENTS",
       "VIEW_ADMISSIONS",
       "VIEW_LABORATORY",
       "VIEW_OPERATIONS",
+      "VIEW_SETTINGS",
+      "MANAGE_APPOINTMENTS",
+      "VIEW_SCREEN_DASHBOARD",
       "VIEW_SCREEN_APPOINTMENTS",
       "VIEW_SCREEN_SETTINGS"
-    ],
-    "doctor": [
-      "VIEW_PATIENTS",
-      "VIEW_APPOINTMENTS",
-      "VIEW_LABORATORY",
-      "VIEW_OPERATIONS",
-      "VIEW_ADMISSIONS"
-    ],
-    "nurse": [
-      "VIEW_PATIENTS",
-      "VIEW_APPOINTMENTS",
-      "VIEW_ADMISSIONS",
-      "VIEW_LABORATORY",
-      "VIEW_OPERATIONS"
-    ],
-    "pharmacist": [
-      "VIEW_PATIENTS",
-      "VIEW_LABORATORY"
-    ],
-    "hr": [
-      "VIEW_HR"
-    ],
-    "staff": [
-      "VIEW_RECORDS"
-    ],
-    "radiologist": [
-      "VIEW_PATIENTS",
-      "VIEW_LABORATORY"
-    ],
-    "anesthesiologist": [
-      "VIEW_PATIENTS",
-      "VIEW_OPERATIONS"
-    ],
-    "security": [],
-    "maintenance": []
+    ]
   }
 }

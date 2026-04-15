@@ -49,18 +49,18 @@ router.put('/beds/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), config
 router.delete('/beds/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteBed);
 
 // Configuration: Catalogs (Lab, Nurse, Ops)
-// Allow Billing roles to view Lab Tests for invoicing catalog
-router.get('/lab-tests', authorizeRoles(Permissions.VIEW_LABORATORY, Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getLabTests);
+// Allow roles with VIEW_SETTINGS to see catalogs for dropdown population
+router.get('/lab-tests', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.VIEW_LABORATORY, Permissions.MANAGE_CONFIGURATION, Permissions.VIEW_BILLING, Permissions.MANAGE_BILLING), configurationController.getLabTests);
 router.post('/lab-tests', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addLabTest);
 router.put('/lab-tests/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateLabTest);
 router.delete('/lab-tests/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteLabTest);
 
-router.get('/nurse-services', authorizeRoles(Permissions.VIEW_DASHBOARD, Permissions.MANAGE_CONFIGURATION), configurationController.getNurseServices);
+router.get('/nurse-services', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.VIEW_DASHBOARD, Permissions.MANAGE_CONFIGURATION), configurationController.getNurseServices);
 router.post('/nurse-services', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addNurseService);
 router.put('/nurse-services/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateNurseService);
 router.delete('/nurse-services/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteNurseService);
 
-router.get('/operations', authorizeRoles(Permissions.VIEW_OPERATIONS, Permissions.MANAGE_CONFIGURATION), configurationController.getOperations);
+router.get('/operations', authorizeRoles(Permissions.VIEW_SETTINGS, Permissions.VIEW_OPERATIONS, Permissions.MANAGE_CONFIGURATION), configurationController.getOperations);
 router.post('/operations', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.addOperation);
 router.put('/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.updateOperation);
 router.delete('/operations/:id', authorizeRoles(Permissions.MANAGE_CONFIGURATION), configurationController.deleteOperation);
