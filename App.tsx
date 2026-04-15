@@ -22,6 +22,14 @@ import { HeaderProvider } from './context/HeaderContext';
 
 import { canAccessRoute, getDefaultRoute } from './utils/rbac';
 
+const ProtectedRoute: React.FC<{ children: React.ReactNode; path: string }> = ({ children, path }) => {
+  const { user } = useAuth();
+
+  if (!canAccessRoute(user, path)) {
+    console.warn(`Access denied for ${user?.role} to ${path}`);
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 };
 
