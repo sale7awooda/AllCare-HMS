@@ -1,20 +1,30 @@
 import { User, Role } from '../types';
-import rbacConfig from '../shared/permissions.json';
+// @ts-ignore - Handle JSON import correctly in different build environments
+import rbacConfigRaw from '../shared/permissions.json';
 
-// Define granular permissions for all modules and actions, including DELETE
-export const Permissions = rbacConfig.Permissions as const;
+interface RbacConfig {
+  Permissions: Record<string, string>;
+  ROLE_PERMISSIONS: Record<string, string[]>;
+}
 
-export type Permission = typeof Permissions[keyof typeof Permissions];
+const rbacConfig = rbacConfigRaw as unknown as RbacConfig;
+
+// Define granular permissions for all modules and actions
+export const Permissions = rbacConfig.Permissions;
+
+export type Permission = string;
 
 // The Matrix: What each role can do
-const ROLE_PERMISSIONS = rbacConfig.ROLE_PERMISSIONS as Record<string, string[]>;
+const ROLE_PERMISSIONS = rbacConfig.ROLE_PERMISSIONS;
 
 export const hasPermission = (user: { role: Role } | null, permission: Permission): boolean => {
   if (!user || !user.role) return false;
   
-  if (user.role === 'admin') return true; 
+  const userRole = String(user.role).toLowerCase();
 
-  if (user.role === 'manager') {
+  if (userRole === 'admin') return true; 
+
+  if (userRole === 'manager') {
     // Managers can't access configuration or perform deletes
     const permStr = String(permission);
     if (permStr === Permissions.MANAGE_CONFIGURATION || permStr.startsWith('DELETE_')) { 
@@ -23,8 +33,7 @@ export const hasPermission = (user: { role: Role } | null, permission: Permissio
     return true; 
   }
 
-  const roleKey = user.role as string;
-  const userPermissions = ROLE_PERMISSIONS[roleKey] || [];
+  const userPermissions = ROLE_PERMISSIONS[userRole] || [];
   return userPermissions.includes(String(permission));
 };
 

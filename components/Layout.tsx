@@ -191,14 +191,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           );
         })}
         
-        {/* Menu Toggle */}
-        <button
-          onClick={() => setMobileOpen(!isMobileOpen)}
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${isMobileOpen ? 'text-primary-600 dark:text-primary-400' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
-        >
-          <Menu size={20} />
-          <span className="text-[10px] font-semibold">{t('nav_configuration')} / {t('nav_system')} </span>
-        </button>
+        {/* Menu Toggle - Only show if user can access reports, records, config, or settings */}
+        {(canAccessRoute(user, '/reports') || 
+          canAccessRoute(user, '/records') || 
+          canAccessRoute(user, '/configuration') || 
+          canAccessRoute(user, '/customizations')) && (
+          <button
+            onClick={() => setMobileOpen(!isMobileOpen)}
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${isMobileOpen ? 'text-primary-600 dark:text-primary-400' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+          >
+            <Menu size={20} />
+            <span className="text-[10px] font-semibold">{t('nav_configuration')} / {t('nav_system')} </span>
+          </button>
+        )}
       </nav>
 
       {isMobileOpen && <div className="fixed inset-0 z-[45] bg-slate-900/50 backdrop-blur-sm lg:hidden animate-in fade-in" onClick={() => setMobileOpen(false)}></div>}
