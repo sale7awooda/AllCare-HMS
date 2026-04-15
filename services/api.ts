@@ -129,12 +129,6 @@ client.interceptors.response.use(
     if (error.response?.status === 403) {
       console.error('Access forbidden: You do not have permission to access this resource.', config.url);
       // Optional: show a specific toast or error UI
-      
-      // If it's a GET request, gracefully return an empty array to prevent 
-      // Promise.all failures in components fetching parallel secondary data.
-      if (config.method?.toLowerCase() === 'get') {
-        return Promise.resolve([]);
-      }
     }
 
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {

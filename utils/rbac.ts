@@ -22,19 +22,22 @@ export const hasPermission = (user: { role: Role } | null, permission: Permissio
   
   const userRole = String(user.role).toLowerCase();
 
+  // Admin maintains full system access as a failsafe
   if (userRole === 'admin') return true; 
 
+  const userPermissions = ROLE_PERMISSIONS[userRole] || [];
+  const hasPerm = userPermissions.includes(String(permission));
+
+  // Additional safety for manager: explicitly deny configuration and deletes 
+  // regardless of what the JSON might accidentally include (secondary layer of defense)
   if (userRole === 'manager') {
-    // Managers can't access configuration or perform deletes
     const permStr = String(permission);
     if (permStr === Permissions.MANAGE_CONFIGURATION || permStr.startsWith('DELETE_')) { 
       return false;
     }
-    return true; 
   }
 
-  const userPermissions = ROLE_PERMISSIONS[userRole] || [];
-  return userPermissions.includes(String(permission));
+  return hasPerm;
 };
 
 export const canAccessRoute = (user: User | null, path: string): boolean => {
@@ -43,6 +46,7 @@ export const canAccessRoute = (user: User | null, path: string): boolean => {
   // Admin maintains full system access as a failsafe
   if (user.role === 'admin') return true;
 
+  // Use the VIEW_SCREEN permissions defined in permissions.json
   switch (path) {
     case '/': return hasPermission(user, Permissions.VIEW_SCREEN_DASHBOARD); 
     case '/patients': return hasPermission(user, Permissions.VIEW_SCREEN_PATIENTS);
@@ -63,7 +67,9 @@ export const canAccessRoute = (user: User | null, path: string): boolean => {
 export const getDefaultRoute = (role: string | undefined): string => {
   if (!role) return '/';
   
-  switch (role) {
+  const normalizedRole = role.toLowerCase();
+  
+  switch (normalizedRole) {
     case 'admin':
     case 'manager':
       return '/';
@@ -76,6 +82,8 @@ export const getDefaultRoute = (role: string | undefined): string => {
     case 'coordinator':
       return '/appointments';
     default:
+      // Roles without dashboard access should fall back to a safe screen if possible,
+      // but based on user requirement, they land on their primary module.
       return '/';
   }
 };
