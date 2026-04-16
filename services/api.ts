@@ -74,22 +74,8 @@ client.interceptors.response.use(
                       config?.url?.includes('/config/health') || 
                       config?.url?.includes('/notifications');
 
-    // Aggressive Auto-retry on Network Error
-    // Exclude polling requests to prevent log spam and overlap
-    if ((error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) && !(config as any)._retryNetwork && !isPolling) {
-        (config as any)._retryNetworkCount = ((config as any)._retryNetworkCount || 0) + 1;
-        const MAX_RETRIES = 5; 
-        if ((config as any)._retryNetworkCount <= MAX_RETRIES) {
-            const delay = 2000;
-            console.log(`Backend unreachable. Retrying in ${delay}ms... (${(config as any)._retryNetworkCount}/${MAX_RETRIES})`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            return client(config);
-        }
-    }
-
-
     // Authentication failure (No token or invalid token)
-    if (error.response?.status === 401) {
+    if (response?.status === 401) {
       // If the refresh token itself failed, or if we are logging in, abort
       if (config.url === '/auth/refresh' || config.url === '/auth/login') {
         localStorage.removeItem('token');
@@ -101,12 +87,13 @@ client.interceptors.response.use(
       if (!(originalRequest as any)._retry) {
         (originalRequest as any)._retry = true;
 
-        
         if (isRefreshing) {
           return new Promise(function(resolve, reject) {
             failedQueue.push({ resolve, reject });
           }).then(token => {
-            originalRequest.headers.Authorization = 'Bearer ' + token;
+            if (originalRequest.headers) {
+              originalRequest.headers['Authorization'] = 'Bearer ' + token;
+            }
             return client(originalRequest);
           }).catch(err => {
             return Promise.reject(err);
@@ -118,9 +105,16 @@ client.interceptors.response.use(
         try {
           const res = await axios.post(`${getBaseUrl()}/auth/refresh`, {}, { withCredentials: true });
           const newToken = res.data.token;
+          
+          if (!newToken) throw new Error('Refresh failed - No token returned');
+
           localStorage.setItem('token', newToken);
           client.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          
+          if (originalRequest.headers) {
+            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+          }
+          
           processQueue(null, newToken);
           return client(originalRequest);
         } catch (refreshError) {
@@ -133,20 +127,22 @@ client.interceptors.response.use(
         }
       }
     } 
-    
+
     // Authorization failure (Authenticated but no permission)
-    if (error.response?.status === 403) {
-      console.error('Access forbidden: You do not have permission to access this resource.', config.url);
-      // Optional: show a specific toast or error UI
+    if (response?.status === 403) {
+      console.error('[API 403] Access forbidden:', config?.url);
     }
 
-    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        if (!isPolling) {
-            console.error('Backend unreachable:', config.url);
-            const enhancedError = new Error('Network Error: Backend unreachable. Please check your connection.');
-            (enhancedError as any).code = 'ERR_NETWORK';
-            (enhancedError as any).isNetworkError = true;
-            return Promise.reject(enhancedError);
+    // Aggressive Auto-retry on Network Error
+    if ((error.code === 'ERR_NETWORK' || error.message === 'Network Error') && !(config as any)._retryNetwork && !isPolling) {
+        (config as any)._retryNetworkCount = ((config as any)._retryNetworkCount || 0) + 1;
+        const MAX_RETRIES = 5; 
+        if ((config as any)._retryNetworkCount <= MAX_RETRIES) {
+            const delay = 2000;
+            console.log(`Backend unreachable. Retrying in ${delay}ms... (${(config as any)._retryNetworkCount}/${MAX_RETRIES})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            (config as any)._retryNetwork = true;
+            return client(config);
         }
     }
 

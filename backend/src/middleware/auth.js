@@ -57,11 +57,16 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token) return res.status(401).json({ error: 'Token missing' });
+  if (!token) {
+    console.warn(`[Auth] 401: Token missing for ${req.method} ${req.path}`);
+    return res.status(401).json({ error: 'Authentication required' });
+  }
 
   jwt.verify(token, SECRET, (err, user) => {
     if (err) {
-      return res.status(401).json({ error: 'Token invalid or expired' });
+      const reason = err.name === 'TokenExpiredError' ? 'expired' : 'invalid';
+      console.warn(`[Auth] 401: Token ${reason} for ${req.method} ${req.path}`);
+      return res.status(401).json({ error: `Token ${reason}` });
     }
     req.user = user;
     next();
